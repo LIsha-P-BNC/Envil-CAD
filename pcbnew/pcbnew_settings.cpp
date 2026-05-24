@@ -125,6 +125,12 @@ PCBNEW_SETTINGS::PCBNEW_SETTINGS()
     m_params.emplace_back( new PARAM<int>( "aui.design_blocks_panel_float_height",
                                            &m_AuiPanels.design_blocks_panel_float_height, -1 ) );
 
+    m_params.emplace_back( new PARAM<bool>( "aui.show_ai_chat",
+                                            &m_AuiPanels.show_ai_chat, true ) );
+
+    m_params.emplace_back( new PARAM<int>( "aui.ai_chat_panel_width",
+                                           &m_AuiPanels.ai_chat_panel_width, 380 ) );
+
     m_params.emplace_back( new PARAM<int>( "footprint_chooser.width",
             &m_FootprintChooser.width, -1 ) );
 

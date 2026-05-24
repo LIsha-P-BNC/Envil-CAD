@@ -1,0 +1,343 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<mxGraphModel dx="1400" dy="800" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="2100" pageHeight="1485" math="0" shadow="0">
+  <root>
+    <mxCell id="0" />
+    <mxCell id="1" parent="0" />
+
+    <!-- TITLE -->
+    <mxCell id="title" value="KiCad C++ System Architecture (BPMN Process Flow)" style="text;html=1;strokeColor=none;fillColor=none;align=center;verticalAlign=middle;whiteSpace=wrap;rounded=0;fontSize=18;fontStyle=1;spacing=2;" vertex="1" parent="1">
+      <mxGeometry x="150" y="10" width="1800" height="35" as="geometry" />
+    </mxCell>
+
+    <!-- ═══ ARTIFACT ROW: Shared Libraries (DLLs) ═══ -->
+    <mxCell id="artifact_title_libs" value="Shared Libraries (DLLs)" style="text;html=1;strokeColor=none;fillColor=none;align=center;fontSize=11;fontStyle=1;spacing=2;" vertex="1" parent="1">
+      <mxGeometry x="150" y="50" width="1800" height="20" as="geometry" />
+    </mxCell>
+
+    <mxCell id="lib_core" value="core.dll" style="shape=mxgraph.flowchart.document;fillColor=#E8F4F8;strokeColor=#0066CC;rounded=0;fontSize=10;" vertex="1" parent="1">
+      <mxGeometry x="200" y="75" width="80" height="55" as="geometry" />
+    </mxCell>
+
+    <mxCell id="lib_kimath" value="kimath.dll" style="shape=mxgraph.flowchart.document;fillColor=#E8F4F8;strokeColor=#0066CC;rounded=0;fontSize=10;" vertex="1" parent="1">
+      <mxGeometry x="300" y="75" width="80" height="55" as="geometry" />
+    </mxCell>
+
+    <mxCell id="lib_kiapi" value="kiapi.dll\n(Protobuf)" style="shape=mxgraph.flowchart.document;fillColor=#E8F4F8;strokeColor=#0066CC;rounded=0;fontSize=10;" vertex="1" parent="1">
+      <mxGeometry x="400" y="75" width="80" height="55" as="geometry" />
+    </mxCell>
+
+    <mxCell id="lib_kicommon" value="kicommon.dll\n(Framework)" style="shape=mxgraph.flowchart.document;fillColor=#FFE8B6;strokeColor=#FF6B00;rounded=0;fontSize=10;fontStyle=1;" vertex="1" parent="1">
+      <mxGeometry x="500" y="75" width="100" height="55" as="geometry" />
+    </mxCell>
+
+    <mxCell id="lib_sexpr" value="sexpr.dll" style="shape=mxgraph.flowchart.document;fillColor=#E8F4F8;strokeColor=#0066CC;rounded=0;fontSize=10;" vertex="1" parent="1">
+      <mxGeometry x="620" y="75" width="80" height="55" as="geometry" />
+    </mxCell>
+
+    <mxCell id="lib_kinng" value="kinng.dll\n(nng Socket)" style="shape=mxgraph.flowchart.document;fillColor=#E8F4F8;strokeColor=#0066CC;rounded=0;fontSize=10;" vertex="1" parent="1">
+      <mxGeometry x="720" y="75" width="80" height="55" as="geometry" />
+    </mxCell>
+
+    <!-- ═══ EDITOR DSOs ROW ═══ -->
+    <mxCell id="artifact_title_dsos" value="Editor DSOs (.kiface — loaded on demand)" style="text;html=1;strokeColor=none;fillColor=none;align=center;fontSize=11;fontStyle=1;spacing=2;" vertex="1" parent="1">
+      <mxGeometry x="150" y="140" width="1800" height="20" as="geometry" />
+    </mxCell>
+
+    <mxCell id="dso_sch" value="eeschema.kiface" style="shape=mxgraph.flowchart.document;fillColor=#D4E8FF;strokeColor=#0066CC;rounded=0;fontSize=10;" vertex="1" parent="1">
+      <mxGeometry x="850" y="165" width="100" height="50" as="geometry" />
+    </mxCell>
+
+    <mxCell id="dso_pcb" value="pcbnew.kiface" style="shape=mxgraph.flowchart.document;fillColor=#D4E8FF;strokeColor=#0066CC;rounded=0;fontSize=10;" vertex="1" parent="1">
+      <mxGeometry x="970" y="165" width="100" height="50" as="geometry" />
+    </mxCell>
+
+    <mxCell id="dso_gbr" value="gerbview.kiface" style="shape=mxgraph.flowchart.document;fillColor=#D4E8FF;strokeColor=#0066CC;rounded=0;fontSize=10;" vertex="1" parent="1">
+      <mxGeometry x="1090" y="165" width="100" height="50" as="geometry" />
+    </mxCell>
+
+    <mxCell id="dso_cvp" value="cvpcb.kiface" style="shape=mxgraph.flowchart.document;fillColor=#D4E8FF;strokeColor=#0066CC;rounded=0;fontSize=10;" vertex="1" parent="1">
+      <mxGeometry x="1210" y="165" width="100" height="50" as="geometry" />
+    </mxCell>
+
+    <!-- ═══ SYSTEM STATES (Milestones) ═══ -->
+    <mxCell id="state_launch" value="kicad.exe\nLaunched" style="shape=cylinder;whiteSpace=wrap;html=1;boundedLbl=1;fillColor=#FFE8E8;strokeColor=#CC0000;fontSize=9;" vertex="1" parent="1">
+      <mxGeometry x="200" y="235" width="90" height="55" as="geometry" />
+    </mxCell>
+
+    <mxCell id="state_libs_loaded" value="Libraries\nLoaded" style="shape=cylinder;whiteSpace=wrap;html=1;boundedLbl=1;fillColor=#FFE8E8;strokeColor=#CC0000;fontSize=9;" vertex="1" parent="1">
+      <mxGeometry x="400" y="235" width="90" height="55" as="geometry" />
+    </mxCell>
+
+    <mxCell id="state_dsos_loaded" value="Editors\nLoaded" style="shape=cylinder;whiteSpace=wrap;html=1;boundedLbl=1;fillColor=#FFE8E8;strokeColor=#CC0000;fontSize=9;" vertex="1" parent="1">
+      <mxGeometry x="950" y="235" width="90" height="55" as="geometry" />
+    </mxCell>
+
+    <mxCell id="state_ready" value="Ready for\nOutput" style="shape=cylinder;whiteSpace=wrap;html=1;boundedLbl=1;fillColor=#FFE8E8;strokeColor=#CC0000;fontSize=9;" vertex="1" parent="1">
+      <mxGeometry x="1820" y="235" width="90" height="55" as="geometry" />
+    </mxCell>
+
+    <!-- ═══ MAIN SWIMLANE POOL (Horizontal) ═══ -->
+    <mxCell id="pool" value="KiCad System" style="shape=pool;startSize=20;horizontal=0;childLayout=stackLayout;horizontalStack=1;resizeParent=1;resizeParentMax=0;collapsible=0;marginBottom=0;swimlaneHead=0;fillColor=#ffffff;strokeColor=#000000;fontSize=12;fontStyle=1;" vertex="1" parent="1">
+      <mxGeometry x="150" y="310" width="1800" height="500" as="geometry" />
+    </mxCell>
+
+    <!-- Lane 1: APPLICATION LAUNCH -->
+    <mxCell id="lane1" value="① Application Launch" style="shape=lane;startSize=20;horizontal=0;childLayout=stackLayout;horizontalStack=0;resizeParent=1;resizeParentMax=0;collapsible=0;marginRight=0;swimlaneHead=0;fillColor=#F0F0F0;strokeColor=#999999;fontSize=10;fontStyle=1;" vertex="1" parent="pool">
+      <mxGeometry x="0" y="0" width="210" height="500" as="geometry" />
+    </mxCell>
+
+    <mxCell id="p1_exe" value="kicad.exe\nProject Manager" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#B3E5FC;strokeColor=#01579B;fontSize=9;spacing=2;" vertex="1" parent="lane1">
+      <mxGeometry x="10" y="40" width="90" height="60" as="geometry" />
+    </mxCell>
+
+    <mxCell id="p1_kiway" value="KIWAY\nProject Bus" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#B3E5FC;strokeColor=#01579B;fontSize=9;spacing=2;" vertex="1" parent="lane1">
+      <mxGeometry x="10" y="130" width="90" height="60" as="geometry" />
+    </mxCell>
+
+    <mxCell id="p1_project" value="PROJECT\nFiles · Settings" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#B3E5FC;strokeColor=#01579B;fontSize=9;spacing=2;" vertex="1" parent="lane1">
+      <mxGeometry x="10" y="220" width="90" height="60" as="geometry" />
+    </mxCell>
+
+    <!-- Lane 2: SHARED LIBRARIES -->
+    <mxCell id="lane2" value="② Shared Libraries" style="shape=lane;startSize=20;horizontal=0;childLayout=stackLayout;horizontalStack=0;resizeParent=1;resizeParentMax=0;collapsible=0;marginRight=0;swimlaneHead=0;fillColor=#F0F0F0;strokeColor=#999999;fontSize=10;fontStyle=1;" vertex="1" parent="pool">
+      <mxGeometry x="210" y="0" width="220" height="500" as="geometry" />
+    </mxCell>
+
+    <mxCell id="p2_libs" value="Load Shared Libs:\ncore · kimath\nkiapi · sexpr\nkinng · kiplatform" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFE0B2;strokeColor=#E65100;fontSize=8;spacing=2;" vertex="1" parent="lane2">
+      <mxGeometry x="20" y="80" width="180" height="100" as="geometry" />
+    </mxCell>
+
+    <mxCell id="p2_kicommon" value="✓ kicommon.dll\nCentral Framework\n(frames · tools · settings)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFE0B2;strokeColor=#E65100;fontSize=8;spacing=2;fontStyle=1;" vertex="1" parent="lane2">
+      <mxGeometry x="20" y="210" width="180" height="90" as="geometry" />
+    </mxCell>
+
+    <!-- Lane 3: DSO LOADING -->
+    <mxCell id="lane3" value="③ DSO Loading" style="shape=lane;startSize=20;horizontal=0;childLayout=stackLayout;horizontalStack=0;resizeParent=1;resizeParentMax=0;collapsible=0;marginRight=0;swimlaneHead=0;fillColor=#F0F0F0;strokeColor=#999999;fontSize=10;fontStyle=1;" vertex="1" parent="pool">
+      <mxGeometry x="430" y="0" width="220" height="500" as="geometry" />
+    </mxCell>
+
+    <mxCell id="p3_load_sch" value="Load eeschema.kiface\non demand" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#C8E6C9;strokeColor=#2E7D32;fontSize=8;spacing=2;" vertex="1" parent="lane3">
+      <mxGeometry x="20" y="50" width="180" height="60" as="geometry" />
+    </mxCell>
+
+    <mxCell id="p3_load_pcb" value="Load pcbnew.kiface\non demand" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#C8E6C9;strokeColor=#2E7D32;fontSize=8;spacing=2;" vertex="1" parent="lane3">
+      <mxGeometry x="20" y="140" width="180" height="60" as="geometry" />
+    </mxCell>
+
+    <mxCell id="p3_others" value="Load gerbview,\ncvpcb on demand" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#C8E6C9;strokeColor=#2E7D32;fontSize=8;spacing=2;" vertex="1" parent="lane3">
+      <mxGeometry x="20" y="230" width="180" height="60" as="geometry" />
+    </mxCell>
+
+    <!-- Lane 4: EDITOR FRAMES & UI -->
+    <mxCell id="lane4" value="④ Editor Frames" style="shape=lane;startSize=20;horizontal=0;childLayout=stackLayout;horizontalStack=0;resizeParent=1;resizeParentMax=0;collapsible=0;marginRight=0;swimlaneHead=0;fillColor=#F0F0F0;strokeColor=#999999;fontSize=10;fontStyle=1;" vertex="1" parent="pool">
+      <mxGeometry x="650" y="0" width="230" height="500" as="geometry" />
+    </mxCell>
+
+    <mxCell id="p4_base_frame" value="EDA_BASE_FRAME\n(TOOL_MANAGER · SETTINGS)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#F0F4C3;strokeColor=#827717;fontSize=8;spacing=2;" vertex="1" parent="lane4">
+      <mxGeometry x="15" y="40" width="200" height="70" as="geometry" />
+    </mxCell>
+
+    <mxCell id="p4_draw_frame" value="EDA_DRAW_FRAME\n(+ EDA_DRAW_PANEL_GAL)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#F0F4C3;strokeColor=#827717;fontSize=8;spacing=2;" vertex="1" parent="lane4">
+      <mxGeometry x="15" y="140" width="200" height="70" as="geometry" />
+    </mxCell>
+
+    <mxCell id="p4_editors" value="Create Editor Windows:\nSCH_EDIT_FRAME\nPCB_EDIT_FRAME" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#F0F4C3;strokeColor=#827717;fontSize=8;spacing=2;" vertex="1" parent="lane4">
+      <mxGeometry x="15" y="240" width="200" height="70" as="geometry" />
+    </mxCell>
+
+    <!-- Lane 5: TOOL SYSTEM -->
+    <mxCell id="lane5" value="⑤ Tool System" style="shape=lane;startSize=20;horizontal=0;childLayout=stackLayout;horizontalStack=0;resizeParent=1;resizeParentMax=0;collapsible=0;marginRight=0;swimlaneHead=0;fillColor=#F0F0F0;strokeColor=#999999;fontSize=10;fontStyle=1;" vertex="1" parent="pool">
+      <mxGeometry x="880" y="0" width="240" height="500" as="geometry" />
+    </mxCell>
+
+    <mxCell id="p5_user" value="User Input\nMouse · Keyboard" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#E1BEE7;strokeColor=#512DA8;fontSize=8;spacing=2;" vertex="1" parent="lane5">
+      <mxGeometry x="15" y="30" width="210" height="60" as="geometry" />
+    </mxCell>
+
+    <mxCell id="p5_tool_mgr" value="TOOL_MANAGER\nCoroutine Scheduler" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#E1BEE7;strokeColor=#512DA8;fontSize=8;spacing=2;" vertex="1" parent="lane5">
+      <mxGeometry x="15" y="120" width="210" height="60" as="geometry" />
+    </mxCell>
+
+    <mxCell id="p5_tool_base" value="TOOL_INTERACTIVE\nGetAndWait() loop" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#E1BEE7;strokeColor=#512DA8;fontSize=8;spacing=2;" vertex="1" parent="lane5">
+      <mxGeometry x="15" y="210" width="210" height="60" as="geometry" />
+    </mxCell>
+
+    <mxCell id="p5_commit" value="COMMIT\n(undo/redo)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#E1BEE7;strokeColor=#512DA8;fontSize=8;spacing=2;" vertex="1" parent="lane5">
+      <mxGeometry x="15" y="300" width="210" height="60" as="geometry" />
+    </mxCell>
+
+    <!-- Lane 6: DOMAIN MODEL -->
+    <mxCell id="lane6" value="⑥ Domain Model" style="shape=lane;startSize=20;horizontal=0;childLayout=stackLayout;horizontalStack=0;resizeParent=1;resizeParentMax=0;collapsible=0;marginRight=0;swimlaneHead=0;fillColor=#F0F0F0;strokeColor=#999999;fontSize=10;fontStyle=1;" vertex="1" parent="pool">
+      <mxGeometry x="1120" y="0" width="220" height="500" as="geometry" />
+    </mxCell>
+
+    <mxCell id="p6_board" value="BOARD\nPAD · TRACK\nVIA · ZONE\nFOOTPRINT" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFCCCC;strokeColor=#C41C3B;fontSize=8;spacing=2;" vertex="1" parent="lane6">
+      <mxGeometry x="10" y="50" width="190" height="90" as="geometry" />
+    </mxCell>
+
+    <mxCell id="p6_schematic" value="SCHEMATIC\nSCH_SYMBOL\nSCH_LINE\nSCH_LABEL" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFCCCC;strokeColor=#C41C3B;fontSize=8;spacing=2;" vertex="1" parent="lane6">
+      <mxGeometry x="10" y="170" width="190" height="90" as="geometry" />
+    </mxCell>
+
+    <mxCell id="p6_connectivity" value="CONNECTIVITY_DATA\nnetlist graph" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFCCCC;strokeColor=#C41C3B;fontSize=8;spacing=2;" vertex="1" parent="lane6">
+      <mxGeometry x="10" y="290" width="190" height="70" as="geometry" />
+    </mxCell>
+
+    <!-- Lane 7: RENDERING & OUTPUT -->
+    <mxCell id="lane7" value="⑦ Rendering & Output" style="shape=lane;startSize=20;horizontal=0;childLayout=stackLayout;horizontalStack=0;resizeParent=1;resizeParentMax=0;collapsible=0;marginRight=0;swimlaneHead=0;fillColor=#F0F0F0;strokeColor=#999999;fontSize=10;fontStyle=1;" vertex="1" parent="pool">
+      <mxGeometry x="1340" y="0" width="230" height="500" as="geometry" />
+    </mxCell>
+
+    <mxCell id="p7_view" value="KIGFX::VIEW\nScene Graph\nR-Tree · Layers" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#CDDC39;strokeColor=#558B2F;fontSize=8;spacing=2;" vertex="1" parent="lane7">
+      <mxGeometry x="15" y="40" width="200" height="70" as="geometry" />
+    </mxCell>
+
+    <mxCell id="p7_painter" value="PCB_PAINTER\nSCH_PAINTER\n+ RENDER_SETTINGS" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#CDDC39;strokeColor=#558B2F;fontSize=8;spacing=2;" vertex="1" parent="lane7">
+      <mxGeometry x="15" y="140" width="200" height="70" as="geometry" />
+    </mxCell>
+
+    <mxCell id="p7_gal" value="KIGFX::GAL\nOPENGL_GAL\nCAIRO_GAL" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#CDDC39;strokeColor=#558B2F;fontSize=8;spacing=2;" vertex="1" parent="lane7">
+      <mxGeometry x="15" y="240" width="200" height="70" as="geometry" />
+    </mxCell>
+
+    <!-- Lane 8: FINAL OUTPUT -->
+    <mxCell id="lane8" value="⑧ Output" style="shape=lane;startSize=20;horizontal=0;childLayout=stackLayout;horizontalStack=0;resizeParent=1;resizeParentMax=0;collapsible=0;marginRight=0;swimlaneHead=0;fillColor=#F0F0F0;strokeColor=#999999;fontSize=10;fontStyle=1;" vertex="1" parent="pool">
+      <mxGeometry x="1570" y="0" width="230" height="500" as="geometry" />
+    </mxCell>
+
+    <mxCell id="p8_screen" value="💻 Screen\n(OPENGL)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#A5D6A7;strokeColor=#1B5E20;fontSize=9;spacing=2;fontStyle=1;" vertex="1" parent="lane8">
+      <mxGeometry x="20" y="30" width="180" height="60" as="geometry" />
+    </mxCell>
+
+    <mxCell id="p8_export" value="📄 PDF/SVG/PNG\n(CAIRO)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#A5D6A7;strokeColor=#1B5E20;fontSize=9;spacing=2;fontStyle=1;" vertex="1" parent="lane8">
+      <mxGeometry x="20" y="120" width="180" height="60" as="geometry" />
+    </mxCell>
+
+    <mxCell id="p8_gerber" value="🔧 Gerber/Drill\n(Manufacturing)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#A5D6A7;strokeColor=#1B5E20;fontSize=9;spacing=2;fontStyle=1;" vertex="1" parent="lane8">
+      <mxGeometry x="20" y="210" width="180" height="60" as="geometry" />
+    </mxCell>
+
+    <mxCell id="p8_step" value="📦 STEP/VRML\n(3D Model)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#A5D6A7;strokeColor=#1B5E20;fontSize=9;spacing=2;fontStyle=1;" vertex="1" parent="lane8">
+      <mxGeometry x="20" y="300" width="180" height="60" as="geometry" />
+    </mxCell>
+
+    <!-- ═══ SUBSYSTEMS (below main swimlane) ═══ -->
+    <mxCell id="subsys_title" value="KEY SUBSYSTEMS (parallel operations on domain model)" style="text;html=1;strokeColor=none;fillColor=none;align=center;fontSize=10;fontStyle=1;spacing=2;" vertex="1" parent="1">
+      <mxGeometry x="150" y="820" width="1800" height="20" as="geometry" />
+    </mxCell>
+
+    <mxCell id="subsys_drc" value="⑨ DRC Engine\nCONNECTIVITY_DATA\n↓ DRC_TEST_PROVIDER ×25\n↓ PCB_MARKER (violations)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FCE4EC;strokeColor=#880E4F;fontSize=8;spacing=1;" vertex="1" parent="1">
+      <mxGeometry x="200" y="845" width="160" height="80" as="geometry" />
+    </mxCell>
+
+    <mxCell id="subsys_router" value="⑩ P&S Router\nPNS_ROUTER\n↓ SHOVE · WALKAROUND\n↓ OPTIMIZER" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FCE4EC;strokeColor=#880E4F;fontSize=8;spacing=1;" vertex="1" parent="1">
+      <mxGeometry x="420" y="845" width="160" height="80" as="geometry" />
+    </mxCell>
+
+    <mxCell id="subsys_sim" value="⑪ SPICE Simulation\nSPICE_CIRCUIT_MODEL\n↓ SIM_MODEL (BJT, MOSFET)\n↓ NGSPICE" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FCE4EC;strokeColor=#880E4F;fontSize=8;spacing=1;" vertex="1" parent="1">
+      <mxGeometry x="640" y="845" width="160" height="80" as="geometry" />
+    </mxCell>
+
+    <mxCell id="subsys_api" value="⑫ IPC API\nnng UNIX Socket\n↓ KICAD_API_SERVER\n↓ API_HANDLER" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FCE4EC;strokeColor=#880E4F;fontSize=8;spacing=1;" vertex="1" parent="1">
+      <mxGeometry x="860" y="845" width="160" height="80" as="geometry" />
+    </mxCell>
+
+    <!-- ═══ I/O PLUGINS (File Formats) ═══ -->
+    <mxCell id="io_title" value="I/O PLUGIN FACTORIES (File Format Support)" style="text;html=1;strokeColor=none;fillColor=none;align=center;fontSize=10;fontStyle=1;spacing=2;" vertex="1" parent="1">
+      <mxGeometry x="150" y="1100" width="1800" height="20" as="geometry" />
+    </mxCell>
+
+    <mxCell id="io_pcb" value="PCB_IO_MGR\nKiCad · Eagle · Altium\nCadstar · Allegro · PADS\nIPC-2581 · ODB++" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#F3E5F5;strokeColor=#6A1B9A;fontSize=8;" vertex="1" parent="1">
+      <mxGeometry x="200" y="1125" width="150" height="80" as="geometry" />
+    </mxCell>
+
+    <mxCell id="io_sch" value="SCH_IO_MGR\nKiCad · Eagle · Altium\nLTspice · EasyEDA\nDatabase · HTTP Lib" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#F3E5F5;strokeColor=#6A1B9A;fontSize=8;" vertex="1" parent="1">
+      <mxGeometry x="420" y="1125" width="150" height="80" as="geometry" />
+    </mxCell>
+
+    <!-- ═══ SETTINGS ═══ -->
+    <mxCell id="settings_title" value="SETTINGS HIERARCHY" style="text;html=1;strokeColor=none;fillColor=none;align=center;fontSize=10;fontStyle=1;spacing=2;" vertex="1" parent="1">
+      <mxGeometry x="1000" y="1100" width="500" height="20" as="geometry" />
+    </mxCell>
+
+    <mxCell id="settings_mgr" value="SETTINGS_MANAGER\n(singleton)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#E0F2F1;strokeColor=#00695C;fontSize=8;" vertex="1" parent="1">
+      <mxGeometry x="1050" y="1125" width="150" height="50" as="geometry" />
+    </mxCell>
+
+    <mxCell id="settings_list" value="├─ COMMON_SETTINGS (global JSON)\n├─ APP_SETTINGS (per-app)\n├─ COLOR_SETTINGS (themes)\n└─ BOARD_DESIGN_SETTINGS" style="text;html=1;strokeColor=none;fillColor=none;align=left;fontSize=8;spacing=1;" vertex="1" parent="1">
+      <mxGeometry x="1050" y="1185" width="200" height="70" as="geometry" />
+    </mxCell>
+
+    <!-- ═══ CONNECTORS / ARROWS ═══ -->
+    <!-- Artifact relationships (dashed) -->
+    <mxCell id="arrow_lib_core_to_lane2" edge="1" parent="1" source="lib_core" target="p2_libs">
+      <mxGeometry relative="1" as="geometry" />
+    </mxCell>
+
+    <mxCell id="arrow_lib_kicommon_to_lane4" edge="1" parent="1" source="lib_kicommon" target="p4_base_frame">
+      <mxGeometry relative="1" as="geometry">
+        <mxArray as="points">
+          <mxPoint x="550" y="130" />
+          <mxPoint x="715" y="150" />
+        </mxArray>
+      </mxGeometry>
+    </mxCell>
+
+    <!-- Main flow arrows -->
+    <mxCell id="flow_lane1_to_lane2" edge="1" parent="1" source="p1_project" target="p2_libs">
+      <mxGeometry relative="1" as="geometry" />
+    </mxCell>
+
+    <mxCell id="flow_lane2_to_lane3" edge="1" parent="1" source="p2_kicommon" target="p3_load_sch">
+      <mxGeometry relative="1" as="geometry" />
+    </mxCell>
+
+    <mxCell id="flow_lane3_to_lane4" edge="1" parent="1" source="p3_others" target="p4_base_frame">
+      <mxGeometry relative="1" as="geometry" />
+    </mxCell>
+
+    <mxCell id="flow_lane4_to_lane5" edge="1" parent="1" source="p4_editors" target="p5_user">
+      <mxGeometry relative="1" as="geometry" />
+    </mxCell>
+
+    <mxCell id="flow_lane5_to_lane6" edge="1" parent="1" source="p5_commit" target="p6_board">
+      <mxGeometry relative="1" as="geometry" />
+    </mxCell>
+
+    <mxCell id="flow_lane6_to_lane7" edge="1" parent="1" source="p6_connectivity" target="p7_view">
+      <mxGeometry relative="1" as="geometry" />
+    </mxCell>
+
+    <mxCell id="flow_lane7_to_lane8" edge="1" parent="1" source="p7_gal" target="p8_screen">
+      <mxGeometry relative="1" as="geometry" />
+    </mxCell>
+
+    <!-- Subsystem flows -->
+    <mxCell id="flow_board_to_drc" edge="1" parent="1" source="p6_board" target="subsys_drc">
+      <mxGeometry relative="1" as="geometry">
+        <mxArray as="points">
+          <mxPoint x="1210" y="830" />
+          <mxPoint x="280" y="830" />
+        </mxArray>
+      </mxGeometry>
+    </mxCell>
+
+    <mxCell id="flow_board_to_router" edge="1" parent="1" source="p6_board" target="subsys_router">
+      <mxGeometry relative="1" as="geometry">
+        <mxArray as="points">
+          <mxPoint x="1210" y="830" />
+          <mxPoint x="500" y="830" />
+        </mxArray>
+      </mxGeometry>
+    </mxCell>
+
+    <mxCell id="flow_sch_to_sim" edge="1" parent="1" source="p6_schematic" target="subsys_sim">
+      <mxGeometry relative="1" as="geometry">
+        <mxArray as="points">
+          <mxPoint x="1210" y="830" />
+          <mxPoint x="720" y="830" />
+        </mxArray>
+      </mxGeometry>
+    </mxCell>
+  </root>
+</mxGraphModel>

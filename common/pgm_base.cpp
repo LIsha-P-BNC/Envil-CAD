@@ -402,7 +402,7 @@ bool PGM_BASE::InitPgm( bool aHeadless, bool aIsUnitTest )
     }
 
     // Init parameters for configuration
-    App().SetVendorName(  wxT( "KiCad" ) );
+    App().SetVendorName(  wxT( "Envil" ) );
     App().SetAppName( pgm_name );
 
     // Analyze the command line & initialize the binary path

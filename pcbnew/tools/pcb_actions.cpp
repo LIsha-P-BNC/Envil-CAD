@@ -1627,6 +1627,14 @@ TOOL_ACTION PCB_ACTIONS::showNetInspector( TOOL_ACTION_ARGS()
         .ToolbarState( TOOLBAR_STATE::TOGGLE )
         .Icon( BITMAPS::tools ) );
 
+TOOL_ACTION PCB_ACTIONS::showAiChat( TOOL_ACTION_ARGS()
+        .Name( "pcbnew.Control.showAiChat" )
+        .Scope( AS_GLOBAL )
+        .FriendlyName( _( "AI Assistant" ) )
+        .Tooltip( _( "Show/hide the AI assistant panel" ) )
+        .ToolbarState( TOOLBAR_STATE::TOGGLE )
+        .Icon( BITMAPS::info ) );
+
 TOOL_ACTION PCB_ACTIONS::zonesManager( TOOL_ACTION_ARGS()
         .Name( "pcbnew.Control.zonesManager" )
         .Scope( AS_GLOBAL )

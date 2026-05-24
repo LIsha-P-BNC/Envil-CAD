@@ -187,6 +187,7 @@ void SCH_EDIT_FRAME::doReCreateMenuBar()
     if( ADVANCED_CFG::GetCfg().m_IncrementalConnectivity )
         showHidePanels->Add( SCH_ACTIONS::showNetNavigator, ACTION_MENU::CHECK );
 
+    showHidePanels->Add( SCH_ACTIONS::showAiChat );
     showHidePanels->Add( SCH_ACTIONS::showDesignBlockPanel, ACTION_MENU::CHECK, _( "Design Blocks" ) );
     wxMenuItem* remoteSymbolItem = showHidePanels->Add( SCH_ACTIONS::showRemoteSymbolPanel, ACTION_MENU::CHECK, _( "Remote Symbols" ) );
 

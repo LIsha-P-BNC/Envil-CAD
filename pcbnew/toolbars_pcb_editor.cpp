@@ -57,6 +57,7 @@
 #include <tool/tool_manager.h>
 #include <tool/ui/toolbar_context_menu_registry.h>
 #include <tools/pcb_actions.h>
+#include <widgets/webview_panel.h>
 #include <tools/pcb_selection_tool.h>
 #include <widgets/appearance_controls.h>
 #include <widgets/pcb_design_block_pane.h>
@@ -202,7 +203,8 @@ std::optional<TOOLBAR_CONFIGURATION> PCB_EDIT_TOOLBAR_SETTINGS::DefaultToolbarCo
         // Tools to show/hide toolbars:
         config.AppendSeparator()
               .AppendAction( PCB_ACTIONS::showLayersManager )
-              .AppendAction( ACTIONS::showProperties );
+              .AppendAction( ACTIONS::showProperties )
+              .AppendAction( PCB_ACTIONS::showAiChat );
 
         break;
 
@@ -820,6 +822,28 @@ void PCB_EDIT_FRAME::ToggleSearch()
         settings->m_AuiPanels.search_panel_dock_direction = searchPaneInfo.dock_direction;
         m_auimgr.Update();
         GetCanvas()->SetFocus();
+    }
+}
+
+
+void PCB_EDIT_FRAME::ToggleAiChat()
+{
+    PCBNEW_SETTINGS* settings = GetPcbNewSettings();
+    wxAuiPaneInfo&   aiChatPane = m_auimgr.GetPane( AiChatPanelName() );
+
+    bool show = !aiChatPane.IsShown();
+    aiChatPane.Show( show );
+
+    if( show )
+    {
+        SetAuiPaneSize( m_auimgr, aiChatPane, settings->m_AuiPanels.ai_chat_panel_width, -1 );
+    }
+    else
+    {
+        if( m_aiChatPanel )
+            settings->m_AuiPanels.ai_chat_panel_width = m_aiChatPanel->GetSize().x;
+
+        m_auimgr.Update();
     }
 }
 

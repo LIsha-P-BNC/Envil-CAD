@@ -1001,15 +1001,12 @@ endfunction()
 
 include( FindUnixCommands )
 
-if( TAR STREQUAL "TAR-NOTFOUND" )
-    # CMake on Windows CI seems to struggle to find tar even though it's in PATH
-    # Let's help it out as modern windows (Server 2019 and 10 provide tar)
-    if( MSVC )
-        # yolo
-        set( TAR "C:\\Windows\\System32\\tar.exe" )
-    else()
-        message( FATAL_ERROR "Could not find the tar program." )
-    endif()
+# For MSVC/Windows builds, always prefer Windows tar.exe over Git's MSYS tar
+# to avoid path interpretation issues with drive letters
+if( MSVC )
+    set( TAR "C:\\Windows\\System32\\tar.exe" )
+elseif( TAR STREQUAL "TAR-NOTFOUND" )
+    message( FATAL_ERROR "Could not find the tar program." )
 endif()
 
 set( BITMAP_ARCHIVE_PATH ${CMAKE_BINARY_DIR}/resources/images.tar.gz )

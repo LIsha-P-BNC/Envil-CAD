@@ -3094,6 +3094,13 @@ int SCH_EDITOR_CONTROL::ShowHierarchy( const TOOL_EVENT& aEvent )
 }
 
 
+int SCH_EDITOR_CONTROL::ShowAiChat( const TOOL_EVENT& aEvent )
+{
+    getEditFrame<SCH_EDIT_FRAME>()->ToggleAiChat();
+    return 0;
+}
+
+
 int SCH_EDITOR_CONTROL::ShowNetNavigator( const TOOL_EVENT& aEvent )
 {
     getEditFrame<SCH_EDIT_FRAME>()->ToggleNetNavigator();
@@ -3535,6 +3542,7 @@ void SCH_EDITOR_CONTROL::setTransitions()
 
     Go( &SCH_EDITOR_CONTROL::ShowSearch,              SCH_ACTIONS::showSearch.MakeEvent() );
     Go( &SCH_EDITOR_CONTROL::ShowHierarchy,           SCH_ACTIONS::showHierarchy.MakeEvent() );
+    Go( &SCH_EDITOR_CONTROL::ShowAiChat,              SCH_ACTIONS::showAiChat.MakeEvent() );
     Go( &SCH_EDITOR_CONTROL::ShowNetNavigator,        SCH_ACTIONS::showNetNavigator.MakeEvent() );
     Go( &SCH_EDITOR_CONTROL::ToggleProperties,        ACTIONS::showProperties.MakeEvent() );
     Go( &SCH_EDITOR_CONTROL::ToggleLibraryTree,       SCH_ACTIONS::showDesignBlockPanel.MakeEvent() );

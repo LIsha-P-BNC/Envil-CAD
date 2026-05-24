@@ -67,6 +67,7 @@
 #include <sch_rule_area.h>
 #include <settings/settings_manager.h>
 #include <advanced_config.h>
+#include <paths.h>
 #include <sim/simulator_frame.h>
 #include <tool/action_manager.h>
 #include <tool/action_toolbar.h>
@@ -109,6 +110,11 @@
 #include <wx/cmdline.h>
 #include <wx/app.h>
 #include <wx/filedlg.h>
+#include <wx/file.h>
+#include <wx/stdpaths.h>
+#include <widgets/webview_panel.h>
+#include <widgets/ai_ipc_client.h>
+#include <nlohmann/json.hpp>
 #include <wx/socket.h>
 #include <wx/debug.h>
 #include <widgets/panel_sch_selection_filter.h>
@@ -172,6 +178,7 @@ SCH_EDIT_FRAME::SCH_EDIT_FRAME( KIWAY* aKiway, wxWindow* aParent ) :
         m_highlightedConnChanged( false ),
         m_designBlocksPane( nullptr ),
         m_remoteSymbolPane( nullptr ),
+        m_aiChatPanel( nullptr ),
         m_currentVariantCtrl( nullptr )
 {
     m_maximizeByDefault = true;
@@ -182,7 +189,7 @@ SCH_EDIT_FRAME::SCH_EDIT_FRAME( KIWAY* aKiway, wxWindow* aParent ) :
     m_showBorderAndTitleBlock = true;   // true to show sheet references
     m_supportsAutoSave = true;
     m_syncingPcbToSchSelection = false;
-    m_aboutTitle = _HKI( "KiCad Schematic Editor" );
+    m_aboutTitle = _HKI( "Envil Schematic Editor" );
     m_show_search = false;
     // Ensure timer has an owner before binding so it generates events.
     m_crossProbeFlashTimer.SetOwner( this );
@@ -240,6 +247,260 @@ SCH_EDIT_FRAME::SCH_EDIT_FRAME( KIWAY* aKiway, wxWindow* aParent ) :
     m_selectionFilterPanel = new PANEL_SCH_SELECTION_FILTER( this );
     m_designBlocksPane = new SCH_DESIGN_BLOCK_PANE( this, nullptr, m_designBlockHistoryList );
 
+    // AI Chat Panel — wrapped in try/catch so schematic editor loads even if WebView fails
+    try
+    {
+        m_aiChatPanel = new WEBVIEW_PANEL( this );
+
+        // Search for chat.html in priority order:
+        // 1. KiCad stock data path (works for both installed and KICAD_RUN_FROM_BUILD_DIR)
+        // 2. Exe directory (build output: eeschema sits next to ai_chat/)
+        // 3. wxStandardPaths resources dir (fallback)
+        wxString chatHtmlFound;
+        wxArrayString searchPaths;
+        searchPaths.Add( PATHS::GetStockDataPath( true ) );
+
+        wxFileName exePath( wxStandardPaths::Get().GetExecutablePath() );
+        searchPaths.Add( exePath.GetPath() );
+
+        searchPaths.Add( wxStandardPaths::Get().GetResourcesDir() );
+
+        for( const wxString& basePath : searchPaths )
+        {
+            wxString chatHtmlPath = basePath
+                                    + wxFileName::GetPathSeparator()
+                                    + wxT( "ai_chat" )
+                                    + wxFileName::GetPathSeparator()
+                                    + wxT( "chat.html" );
+
+            wxLogDebug( wxT( "AI Chat: searching %s" ), chatHtmlPath );
+
+            if( wxFileExists( chatHtmlPath ) )
+            {
+                chatHtmlFound = chatHtmlPath;
+                wxLogDebug( wxT( "AI Chat: found at %s" ), chatHtmlPath );
+                break;
+            }
+        }
+
+        m_aiChatPanel->BindLoadedEvent();
+
+        if( !chatHtmlFound.IsEmpty() )
+        {
+            wxString fileUrl = wxT( "file:///" ) + chatHtmlFound;
+            fileUrl.Replace( wxT( "\\" ), wxT( "/" ) );
+            wxLogDebug( wxT( "AI Chat: building URL with project path" ) );
+            wxString projPath = Prj().GetProjectPath();
+            projPath.Replace( wxT( "\\" ), wxT( "/" ) );
+            projPath.Replace( wxT( " " ), wxT( "%20" ) );
+            wxString schFile = Schematic().GetFileName();
+            schFile.Replace( wxT( "\\" ), wxT( "/" ) );
+            schFile.Replace( wxT( " " ), wxT( "%20" ) );
+            fileUrl += wxString::Format( wxT( "?t=%ld&backend=localhost:8765&project=%s&schematic=%s" ),
+                                         wxDateTime::Now().GetTicks(), projPath, schFile );
+            wxLogDebug( wxT( "AI Chat: loading URL %s" ), fileUrl );
+            m_aiChatPanel->LoadURL( fileUrl );
+
+            // The URL params above are baked at panel-construction time —
+            // before any project is loaded — so they typically carry
+            // "untitled.kicad_sch". OpenProjectFiles() pushes the live path
+            // afterwards, but if the project opened BEFORE the WebView
+            // finished loading, that push silently lands on an undefined JS
+            // setter. Re-push on the loaded event so the panel always
+            // converges to the current schematic.
+            if( wxWebView* browser = m_aiChatPanel->GetWebView() )
+            {
+                browser->Bind( wxEVT_WEBVIEW_LOADED,
+                    [this]( wxWebViewEvent& aEvt )
+                    {
+                        if( !m_aiChatPanel || !Schematic().IsValid() )
+                        {
+                            aEvt.Skip();
+                            return;
+                        }
+                        wxString p = Prj().GetProjectPath();
+                        wxString s = Schematic().GetFileName();
+                        p.Replace( wxT( "\\" ), wxT( "/" ) );
+                        s.Replace( wxT( "\\" ), wxT( "/" ) );
+                        p.Replace( wxT( "\"" ), wxT( "\\\"" ) );
+                        s.Replace( wxT( "\"" ), wxT( "\\\"" ) );
+                        wxString script = wxString::Format(
+                            wxT( "if (window.envilSetSchematic) window.envilSetSchematic(\"%s\", \"%s\");" ),
+                            p, s );
+                        m_aiChatPanel->RunScriptAsync( script );
+                        aEvt.Skip();
+                    } );
+            }
+        }
+        else
+        {
+            wxLogWarning( wxT( "AI Chat: chat.html not found in any search path" ) );
+            m_aiChatPanel->SetPage( wxT( "<!DOCTYPE html><html><body style='background:#1e1e2e;color:#e0e0e0;font-family:sans-serif;display:flex;align-items:center;justify-content:center;height:100vh'><p>AI Chat — chat.html not found</p></body></html>" ) );
+        }
+
+        // Initialize AI IPC client. Port is resolved lazily in TryConnectAiIpc() so
+        // backend-started-after-eeschema (most common case) still connects via the
+        // retry timer instead of being stuck on a stale port forever.
+        m_aiIpcClient = std::make_unique<AI_IPC_CLIENT>( "127.0.0.1", 5556 );
+
+        // Register command callback for commands from Python backend
+        m_aiIpcClient->SetCommandCallback(
+                [this]( const std::string& aAction, const std::string& aData )
+                {
+                    CallAfter( [this, aAction, aData]()
+                    {
+                        wxLogDebug( wxT( "AI command: %s data: %s" ), aAction, aData );
+
+                        // Parse the JSON payload to extract the actual command
+                        try
+                        {
+                            nlohmann::json payload = nlohmann::json::parse( aData );
+                            wxString action = wxString::FromUTF8( payload.value( "action", "" ) );
+                            nlohmann::json data = payload.value( "data", nlohmann::json::object() );
+
+                            if( action == wxT( "open_file" ) )
+                            {
+                                wxString filePath = wxString::FromUTF8( data.value( "path", "" ) );
+
+                                if( !filePath.IsEmpty() && wxFileExists( filePath ) )
+                                {
+                                    wxLogDebug( wxT( "AI: Opening generated schematic: %s" ), filePath );
+                                    OpenProjectFiles( std::vector<wxString>( 1, filePath ) );
+                                }
+                            }
+                            else if( action == wxT( "revert" ) )
+                            {
+                                wxLogDebug( wxT( "AI: Silent revert triggered via IPC" ) );
+
+                                // Prefer the path the backend just wrote to. If the
+                                // payload omits it, fall back to whatever's currently
+                                // open. This way revert always hits the right file
+                                // even when eeschema has a different sheet active.
+                                wxString targetFile = wxString::FromUTF8(
+                                                            data.value( "path", "" ) );
+
+                                if( targetFile.IsEmpty()
+                                        && Schematic().IsValid()
+                                        && !Schematic().GetFileName().IsEmpty() )
+                                    targetFile = Schematic().GetFileName();
+
+                                if( !targetFile.IsEmpty() && wxFileExists( targetFile ) )
+                                {
+                                    if( Schematic().IsValid() )
+                                    {
+                                        SCH_SCREENS screenList( Schematic().Root() );
+                                        for( SCH_SCREEN* screen = screenList.GetFirst(); screen;
+                                             screen = screenList.GetNext() )
+                                            screen->SetContentModified( false );
+                                    }
+
+                                    ReleaseFile();
+                                    OpenProjectFiles( std::vector<wxString>( 1, targetFile ),
+                                                      KICTL_REVERT );
+                                }
+                            }
+                        }
+                        catch( ... )
+                        {
+                            wxLogWarning( wxT( "AI: Failed to parse IPC command" ) );
+                        }
+                    } );
+                } );
+
+        // Wire JS → C++ message handlers for the AI chat panel
+        m_aiChatPanel->AddMessageHandler( wxT( "sendMessage" ),
+                [this]( const wxString& aMessage )
+                {
+                    wxLogDebug( wxT( "AI Chat message: %s" ), aMessage );
+
+                    // Build schematic context JSON
+                    wxString contextJson = wxT( "{\"editor\":\"eeschema\"" );
+
+                    if( Schematic().IsValid() )
+                    {
+                        wxString fileName = GetCurrentFileName();
+                        fileName.Replace( wxT( "\"" ), wxT( "\\\"" ) );
+                        contextJson += wxString::Format(
+                                wxT( ",\"current_file\":\"%s\"" ), fileName );
+
+                        // Count components and sheets
+                        int components = 0;
+                        int sheets = 0;
+
+                        for( SCH_SHEET_PATH& sheetPath : Schematic().Hierarchy() )
+                        {
+                            sheets++;
+
+                            for( SCH_ITEM* item : sheetPath.LastScreen()->Items() )
+                            {
+                                if( item->Type() == SCH_SYMBOL_T )
+                                    components++;
+                            }
+                        }
+
+                        int nets = static_cast<int>(
+                                Schematic().ConnectionGraph()->GetNetMap().size() );
+
+                        contextJson += wxString::Format(
+                                wxT( ",\"schematic_info\":{\"components\":%d,\"nets\":%d,"
+                                     "\"sheets\":%d}" ),
+                                components, nets, sheets );
+                    }
+
+                    contextJson += wxT( "}" );
+
+                    // Send context to Python backend via IPC
+                    if( m_aiIpcClient && !m_aiIpcClient->IsConnected() )
+                        m_aiIpcClient->Connect();
+
+                    if( m_aiIpcClient && m_aiIpcClient->IsConnected() )
+                        m_aiIpcClient->SendContextUpdate( contextJson.ToStdString() );
+                } );
+
+        m_aiChatPanel->AddMessageHandler( wxT( "uploadFile" ),
+                [this]( const wxString& aData )
+                {
+                    wxLogDebug( wxT( "AI Chat file upload: %s" ), aData );
+                } );
+
+        // Reload schematic from disk when AI generates a new file
+        m_aiChatPanel->AddMessageHandler( wxT( "reloadSchematic" ),
+                [this]( const wxString& aData )
+                {
+                    CallAfter( [this, aData]()
+                    {
+                        wxLogDebug( wxT( "AI: Silent schematic reload triggered" ) );
+
+                        if( Schematic().IsValid() && !Schematic().GetFileName().IsEmpty() )
+                        {
+                            // Mark all screens unmodified to skip save dialog
+                            SCH_SCREENS screenList( Schematic().Root() );
+                            for( SCH_SCREEN* screen = screenList.GetFirst(); screen;
+                                 screen = screenList.GetNext() )
+                            {
+                                screen->SetContentModified( false );
+                            }
+
+                            wxString currentFile = Schematic().GetFileName();
+                            ReleaseFile();
+                            OpenProjectFiles( std::vector<wxString>( 1, currentFile ),
+                                              KICTL_REVERT );
+                        }
+                        else if( !aData.IsEmpty() && wxFileExists( aData ) )
+                        {
+                            // No schematic open — open the AI-generated file
+                            OpenProjectFiles( std::vector<wxString>( 1, aData ) );
+                        }
+                    } );
+                } );
+    }
+    catch( ... )
+    {
+        wxLogWarning( wxT( "AI Chat panel failed to initialize — continuing without it" ) );
+        m_aiChatPanel = nullptr;
+        m_aiIpcClient.reset();
+    }
+
     m_auimgr.SetManagedWindow( this );
 
     CreateInfoBar();
@@ -283,6 +544,23 @@ SCH_EDIT_FRAME::SCH_EDIT_FRAME( KIWAY* aKiway, wxWindow* aParent ) :
     m_auimgr.AddPane( m_tbRight, EDA_PANE().VToolbar().Name( wxS( "RightToolbar" ) )
                       .Right().Layer( 2 ) );
 
+    if( m_aiChatPanel )
+    {
+        m_auimgr.AddPane( m_aiChatPanel, EDA_PANE().Name( AiChatPanelName() )
+                          .Right().Layer( 6 )
+                          .Caption( _( "AI Assistant" ) )
+                          .CaptionVisible( true )
+                          .PaneBorder( true )
+                          .TopDockable( false )
+                          .BottomDockable( false )
+                          .CloseButton( true )
+                          .MinSize( FromDIP( wxSize( 320, 200 ) ) )
+                          .BestSize( FromDIP( wxSize( 380, 600 ) ) )
+                          .FloatingSize( FromDIP( wxSize( 500, 700 ) ) )
+                          .FloatingPosition( FromDIP( wxPoint( 100, 100 ) ) )
+                          .Show( eeconfig()->m_AuiPanels.show_ai_chat ) );
+    }
+
     // Center
     m_auimgr.AddPane( GetCanvas(), EDA_PANE().Canvas().Name( wxS( "DrawFrame" ) )
                       .Center() );
@@ -320,6 +598,27 @@ SCH_EDIT_FRAME::SCH_EDIT_FRAME( KIWAY* aKiway, wxWindow* aParent ) :
         remoteSymbolPane.Show( aui_cfg.remote_symbol_show );
 
     updateSelectionFilterVisbility();
+
+    // Re-apply AI Chat panel after RestoreAuiLayout().
+    // Always re-apply the full dock configuration because the saved AUI state may not
+    // include this pane (it was added after the user's layout was first saved).
+    wxAuiPaneInfo& aiChatPane = m_auimgr.GetPane( AiChatPanelName() );
+
+    if( aiChatPane.IsOk() && m_aiChatPanel )
+    {
+        aiChatPane.Right().Layer( 6 )
+                   .Caption( _( "AI Assistant" ) )
+                   .CaptionVisible( true )
+                   .PaneBorder( true )
+                   .TopDockable( false )
+                   .BottomDockable( false )
+                   .CloseButton( true )
+                   .MinSize( FromDIP( wxSize( 320, 200 ) ) )
+                   .BestSize( FromDIP( wxSize( 380, 600 ) ) )
+                   .FloatingSize( FromDIP( wxSize( 500, 700 ) ) )
+                   .FloatingPosition( FromDIP( wxPoint( 100, 100 ) ) )
+                   .Show( aui_cfg.show_ai_chat );
+    }
 
     // The selection filter doesn't need to grow in the vertical direction when docked
     selectionFilterPane.dock_proportion = 0;
@@ -369,6 +668,12 @@ SCH_EDIT_FRAME::SCH_EDIT_FRAME( KIWAY* aKiway, wxWindow* aParent ) :
     if( aui_cfg.remote_symbol_show )
     {
         SetAuiPaneSize( m_auimgr, remoteSymbolPane, aui_cfg.remote_symbol_panel_docked_width, -1 );
+    }
+
+    if( aui_cfg.ai_chat_panel_width > 0 && m_aiChatPanel )
+    {
+        wxAuiPaneInfo& aiPane = m_auimgr.GetPane( AiChatPanelName() );
+        SetAuiPaneSize( m_auimgr, aiPane, aui_cfg.ai_chat_panel_width, -1 );
     }
 
     if( aui_cfg.hierarchy_panel_docked_width > 0 )
@@ -486,6 +791,132 @@ SCH_EDIT_FRAME::SCH_EDIT_FRAME( KIWAY* aKiway, wxWindow* aParent ) :
     Bind( EDA_EVT_CLOSE_DIALOG_BOOK_REPORTER, &SCH_EDIT_FRAME::onCloseSymbolDiffDialog, this );
     Bind( EDA_EVT_CLOSE_ERC_DIALOG, &SCH_EDIT_FRAME::onCloseErcDialog, this );
     Bind( EDA_EVT_CLOSE_DIALOG_SYMBOL_FIELDS_TABLE, &SCH_EDIT_FRAME::onCloseSymbolFieldsTableDialog, this );
+
+    // Eagerly connect IPC so Python can send reload commands without waiting for first user message.
+    // The backend often starts AFTER eeschema (ipc_port.txt not yet written, server not bound) — a
+    // single-shot connect would fail and stay disconnected forever, so on failure we start a retry
+    // timer that re-reads ipc_port.txt each tick until the server comes up.
+    if( m_aiIpcClient && !m_aiIpcClient->IsConnected() )
+    {
+        if( !TryConnectAiIpc() )
+        {
+            m_aiIpcRetryAttempts = 0;
+            m_aiIpcRetryTimer.SetOwner( this );
+            Bind( wxEVT_TIMER, &SCH_EDIT_FRAME::OnAiIpcRetryTimer, this,
+                  m_aiIpcRetryTimer.GetId() );
+            m_aiIpcRetryTimer.Start( 2000, wxTIMER_CONTINUOUS );
+            wxLogDebug( wxT( "AI Chat (SCH): IPC connect failed on startup; retrying every 2s" ) );
+        }
+    }
+}
+
+
+bool SCH_EDIT_FRAME::TryConnectAiIpc()
+{
+    if( !m_aiIpcClient )
+        return false;
+
+    if( m_aiIpcClient->IsConnected() )
+        return true;
+
+    // Re-read ipc_port.txt each attempt — backend may have just come up and written
+    // a fresh dynamic port. Falling back to the last known port is fine if the file
+    // is missing.
+    //
+    // Resolution order is fully portable (no machine-specific paths). The user-state
+    // dir entry is the single source of truth shared with the Python backend; the
+    // exe-relative and stock-data entries are courtesy fallbacks for dev builds that
+    // run from the source tree.
+    int          aiIpcPort = m_aiIpcClient->GetPort();
+    wxFileName   exePath( wxStandardPaths::Get().GetExecutablePath() );
+    wxArrayString portSearchPaths;
+
+    // 1. Portable per-user state dir — matches Python server's _user_state_dir().
+    wxString orchestratorDir;
+#ifdef __WXMSW__
+    wxString localAppData;
+    if( wxGetEnv( wxT( "LOCALAPPDATA" ), &localAppData ) && !localAppData.IsEmpty() )
+        orchestratorDir = localAppData + wxFileName::GetPathSeparator() + wxT( "orchestrator" );
+#elif defined( __WXMAC__ )
+    orchestratorDir = wxGetHomeDir()
+                    + wxT( "/Library/Application Support/orchestrator" );
+#else
+    wxString xdgState;
+    if( !wxGetEnv( wxT( "XDG_STATE_HOME" ), &xdgState ) || xdgState.IsEmpty() )
+        xdgState = wxGetHomeDir() + wxT( "/.local/state" );
+    orchestratorDir = xdgState + wxT( "/orchestrator" );
+#endif
+
+    if( !orchestratorDir.IsEmpty() )
+        portSearchPaths.Add( orchestratorDir );
+
+    // 2. Stock data dir + exe-relative — dev-tree fallbacks.
+    portSearchPaths.Add( PATHS::GetStockDataPath( true ) + wxFileName::GetPathSeparator()
+                        + wxT( "ai_backend" ) );
+    portSearchPaths.Add( exePath.GetPath() + wxFileName::GetPathSeparator()
+                        + wxT( "ai_backend" ) );
+
+    for( const wxString& dir : portSearchPaths )
+    {
+        wxString portFile = dir + wxFileName::GetPathSeparator() + wxT( "ipc_port.txt" );
+
+        if( !wxFileExists( portFile ) )
+            continue;
+
+        wxFile f( portFile );
+
+        if( !f.IsOpened() )
+            continue;
+
+        wxString content;
+        f.ReadAll( &content );
+        long port;
+
+        if( content.Trim().ToLong( &port ) && port > 0 && port < 65536 )
+            aiIpcPort = (int) port;
+
+        break;
+    }
+
+    m_aiIpcClient->SetPort( aiIpcPort );
+    return m_aiIpcClient->Connect();
+}
+
+
+void SCH_EDIT_FRAME::OnAiIpcRetryTimer( wxTimerEvent& )
+{
+    // Never give up — back off the polling interval instead. The backend may
+    // be slow to start (cold boot, AV scan, user launched it manually after
+    // eeschema), and giving up permanently means the chat panel silently
+    // stops auto-reloading until eeschema is restarted. Two-stage backoff:
+    // 2 s for the first minute (fast catch when backend boots normally), then
+    // 10 s indefinitely.
+    constexpr int kFastAttempts = 30;          // 30 × 2 s = 60 s
+    constexpr int kSlowIntervalMs = 10000;     // 10 s after that
+
+    if( !m_aiIpcClient || m_aiIpcClient->IsConnected() )
+    {
+        m_aiIpcRetryTimer.Stop();
+        return;
+    }
+
+    m_aiIpcRetryAttempts++;
+
+    if( TryConnectAiIpc() )
+    {
+        wxLogDebug( wxT( "AI Chat (SCH): IPC connected on retry attempt %d (port %d)" ),
+                    m_aiIpcRetryAttempts, m_aiIpcClient->GetPort() );
+        m_aiIpcRetryTimer.Stop();
+        return;
+    }
+
+    if( m_aiIpcRetryAttempts == kFastAttempts )
+    {
+        wxLogDebug( wxT( "AI Chat (SCH): IPC still not up after %d fast attempts; "
+                         "switching to %d ms polling" ),
+                    m_aiIpcRetryAttempts, kSlowIntervalMs );
+        m_aiIpcRetryTimer.Start( kSlowIntervalMs, wxTIMER_CONTINUOUS );
+    }
 }
 
 void SCH_EDIT_FRAME::StartCrossProbeFlash( const std::vector<SCH_ITEM*>& aItems )
@@ -763,6 +1194,15 @@ void SCH_EDIT_FRAME::setupUIConditions()
                 return m_auimgr.GetPane( RemoteSymbolPaneName() ).IsShown();
             };
 
+    auto aiChatCond =
+            [this] ( const SELECTION& )
+            {
+                if( !m_aiChatPanel )
+                    return false;
+                wxAuiPaneInfo& pane = m_auimgr.GetPane( AiChatPanelName() );
+                return pane.IsOk() && pane.IsShown();
+            };
+
     auto undoCond =
             [ this ] (const SELECTION& aSel )
             {
@@ -799,6 +1239,7 @@ void SCH_EDIT_FRAME::setupUIConditions()
     mgr->SetConditions( ACTIONS::showProperties,           CHECK( propertiesCond ) );
     mgr->SetConditions( SCH_ACTIONS::showDesignBlockPanel, CHECK( designBlockCond ) );
     mgr->SetConditions( SCH_ACTIONS::showRemoteSymbolPanel, CHECK( remoteSymbolCond ) );
+    mgr->SetConditions( SCH_ACTIONS::showAiChat,           CHECK( aiChatCond ) );
     mgr->SetConditions( ACTIONS::toggleGrid,               CHECK( cond.GridVisible() ) );
     mgr->SetConditions( ACTIONS::toggleGridOverrides,      CHECK( cond.GridOverrides() ) );
 
@@ -2903,6 +3344,34 @@ void SCH_EDIT_FRAME::ToggleSchematicHierarchy()
         {
             cfg->m_AuiPanels.hierarchy_panel_docked_width = m_hierarchy->GetSize().x;
         }
+
+        m_auimgr.Update();
+    }
+}
+
+
+void SCH_EDIT_FRAME::ToggleAiChat()
+{
+    EESCHEMA_SETTINGS* settings = eeconfig();
+
+    wxCHECK( settings, /* void */ );
+
+    wxAuiPaneInfo& aiChatPane = m_auimgr.GetPane( AiChatPanelName() );
+
+    if( !aiChatPane.IsOk() )
+        return;
+
+    bool show = !aiChatPane.IsShown();
+    aiChatPane.Show( show );
+
+    if( show )
+    {
+        SetAuiPaneSize( m_auimgr, aiChatPane, settings->m_AuiPanels.ai_chat_panel_width, -1 );
+    }
+    else
+    {
+        if( m_aiChatPanel )
+            settings->m_AuiPanels.ai_chat_panel_width = m_aiChatPanel->GetSize().x;
 
         m_auimgr.Update();
     }

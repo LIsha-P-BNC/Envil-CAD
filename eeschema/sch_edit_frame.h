@@ -60,6 +60,8 @@ class SCHEMATIC;
 class SCH_COMMIT;
 class SCH_DESIGN_BLOCK_PANE;
 class PANEL_REMOTE_SYMBOL;
+class WEBVIEW_PANEL;
+class AI_IPC_CLIENT;
 class DIALOG_BOOK_REPORTER;
 class DIALOG_ERC;
 class DIALOG_SYMBOL_FIELDS_TABLE;
@@ -840,6 +842,8 @@ public:
      */
     void ToggleSchematicHierarchy();
 
+    void ToggleAiChat();
+
     /**
      * Toggle the show/hide state of Search pane
      */
@@ -874,6 +878,7 @@ public:
      * @return the name of the wxAuiPaneInfo managing the Search panel.
      */
     static const wxString SearchPaneName() { return wxT( "Search" ); }
+    static const wxString AiChatPanelName() { return wxT( "AiChat" ); }
 
     bool IsSearchPaneShown() { return m_auimgr.GetPane( SearchPaneName() ).IsShown(); }
 
@@ -1048,6 +1053,11 @@ private:
     void StartCrossProbeFlash( const std::vector<SCH_ITEM*>& aItems );
     void OnCrossProbeFlashTimer( wxTimerEvent& aEvent );
 
+    /// Re-read ipc_port.txt and try to connect the AI IPC client.
+    /// Returns true on success. Used by both the startup attempt and the retry timer.
+    bool TryConnectAiIpc();
+    void OnAiIpcRetryTimer( wxTimerEvent& aEvent );
+
 private:
     // The schematic editor control class should be able to access some internal
     // functions of the editor frame.
@@ -1100,6 +1110,10 @@ private:
     std::vector<LIB_ID>         m_designBlockHistoryList;
     SCH_DESIGN_BLOCK_PANE*      m_designBlocksPane;
     PANEL_REMOTE_SYMBOL*        m_remoteSymbolPane;
+    WEBVIEW_PANEL*              m_aiChatPanel;
+    std::unique_ptr<AI_IPC_CLIENT> m_aiIpcClient;
+    wxTimer                     m_aiIpcRetryTimer;
+    int                         m_aiIpcRetryAttempts = 0;
 
     wxChoice*                   m_currentVariantCtrl;
 

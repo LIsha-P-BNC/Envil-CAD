@@ -1460,6 +1460,14 @@ TOOL_ACTION SCH_ACTIONS::showHierarchy( TOOL_ACTION_ARGS()
         .ToolbarState( TOOLBAR_STATE::TOGGLE )
         .Icon( BITMAPS::hierarchy_nav ) );
 
+TOOL_ACTION SCH_ACTIONS::showAiChat( TOOL_ACTION_ARGS()
+        .Name( "eeschema.EditorTool.showAiChat" )
+        .Scope( AS_GLOBAL )
+        .FriendlyName( _( "AI Assistant" ) )
+        .Tooltip( _( "Show/hide the AI assistant panel" ) )
+        .ToolbarState( TOOLBAR_STATE::TOGGLE )
+        .Icon( BITMAPS::info ) );
+
 
 // SCH_LINE_WIRE_BUS_TOOL
 //

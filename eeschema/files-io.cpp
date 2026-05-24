@@ -35,6 +35,7 @@
 #include <id.h>
 #include <kiface_base.h>
 #include <kiplatform/app.h>
+#include <widgets/webview_panel.h>
 #include <kiplatform/ui.h>
 #include <libraries/legacy_symbol_library.h>
 #include <libraries/symbol_library_adapter.h>
@@ -838,6 +839,26 @@ bool SCH_EDIT_FRAME::OpenProjectFiles( const std::vector<wxString>& aFileSet, in
             } );
 
     m_remoteSymbolPane->BindWebViewLoaded();
+
+    // Push the live schematic path into the AI chat panel. The panel's URL was
+    // baked at construction time when Schematic().GetFileName() was still
+    // "untitled.kicad_sch"; without this call the "Editing X" header AND the
+    // schematic_file sent to the Python backend would stay stuck on that
+    // stale value forever.
+    if( m_aiChatPanel )
+    {
+        wxString projPath = Prj().GetProjectPath();
+        wxString schFile  = Schematic().GetFileName();
+        projPath.Replace( wxT( "\\" ), wxT( "/" ) );
+        schFile.Replace( wxT( "\\" ), wxT( "/" ) );
+        // JSON-escape any embedded quote so we don't break the script literal.
+        projPath.Replace( wxT( "\"" ), wxT( "\\\"" ) );
+        schFile.Replace( wxT( "\"" ), wxT( "\\\"" ) );
+        wxString script = wxString::Format(
+            wxT( "if (window.envilSetSchematic) window.envilSetSchematic(\"%s\", \"%s\");" ),
+            projPath, schFile );
+        m_aiChatPanel->RunScriptAsync( script );
+    }
 
     return true;
 }

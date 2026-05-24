@@ -220,6 +220,7 @@ void PCB_EDIT_FRAME::doReCreateMenuBar()
     showHidePanels->Add( PCB_ACTIONS::showSearch,                 ACTION_MENU::CHECK );
     showHidePanels->Add( PCB_ACTIONS::showLayersManager,          ACTION_MENU::CHECK );
     showHidePanels->Add( PCB_ACTIONS::showNetInspector,           ACTION_MENU::CHECK );
+    showHidePanels->Add( PCB_ACTIONS::showAiChat );
 
     if( ADVANCED_CFG::GetCfg().m_EnablePcbDesignBlocks )
         showHidePanels->Add( PCB_ACTIONS::showDesignBlockPanel, ACTION_MENU::CHECK, _( "Design Blocks" ) );
@@ -229,6 +230,7 @@ void PCB_EDIT_FRAME::doReCreateMenuBar()
     viewMenu->AppendSeparator();
     viewMenu->Add( ACTIONS::showFootprintBrowser );
     viewMenu->Add( ACTIONS::show3DViewer );
+    viewMenu->Add( PCB_ACTIONS::showAiChat );
 
     viewMenu->AppendSeparator();
     viewMenu->Add( ACTIONS::zoomInCenter );

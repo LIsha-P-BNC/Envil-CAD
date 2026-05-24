@@ -467,6 +467,7 @@ public:
 
     static TOOL_ACTION showLayersManager;
     static TOOL_ACTION showNetInspector;
+    static TOOL_ACTION showAiChat;
     static TOOL_ACTION zonesManager;
 
     // Design Block management

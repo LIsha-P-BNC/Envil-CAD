@@ -76,9 +76,6 @@ wxString FindKicadFile( const wxString& shortname )
         buildDir.RemoveLastDir();
 #ifndef __WXMSW__
         buildDir.AppendDir( shortname );
-#else
-        buildDir.AppendDir( shortname.BeforeLast( '.' ) );
-#endif
 
         if( buildDir.GetDirs().Last() == "pl_editor" )
         {
@@ -88,6 +85,58 @@ wxString FindKicadFile( const wxString& shortname )
 
         if( wxFileExists( buildDir.GetFullPath() ) )
             return buildDir.GetFullPath();
+#else
+        // MSVC build layout: <build>/<app>/<Config>/<app>.exe
+        // GetExecutablePath() = <build>/kicad/RelWithDebInfo/
+        // GetDirs() ends with [..., "kicad", "RelWithDebInfo"]
+        // Target:             <build>/eeschema/RelWithDebInfo/eeschema.exe
+        {
+            wxFileName msvcDir( Pgm().GetExecutablePath(), shortname );
+            wxString   savedConfig = msvcDir.GetDirs().Last(); // "RelWithDebInfo" / "Debug" / etc.
+            msvcDir.RemoveLastDir(); // remove Config dir -> [..., "kicad"]
+            msvcDir.RemoveLastDir(); // remove app dir   -> [..., "msvc-win64-release"]
+
+            wxString toolDir = shortname.BeforeLast( '.' ); // "eeschema"
+
+            if( toolDir == wxT( "pl_editor" ) )
+                toolDir = wxT( "pagelayout_editor" );
+
+            msvcDir.AppendDir( toolDir );    // -> <build>/eeschema/
+            msvcDir.AppendDir( savedConfig ); // -> <build>/eeschema/RelWithDebInfo/
+
+            if( wxFileExists( msvcDir.GetFullPath() ) )
+                return msvcDir.GetFullPath();
+        }
+
+        // Fallback: flat build layout (no Config subdir) - <build>/eeschema/eeschema.exe
+        {
+            wxFileName flatDir( Pgm().GetExecutablePath(), shortname );
+            flatDir.RemoveLastDir(); // remove Config dir
+            flatDir.RemoveLastDir(); // remove app dir
+
+            wxString toolDir = shortname.BeforeLast( '.' );
+
+            if( toolDir == wxT( "pl_editor" ) )
+                toolDir = wxT( "pagelayout_editor" );
+
+            flatDir.AppendDir( toolDir );
+
+            if( wxFileExists( flatDir.GetFullPath() ) )
+                return flatDir.GetFullPath();
+        }
+
+        // Original single-dir-up path (legacy flat build adjacent to kicad.exe)
+        buildDir.AppendDir( shortname.BeforeLast( '.' ) );
+
+        if( buildDir.GetDirs().Last() == "pl_editor" )
+        {
+            buildDir.RemoveLastDir();
+            buildDir.AppendDir( "pagelayout_editor" );
+        }
+
+        if( wxFileExists( buildDir.GetFullPath() ) )
+            return buildDir.GetFullPath();
+#endif
     }
 
     // Test the presence of the file in the directory shortname

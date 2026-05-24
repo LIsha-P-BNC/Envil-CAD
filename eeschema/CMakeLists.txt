@@ -401,6 +401,7 @@ set( EESCHEMA_SRCS
     sch_connection.cpp
     sch_draw_panel.cpp
     sch_edit_frame.cpp
+    ${CMAKE_SOURCE_DIR}/common/widgets/ai_ipc_client.cpp
     sch_field.cpp
     sch_group.cpp
     sch_item.cpp
@@ -592,6 +593,12 @@ target_link_libraries( eeschema
     ${wxWidgets_LIBRARIES}
     )
 
+# Skip PCH for ai_ipc_client to avoid nlohmann/json symbol conflicts
+set_source_files_properties(
+    ${CMAKE_SOURCE_DIR}/common/widgets/ai_ipc_client.cpp
+    PROPERTIES SKIP_PRECOMPILE_HEADERS ON
+)
+
 # the main Eeschema program, in DSO form.
 add_library( eeschema_kiface_objects OBJECT
     ${EESCHEMA_SRCS}
@@ -661,8 +668,17 @@ if( MSVC )
         COMMAND ${CMAKE_COMMAND} -E copy_if_different "${NGSPICE_DLL}" "$<TARGET_FILE_DIR:eeschema_kiface>"
         )
 
+    if( NGSPICE_CM_DIR )
+        add_custom_command( TARGET eeschema_kiface POST_BUILD
+            COMMAND ${CMAKE_COMMAND} -E copy_directory "${NGSPICE_CM_DIR}" "$<TARGET_FILE_DIR:eeschema_kiface>/ngspice"
+            )
+    endif()
+
+    # Copy AI chat HTML resources to build output directory
     add_custom_command( TARGET eeschema_kiface POST_BUILD
-        COMMAND ${CMAKE_COMMAND} -E copy_directory "${NGSPICE_CM_DIR}" "$<TARGET_FILE_DIR:eeschema_kiface>/ngspice"
+        COMMAND ${CMAKE_COMMAND} -E copy_directory
+            "${PROJECT_SOURCE_DIR}/resources/ai_chat"
+            "$<TARGET_FILE_DIR:eeschema_kiface>/ai_chat"
         )
 endif()
 

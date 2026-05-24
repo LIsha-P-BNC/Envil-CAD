@@ -208,5 +208,11 @@ elseif( UNIX )
              )
 endif()
 
+# Install AI chat HTML resources
+install( DIRECTORY ${PROJECT_SOURCE_DIR}/resources/ai_chat
+         DESTINATION ${KICAD_DATA}
+         COMPONENT resources
+         )
+
 add_subdirectory(bitmaps_png)
 add_subdirectory(project_template)

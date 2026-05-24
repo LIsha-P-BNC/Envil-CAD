@@ -61,6 +61,8 @@ class ACTION_MENU;
 class TOOL_ACTION;
 class DIALOG_BOARD_SETUP;
 class PCB_DESIGN_BLOCK_PANE;
+class WEBVIEW_PANEL;
+class AI_IPC_CLIENT;
 
 #ifdef KICAD_IPC_API
 class KICAD_API_SERVER;
@@ -135,6 +137,11 @@ public:
      * @return the name of the wxAuiPaneInfo managing the Search panel
      */
     static const wxString SearchPaneName() { return wxT( "Search" ); }
+
+    /**
+     * @return the name of the wxAuiPaneInfo managing the AI Chat panel
+     */
+    static const wxString AiChatPanelName() { return wxT( "AiChat" ); }
 
     /**
      * Show the Find dialog.
@@ -329,6 +336,8 @@ public:
     void ToggleNetInspector();
 
     void ToggleSearch();
+
+    void ToggleAiChat();
 
     bool IsSearchPaneShown() { return m_auimgr.GetPane( SearchPaneName() ).IsShown(); }
     void FocusSearch();
@@ -844,6 +853,8 @@ private:
 
     std::vector<LIB_ID>    m_designBlockHistoryList;
     PCB_DESIGN_BLOCK_PANE* m_designBlocksPane;
+    WEBVIEW_PANEL*         m_aiChatPanel;
+    std::unique_ptr<AI_IPC_CLIENT> m_aiIpcClient;
 
     const std::map<std::string, UTF8>* m_importProperties; // Properties used for non-KiCad import.
 

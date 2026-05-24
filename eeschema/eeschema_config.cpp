@@ -40,6 +40,7 @@
 #include <widgets/panel_remote_symbol.h>
 #include <widgets/panel_sch_selection_filter.h>
 #include <widgets/properties_panel.h>
+#include <widgets/webview_panel.h>
 #include <settings/app_settings.h>
 #include <settings/settings_manager.h>
 #include <wildcards_and_files_ext.h>
@@ -380,6 +381,13 @@ void SCH_EDIT_FRAME::SaveSettings( APP_SETTINGS_BASE* aCfg )
         }
 
         m_designBlocksPane->SaveSettings();
+
+        if( m_aiChatPanel )
+        {
+            wxAuiPaneInfo& aiChatPane = m_auimgr.GetPane( AiChatPanelName() );
+            cfg->m_AuiPanels.show_ai_chat = aiChatPane.IsShown();
+            cfg->m_AuiPanels.ai_chat_panel_width = m_aiChatPanel->GetSize().x;
+        }
 
         wxAuiPaneInfo& remoteSymbolPane = m_auimgr.GetPane( RemoteSymbolPaneName() );
         cfg->m_AuiPanels.remote_symbol_show = remoteSymbolPane.IsShown();

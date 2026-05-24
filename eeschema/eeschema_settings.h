@@ -112,6 +112,8 @@ public:
         int  remote_symbol_panel_docked_width;
         int  remote_symbol_panel_float_width;
         int  remote_symbol_panel_float_height;
+        bool show_ai_chat;
+        int  ai_chat_panel_width;
     };
 
     struct AUTOPLACE_FIELDS

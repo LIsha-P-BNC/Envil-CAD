@@ -64,10 +64,13 @@ WEBVIEW_PANEL::WEBVIEW_PANEL( wxWindow* aParent, wxWindowID aId, const wxPoint& 
         ICoreWebView2EnvironmentOptions* webViewOptions =
                 (ICoreWebView2EnvironmentOptions*) config.GetNativeConfiguration();
 
-        // Disable gesture navigation features
+        // Disable gesture navigation features.
+        // Allow file:// pages to connect to localhost WebSockets (needed for AI chat panel).
         webViewOptions->put_AdditionalBrowserArguments( L"--disable-features=msEdgeMouseGestureSupported,"
                                                         L"msEdgeMouseGestureDefaultEnabled,OverscrollHistoryNavigation "
-                                                        L"--enable-features=kEdgeMouseGestureDisabledInCN" );
+                                                        L"--enable-features=kEdgeMouseGestureDisabledInCN "
+                                                        L"--allow-file-access-from-files "
+                                                        L"--disable-web-security" );
     }
 #endif
 
@@ -209,8 +212,13 @@ void WEBVIEW_PANEL::OnNavigationRequest( wxWebViewEvent& aEvt )
 {
     m_loadError = false;
     wxLogTrace( "webview", "Navigation request to URL: %s", aEvt.GetURL() );
-    // Default behavior: open external links in the system browser
-    bool isExternal = aEvt.GetURL().StartsWith( "http://" ) || aEvt.GetURL().StartsWith( "https://" );
+    // Default behavior: open external links in the system browser.
+    // localhost URLs are always kept inside the WebView (used for local backends like AI chat).
+    bool isLocalhost = aEvt.GetURL().StartsWith( "http://localhost" )
+                       || aEvt.GetURL().StartsWith( "http://127.0.0.1" );
+    bool isExternal = !isLocalhost
+                      && ( aEvt.GetURL().StartsWith( "http://" )
+                           || aEvt.GetURL().StartsWith( "https://" ) );
 
     if( isExternal && !m_handleExternalLinks )
     {
@@ -306,12 +314,51 @@ void WEBVIEW_PANEL::OnScriptMessage( wxWebViewEvent& aEvt )
     wxString handler = aEvt.GetMessageHandler();
     handler.Trim(true).Trim(false);
 
+    wxString message = aEvt.GetString();
+
+    // If no handler specified (Edge WebView2 chrome.webview.postMessage),
+    // try to parse JSON with {handler, message} fields
+    if( handler.IsEmpty() && message.StartsWith( wxT( "{" ) ) )
+    {
+        // Simple JSON extraction for {"handler":"name","message":"data"}
+        int hStart = message.Find( wxT( "\"handler\"" ) );
+        int mStart = message.Find( wxT( "\"message\"" ) );
+
+        if( hStart != wxNOT_FOUND )
+        {
+            wxString sub = message.Mid( hStart + 10 );
+            int q1 = sub.Find( wxT( '"' ) );
+            if( q1 != wxNOT_FOUND )
+            {
+                wxString rest = sub.Mid( q1 + 1 );
+                int q2 = rest.Find( wxT( '"' ) );
+                if( q2 != wxNOT_FOUND )
+                    handler = rest.Left( q2 );
+            }
+        }
+
+        if( mStart != wxNOT_FOUND )
+        {
+            wxString sub = message.Mid( mStart + 10 );
+            int q1 = sub.Find( wxT( '"' ) );
+            if( q1 != wxNOT_FOUND )
+            {
+                wxString rest = sub.Mid( q1 + 1 );
+                int q2 = rest.Find( wxT( '"' ) );
+                if( q2 != wxNOT_FOUND )
+                    message = rest.Left( q2 );
+            }
+        }
+
+        wxLogTrace( "webview", "Parsed JSON envelope: handler=%s message=%s", handler, message );
+    }
+
     if( handler.IsEmpty() )
     {
         for( auto handlerPair : m_msgHandlers )
         {
             wxLogTrace( "webview", "No handler specified, trying: %s", handlerPair.first );
-            handlerPair.second( aEvt.GetString() );
+            handlerPair.second( message );
         }
 
         return;
@@ -327,7 +374,7 @@ void WEBVIEW_PANEL::OnScriptMessage( wxWebViewEvent& aEvt )
 
     // Call the registered handler with the message
     wxLogTrace( "webview", "Calling handler for message: %s", handler );
-    it->second( aEvt.GetString() );
+    it->second( message );
 }
 
 

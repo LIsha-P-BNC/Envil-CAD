@@ -414,6 +414,7 @@ set( PCBNEW_CLASS_SRCS
     pcb_design_block_utils.cpp
     pcb_layer_box_selector.cpp
     pcb_edit_frame.cpp
+    ${CMAKE_SOURCE_DIR}/common/widgets/ai_ipc_client.cpp
     pcb_plotter.cpp
     pcbnew_config.cpp
     pcbnew_jobs_handler.cpp
@@ -679,6 +680,12 @@ if( KICAD_USE_PCH )
             <wx/wx.h> )
 endif()
 
+# Skip PCH for ai_ipc_client to avoid nlohmann/json symbol conflicts
+set_source_files_properties(
+    ${CMAKE_SOURCE_DIR}/common/widgets/ai_ipc_client.cpp
+    PROPERTIES SKIP_PRECOMPILE_HEADERS ON
+)
+
 #auto - generate specctra_lexer.h and specctra_keywords.cpp
 make_lexer(
     pcbnew_kiface_objects
@@ -768,6 +775,13 @@ if( WIN32 )
         )
     add_custom_command( TARGET pcbnew POST_BUILD
         COMMAND ${CMAKE_COMMAND} -E copy_if_different "$<TARGET_FILE:kiapi>" "$<TARGET_FILE_DIR:pcbnew>"
+        )
+
+    # Copy AI chat HTML resources to build output directory
+    add_custom_command( TARGET pcbnew POST_BUILD
+        COMMAND ${CMAKE_COMMAND} -E copy_directory
+            "${PROJECT_SOURCE_DIR}/resources/ai_chat"
+            "$<TARGET_FILE_DIR:pcbnew>/ai_chat"
         )
 endif()
 

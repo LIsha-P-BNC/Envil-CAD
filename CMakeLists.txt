@@ -29,6 +29,11 @@ else()
 cmake_minimum_required( VERSION 3.22 FATAL_ERROR )
 endif()
 
+# Fix PDB locking issue with parallel MSVC compilation
+if( MSVC )
+    add_compile_options( /FS )
+endif()
+
 # Generate DEPFILES without transforming relative paths
 cmake_policy( SET CMP0116 OLD )
 

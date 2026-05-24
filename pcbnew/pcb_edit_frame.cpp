@@ -29,10 +29,13 @@
 #include <wx/log.h>
 #include <wx/filename.h>
 #include <wx/filedlg.h>
+#include <wx/file.h>
+#include <wx/stdpaths.h>
 #include <wx/socket.h>
 #include <wx/wupdlock.h>
 
 #include <advanced_config.h>
+#include <paths.h>
 #include <connectivity/connectivity_data.h>
 #include <kiface_base.h>
 #include <kiway.h>
@@ -120,6 +123,8 @@
 #include <dialog_drc.h>     // for DIALOG_DRC_WINDOW_NAME definition
 #include <ratsnest/ratsnest_view_item.h>
 #include <widgets/appearance_controls.h>
+#include <widgets/webview_panel.h>
+#include <widgets/ai_ipc_client.h>
 #include <widgets/pcb_design_block_pane.h>
 #include <widgets/pcb_search_pane.h>
 #include <widgets/wx_infobar.h>
@@ -204,6 +209,7 @@ PCB_EDIT_FRAME::PCB_EDIT_FRAME( KIWAY* aKiway, wxWindow* aParent ) :
         m_footprintDiffDlg( nullptr ),
         m_boardSetupDlg( nullptr ),
         m_designBlocksPane( nullptr ),
+        m_aiChatPanel( nullptr ),
         m_importProperties( nullptr ),
         m_eventCounterTimer( nullptr )
 {
@@ -225,7 +231,7 @@ PCB_EDIT_FRAME::PCB_EDIT_FRAME( KIWAY* aKiway, wxWindow* aParent ) :
     // assume dirty
     m_ZoneFillsDirty = true;
 
-    m_aboutTitle = _HKI( "KiCad PCB Editor" );
+    m_aboutTitle = _HKI( "Envil PCB Editor" );
 
     // Must be created before the menus are created.
     if( ADVANCED_CFG::GetCfg().m_ShowPcbnewExportNetlist )
@@ -297,6 +303,180 @@ PCB_EDIT_FRAME::PCB_EDIT_FRAME( KIWAY* aKiway, wxWindow* aParent ) :
     m_netInspectorPanel = new PCB_NET_INSPECTOR_PANEL( this, this );
     m_designBlocksPane = new PCB_DESIGN_BLOCK_PANE( this, nullptr, m_designBlockHistoryList );
 
+    // AI Chat Panel — wrapped in try/catch so PCB editor loads even if WebView fails
+    try
+    {
+        {
+            // Debug: write AI panel init status to a file
+            FILE* dbg = fopen( "F:\\Envil\\ai_panel_debug.log", "w" );
+            if( dbg ) { fprintf( dbg, "=== PCBnew AI Panel Init ===\n" ); fflush( dbg ); }
+
+            m_aiChatPanel = new WEBVIEW_PANEL( this );
+
+            if( dbg ) { fprintf( dbg, "WEBVIEW_PANEL created\n" ); fflush( dbg ); }
+
+            wxWebView* browser = m_aiChatPanel->GetWebView();
+            if( dbg )
+            {
+                fprintf( dbg, "GetWebView() = %s\n", browser ? "OK" : "NULL" );
+                fprintf( dbg, "Backend = %s\n",
+                         (const char*) m_aiChatPanel->GetBackend().mb_str() );
+                fflush( dbg );
+            }
+
+            if( !browser )
+            {
+                if( dbg ) { fprintf( dbg, "FATAL: WebView is NULL!\n" ); fclose( dbg ); }
+                delete m_aiChatPanel;
+                m_aiChatPanel = nullptr;
+                throw std::runtime_error( "WebView2 not available" );
+            }
+
+            if( dbg ) { fclose( dbg ); }
+        }
+
+        // Search for chat.html in priority order:
+        // 1. KiCad stock data path (works for both installed and KICAD_RUN_FROM_BUILD_DIR)
+        // 2. Exe directory (build output: pcbnew sits next to ai_chat/)
+        // 3. wxStandardPaths resources dir (fallback)
+        wxString chatHtmlFound;
+        wxArrayString searchPaths;
+        searchPaths.Add( PATHS::GetStockDataPath( true ) );
+
+        wxFileName exePath( wxStandardPaths::Get().GetExecutablePath() );
+        searchPaths.Add( exePath.GetPath() );
+
+        searchPaths.Add( wxStandardPaths::Get().GetResourcesDir() );
+
+        for( const wxString& basePath : searchPaths )
+        {
+            wxString chatHtmlPath = basePath
+                                    + wxFileName::GetPathSeparator()
+                                    + wxT( "ai_chat" )
+                                    + wxFileName::GetPathSeparator()
+                                    + wxT( "chat.html" );
+
+            wxLogDebug( wxT( "AI Chat: searching %s" ), chatHtmlPath );
+
+            if( wxFileExists( chatHtmlPath ) )
+            {
+                chatHtmlFound = chatHtmlPath;
+                wxLogDebug( wxT( "AI Chat: found at %s" ), chatHtmlPath );
+                break;
+            }
+        }
+
+        m_aiChatPanel->BindLoadedEvent();
+
+        if( !chatHtmlFound.IsEmpty() )
+        {
+            wxString fileUrl = wxT( "file:///" ) + chatHtmlFound;
+            fileUrl.Replace( wxT( "\\" ), wxT( "/" ) );
+            fileUrl += wxString::Format( wxT( "?t=%ld&backend=localhost:8765" ),
+                                         wxDateTime::Now().GetTicks() );
+            wxLogDebug( wxT( "AI Chat: loading URL %s" ), fileUrl );
+            m_aiChatPanel->LoadURL( fileUrl );
+        }
+        else
+        {
+            wxLogWarning( wxT( "AI Chat: chat.html not found in any search path" ) );
+            m_aiChatPanel->SetPage( wxT( "<!DOCTYPE html><html><body style='background:#1e1e2e;"
+                "color:#e0e0e0;font-family:sans-serif;display:flex;align-items:center;"
+                "justify-content:center;height:100vh'><p>AI Chat — chat.html not found"
+                "</p></body></html>" ) );
+        }
+
+        // Initialize AI IPC client (lazy connect — does NOT connect in constructor)
+        m_aiIpcClient = std::make_unique<AI_IPC_CLIENT>( "127.0.0.1", 5556 );
+
+        // Register command callback for commands from Python backend
+        m_aiIpcClient->SetCommandCallback(
+                [this]( const std::string& aAction, const std::string& aData )
+                {
+                    CallAfter( [this, aAction, aData]()
+                    {
+                        wxLogDebug( wxT( "AI command: %s data: %s" ), aAction, aData );
+
+                        try
+                        {
+                            nlohmann::json payload = nlohmann::json::parse( aData );
+                            wxString action = wxString::FromUTF8( payload.value( "action", "" ) );
+                            nlohmann::json data = payload.value( "data", nlohmann::json::object() );
+
+                            if( action == wxT( "open_file" ) )
+                            {
+                                wxString filePath = wxString::FromUTF8( data.value( "path", "" ) );
+
+                                if( !filePath.IsEmpty() && wxFileExists( filePath ) )
+                                {
+                                    wxLogDebug( wxT( "AI: Opening generated PCB: %s" ), filePath );
+                                    OpenProjectFiles( std::vector<wxString>( 1, filePath ) );
+                                }
+                            }
+                            else if( action == wxT( "refresh" ) )
+                            {
+                                if( GetBoard() )
+                                    Refresh();
+                            }
+                        }
+                        catch( ... )
+                        {
+                            wxLogWarning( wxT( "AI: Failed to parse IPC command" ) );
+                        }
+                    } );
+                } );
+
+        // Wire JS → C++ message handlers for the AI chat panel
+        m_aiChatPanel->AddMessageHandler( wxT( "sendMessage" ),
+                [this]( const wxString& aMessage )
+                {
+                    wxLogDebug( wxT( "AI Chat message: %s" ), aMessage );
+
+                    wxString contextJson = wxT( "{\"editor\":\"pcbnew\"" );
+
+                    if( GetBoard() )
+                    {
+                        wxString fileName = GetBoard()->GetFileName();
+                        fileName.Replace( wxT( "\"" ), wxT( "\\\"" ) );
+                        contextJson += wxString::Format(
+                                wxT( ",\"current_file\":\"%s\"" ), fileName );
+
+                        int components = static_cast<int>( GetBoard()->Footprints().size() );
+                        int nets = GetBoard()->GetNetCount();
+                        int layers = static_cast<int>( GetBoard()->GetCopperLayerCount() );
+                        int unrouted = GetBoard()->GetConnectivity()
+                                           ? static_cast<int>( GetBoard()->GetConnectivity()
+                                                 ->GetUnconnectedCount( false ) )
+                                           : 0;
+
+                        contextJson += wxString::Format(
+                                wxT( ",\"board_info\":{\"components\":%d,\"nets\":%d,"
+                                     "\"layers\":%d,\"unrouted\":%d}" ),
+                                components, nets, layers, unrouted );
+                    }
+
+                    contextJson += wxT( "}" );
+
+                    if( m_aiIpcClient && !m_aiIpcClient->IsConnected() )
+                        m_aiIpcClient->Connect();
+
+                    if( m_aiIpcClient && m_aiIpcClient->IsConnected() )
+                        m_aiIpcClient->SendContextUpdate( contextJson.ToStdString() );
+                } );
+
+        m_aiChatPanel->AddMessageHandler( wxT( "uploadFile" ),
+                [this]( const wxString& aData )
+                {
+                    wxLogDebug( wxT( "AI Chat file upload: %s" ), aData );
+                } );
+    }
+    catch( ... )
+    {
+        wxLogWarning( wxT( "AI Chat panel failed to initialize — continuing without it" ) );
+        m_aiChatPanel = nullptr;
+        m_aiIpcClient.reset();
+    }
+
     m_auimgr.SetManagedWindow( this );
 
     CreateInfoBar();
@@ -361,6 +541,23 @@ PCB_EDIT_FRAME::PCB_EDIT_FRAME( KIWAY* aKiway, wxWindow* aParent ) :
                       .FloatingPosition( FromDIP( wxPoint( 50, 200 ) ) )
                       .Show( true ) );
 
+    if( m_aiChatPanel )
+    {
+        m_auimgr.AddPane( m_aiChatPanel, EDA_PANE().Name( AiChatPanelName() )
+                          .Right().Layer( 6 )
+                          .Caption( _( "AI Assistant" ) )
+                          .CaptionVisible( true )
+                          .PaneBorder( true )
+                          .TopDockable( false )
+                          .BottomDockable( false )
+                          .CloseButton( true )
+                          .MinSize( FromDIP( wxSize( 320, 200 ) ) )
+                          .BestSize( FromDIP( wxSize( 380, 600 ) ) )
+                          .FloatingSize( FromDIP( wxSize( 500, 700 ) ) )
+                          .FloatingPosition( FromDIP( wxPoint( 100, 100 ) ) )
+                          .Show( GetPcbNewSettings()->m_AuiPanels.show_ai_chat ) );
+    }
+
     m_auimgr.AddPane( m_propertiesPanel, EDA_PANE().Name( PropertiesPaneName() )
                       .Left().Layer( 5 )
                       .Caption( _( "Properties" ) ).PaneBorder( false )
@@ -399,10 +596,45 @@ PCB_EDIT_FRAME::PCB_EDIT_FRAME( KIWAY* aKiway, wxWindow* aParent ) :
     m_auimgr.GetPane( NetInspectorPanelName() ).Show( m_ShowNetInspector );
     m_auimgr.GetPane( SearchPaneName() ).Show( m_ShowSearch );
     m_auimgr.GetPane( DesignBlocksPaneName() ).Show( GetPcbNewSettings()->m_AuiPanels.design_blocks_show );
+    // Re-apply AI Chat panel after RestoreAuiLayout().
+    // Always re-apply the full dock configuration because the saved AUI state may not
+    // include this pane (it was added after the user's layout was first saved).
+    wxAuiPaneInfo& aiChatPane = m_auimgr.GetPane( AiChatPanelName() );
+
+    if( aiChatPane.IsOk() && m_aiChatPanel )
+    {
+        aiChatPane.Right().Layer( 6 )
+                   .Caption( _( "AI Assistant" ) )
+                   .CaptionVisible( true )
+                   .PaneBorder( true )
+                   .TopDockable( false )
+                   .BottomDockable( false )
+                   .CloseButton( true )
+                   .MinSize( FromDIP( wxSize( 320, 200 ) ) )
+                   .BestSize( FromDIP( wxSize( 380, 600 ) ) )
+                   .FloatingSize( FromDIP( wxSize( 500, 700 ) ) )
+                   .FloatingPosition( FromDIP( wxPoint( 100, 100 ) ) )
+                   .Show( GetPcbNewSettings()->m_AuiPanels.show_ai_chat );
+    }
 
     // The selection filter doesn't need to grow in the vertical direction when docked
     m_auimgr.GetPane( "SelectionFilter" ).dock_proportion = 0;
     FinishAUIInitialization();
+
+    // Force reload of AI Chat WebView after AUI layout is fully initialized.
+    // The initial LoadURL may render to a zero-size panel; reload ensures
+    // content is displayed after the panel has its final dimensions.
+    if( m_aiChatPanel && aiChatPane.IsOk() && aiChatPane.IsShown() )
+    {
+        CallAfter( [this]()
+        {
+            if( m_aiChatPanel )
+            {
+                if( wxWebView* browser = m_aiChatPanel->GetWebView() )
+                    browser->Reload();
+            }
+        } );
+    }
 
     if( aui_cfg.right_panel_width > 0 )
     {
@@ -434,6 +666,12 @@ PCB_EDIT_FRAME::PCB_EDIT_FRAME( KIWAY* aKiway, wxWindow* aParent ) :
         wxAuiPaneInfo& searchPane = m_auimgr.GetPane( SearchPaneName() );
         searchPane.Direction( aui_cfg.search_panel_dock_direction );
         SetAuiPaneSize( m_auimgr, searchPane, aui_cfg.search_panel_width, -1 );
+    }
+
+    if( aui_cfg.ai_chat_panel_width > 0 && m_aiChatPanel )
+    {
+        wxAuiPaneInfo& aiChatPane = m_auimgr.GetPane( AiChatPanelName() );
+        SetAuiPaneSize( m_auimgr, aiChatPane, aui_cfg.ai_chat_panel_width, -1 );
     }
 
     m_appearancePanel->SetTabIndex( aui_cfg.appearance_panel_tab );
@@ -745,6 +983,10 @@ PCB_EDIT_FRAME::~PCB_EDIT_FRAME()
         m_eventCounterTimer->Stop();
         delete m_eventCounterTimer;
     }
+
+    // Disconnect AI IPC client
+    if( m_aiIpcClient )
+        m_aiIpcClient->Disconnect();
 
     // Close modeless dialogs
     wxWindow* drcDlg = wxWindow::FindWindowByName( DIALOG_DRC_WINDOW_NAME );
@@ -1092,6 +1334,15 @@ void PCB_EDIT_FRAME::setupUIConditions()
                 return m_auimgr.GetPane( DesignBlocksPaneName() ).IsShown();
             };
 
+    auto aiChatCond =
+            [this] ( const SELECTION& )
+            {
+                if( !m_aiChatPanel )
+                    return false;
+                wxAuiPaneInfo& pane = m_auimgr.GetPane( AiChatPanelName() );
+                return pane.IsOk() && pane.IsShown();
+            };
+
     auto highContrastCond =
             [this] ( const SELECTION& )
             {
@@ -1148,6 +1399,7 @@ void PCB_EDIT_FRAME::setupUIConditions()
     mgr->SetConditions( PCB_ACTIONS::showNetInspector,     CHECK( netInspectorCond ) );
     mgr->SetConditions( PCB_ACTIONS::showSearch,           CHECK( searchPaneCond ) );
     mgr->SetConditions( PCB_ACTIONS::showDesignBlockPanel, CHECK( designBlockCond ) );
+    mgr->SetConditions( PCB_ACTIONS::showAiChat,            CHECK( aiChatCond ) );
 
     mgr->SetConditions( PCB_ACTIONS::saveBoardAsDesignBlock,     ENABLE( hasElements ) );
     mgr->SetConditions( PCB_ACTIONS::saveSelectionAsDesignBlock, ENABLE( SELECTION_CONDITIONS::NotEmpty ) );
@@ -1727,6 +1979,13 @@ void PCB_EDIT_FRAME::SaveSettings( APP_SETTINGS_BASE* aCfg )
             wxAuiPaneInfo& netInspectorhPaneInfo = m_auimgr.GetPane( NetInspectorPanelName() );
             m_ShowNetInspector = netInspectorhPaneInfo.IsShown();
             cfg->m_AuiPanels.show_net_inspector = m_ShowNetInspector;
+        }
+
+        if( m_aiChatPanel )
+        {
+            wxAuiPaneInfo& aiChatPaneInfo = m_auimgr.GetPane( AiChatPanelName() );
+            cfg->m_AuiPanels.show_ai_chat = aiChatPaneInfo.IsShown();
+            cfg->m_AuiPanels.ai_chat_panel_width = m_aiChatPanel->GetSize().x;
         }
 
         if( m_appearancePanel )
