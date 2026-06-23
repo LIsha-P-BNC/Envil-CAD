@@ -38,6 +38,7 @@
 #include <board.h>
 #include <project/net_settings.h>
 #include <widgets/wx_infobar.h>
+#include <advanced_config.h>
 #include <footprint.h>
 #include <confirm.h>
 #include <footprint_edit_frame.h>
@@ -311,9 +312,17 @@ FOOTPRINT_EDIT_FRAME::FOOTPRINT_EDIT_FRAME( KIWAY* aKiway, wxWindow* aParent ) :
     Bind( wxEVT_CHAR, &TOOL_DISPATCHER::DispatchWxEvent, m_toolDispatcher );
     Bind( wxEVT_CHAR_HOOK, &TOOL_DISPATCHER::DispatchWxEvent, m_toolDispatcher );
 
-    // Ensure the window is on top
-    Raise();
-    Show( true );
+    // Ensure the window is on top.
+    // KiCad Next single-window shell: when docked as a tab, the manager shell
+    // (DockEditorAsTab) shows the frame after reparenting it inside the tab.  Showing
+    // it here would flash a floating top-level Footprint Editor during construction
+    // before it snaps into the tab, so skip the self-show when the flag is on; the
+    // dock path (or the floating fallback) shows it.
+    if( !ADVANCED_CFG::GetCfg().m_SingleWindowShell )
+    {
+        Raise();
+        Show( true );
+    }
 
     // Register a call to update the toolbar sizes. It can't be done immediately because
     // it seems to require some sizes calculated that aren't yet (at least on GTK).

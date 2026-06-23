@@ -90,6 +90,15 @@ public:
     int RepairBoard( const TOOL_EVENT& aEvent );
 
     int UpdatePCBFromSchematic( const TOOL_EVENT& aEvent );
+
+    /**
+     * Envil: apply the schematic netlist to the board WITHOUT the modal
+     * Update-PCB dialog (Cursor-style automatic F8). Invoked from the AI IPC
+     * path via an "auto" MAIL_PCB_UPDATE payload. Uses the same default options
+     * as the dialog (update footprints + fields, match by UUID, keep extras).
+     */
+    int UpdatePCBFromSchematicSilent();
+
     int UpdateSchematicFromPCB( const TOOL_EVENT& aEvent );
     int ShowEeschema( const TOOL_EVENT& aEvent );
     int ToggleLayersManager( const TOOL_EVENT& aEvent );

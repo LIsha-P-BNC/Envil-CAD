@@ -24,7 +24,10 @@
 
 #include <wx/log.h>
 #include <wx/dir.h>
+#include <wx/ffile.h>
+#include <wx/tokenzr.h>
 
+#include <advanced_config.h>
 #include <base_units.h>
 #include <build_version.h>
 #include <common.h>
@@ -115,6 +118,24 @@ void SCH_IO_KICAD_SEXPR_LIB_CACHE::Load()
         // Clear source file tracking for fresh load
         m_symbolSourceFiles.clear();
 
+        // Envil aggregate-cache fast path (opt-in; folder libraries only).  Reading one
+        // consolidated file instead of opening + parsing every per-symbol file is what removes
+        // the GUI-thread "Not Responding" freeze on load (and the per-open antivirus scan that
+        // amplifies it).  Falls through to the per-file scan below whenever the cache is
+        // missing or its fingerprint no longer matches the folder.
+        long long aggDirTimestamp = 0;
+
+        if( ADVANCED_CFG::GetCfg().m_SymDirAggregateCache )
+        {
+            aggDirTimestamp = GetLibModificationTime();
+
+            if( loadFromAggregateCache( aggDirTimestamp ) )
+            {
+                m_fileModTime = aggDirTimestamp;
+                return;
+            }
+        }
+
         wxFileName tmp( m_libFileName.GetPath(), wxS( "dummy" ), wxString( FILEEXT::KiCadSymbolLibFileExtension ) );
         wxDir dir( m_libFileName.GetPath() );
         wxString fileSpec = wxS( "*." ) + wxString( FILEEXT::KiCadSymbolLibFileExtension );
@@ -198,11 +219,238 @@ void SCH_IO_KICAD_SEXPR_LIB_CACHE::Load()
 
         updateParentSymbolLinks();
         IncrementModifyHash();
+
+        // Refresh the consolidated cache for next time (best-effort; never fatal).  Skipped
+        // when the load hit parse errors so the errors keep surfacing instead of being cached.
+        if( ADVANCED_CFG::GetCfg().m_SymDirAggregateCache && !HasParseError() )
+            writeAggregateCache( aggDirTimestamp );
     }
 
     // Remember the file modification time of library file when the cache snapshot was made,
     // so that in a networked environment we will reload the cache as needed.
     m_fileModTime = GetLibModificationTime();
+}
+
+
+bool SCH_IO_KICAD_SEXPR_LIB_CACHE::getAggregateCachePaths( wxString& aAggregateSym,
+                                                           wxString& aManifest,
+                                                           wxString& aCacheDir ) const
+{
+    wxFileName fn = GetRealFile();
+
+    // GetRealFile() already normalises a folder to IsDir(), but be defensive.
+    if( !fn.IsDir() && wxFileName::DirExists( fn.GetFullPath() ) )
+        fn.AssignDir( fn.GetFullPath() );
+
+    if( !fn.IsDir() || fn.GetDirCount() == 0 )
+        return false;   // single-file libraries are unaffected by this accelerator
+
+    // Key the cache on the folder name itself, e.g. "Device.kicad_symdir".
+    const wxString libKey = fn.GetDirs().Last();
+
+    // The shared cache folder lives beside the libraries, under the parent (e.g. the Envil
+    // library root).  Keeping it OUTSIDE the *.kicad_symdir folders means it never shows up in
+    // the per-file scan and never perturbs the directory fingerprint used to validate it.
+    wxFileName parent = fn;
+    parent.RemoveLastDir();
+
+    aCacheDir = parent.GetPathWithSep() + wxT( ".envil_symcache" );
+
+    const wxString base = aCacheDir + wxFileName::GetPathSeparator() + libKey;
+    aAggregateSym = base + wxT( ".kicad_sym" );
+    aManifest     = base + wxT( ".manifest" );
+    return true;
+}
+
+
+bool SCH_IO_KICAD_SEXPR_LIB_CACHE::loadFromAggregateCache( long long aDirTimestamp )
+{
+    wxString aggSym, manifest, cacheDir;
+
+    if( !getAggregateCachePaths( aggSym, manifest, cacheDir ) )
+        return false;
+
+    if( !wxFileName::FileExists( aggSym ) || !wxFileName::FileExists( manifest ) )
+        return false;
+
+    // --- read + validate the manifest (fingerprint + per-symbol source-file map) ----------
+    wxString manifestText;
+
+    {
+        wxFFile mf( manifest, wxT( "rb" ) );
+
+        if( !mf.IsOpened() || !mf.ReadAll( &manifestText, wxConvUTF8 ) )
+            return false;
+    }
+
+    long long                    storedTs = 0;
+    bool                         tsFound  = false;
+    bool                         headerOk = false;
+    std::map<wxString, wxString> baseNames;   // symbol name -> source file basename
+
+    wxStringTokenizer lines( manifestText, wxT( "\n" ) );
+
+    while( lines.HasMoreTokens() )
+    {
+        wxString line = lines.GetNextToken();
+
+        if( line.StartsWith( wxT( "ENVIL_SYMCACHE" ) ) )
+        {
+            headerOk = true;
+        }
+        else if( line.StartsWith( wxT( "TS\t" ) ) )
+        {
+            wxLongLong_t parsed = 0;
+
+            if( line.Mid( 3 ).ToLongLong( &parsed ) )
+            {
+                storedTs = parsed;
+                tsFound  = true;
+            }
+        }
+        else if( line.StartsWith( wxT( "S\t" ) ) )
+        {
+            // "S\t<symbolName>\t<sourceFileBaseName>" — split on the LAST tab so any tab in the
+            // (escaped) symbol name is tolerated; a basename never contains a tab.
+            const wxString body = line.Mid( 2 );
+            const int      sep  = body.Find( wxT( '\t' ), /* fromEnd */ true );
+
+            if( sep != wxNOT_FOUND )
+                baseNames[ body.Left( sep ) ] = body.Mid( sep + 1 );
+        }
+    }
+
+    // Stale or unrecognised cache → let the caller fall back to the folder scan + rebuild.
+    if( !headerOk || !tsFound || storedTs != aDirTimestamp )
+        return false;
+
+    // --- parse the consolidated symbol file into a scratch map, commit only on success -----
+    LIB_SYMBOL_MAP localSymbols;
+    bool           cacheOk = false;
+
+    try
+    {
+        FILE_LINE_READER          reader( aggSym );
+        SCH_IO_KICAD_SEXPR_PARSER parser( &reader );
+
+        parser.ParseLib( localSymbols );
+        SetFileFormatVersionAtLoad( parser.GetParsedRequiredVersion() );
+
+        // A warning means the cache file is unreliable; discard and rebuild from the folder.
+        cacheOk = parser.GetParseWarnings().empty();
+    }
+    catch( const IO_ERROR& )
+    {
+        cacheOk = false;
+    }
+
+    if( !cacheOk )
+    {
+        for( auto& [ name, symbol ] : localSymbols )
+            delete symbol;
+
+        return false;
+    }
+
+    // Success — take ownership of the parsed symbols (m_symbols is empty on a fresh cache).
+    m_symbols = std::move( localSymbols );
+
+    // Restore per-symbol source-file tracking so a later Save() writes back to the original
+    // individual files (byte-identical folder layout), not to one aggregate file.
+    const wxString symDirSep = GetRealFile().GetPathWithSep();
+
+    for( const auto& [ name, baseName ] : baseNames )
+        m_symbolSourceFiles[ name ] = symDirSep + baseName;
+
+    updateParentSymbolLinks();
+    IncrementModifyHash();
+    return true;
+}
+
+
+void SCH_IO_KICAD_SEXPR_LIB_CACHE::writeAggregateCache( long long aDirTimestamp )
+{
+    wxString aggSym, manifest, cacheDir;
+
+    if( !getAggregateCachePaths( aggSym, manifest, cacheDir ) )
+        return;
+
+    try
+    {
+        if( !wxFileName::DirExists( cacheDir )
+            && !wxFileName::Mkdir( cacheDir, wxS_DIR_DEFAULT, wxPATH_MKDIR_FULL ) )
+        {
+            return;   // e.g. read-only library tree — silently skip caching
+        }
+
+        // Order symbols by inheritance depth (parents before derived), exactly like the normal
+        // single-file save, so the consolidated file re-parses with valid parent links.
+        std::vector<LIB_SYMBOL*> ordered;
+
+        for( const auto& [ name, symbol ] : m_symbols )
+        {
+            if( symbol )
+                ordered.push_back( symbol );
+        }
+
+        std::sort( ordered.begin(), ordered.end(),
+                   []( const LIB_SYMBOL* aLhs, const LIB_SYMBOL* aRhs )
+                   {
+                       unsigned int lhDepth = aLhs->GetInheritanceDepth();
+                       unsigned int rhDepth = aRhs->GetInheritanceDepth();
+
+                       if( lhDepth == rhDepth )
+                           return aLhs->GetName() < aRhs->GetName();
+
+                       return lhDepth < rhDepth;
+                   } );
+
+        // Write the consolidated symbol file first; flush + close before the manifest exists.
+        {
+            auto formatter = std::make_unique<PRETTIFIED_FILE_OUTPUTFORMATTER>( aggSym );
+
+            formatLibraryHeader( *formatter.get() );
+
+            for( LIB_SYMBOL* symbol : ordered )
+                SaveSymbol( symbol, *formatter.get() );
+
+            formatter->Print( ")" );
+            formatter.reset();
+        }
+
+        // Write the manifest LAST: the fingerprint only becomes visible once the symbol file is
+        // complete, so a crash mid-write can never validate a half-written cache.
+        wxString out;
+        out << wxT( "ENVIL_SYMCACHE\t1\n" );
+        out << wxT( "TS\t" ) << wxString::Format( wxT( "%lld" ), aDirTimestamp ) << wxT( "\n" );
+        out << wxT( "N\t" ) << static_cast<int>( m_symbols.size() ) << wxT( "\n" );
+
+        for( const auto& [ name, symbol ] : m_symbols )
+        {
+            wxString   baseName;
+            const auto it = m_symbolSourceFiles.find( name );
+
+            if( it != m_symbolSourceFiles.end() )
+                baseName = wxFileName( it->second ).GetFullName();
+            else
+                baseName = EscapeString( name, CTX_FILENAME ) + wxT( "." )
+                           + wxString( FILEEXT::KiCadSymbolLibFileExtension );
+
+            out << wxT( "S\t" ) << name << wxT( "\t" ) << baseName << wxT( "\n" );
+        }
+
+        wxFFile mf( manifest, wxT( "wb" ) );
+
+        if( mf.IsOpened() )
+        {
+            mf.Write( out, wxConvUTF8 );
+            mf.Close();
+        }
+    }
+    catch( ... )
+    {
+        // Best-effort accelerator: a cache write must never break library loading.
+    }
 }
 
 

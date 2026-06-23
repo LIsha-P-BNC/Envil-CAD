@@ -46,12 +46,36 @@ public:
     void DrawButton( wxDC& aDc, wxWindow* aWindow, const wxAuiToolBarItem& aItem,
                      const wxRect& aRect ) override;
 
+    void DrawBackground( wxDC& aDc, wxWindow* aWindow, const wxRect& aRect ) override;
+
+    void DrawPlainBackground( wxDC& aDc, wxWindow* aWindow, const wxRect& aRect ) override;
+
     void UpdateColoursFromSystem() override;
 
     int ShowDropDown( wxWindow* wnd, const wxAuiToolBarItemArray& items ) override;
 
+    /**
+     * Envil "Vibrant Purple" frame theme: paint this tool-bar's background solid @p aBg and use
+     * @p aHighlight for the hover/pressed/checked feedback.  Enabled per art-provider instance
+     * (so only the schematic editor's tool-bars are recoloured), and re-pinned in
+     * UpdateColoursFromSystem() so a Windows theme/colour-change event can't reset it back to the
+     * system grey.  Used only when the EnvilPurpleFrame advanced-config flag is set.
+     */
+    void EnableEnvilTheme( const wxColour& aBg, const wxColour& aHighlight )
+    {
+        m_envilTheme = true;
+        m_envilBg = aBg;
+        m_envilHighlight = aHighlight;
+        m_baseColour = aBg;
+        m_highlightColour = aHighlight;
+    }
+
 private:
     void saturateHighlightColor();
+
+    bool     m_envilTheme = false;
+    wxColour m_envilBg;
+    wxColour m_envilHighlight;
 };
 
 

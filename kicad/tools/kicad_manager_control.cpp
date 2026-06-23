@@ -19,6 +19,7 @@
  */
 
 #include <wildcards_and_files_ext.h>
+#include <advanced_config.h>
 #include <env_vars.h>
 #include <executable_names.h>
 #include <pgm_base.h>
@@ -790,6 +791,8 @@ int KICAD_MANAGER_CONTROL::ShowPlayer( const TOOL_EVENT& aEvent )
         return -1;
     }
 
+    bool docked = false;
+
     if( !player->IsVisible() )   // A hidden frame might not have the document loaded.
     {
         wxString filepath;
@@ -827,19 +830,35 @@ int KICAD_MANAGER_CONTROL::ShowPlayer( const TOOL_EVENT& aEvent )
         }
 
         wxBusyCursor busy;
-        player->Show( true );
+
+        // KiCad Next single-window shell (Layer B): dock as a tab in the manager
+        // shell instead of floating as its own window.  Falls back to floating when
+        // docking is unavailable (non-Windows, or flag off).
+        if( ADVANCED_CFG::GetCfg().m_SingleWindowShell )
+            docked = m_frame->DockEditorAsTab( player, player->GetTitle() );
+
+        if( !docked )
+            player->Show( true );
+    }
+    else if( ADVANCED_CFG::GetCfg().m_SingleWindowShell )
+    {
+        // Already created (e.g. opened earlier) — just (re-)select its tab.
+        docked = m_frame->DockEditorAsTab( player, player->GetTitle() );
     }
 
-    // Needed on Windows, other platforms do not use it, but it creates no issue
-    if( player->IsIconized() )
-        player->Iconize( false );
+    if( !docked )
+    {
+        // Needed on Windows, other platforms do not use it, but it creates no issue
+        if( player->IsIconized() )
+            player->Iconize( false );
 
-    player->Raise();
+        player->Raise();
 
-    // Raising the window does not set the focus on Linux.  This should work on
-    // any platform.
-    if( wxWindow::FindFocus() != player )
-        player->SetFocus();
+        // Raising the window does not set the focus on Linux.  This should work on
+        // any platform.
+        if( wxWindow::FindFocus() != player )
+            player->SetFocus();
+    }
 
     // Save window state to disk now.  Don't wait around for a crash.
     if( Pgm().GetCommonSettings()->m_Session.remember_open_files
@@ -862,6 +881,81 @@ int KICAD_MANAGER_CONTROL::ShowPlayer( const TOOL_EVENT& aEvent )
 
 int KICAD_MANAGER_CONTROL::Execute( const TOOL_EVENT& aEvent )
 {
+    // KiCad Next single-window shell (Layer A): when enabled, open the auxiliary
+    // tools as in-process KIWAY players instead of spawning a separate .exe, so
+    // they share the one process / KIWAY (and become hostable as tabs by Layer B).
+    // Additive and reversible: when the flag is off the legacy separate-process
+    // launch below runs unchanged.
+    if( ADVANCED_CFG::GetCfg().m_SingleWindowShell )
+    {
+        FRAME_T inProcFrame = FRAME_T( -1 );
+
+        if( aEvent.IsAction( &KICAD_MANAGER_ACTIONS::viewGerbers ) )
+            inProcFrame = FRAME_GERBER;
+        else if( aEvent.IsAction( &KICAD_MANAGER_ACTIONS::convertImage ) )
+            inProcFrame = FRAME_BM2CMP;
+        else if( aEvent.IsAction( &KICAD_MANAGER_ACTIONS::showCalculator ) )
+            inProcFrame = FRAME_CALC;
+        else if( aEvent.IsAction( &KICAD_MANAGER_ACTIONS::editDrawingSheet ) )
+            inProcFrame = FRAME_PL_EDITOR;
+        // Note: openTextEditor / editOtherSch / editOtherPCB intentionally stay
+        // external (true external editor, or a *different* project) and fall
+        // through to the legacy launch below.
+
+        if( inProcFrame != FRAME_T( -1 ) )
+        {
+            if( m_inShowPlayer )
+                return -1;
+
+            REENTRANCY_GUARD guard( &m_inShowPlayer );
+
+            KIWAY_PLAYER* player = nullptr;
+
+            try
+            {
+                player = m_frame->Kiway().Player( inProcFrame, true );
+            }
+            catch( const IO_ERROR& )
+            {
+                // No in-process KIFACE for this tool — leave player null and fall
+                // through to the legacy separate-process launch below.
+                player = nullptr;
+            }
+
+            if( player )
+            {
+                // Layer B: re-host the tool as a tab in the manager shell.  If docking
+                // is unavailable (non-Windows, or flag off mid-flight) fall back to a
+                // floating window so the tool still opens.
+                if( m_frame->DockEditorAsTab( player, player->GetTitle() ) )
+                    return 0;
+
+                if( !player->IsVisible() )
+                {
+                    wxBusyCursor busy;
+                    player->Show( true );
+                }
+
+                // Needed on Windows; harmless elsewhere.
+                if( player->IsIconized() )
+                    player->Iconize( false );
+
+                player->Raise();
+
+                if( wxWindow::FindFocus() != player )
+                    player->SetFocus();
+
+                return 0;
+            }
+
+            // No in-process module for this tool (e.g. the Image Converter /
+            // bitmap2component is built only as a standalone .exe, so it has no
+            // KIFACE to load in-process and cannot be docked as a tab).  Instead of
+            // failing with "Application cannot start", drop out of the single-window
+            // block and use the legacy separate-process launch below.
+        }
+    }
+
     wxString execFile;
     wxString param;
 

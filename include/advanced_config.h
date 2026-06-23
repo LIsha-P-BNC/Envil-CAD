@@ -553,6 +553,45 @@ public:
     bool m_EnableGenerators;
 
     /**
+     * KiCad Next: build every frame's menu bar from the shared common-root builder
+     * (EDA_BASE_FRAME::buildCommonMenuBar) instead of the legacy per-frame menu code.
+     * Additive/reversible: when 0, each frame's original doReCreateMenuBar() runs unchanged.
+     *
+     * Setting name: "UnifiedMenuBar"
+     * Valid values: 0 or 1
+     * Default value: 0
+     */
+    bool m_UnifiedMenuBar;
+
+    /**
+     * KiCad Next: open the auxiliary tools (Gerber Viewer, Image Converter, PCB
+     * Calculator, Drawing Sheet Editor) as in-process KIWAY players instead of
+     * spawning a separate executable, so they live in one process (one KIWAY /
+     * one AI brain) and can be re-hosted as tabs in the project-manager shell.
+     * Additive/reversible: when 0, the legacy separate-process launch runs
+     * unchanged. This is Layer A of the single-window shell; the tab host
+     * (Layer B) keys off the same flag.
+     *
+     * Setting name: "SingleWindowShell"
+     * Valid values: 0 or 1
+     * Default value: 0
+     */
+    bool m_SingleWindowShell;
+
+    /**
+     * KiCad Next: host a single AI chat panel in the project-manager shell (Cursor
+     * style) instead of one panel per editor frame. When set together with
+     * SingleWindowShell, the per-editor AI panels are suppressed and the shell owns
+     * the only panel, retargeting it to whichever editor tab is active.
+     * Additive/reversible: when 0, every editor keeps its own AI panel unchanged.
+     *
+     * Setting name: "CommonAiPanel"
+     * Valid values: 0 or 1
+     * Default value: 0
+     */
+    bool m_CommonAiPanel;
+
+    /**
      * Enable option to load lib files with text editor.
      *
      * Setting name: "EnableLibWithText"
@@ -1000,6 +1039,114 @@ public:
     wxString m_RouterTestCaseDirectory;
 
     wxString m_traceMasks; ///< Trace masks for wxLogTrace, loaded from the config file.
+
+    /**
+     * KiCad Next single-window shell: after the project-manager window is up, warm the
+     * heavy editor KIFACEs (Symbol / Footprint / Gerber / Drawing-Sheet) in the
+     * background, one at a time on the GUI thread, so the user's first click on one is
+     * instant instead of "loading the whole app".  Only has any effect when
+     * SingleWindowShell is also set; additive/reversible.
+     *
+     * OPT-IN (default 0): warming the Symbol/Footprint editors enumerates the full library
+     * set synchronously on the GUI thread, which freezes the window during startup instead
+     * of truly running in the background — so this is disabled until a non-blocking warm is
+     * implemented.  Set to 1 only to experiment.
+     *
+     * Declared LAST in the struct on purpose: appending (instead of inserting mid-struct)
+     * keeps every existing member's offset stable, so editor KIFACEs that read ADVANCED_CFG
+     * need not be rebuilt for this addition — only kicommon and the kicad app do.
+     *
+     * Setting name: "ShellPrewarmEditors"
+     * Valid values: 0 or 1
+     * Default value: 0
+     */
+    bool m_ShellPrewarmEditors;
+
+    /**
+     * KiCad Next: open a project-tree file (schematic, PCB, ...) on a single mouse click
+     * instead of requiring a double-click — VS Code / Cursor style.  Double-click keeps
+     * working unchanged (it goes through the existing activate path); this only adds the
+     * single-click open, so it is additive/reversible.  Directories and the +/- expand
+     * button are left to the default handler.
+     *
+     * Declared LAST in the struct (after ShellPrewarmEditors) on purpose: see the ABI note
+     * above — appending keeps every existing member's offset stable, so editor KIFACEs that
+     * read ADVANCED_CFG need not be rebuilt for this addition.
+     *
+     * Setting name: "SingleClickOpen"
+     * Valid values: 0 or 1
+     * Default value: 1
+     */
+    bool m_SingleClickOpen;
+
+    /**
+     * KiCad Next / Envil: folder-based symbol libraries (`*.kicad_symdir`, one `*.kicad_sym`
+     * file per symbol) are loaded by opening and parsing every file in the directory on the
+     * GUI thread.  With the Envil library set (~223 libs / ~22,800 files) that synchronous
+     * enumeration freezes the window ("Not Responding") on the first Symbol Chooser / editor
+     * load — and a real-time antivirus scanning each opened file amplifies it badly.
+     *
+     * When enabled, a per-library consolidated cache (one `*.kicad_sym` aggregate + a small
+     * manifest, kept in a sibling `.envil_symcache/` folder) is read on load instead of the
+     * thousands of individual files, collapsing N file-opens to 1.  The cache is keyed on the
+     * directory's content fingerprint (the same TimestampDir value the staleness check already
+     * uses), so any add/remove/edit — including edits made out-of-process by the Envil Python
+     * backend — invalidates it and triggers a one-time rebuild.  Purely a read accelerator:
+     * symbol writes still go to the individual per-symbol files, and the manifest preserves the
+     * original file grouping so saving is byte-identical.
+     *
+     * Declared LAST in the struct (after SingleClickOpen) on purpose: see the ABI note above —
+     * appending keeps every existing member's offset stable, so editor KIFACEs that read
+     * ADVANCED_CFG need not be rebuilt for this addition (only kicommon + eeschema, which reads
+     * the flag in the symbol cache loader).
+     *
+     * OPT-IN (default 0) so behaviour is byte-identical until explicitly enabled.
+     *
+     * Setting name: "SymDirAggregateCache"
+     * Valid values: 0 or 1
+     * Default value: 0
+     */
+    bool m_SymDirAggregateCache;
+
+    /**
+     * KiCad Next / Envil: paint the schematic editor's window chrome (the "frame": dockable
+     * panel backgrounds, sashes/borders/captions, the AUI tool-bars and child controls) with
+     * the Envil "Vibrant Purple & Indigo" dark palette, instead of the OS/native colours.
+     * Scoped to the schematic editor only — the project manager and the other editors are left
+     * untouched.  The drawing canvas (the "screen") is intentionally NOT recoloured here; that
+     * is driven by the colour theme and handled separately.
+     *
+     * Declared LAST in the struct (after SymDirAggregateCache) on purpose: see the ABI note
+     * above — appending keeps every existing member's offset stable, so editor KIFACEs that read
+     * ADVANCED_CFG need not be rebuilt for this addition (only kicommon + eeschema, which reads
+     * the flag when building the schematic frame).
+     *
+     * OPT-IN (default 0) so the chrome is byte-identical to stock KiCad until explicitly enabled.
+     *
+     * Setting name: "EnvilPurpleFrame"
+     * Valid values: 0 or 1
+     * Default value: 0
+     */
+    bool m_EnvilPurpleFrame;
+
+    /**
+     * KiCad Next / Envil: base point size for the application UI font (menus' dropdowns, side
+     * panels, project tree, status bars, dialogs — every wx control that derives its font from
+     * the window font).  Applied once on each EDA_BASE_FRAME and DIALOG_SHIM at construction;
+     * the KIUI font helpers (GetControlFont / GetInfoFont / ...) then derive from it, so the
+     * whole UI follows.  The drawing canvas (schematic / PCB content) uses the GAL font stack,
+     * not wxFont, and is intentionally untouched.  The single-window shell's top title-bar menu
+     * sets its own absolute size and so is deliberately NOT governed by this value.
+     *
+     * Declared LAST in the struct (after EnvilPurpleFrame) on purpose: see the ABI note above —
+     * appending keeps every existing member's offset stable, so the editor KIFACEs need not be
+     * rebuilt for this addition (only kicommon, which owns EDA_BASE_FRAME / DIALOG_SHIM).
+     *
+     * Setting name: "EnvilUiFontPt"
+     * Valid values: a point size, e.g. 10.0.  0 (or less) disables the override (native sizes).
+     * Default value: 10.0
+     */
+    double m_EnvilUiFontPt;
     ///@}
 
 private:

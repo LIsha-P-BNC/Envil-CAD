@@ -24,6 +24,7 @@
 #include <wx/dc.h>
 #include <wx/settings.h>
 
+#include <advanced_config.h>
 #include <kiplatform/ui.h>
 #include <pgm_base.h>
 #include <settings/common_settings.h>
@@ -132,24 +133,36 @@ void WX_AUI_TOOLBAR_ART::DrawButton( wxDC& aDc, wxWindow* aWindow, const wxAuiTo
 
     bool isThemeDark = KIPLATFORM::UI::IsDarkTheme();
 
+    // Envil "Vibrant Purple" chrome: the tool-bars are a deep navy and the upstream feedback model
+    // *darkens* the highlight colour (factors 20/40/50).  On our dark bar that collapses the
+    // hover / pressed / checked background to near-black.  When the purple frame theme is on, lighten
+    // toward the accent instead so the feedback reads as a clearly-visible purple that matches the
+    // rest of the chrome.  This art provider is installed for every ACTION_TOOLBAR (see
+    // action_toolbar.cpp), so the fix applies to every editor.  Theme off -> byte-identical upstream.
+    const bool envilPurple = ADVANCED_CFG::GetCfg().m_EnvilPurpleFrame && isThemeDark;
+
+    const int pressedLightness      = envilPurple ? 100 : ( isThemeDark ? 20 : 150 );
+    const int hoverLightness        = envilPurple ?  75 : ( isThemeDark ? 40 : 170 );
+    const int checkedLightness      = envilPurple ?  70 : ( isThemeDark ? 40 : 170 );
+    const int checkedHoverLightness = envilPurple ?  90 : ( isThemeDark ? 50 : 180 );
+
     if( !( aItem.GetState() & wxAUI_BUTTON_STATE_DISABLED ) )
     {
         if( aItem.GetState() & wxAUI_BUTTON_STATE_PRESSED )
         {
             aDc.SetPen( wxPen( m_highlightColour ) );
-            aDc.SetBrush( wxBrush( m_highlightColour.ChangeLightness( isThemeDark ? 20 : 150 ) ) );
+            aDc.SetBrush( wxBrush( m_highlightColour.ChangeLightness( pressedLightness ) ) );
             aDc.DrawRectangle( aRect );
         }
         else if( ( aItem.GetState() & wxAUI_BUTTON_STATE_HOVER ) || aItem.IsSticky() )
         {
             aDc.SetPen( wxPen( m_highlightColour ) );
-            aDc.SetBrush( wxBrush( m_highlightColour.ChangeLightness( isThemeDark ? 40 : 170 ) ) );
+            aDc.SetBrush( wxBrush( m_highlightColour.ChangeLightness( hoverLightness ) ) );
 
             // draw an even lighter background for checked item hovers (since
             // the hover background is the same color as the check background)
             if( aItem.GetState() & wxAUI_BUTTON_STATE_CHECKED )
-                aDc.SetBrush(
-                        wxBrush( m_highlightColour.ChangeLightness( isThemeDark ? 50 : 180 ) ) );
+                aDc.SetBrush( wxBrush( m_highlightColour.ChangeLightness( checkedHoverLightness ) ) );
 
             aDc.DrawRectangle( aRect );
         }
@@ -158,7 +171,7 @@ void WX_AUI_TOOLBAR_ART::DrawButton( wxDC& aDc, wxWindow* aWindow, const wxAuiTo
             // it's important to put this code in an else statement after the
             // hover, otherwise hovers won't draw properly for checked items
             aDc.SetPen( wxPen( m_highlightColour ) );
-            aDc.SetBrush( wxBrush( m_highlightColour.ChangeLightness( isThemeDark ? 40 : 170 ) ) );
+            aDc.SetBrush( wxBrush( m_highlightColour.ChangeLightness( checkedLightness ) ) );
             aDc.DrawRectangle( aRect );
         }
     }
@@ -191,10 +204,47 @@ void WX_AUI_TOOLBAR_ART::saturateHighlightColor()
 }
 
 
+void WX_AUI_TOOLBAR_ART::DrawBackground( wxDC& aDc, wxWindow* aWindow, const wxRect& aRect )
+{
+    if( m_envilTheme )
+    {
+        aDc.SetPen( wxPen( m_envilBg ) );
+        aDc.SetBrush( wxBrush( m_envilBg ) );
+        aDc.DrawRectangle( aRect );
+        return;
+    }
+
+    wxAuiDefaultToolBarArt::DrawBackground( aDc, aWindow, aRect );
+}
+
+
+void WX_AUI_TOOLBAR_ART::DrawPlainBackground( wxDC& aDc, wxWindow* aWindow, const wxRect& aRect )
+{
+    // KiCad tool-bars use wxAUI_TB_PLAIN_BACKGROUND, so this (not DrawBackground) paints the bar.
+    if( m_envilTheme )
+    {
+        aDc.SetPen( wxPen( m_envilBg ) );
+        aDc.SetBrush( wxBrush( m_envilBg ) );
+        aDc.DrawRectangle( aRect );
+        return;
+    }
+
+    wxAuiDefaultToolBarArt::DrawPlainBackground( aDc, aWindow, aRect );
+}
+
+
 void WX_AUI_TOOLBAR_ART::UpdateColoursFromSystem()
 {
     wxAuiDefaultToolBarArt::UpdateColoursFromSystem();
     saturateHighlightColor();
+
+    // A Windows theme/colour-change event drove the base call above, which reset the colours to
+    // the system palette.  Re-pin the Envil colours so the purple bar survives the event.
+    if( m_envilTheme )
+    {
+        m_baseColour = m_envilBg;
+        m_highlightColour = m_envilHighlight;
+    }
 }
 
 

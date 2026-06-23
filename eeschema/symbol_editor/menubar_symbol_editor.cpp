@@ -31,10 +31,18 @@
 #include <symbol_library_manager.h>
 #include "symbol_edit_frame.h"
 #include <widgets/wx_menubar.h>
+#include <advanced_config.h>
 
 
 void SYMBOL_EDIT_FRAME::doReCreateMenuBar()
 {
+    // KiCad Next: build the shared common menu bar instead of the legacy one when enabled.
+    if( ADVANCED_CFG::GetCfg().m_UnifiedMenuBar )
+    {
+        buildCommonMenuBar();
+        return;
+    }
+
     SCH_SELECTION_TOOL* selTool = m_toolManager->GetTool<SCH_SELECTION_TOOL>();
     // wxWidgets handles the Mac Application menu behind the scenes, but that means
     // we always have to start from scratch with a new wxMenuBar.
@@ -191,4 +199,153 @@ void SYMBOL_EDIT_FRAME::doReCreateMenuBar()
 
     SetMenuBar( menuBar );
     delete oldMenuBar;
+}
+
+
+//================================ KiCad Next unified menu bar ================================
+// The following hooks reproduce the menus built above, but populate a menu supplied by the
+// shared EDA_BASE_FRAME::buildCommonMenuBar() orchestrator.  They are used only when the
+// m_UnifiedMenuBar advanced flag is set; otherwise the legacy doReCreateMenuBar() above runs.
+
+TOOL_INTERACTIVE* SYMBOL_EDIT_FRAME::getCurrentMenuTool()
+{
+    return m_toolManager->GetTool<SCH_SELECTION_TOOL>();
+}
+
+
+void SYMBOL_EDIT_FRAME::buildFileMenu( ACTION_MENU* fileMenu )
+{
+    SCH_SELECTION_TOOL* selTool = m_toolManager->GetTool<SCH_SELECTION_TOOL>();
+
+    fileMenu->Add( ACTIONS::newLibrary );
+    fileMenu->Add( ACTIONS::addLibrary );
+    fileMenu->Add( SCH_ACTIONS::saveLibraryAs );
+    fileMenu->Add( SCH_ACTIONS::newSymbol );
+    fileMenu->Add( SCH_ACTIONS::editLibSymbolWithLibEdit );
+
+    fileMenu->AppendSeparator();
+    fileMenu->Add( ACTIONS::save );
+    fileMenu->Add( SCH_ACTIONS::saveSymbolAs );
+    fileMenu->Add( SCH_ACTIONS::saveSymbolCopyAs );
+
+    if( !IsSymbolFromSchematic() )
+        fileMenu->Add( ACTIONS::saveAll );
+
+    fileMenu->Add( ACTIONS::revert );
+
+    fileMenu->AppendSeparator();
+
+    ACTION_MENU* submenuImport = new ACTION_MENU( false, selTool );
+    submenuImport->SetTitle( _( "Import" ) );
+    submenuImport->SetIcon( BITMAPS::import );
+
+    submenuImport->Add( SCH_ACTIONS::importSymbol,   ACTION_MENU::NORMAL, _( "Symbol..." ) );
+    submenuImport->Add( SCH_ACTIONS::importGraphics, ACTION_MENU::NORMAL, _( "Graphics..." ) );
+
+    fileMenu->Add( submenuImport );
+
+    // Export submenu
+    ACTION_MENU* submenuExport = new ACTION_MENU( false, selTool );
+    submenuExport->SetTitle( _( "Export" ) );
+    submenuExport->SetIcon( BITMAPS::export_file );
+    submenuExport->Add( SCH_ACTIONS::exportSymbol,      ACTION_MENU::NORMAL, _( "Symbol..." ) );
+    submenuExport->Add( SCH_ACTIONS::exportSymbolView,  ACTION_MENU::NORMAL, _( "View as PNG..." ) );
+    submenuExport->Add( SCH_ACTIONS::exportSymbolAsSVG, ACTION_MENU::NORMAL, _( "Symbol as SVG..." ) );
+    fileMenu->Add( submenuExport );
+
+    fileMenu->AppendSeparator();
+    fileMenu->Add( SCH_ACTIONS::symbolProperties );
+
+    fileMenu->AppendSeparator();
+    fileMenu->AddClose( _( "Library Editor" ) );
+}
+
+
+void SYMBOL_EDIT_FRAME::buildEditMenu( ACTION_MENU* editMenu )
+{
+    editMenu->Add( ACTIONS::undo );
+    editMenu->Add( ACTIONS::redo );
+
+    editMenu->AppendSeparator();
+    editMenu->Add( ACTIONS::cut );
+    editMenu->Add( ACTIONS::copy );
+    editMenu->Add( ACTIONS::copyAsText );
+    editMenu->Add( ACTIONS::paste );
+    editMenu->Add( ACTIONS::doDelete );
+    editMenu->Add( ACTIONS::duplicate );
+
+    editMenu->AppendSeparator();
+    editMenu->Add( ACTIONS::selectAll );
+    editMenu->Add( ACTIONS::unselectAll );
+
+    editMenu->AppendSeparator();
+    editMenu->Add( ACTIONS::find );
+    editMenu->Add( ACTIONS::findAndReplace );
+
+    editMenu->AppendSeparator();
+    editMenu->Add( SCH_ACTIONS::pinTable );
+    editMenu->Add( SCH_ACTIONS::updateSymbolFields );
+}
+
+
+void SYMBOL_EDIT_FRAME::buildViewMenu( ACTION_MENU* viewMenu )
+{
+    SCH_SELECTION_TOOL* selTool = m_toolManager->GetTool<SCH_SELECTION_TOOL>();
+
+    ACTION_MENU* showHidePanels = new ACTION_MENU( false, selTool );
+    showHidePanels->SetTitle( _( "Panels" ) );
+    showHidePanels->Add( ACTIONS::showProperties,  ACTION_MENU::CHECK );
+    showHidePanels->Add( ACTIONS::showLibraryTree, ACTION_MENU::CHECK );
+    viewMenu->Add( showHidePanels );
+    viewMenu->AppendSeparator();
+
+    viewMenu->Add( ACTIONS::showSymbolBrowser );
+
+    viewMenu->AppendSeparator();
+    viewMenu->Add( ACTIONS::zoomInCenter );
+    viewMenu->Add( ACTIONS::zoomOutCenter );
+    viewMenu->Add( ACTIONS::zoomFitScreen );
+    viewMenu->Add( ACTIONS::zoomTool );
+    viewMenu->Add( ACTIONS::zoomRedraw );
+
+    viewMenu->AppendSeparator();
+    viewMenu->Add( SCH_ACTIONS::showHiddenPins,    ACTION_MENU::CHECK );
+    viewMenu->Add( SCH_ACTIONS::showHiddenFields,  ACTION_MENU::CHECK );
+    viewMenu->Add( SCH_ACTIONS::togglePinAltIcons, ACTION_MENU::CHECK );
+}
+
+
+void SYMBOL_EDIT_FRAME::buildPlaceMenu( ACTION_MENU* placeMenu )
+{
+    placeMenu->Add( SCH_ACTIONS::placeSymbolPin );
+    placeMenu->Add( SCH_ACTIONS::placeSymbolText );
+    placeMenu->Add( SCH_ACTIONS::drawSymbolTextBox );
+    placeMenu->Add( SCH_ACTIONS::drawRectangle );
+    placeMenu->Add( SCH_ACTIONS::drawCircle );
+    placeMenu->Add( SCH_ACTIONS::drawArc );
+    placeMenu->Add( SCH_ACTIONS::drawBezier );
+    placeMenu->Add( SCH_ACTIONS::drawSymbolLines );
+    placeMenu->Add( SCH_ACTIONS::drawSymbolPolygon );
+}
+
+
+void SYMBOL_EDIT_FRAME::buildInspectMenu( ACTION_MENU* inspectMenu )
+{
+    inspectMenu->Add( ACTIONS::showDatasheet );
+
+    inspectMenu->AppendSeparator();
+    inspectMenu->Add( SCH_ACTIONS::checkSymbol );
+}
+
+
+void SYMBOL_EDIT_FRAME::buildPreferencesMenu( ACTION_MENU* prefsMenu )
+{
+    SCH_SELECTION_TOOL* selTool = m_toolManager->GetTool<SCH_SELECTION_TOOL>();
+
+    prefsMenu->Add( ACTIONS::configurePaths );
+    prefsMenu->Add( ACTIONS::showSymbolLibTable );
+    prefsMenu->Add( ACTIONS::openPreferences );
+
+    prefsMenu->AppendSeparator();
+    AddMenuLanguageList( prefsMenu, selTool );
 }

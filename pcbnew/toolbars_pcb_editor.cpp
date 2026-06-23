@@ -203,8 +203,14 @@ std::optional<TOOLBAR_CONFIGURATION> PCB_EDIT_TOOLBAR_SETTINGS::DefaultToolbarCo
         // Tools to show/hide toolbars:
         config.AppendSeparator()
               .AppendAction( PCB_ACTIONS::showLayersManager )
-              .AppendAction( ACTIONS::showProperties )
-              .AppendAction( PCB_ACTIONS::showAiChat );
+              .AppendAction( ACTIONS::showProperties );
+
+        // The per-editor AI toggle (the "i" icon) is redundant in the shell's common-AI mode:
+        // the shell owns one shared AI panel with its own title-bar toggle.  Hide it there;
+        // keep it when CommonAiPanel is off, since each editor then owns its own AI panel.
+        if( !( ADVANCED_CFG::GetCfg().m_SingleWindowShell
+               && ADVANCED_CFG::GetCfg().m_CommonAiPanel ) )
+            config.AppendAction( PCB_ACTIONS::showAiChat );
 
         break;
 

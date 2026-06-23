@@ -37,6 +37,7 @@ set( KICAD_SRCS
     import_proj.cpp
     import_project.cpp
     kicad_manager_frame.cpp
+    ${CMAKE_SOURCE_DIR}/common/widgets/ai_ipc_client.cpp
     local_history_pane.cpp
     menubar.cpp
     project_template.cpp
@@ -123,6 +124,15 @@ add_executable( kicad WIN32 MACOSX_BUNDLE
     ${KICAD_EXTRA_SRCS}
     ${KICAD_RESOURCES}
     )
+
+# Skip PCH for ai_ipc_client to avoid nlohmann/json symbol conflicts (mirrors
+# eeschema/pcbnew, which compile the same source into their own targets). The
+# shell links its own copy so KICAD_MANAGER_FRAME can handle the open_project
+# command — there is no shared lib exporting AI_IPC_CLIENT.
+set_source_files_properties(
+    ${CMAKE_SOURCE_DIR}/common/widgets/ai_ipc_client.cpp
+    PROPERTIES SKIP_PRECOMPILE_HEADERS ON
+)
 
 add_executable( kicad-cli WIN32
     kicad_cli.cpp

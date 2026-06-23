@@ -998,12 +998,22 @@ void PGM_BASE::AddLibraryLoadMessages( const std::vector<LOAD_MESSAGE>& aMessage
     if( aMessages.empty() )
         return;
 
-    std::lock_guard<std::mutex> lock( m_libraryLoadStatusBarsMutex );
+    // Snapshot the status bars under the lock, then forward OUTSIDE the lock.
+    // KISTATUSBAR::AddLoadWarningMessages() calls wxWindow::CallAfter() (the wx event system).
+    // This method runs on a thread-pool worker (library preload), while the UI thread takes
+    // m_libraryLoadStatusBarsMutex in Register/UnregisterLibraryLoadStatusBar() when editor
+    // frames open/close.  Holding the mutex across the wx call deadlocks the two threads
+    // (same class of bug as BACKGROUND_JOBS_MONITOR — see background_jobs_monitor.cpp).
+    std::vector<KISTATUSBAR*> statusBars;
 
-    wxLogTrace( traceLibraries, "  -> registered status bars=%zu",
-                m_libraryLoadStatusBars.size() );
+    {
+        std::lock_guard<std::mutex> lock( m_libraryLoadStatusBarsMutex );
+        statusBars = m_libraryLoadStatusBars;
+    }
 
-    for( KISTATUSBAR* statusBar : m_libraryLoadStatusBars )
+    wxLogTrace( traceLibraries, "  -> registered status bars=%zu", statusBars.size() );
+
+    for( KISTATUSBAR* statusBar : statusBars )
     {
         if( statusBar )
         {
@@ -1016,12 +1026,18 @@ void PGM_BASE::AddLibraryLoadMessages( const std::vector<LOAD_MESSAGE>& aMessage
 
 void PGM_BASE::ClearLibraryLoadMessages()
 {
-    std::lock_guard<std::mutex> lock( m_libraryLoadStatusBarsMutex );
+    // Snapshot under the lock, act outside it (see AddLibraryLoadMessages): the KISTATUSBAR
+    // call may enter the wx event system, which must not run while the mutex is held.
+    std::vector<KISTATUSBAR*> statusBars;
 
-    wxLogTrace( traceLibraries, "ClearLibraryLoadMessages: status bars=%zu",
-                m_libraryLoadStatusBars.size() );
+    {
+        std::lock_guard<std::mutex> lock( m_libraryLoadStatusBarsMutex );
+        statusBars = m_libraryLoadStatusBars;
+    }
 
-    for( KISTATUSBAR* statusBar : m_libraryLoadStatusBars )
+    wxLogTrace( traceLibraries, "ClearLibraryLoadMessages: status bars=%zu", statusBars.size() );
+
+    for( KISTATUSBAR* statusBar : statusBars )
     {
         if( statusBar )
             statusBar->ClearLoadWarningMessages();

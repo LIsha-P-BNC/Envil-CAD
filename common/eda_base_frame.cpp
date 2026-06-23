@@ -194,6 +194,18 @@ EDA_BASE_FRAME::EDA_BASE_FRAME( wxWindow* aParent, FRAME_T aFrameType, const wxS
     m_tbLeft   = nullptr;
     m_uiUpdateHandlerBound = false;
 
+    // Envil: apply the app-wide UI base font size (EnvilUiFontPt) up-front, before commonInit()
+    // and the derived frame build their child controls, so the status bar, tool-bars, side panels
+    // and project tree all inherit it.  The KIUI font helpers derive from the window font, so they
+    // follow automatically.  The drawing canvas uses the GAL font stack and is left untouched, and
+    // the single-window shell's top title-bar menu sets its own absolute size (so it is excluded).
+    if( ADVANCED_CFG::GetCfg().m_EnvilUiFontPt > 0.0 )
+    {
+        wxFont uiFont = GetFont();
+        uiFont.SetFractionalPointSize( ADVANCED_CFG::GetCfg().m_EnvilUiFontPt );
+        SetFont( uiFont );
+    }
+
     commonInit( aFrameType );
 
     Bind( wxEVT_DPI_CHANGED,

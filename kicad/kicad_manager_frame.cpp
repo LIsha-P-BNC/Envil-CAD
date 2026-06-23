@@ -53,6 +53,9 @@
 #include <build_version.h>
 #include <kiway.h>
 #include <kiway_mail.h>
+#include <ki_exception.h>           // IO_ERROR (editor pre-warm)
+#include <frame_type.h>             // FRAME_T values warmed by the editor pre-warm
+#include <wx/timer.h>
 #include <launch_ext.h>
 #include <lockfile.h>
 #include <notifications_manager.h>
@@ -78,9 +81,39 @@
 #include <wx/process.h>
 #include <wx/snglinst.h>
 #include <atomic>
+#include <vector>
+#include <functional>
 #include <update_manager.h>
 #include <jobs/jobset.h>
 #include <widgets/wx_aui_art_providers.h>
+#include <widgets/wx_aui_utils.h>          // SetAuiPaneSize (common AI panel width restore)
+#include <widgets/webview_panel.h>         // shell-owned common AI chat panel
+#include <widgets/ai_ipc_client.h>         // shell-side backend command channel (open_project)
+#include <nlohmann/json.hpp>               // parse the open_project IPC payload
+#include <paths.h>                         // PATHS::GetStockDataPath (locate chat.html)
+#include <wx/stdpaths.h>
+#include <wx/file.h>                       // read ipc_port.txt for the AI IPC client
+#include <wx/utils.h>                      // wxGetEnv / wxGetHomeDir (IPC port discovery)
+#include <wx/filename.h>
+#include <wx/webview.h>                    // wxWebView / wxEVT_WEBVIEW_LOADED
+#include <wx/datetime.h>                   // wxDateTime::Now (chat.html cache-buster)
+#include <wx/panel.h>
+#include <wx/statbmp.h>
+#include <wx/button.h>
+#include <wx/dcbuffer.h>
+#include <wx/sizer.h>
+#include <wx/menu.h>
+#include <wx/popupwin.h>
+#include <wx/settings.h>
+#ifdef __WXMSW__
+#include <wx/msw/wrapwin.h>
+#include <windowsx.h>     // GET_X_LPARAM / GET_Y_LPARAM
+// windows.h defines these as macros (e.g. IsMaximized -> IsZoomed) that clobber the
+// wxTopLevelWindow methods of the same name. Undefine them so the wx calls compile.
+#undef IsMaximized
+#undef IsMinimized
+#undef IsRestored
+#endif
 
 #include <../pcbnew/pcb_io/kicad_sexpr/pcb_io_kicad_sexpr.h>   // for SEXPR_BOARD_FILE_VERSION def
 
@@ -102,6 +135,794 @@
 #define ID_INIT_WATCHED_PATHS 52913
 
 #define SEP()   wxFileName::GetPathSeparator()
+
+
+// Flat, owner-painted title-bar menu button.  A native wxButton with a custom background goes
+// owner-drawn on MSW and renders its label in the system button-text colour on hover — which is
+// dark and invisible on the dark purple bar.  We paint it ourselves instead: parent-coloured
+// background normally, accent purple on hover, and an always-white label in both states.
+namespace
+{
+// Windows 11 renders native popup menus itself and ignores every colour lever (wxDarkModeSettings,
+// wxSYS_COLOUR_MENU, SetMenuInfo, per-item owner-draw) — you can tint the body but never the icon
+// gutter without losing the icons.  So we render the dropdown ourselves: a fully-purple popup with
+// icons, accelerators, separators and submenus, dispatching the real command through
+// wxMenu::SendEvent() so behaviour is unchanged.
+class ENVIL_POPUP_MENU : public wxPopupTransientWindow
+{
+public:
+    ENVIL_POPUP_MENU( wxWindow* aParent, wxMenu* aMenu, ENVIL_POPUP_MENU* aParentPopup = nullptr ) :
+            wxPopupTransientWindow( aParent, wxBORDER_NONE ),
+            m_menu( aMenu ),
+            m_parentPopup( aParentPopup )
+    {
+        SetBackgroundStyle( wxBG_STYLE_PAINT );
+
+        // Dropdown rows follow the app-wide UI font size (EnvilUiFontPt) — the popups belong to
+        // the rest of the UI, not the top menu BAR (which keeps its own larger size).  Set before
+        // computeLayout() so row width/height are measured at the new size.
+        const double uiPt = ADVANCED_CFG::GetCfg().m_EnvilUiFontPt;
+
+        if( uiPt > 0.0 )
+        {
+            wxFont rowFont = GetFont();
+            rowFont.SetFractionalPointSize( uiPt );
+            SetFont( rowFont );
+        }
+
+        buildRows();
+        computeLayout();
+
+        Bind( wxEVT_PAINT, &ENVIL_POPUP_MENU::onPaint, this );
+        Bind( wxEVT_MOTION, &ENVIL_POPUP_MENU::onMotion, this );
+        Bind( wxEVT_LEFT_UP, &ENVIL_POPUP_MENU::onClick, this );
+        Bind( wxEVT_LEAVE_WINDOW,
+              [this]( wxMouseEvent& ) { if( !m_child ) { m_hover = -1; Refresh(); } } );
+    }
+
+    /// Pop the menu so its top-left sits at screen point @p aScreenPos.
+    void PopupAt( const wxPoint& aScreenPos )
+    {
+        Move( aScreenPos );
+        Popup();
+    }
+
+    void OnDismiss() override
+    {
+        // The framework calls this on the deepest (capturing) popup when the user clicks outside.
+        // Hide + destroy the whole chain from the root down.
+        ENVIL_POPUP_MENU* root = this;
+
+        while( root->m_parentPopup )
+            root = root->m_parentPopup;
+
+        root->dismissChain();
+    }
+
+private:
+    struct ROW
+    {
+        wxMenuItem* item = nullptr;
+        bool        separator = false;
+        bool        submenu = false;
+        bool        enabled = true;
+        bool        checked = false;
+        wxString    label;
+        wxString    accel;
+        int         top = 0;
+        int         height = 0;
+    };
+
+    void buildRows()
+    {
+        for( wxMenuItem* it : m_menu->GetMenuItems() )
+        {
+            ROW r;
+            r.item = it;
+
+            if( it->IsSeparator() )
+            {
+                r.separator = true;
+            }
+            else
+            {
+                wxString full = it->GetItemLabel();
+                r.label = full.BeforeFirst( '\t' );
+                wxString accel = full.AfterFirst( '\t' );
+                r.accel   = ( accel == full ) ? wxString() : accel;
+                r.label.Replace( wxS( "&" ), wxEmptyString );
+                r.submenu = it->GetSubMenu() != nullptr;
+                r.enabled = it->IsEnabled();
+                r.checked = it->IsCheckable() && it->IsChecked();
+            }
+
+            m_rows.push_back( r );
+        }
+    }
+
+    void computeLayout()
+    {
+        m_iconW  = FromDIP( 26 );
+        m_padL   = FromDIP( 8 );
+        m_padR   = FromDIP( 14 );
+        m_gap    = FromDIP( 28 );
+        m_arrowW = FromDIP( 14 );
+        m_rowH   = GetTextExtent( wxS( "Ag" ) ).y + FromDIP( 8 );
+        m_sepH   = FromDIP( 9 );
+
+        int maxLabel = 0, maxAccel = 0;
+
+        for( const ROW& r : m_rows )
+        {
+            if( r.separator )
+                continue;
+
+            maxLabel = wxMax( maxLabel, GetTextExtent( r.label ).x );
+            maxAccel = wxMax( maxAccel, GetTextExtent( r.accel ).x );
+        }
+
+        int width = m_padL + m_iconW + maxLabel + m_gap + maxAccel + m_arrowW + m_padR;
+        int y = FromDIP( 4 );
+
+        for( ROW& r : m_rows )
+        {
+            r.top    = y;
+            r.height = r.separator ? m_sepH : m_rowH;
+            y += r.height;
+        }
+
+        SetSize( wxSize( width, y + FromDIP( 4 ) ) );
+    }
+
+    int rowAt( int aY ) const
+    {
+        for( size_t i = 0; i < m_rows.size(); ++i )
+            if( aY >= m_rows[i].top && aY < m_rows[i].top + m_rows[i].height )
+                return static_cast<int>( i );
+
+        return -1;
+    }
+
+    void onPaint( wxPaintEvent& )
+    {
+        wxAutoBufferedPaintDC dc( this );
+        const wxSize sz = GetClientSize();
+
+        const wxColour bg     ( 76, 74, 120 );    // #4C4A78
+        const wxColour border ( 94, 78, 146 );
+        const wxColour hover  ( 109, 99, 230 );
+        const wxColour text   ( 248, 250, 252 );
+        const wxColour dim    ( 168, 164, 200 );
+        const wxColour accelC ( 196, 190, 221 );
+
+        dc.SetPen( *wxTRANSPARENT_PEN );
+        dc.SetBrush( wxBrush( bg ) );
+        dc.DrawRectangle( 0, 0, sz.x, sz.y );
+
+        dc.SetPen( wxPen( border ) );
+        dc.SetBrush( *wxTRANSPARENT_BRUSH );
+        dc.DrawRectangle( 0, 0, sz.x, sz.y );
+
+        for( size_t i = 0; i < m_rows.size(); ++i )
+        {
+            const ROW& r = m_rows[i];
+
+            if( r.separator )
+            {
+                dc.SetPen( wxPen( border ) );
+                int ly = r.top + r.height / 2;
+                dc.DrawLine( m_padL + m_iconW, ly, sz.x - m_padR, ly );
+                continue;
+            }
+
+            if( static_cast<int>( i ) == m_hover && r.enabled )
+            {
+                dc.SetPen( *wxTRANSPARENT_PEN );
+                dc.SetBrush( wxBrush( hover ) );
+                dc.DrawRectangle( FromDIP( 3 ), r.top, sz.x - FromDIP( 6 ), r.height );
+            }
+
+            // Icon (or checkmark for a checked checkable item).
+            if( r.item->GetBitmapBundle().IsOk() )
+            {
+                wxBitmap bmp = r.item->GetBitmapBundle().GetBitmap(
+                        wxSize( FromDIP( 16 ), FromDIP( 16 ) ) );
+
+                if( bmp.IsOk() )
+                    dc.DrawBitmap( bmp, m_padL + ( m_iconW - bmp.GetWidth() ) / 2 - FromDIP( 2 ),
+                                   r.top + ( r.height - bmp.GetHeight() ) / 2, true );
+            }
+            else if( r.checked )
+            {
+                dc.SetPen( wxPen( text, FromDIP( 2 ) ) );
+                int cx = m_padL + FromDIP( 4 ), cy = r.top + r.height / 2;
+                dc.DrawLine( cx, cy, cx + FromDIP( 3 ), cy + FromDIP( 3 ) );
+                dc.DrawLine( cx + FromDIP( 3 ), cy + FromDIP( 3 ), cx + FromDIP( 9 ),
+                             cy - FromDIP( 4 ) );
+            }
+
+            dc.SetFont( GetFont() );
+            dc.SetTextForeground( r.enabled ? text : dim );
+
+            int ty = r.top + ( r.height - GetTextExtent( r.label ).y ) / 2;
+            dc.DrawText( r.label, m_padL + m_iconW, ty );
+
+            if( !r.accel.IsEmpty() )
+            {
+                dc.SetTextForeground( r.enabled ? accelC : dim );
+                int aw = GetTextExtent( r.accel ).x;
+                dc.DrawText( r.accel, sz.x - m_padR - m_arrowW - aw, ty );
+            }
+
+            if( r.submenu )
+            {
+                // Right-pointing chevron.
+                dc.SetPen( wxPen( r.enabled ? text : dim, FromDIP( 1 ) ) );
+                int ax = sz.x - m_padR - FromDIP( 8 ), ay = r.top + r.height / 2;
+                dc.DrawLine( ax, ay - FromDIP( 4 ), ax + FromDIP( 4 ), ay );
+                dc.DrawLine( ax + FromDIP( 4 ), ay, ax, ay + FromDIP( 4 ) );
+            }
+        }
+    }
+
+    void onMotion( wxMouseEvent& aEvent )
+    {
+        int row = rowAt( aEvent.GetY() );
+
+        if( row != m_hover )
+        {
+            m_hover = row;
+            Refresh();
+
+            // Open / switch submenu on hover; close it when moving onto a normal row.
+            if( row >= 0 && m_rows[row].submenu && m_rows[row].enabled )
+                openSubmenu( row );
+            else if( row >= 0 && !m_rows[row].separator )
+                closeChild();
+        }
+    }
+
+    void onClick( wxMouseEvent& aEvent )
+    {
+        int row = rowAt( aEvent.GetY() );
+
+        if( row < 0 || m_rows[row].separator || !m_rows[row].enabled )
+            return;
+
+        if( m_rows[row].submenu )
+        {
+            openSubmenu( row );
+            return;
+        }
+
+        int id = m_rows[row].item->GetId();
+        wxMenu* menu = m_menu;
+
+        DismissChain();
+        menu->SendEvent( id );    // fire the real command exactly as a native click would
+    }
+
+    void openSubmenu( int aRow )
+    {
+        if( m_child && m_childRow == aRow )
+            return;
+
+        closeChild();
+        m_childRow = aRow;
+
+        m_child = new ENVIL_POPUP_MENU( GetParent(), m_rows[aRow].item->GetSubMenu(), this );
+        wxPoint pt = ClientToScreen( wxPoint( GetClientSize().x - FromDIP( 2 ),
+                                              m_rows[aRow].top ) );
+        m_child->PopupAt( pt );
+    }
+
+    /// Programmatically close the open submenu (e.g. when hovering onto another row).
+    void closeChild()
+    {
+        if( m_child )
+        {
+            m_child->dismissChain();   // hides + destroys it and any of its descendants
+            m_child = nullptr;
+            m_childRow = -1;
+        }
+    }
+
+    /// Hide this popup and all of its descendants, destroying them after the event unwinds.
+    void dismissChain()
+    {
+        if( m_dismissed )
+            return;
+
+        m_dismissed = true;
+
+        if( m_child )
+        {
+            m_child->dismissChain();
+            m_child = nullptr;
+        }
+
+        Dismiss();
+        CallAfter( [this]() { Destroy(); } );
+    }
+
+    /// Hide this popup and every ancestor (used when a leaf item is chosen).
+    void DismissChain()
+    {
+        ENVIL_POPUP_MENU* root = this;
+
+        while( root->m_parentPopup )
+            root = root->m_parentPopup;
+
+        root->dismissChain();
+    }
+
+    wxMenu*           m_menu;
+    ENVIL_POPUP_MENU* m_parentPopup;
+    ENVIL_POPUP_MENU* m_child = nullptr;
+    int               m_childRow = -1;
+    bool              m_dismissed = false;
+    std::vector<ROW>  m_rows;
+    int               m_hover = -1;
+    int               m_iconW = 0, m_padL = 0, m_padR = 0, m_gap = 0, m_arrowW = 0;
+    int               m_rowH = 0, m_sepH = 0;
+};
+
+
+class TITLEBAR_MENU_BUTTON : public wxWindow
+{
+public:
+    TITLEBAR_MENU_BUTTON( wxWindow* aParent, const wxString& aLabel, wxMenu* aMenu ) :
+            wxWindow( aParent, wxID_ANY ),
+            m_label( aLabel ),
+            m_menu( aMenu )
+    {
+        SetBackgroundStyle( wxBG_STYLE_PAINT );
+
+        // Menu-bar labels at 11 pt (keep the system face, bump only the size).
+        wxFont labelFont = GetFont();
+        labelFont.SetPointSize( 11 );
+        SetFont( labelFont );
+
+        wxSize ext = GetTextExtent( m_label.IsEmpty() ? wxString( wxS( "M" ) ) : m_label );
+        SetMinSize( wxSize( ext.x + FromDIP( 16 ), FromDIP( 24 ) ) );
+
+        Bind( wxEVT_PAINT, &TITLEBAR_MENU_BUTTON::onPaint, this );
+        Bind( wxEVT_ENTER_WINDOW, [this]( wxMouseEvent& ) { m_hover = true;  Refresh(); } );
+        Bind( wxEVT_LEAVE_WINDOW, [this]( wxMouseEvent& ) { m_hover = false; Refresh(); } );
+        Bind( wxEVT_LEFT_DOWN,
+              [this]( wxMouseEvent& )
+              {
+                  if( m_menu )
+                  {
+                      // Custom fully-purple popup (native menus can't be themed on Win11).
+                      ENVIL_POPUP_MENU* popup = new ENVIL_POPUP_MENU( this, m_menu );
+                      popup->PopupAt( ClientToScreen( wxPoint( 0, GetSize().GetHeight() ) ) );
+                  }
+              } );
+    }
+
+private:
+    void onPaint( wxPaintEvent& )
+    {
+        wxAutoBufferedPaintDC dc( this );
+
+        const wxColour normalBg = GetParent()->GetBackgroundColour();
+        const wxColour hoverBg( 60, 52, 92 );   // subtle hover (refined, not a solid block)
+
+        dc.SetPen( *wxTRANSPARENT_PEN );
+        dc.SetBrush( wxBrush( m_hover ? hoverBg : normalBg ) );
+        dc.DrawRectangle( GetClientRect() );
+
+        dc.SetFont( GetFont() );
+        dc.SetTextForeground( *wxWHITE );
+
+        wxSize sz  = GetClientSize();
+        wxSize ext = dc.GetTextExtent( m_label );
+        dc.DrawText( m_label, ( sz.x - ext.x ) / 2, ( sz.y - ext.y ) / 2 );
+    }
+
+    wxString m_label;
+    wxMenu*  m_menu;
+    bool     m_hover = false;
+};
+
+
+// Flat, owner-painted title-bar glyph button (Segoe MDL2 Assets) for the layout toggles and the
+// window controls.  Same reason as TITLEBAR_MENU_BUTTON: a native button darkens its glyph on
+// hover.  Here the glyph is always drawn light (or dimmed when inactive, for the toggles) over a
+// per-button hover colour (accent purple, or red for the close button), and a left click emits
+// wxEVT_BUTTON so the existing handlers keep working.
+class TITLEBAR_GLYPH_BUTTON : public wxWindow
+{
+public:
+    TITLEBAR_GLYPH_BUTTON( wxWindow* aParent, const wxString& aGlyph, int aWidth,
+                           const wxColour& aHoverBg, bool aIndicator = false ) :
+            wxWindow( aParent, wxID_ANY, wxDefaultPosition, wxDefaultSize ),
+            m_glyph( aGlyph ),
+            m_hoverBg( aHoverBg ),
+            m_indicator( aIndicator )
+    {
+        SetBackgroundStyle( wxBG_STYLE_PAINT );
+
+        wxFont glyphFont( wxFontInfo( 11 ).FaceName( wxT( "Segoe MDL2 Assets" ) ) );
+
+        if( glyphFont.IsOk() )
+            SetFont( glyphFont );
+
+        SetMinSize( wxSize( aWidth, FromDIP( 24 ) ) );
+
+        Bind( wxEVT_PAINT, &TITLEBAR_GLYPH_BUTTON::onPaint, this );
+        Bind( wxEVT_ENTER_WINDOW, [this]( wxMouseEvent& ) { m_hover = true;  Refresh(); } );
+        Bind( wxEVT_LEAVE_WINDOW, [this]( wxMouseEvent& ) { m_hover = false; Refresh(); } );
+        Bind( wxEVT_LEFT_DOWN,
+              [this]( wxMouseEvent& )
+              {
+                  wxCommandEvent evt( wxEVT_BUTTON, GetId() );
+                  evt.SetEventObject( this );
+                  ProcessWindowEvent( evt );
+              } );
+    }
+
+    void SetGlyph( const wxString& aGlyph ) { m_glyph = aGlyph; Refresh(); }
+
+    /// Toggles: bright glyph + accent indicator bar while the pane is shown, dimmed while hidden.
+    void SetActiveGlyph( bool aActive ) { m_active = aActive; Refresh(); }
+
+private:
+    void onPaint( wxPaintEvent& )
+    {
+        wxAutoBufferedPaintDC dc( this );
+        const wxSize sz = GetClientSize();
+
+        // Full-height hover fill (window-control / VS Code style).
+        dc.SetPen( *wxTRANSPARENT_PEN );
+        dc.SetBrush( wxBrush( m_hover ? m_hoverBg : GetParent()->GetBackgroundColour() ) );
+        dc.DrawRectangle( 0, 0, sz.x, sz.y );
+
+        dc.SetFont( GetFont() );
+        dc.SetTextForeground( m_active ? *wxWHITE : wxColour( 150, 145, 175 ) );
+
+        wxSize ext = dc.GetTextExtent( m_glyph );
+        dc.DrawText( m_glyph, ( sz.x - ext.x ) / 2, ( sz.y - ext.y ) / 2 );
+
+        // VS Code-style active indicator: a short accent bar along the bottom edge while the
+        // toggle's pane is shown — turns the flat glyph row into a stateful, polished control.
+        if( m_indicator && m_active )
+        {
+            const int barW = sz.x / 2;
+            const int barH = FromDIP( 2 );
+            dc.SetBrush( wxBrush( wxColour( 139, 92, 246 ) ) );
+            dc.DrawRectangle( ( sz.x - barW ) / 2, sz.y - barH, barW, barH );
+        }
+    }
+
+    wxString m_glyph;
+    wxColour m_hoverBg;
+    bool     m_hover     = false;
+    bool     m_active    = true;
+    bool     m_indicator = false;
+};
+
+
+// VS Code / Cursor-style "panel toggle" icon, drawn as a little editor-window diagram with one
+// docked region (left / bottom / right).  The region fills in (accent purple) when that pane is
+// open and is empty when hidden — so the control shows its state the way a modern title bar does,
+// instead of a plain glyph.  Crisp at any DPI because it's vector-drawn.
+class TITLEBAR_PANEL_BUTTON : public wxWindow
+{
+public:
+    enum SIDE { LEFT, BOTTOM, RIGHT };
+
+    TITLEBAR_PANEL_BUTTON( wxWindow* aParent, SIDE aSide, int aWidth, const wxColour& aHoverBg ) :
+            wxWindow( aParent, wxID_ANY ),
+            m_side( aSide ),
+            m_hoverBg( aHoverBg )
+    {
+        SetBackgroundStyle( wxBG_STYLE_PAINT );
+        SetMinSize( wxSize( aWidth, FromDIP( 24 ) ) );
+
+        Bind( wxEVT_PAINT, &TITLEBAR_PANEL_BUTTON::onPaint, this );
+        Bind( wxEVT_ENTER_WINDOW, [this]( wxMouseEvent& ) { m_hover = true;  Refresh(); } );
+        Bind( wxEVT_LEAVE_WINDOW, [this]( wxMouseEvent& ) { m_hover = false; Refresh(); } );
+        Bind( wxEVT_LEFT_DOWN,
+              [this]( wxMouseEvent& )
+              {
+                  wxCommandEvent evt( wxEVT_BUTTON, GetId() );
+                  evt.SetEventObject( this );
+                  ProcessWindowEvent( evt );
+              } );
+    }
+
+    /// Matches TITLEBAR_GLYPH_BUTTON so the same refresh closures drive either control.
+    void SetActiveGlyph( bool aActive ) { m_active = aActive; Refresh(); }
+
+private:
+    void onPaint( wxPaintEvent& )
+    {
+        wxAutoBufferedPaintDC dc( this );
+        const wxSize sz = GetClientSize();
+
+        dc.SetPen( *wxTRANSPARENT_PEN );
+        dc.SetBrush( wxBrush( m_hover ? m_hoverBg : GetParent()->GetBackgroundColour() ) );
+        dc.DrawRectangle( 0, 0, sz.x, sz.y );
+
+        const int  side = FromDIP( 15 );
+        const int  ox   = ( sz.x - side ) / 2;
+        const int  oy   = ( sz.y - side ) / 2;
+        const int  t    = side / 3;                          // docked-region thickness
+        const int  r    = FromDIP( 2 );
+        const wxColour fg = m_active ? wxColour( 255, 255, 255 ) : wxColour( 150, 145, 180 );
+
+        // Outer editor-window outline.
+        dc.SetPen( wxPen( fg, FromDIP( 1 ) ) );
+        dc.SetBrush( *wxTRANSPARENT_BRUSH );
+        dc.DrawRoundedRectangle( ox, oy, side, side, r );
+
+        // Divider between the editor and the docked region.
+        wxRect region;
+
+        switch( m_side )
+        {
+        case LEFT:   region = wxRect( ox, oy, t, side );
+                     dc.DrawLine( ox + t, oy, ox + t, oy + side );        break;
+        case RIGHT:  region = wxRect( ox + side - t, oy, t, side );
+                     dc.DrawLine( ox + side - t, oy, ox + side - t, oy + side ); break;
+        case BOTTOM: region = wxRect( ox, oy + side - t, side, t );
+                     dc.DrawLine( ox, oy + side - t, ox + side, oy + side - t ); break;
+        }
+
+        // Fill the docked region (accent purple) when the pane is open.
+        if( m_active )
+        {
+            dc.SetPen( *wxTRANSPARENT_PEN );
+            dc.SetBrush( wxBrush( wxColour( 139, 92, 246 ) ) );
+            dc.DrawRectangle( region.Deflate( FromDIP( 1 ) ) );
+        }
+    }
+
+    SIDE     m_side;
+    wxColour m_hoverBg;
+    bool     m_hover  = false;
+    bool     m_active = true;
+};
+} // namespace
+
+
+// ============================================================================
+// KiCad Next: custom single-row title bar (logo + menu + window buttons).
+// Hosts the menu as a row of popup buttons so the native OS caption + native
+// menu row collapse into one bar. The caption itself is removed by the frame's
+// WM_NCCALCSIZE handler (see MSWWindowProc); this panel is just the content.
+// ============================================================================
+class KICAD_MANAGER_FRAME::TITLEBAR_PANEL : public wxPanel
+{
+public:
+    TITLEBAR_PANEL( KICAD_MANAGER_FRAME* aParent ) :
+            wxPanel( aParent, wxID_ANY ),
+            m_frame( aParent )
+    {
+        applyTheme();
+
+        m_sizer = new wxBoxSizer( wxHORIZONTAL );
+
+        // VS Code / Cursor-style title bar: a small 16px app glyph at the far left
+        // with tight padding, then the menu.
+        m_logo = new wxStaticBitmap( this, wxID_ANY, KiBitmapBundle( BITMAPS::icon_kicad, 16 ) );
+        m_sizer->Add( m_logo, 0, wxALIGN_CENTRE_VERTICAL | wxLEFT | wxRIGHT, FromDIP( 6 ) );
+
+        m_menuSizer = new wxBoxSizer( wxHORIZONTAL );
+        m_sizer->Add( m_menuSizer, 0, wxEXPAND );   // full-height menu buttons (clean hover)
+
+        m_sizer->AddStretchSpacer( 1 );
+
+        // KiCad Next single-window shell: VS Code / Cursor-style title-bar layout toggles,
+        // sitting just left of the window-control buttons.  Each is a vector panel-diagram icon
+        // (left/bottom/right docked region) that flips a pane and fills in while it's shown.
+        m_sizer->Add( makeLayoutButton( TITLEBAR_PANEL_BUTTON::LEFT,
+                                        _( "Toggle Project Explorer" ),
+                                        [this]() { m_frame->ToggleProjectExplorer(); },
+                                        [this]() { return m_frame->ProjectExplorerShown(); } ),
+                      0, wxEXPAND );
+
+        m_sizer->Add( makeLayoutButton( TITLEBAR_PANEL_BUTTON::BOTTOM,
+                                        _( "Split Editor" ),
+                                        [this]() { m_frame->SplitActiveEditor(); },
+                                        []() { return false; } ),
+                      0, wxEXPAND );
+
+        m_sizer->Add( makeLayoutButton( TITLEBAR_PANEL_BUTTON::RIGHT,
+                                        _( "Toggle AI Assistant" ),
+                                        [this]() { m_frame->ToggleAiChat(); },
+                                        [this]() { return m_frame->AiChatPanelShown(); } ),
+                      0, wxEXPAND );
+
+        m_sizer->AddSpacer( FromDIP( 6 ) );   // gap before the window-control buttons
+
+        // Segoe MDL2 Assets caption glyphs (same as the native Windows / VS Code bar).
+        // Subtle hover for minimize/maximize; the conventional red hover for close.
+        const wxColour subtleHover( 60, 52, 92 );
+        const wxColour closeHover( 232, 17, 35 );
+        m_min   = makeWinButton( wxUniChar( 0xE921 ), subtleHover );  // ChromeMinimize
+        m_max   = makeWinButton( wxUniChar( 0xE922 ), subtleHover );  // ChromeMaximize
+        m_close = makeWinButton( wxUniChar( 0xE8BB ), closeHover );   // ChromeClose
+        m_sizer->Add( m_min,   0, wxEXPAND );
+        m_sizer->Add( m_max,   0, wxEXPAND );
+        m_sizer->Add( m_close, 0, wxEXPAND );
+
+        m_min  ->Bind( wxEVT_BUTTON, [this]( wxCommandEvent& ) { m_frame->Iconize( true ); } );
+        m_max  ->Bind( wxEVT_BUTTON,
+                       [this]( wxCommandEvent& )
+                       {
+                           m_frame->Maximize( !m_frame->IsMaximized() );
+                           UpdateMaximizeGlyph();
+                       } );
+        m_close->Bind( wxEVT_BUTTON, [this]( wxCommandEvent& ) { m_frame->Close( false ); } );
+
+        UpdateMaximizeGlyph();   // show restore vs maximize for the initial window state
+
+        SetSizer( m_sizer );
+        SetMinSize( wxSize( -1, FromDIP( 32 ) ) );   // 32px title bar (pane MinSize/BestSize is the real driver)
+
+        Bind( wxEVT_SYS_COLOUR_CHANGED,
+              [this]( wxSysColourChangedEvent& e ) { applyTheme(); Refresh(); e.Skip(); } );
+    }
+
+    ~TITLEBAR_PANEL() override
+    {
+        for( wxMenu* m : m_ownedMenus )
+            delete m;
+    }
+
+    /// Rebuild the row of menu buttons by taking ownership of the live menubar's menus.
+    void SetMenus( wxMenuBar* aBar )
+    {
+        m_menuSizer->Clear( true );   // destroys old buttons
+        m_menuBtns.clear();
+
+        for( wxMenu* m : m_ownedMenus )
+            delete m;
+
+        m_ownedMenus.clear();
+
+        if( aBar )
+        {
+            while( aBar->GetMenuCount() > 0 )
+            {
+                // Use GetMenuLabel (the Append label, e.g. "&File"); WX_MENUBAR overrides
+                // GetMenuLabelText to return the ACTION_MENU title, which is unset for the
+                // top-level menus and would yield empty (0-width) buttons.
+                wxString lbl = aBar->GetMenuLabel( 0 );
+                lbl.Replace( wxS( "&" ), wxEmptyString );
+
+                wxMenu*  menu = aBar->Remove( 0 );        // take ownership out of the bar
+                m_ownedMenus.push_back( menu );
+
+                // Owner-painted button so the label stays white on hover (a native wxButton
+                // with a custom background darkens its text in the hover state — invisible here).
+                TITLEBAR_MENU_BUTTON* b = new TITLEBAR_MENU_BUTTON( this, lbl, menu );
+
+                // Full-height button (clean hover), ~8px between items (4px each side).
+                m_menuSizer->Add( b, 0, wxEXPAND | wxLEFT | wxRIGHT, FromDIP( 4 ) );
+                m_menuBtns.push_back( b );
+            }
+        }
+
+        Layout();
+    }
+
+    /// For WM_NCHITTEST: is this frame-client point over a clickable child (a button)?
+    bool HitInteractive( const wxPoint& aClientPt )
+    {
+        wxPoint local = aClientPt - GetPosition();
+
+        for( TITLEBAR_GLYPH_BUTTON* b : { m_min, m_max, m_close } )
+            if( b && b->GetRect().Contains( local ) )
+                return true;
+
+        for( wxWindow* b : m_menuBtns )
+            if( b && b->GetRect().Contains( local ) )
+                return true;
+
+        for( wxWindow* b : m_layoutBtns )
+            if( b && b->GetRect().Contains( local ) )
+                return true;
+
+        return false;
+    }
+
+    /// Show the restore glyph when the window is maximized, the maximize glyph otherwise.
+    void UpdateMaximizeGlyph()
+    {
+        if( m_max )
+            m_max->SetGlyph( wxUniChar( m_frame->IsMaximized() ? 0xE923 : 0xE922 ) );
+    }
+
+    /// Re-sync every layout-toggle button's highlight to its pane's current visibility.
+    /// Called after the AUI panes are built (they don't exist yet at construction time).
+    void RefreshLayoutToggles()
+    {
+        for( const std::function<void()>& fn : m_layoutRefreshers )
+            fn();
+    }
+
+private:
+    /// One VS Code-style title-bar layout toggle: a glyph button that flips a pane's
+    /// visibility (aToggle) and highlights itself while that pane is shown (aIsShown).
+    TITLEBAR_PANEL_BUTTON* makeLayoutButton( TITLEBAR_PANEL_BUTTON::SIDE aSide,
+                                             const wxString& aTooltip, std::function<void()> aToggle,
+                                             std::function<bool()> aIsShown )
+    {
+        // Vector panel-diagram icon with a subtle hover (refined, not a solid block).
+        TITLEBAR_PANEL_BUTTON* b =
+                new TITLEBAR_PANEL_BUTTON( this, aSide, FromDIP( 40 ), wxColour( 60, 52, 92 ) );
+
+        b->SetToolTip( aTooltip );
+
+        // Brighten the glyph while its pane is visible, dim it while hidden (VS Code's
+        // active/inactive toggle look).
+        auto refresh = [b, aIsShown]() { b->SetActiveGlyph( aIsShown() ); };
+
+        b->Bind( wxEVT_BUTTON,
+                 [aToggle, refresh]( wxCommandEvent& ) { aToggle(); refresh(); } );
+
+        refresh();
+        m_layoutBtns.push_back( b );
+        m_layoutRefreshers.push_back( refresh );
+        return b;
+    }
+
+    /// @param aHoverBg per-button hover colour (accent purple for min/max, red for close).
+    TITLEBAR_GLYPH_BUTTON* makeWinButton( const wxString& aGlyph, const wxColour& aHoverBg )
+    {
+        return new TITLEBAR_GLYPH_BUTTON( this, aGlyph, FromDIP( 46 ), aHoverBg );
+    }
+
+    void applyTheme()
+    {
+        wxColour bg, fg;
+
+        if( ADVANCED_CFG::GetCfg().m_EnvilPurpleFrame )
+        {
+            // Match the rest of the Envil "Vibrant Purple & Indigo" frame.  Use an explicit
+            // colour (not wxSYS_COLOUR_MENUBAR, whose public query doesn't return the dark-mode
+            // purple override) so the title-bar strip is the same indigo as the panels.
+            bg = wxColour( 33, 27, 56 );
+            fg = wxColour( 255, 255, 255 );
+        }
+        else
+        {
+            bg = wxSystemSettings::GetColour( wxSYS_COLOUR_MENUBAR );
+            fg = wxSystemSettings::GetColour( wxSYS_COLOUR_WINDOWTEXT );
+        }
+
+        SetBackgroundColour( bg );
+        SetForegroundColour( fg );
+
+        // Re-tint existing children (logo, menu + layout + window buttons) — they cache the
+        // colour at creation, so a later theme change needs them refreshed too.
+        for( wxWindow* child : GetChildren() )
+        {
+            child->SetBackgroundColour( bg );
+            child->SetForegroundColour( fg );
+            child->Refresh();
+        }
+    }
+
+    KICAD_MANAGER_FRAME*   m_frame;
+    wxBoxSizer*            m_sizer = nullptr;
+    wxBoxSizer*            m_menuSizer = nullptr;
+    wxStaticBitmap*        m_logo = nullptr;
+    TITLEBAR_GLYPH_BUTTON* m_min = nullptr;
+    TITLEBAR_GLYPH_BUTTON* m_max = nullptr;
+    TITLEBAR_GLYPH_BUTTON* m_close = nullptr;
+    std::vector<wxWindow*> m_menuBtns;
+    std::vector<wxMenu*>   m_ownedMenus;
+
+    // VS Code-style title-bar layout toggles (Project Explorer / Local History) and the
+    // closures that re-sync their highlight to pane visibility (see RefreshLayoutToggles()).
+    std::vector<wxWindow*>             m_layoutBtns;
+    std::vector<std::function<void()>> m_layoutRefreshers;
+};
 
 
 // Menubar and toolbar event table
@@ -147,6 +968,8 @@ KICAD_MANAGER_FRAME::KICAD_MANAGER_FRAME( wxWindow* parent, const wxString& titl
         m_showHistoryPanel( false ),
         m_projectTreePane( nullptr ),
         m_historyPane( nullptr ),
+        m_editorTabs( nullptr ),
+        m_aiChatPanel( nullptr ),
         m_launcher( nullptr ),
         m_lastToolbarIconSize( 0 ),
         m_pcmButton( nullptr ),
@@ -221,19 +1044,48 @@ KICAD_MANAGER_FRAME::KICAD_MANAGER_FRAME( wxWindow* parent, const wxString& titl
     m_toolbarSettings = GetToolbarSettings<KICAD_MANAGER_TOOLBAR_SETTINGS>( "kicad-toolbars" );
     configureToolbars();
     RecreateToolbars();
+
+#ifdef __WXMSW__
+    // Create the custom title bar BEFORE the menu bar is (re)built: doReCreateMenuBar()
+    // populates the title bar's menu buttons, and the menu rebuild is deferred via
+    // CallAfter — which can fire before the rest of this constructor runs. Creating the
+    // panel first guarantees it exists when the menu is populated.
+    m_titleBar = new TITLEBAR_PANEL( this );
+#endif
+
     ReCreateMenuBar();
 
     m_auimgr.SetManagedWindow( this );
-    m_auimgr.SetFlags( wxAUI_MGR_LIVE_RESIZE );
+    // wxAUI_MGR_DEFAULT keeps floating + drag-dock hints enabled so the common AI panel can be
+    // dragged and re-docked anywhere (left/right/top/bottom) or floated free.  The other shell
+    // panes (Project Explorer, editor tabs, title bar) are individually locked
+    // Movable(false)/Floatable(false)/DockFixed, so only the AI panel actually moves.
+    m_auimgr.SetFlags( wxAUI_MGR_DEFAULT | wxAUI_MGR_LIVE_RESIZE );
 
-    m_auimgr.AddPane( m_tbLeft, EDA_PANE().VToolbar().Name( "TopMainToolbar" ).Left().Layer( 2 ) );
+    // KiCad Next: the left vertical toolbar only repeats actions that already live in the
+    // top menu bar (New/Open/Archive/Zoom/Project-dir), so it is hidden to avoid showing
+    // the same commands twice. The 9 editor/tool launchers become the left icon rail below.
+    m_auimgr.AddPane( m_tbLeft, EDA_PANE().VToolbar().Name( "TopMainToolbar" ).Left().Layer( 2 ).Hide() );
 
-    // There is no wxAUIPaneInfo::SetSize(), but a trick is to use MinSize() to set the required pane width,
-    // and after give a reasonable MinSize value.
-    m_auimgr.AddPane( m_projectTreePane,
-                      EDA_PANE().Palette().Name( "ProjectTree" ).Left().Layer( 1 )
-                                .Caption( PROJECT_FILES_CAPTION ).PaneBorder( false )
-                                .MinSize( m_leftWinWidth, -1 ).Floatable( false ).Movable( false ) );
+    // Project files tree placement.  In the single-window shell the tree becomes a
+    // narrow left "Project Explorer" and the center is freed for the editor tabs
+    // (Layer B); otherwise it fills the main area as before.
+    if( ADVANCED_CFG::GetCfg().m_SingleWindowShell )
+    {
+        m_auimgr.AddPane( m_projectTreePane,
+                          EDA_PANE().Name( "ProjectTree" ).Left().Layer( 0 )
+                                    .CaptionVisible( true ).Caption( PROJECT_FILES_CAPTION )
+                                    .PaneBorder( false ).Floatable( false ).Movable( false )
+                                    .MinSize( defaultLeftWinWidth, FromDIP( 80 ) )
+                                    .BestSize( defaultLeftWinWidth, -1 ) );
+    }
+    else
+    {
+        m_auimgr.AddPane( m_projectTreePane,
+                          EDA_PANE().Name( "ProjectTree" ).Center().Layer( 0 )
+                                    .CaptionVisible( true ).Caption( PROJECT_FILES_CAPTION )
+                                    .PaneBorder( false ).Floatable( false ).Movable( false ) );
+    }
 
     m_historyPane = new LOCAL_HISTORY_PANE( this );
     m_auimgr.AddPane( m_historyPane,
@@ -262,10 +1114,250 @@ KICAD_MANAGER_FRAME::KICAD_MANAGER_FRAME( wxWindow* parent, const wxString& titl
     m_notebook->SetTabCtrlHeight( 0 );
     m_notebook->Thaw();
 
-    m_auimgr.AddPane( m_notebook, EDA_PANE().Canvas().Name( "Editors" ).Center().Caption( EDITORS_CAPTION )
-                                            .PaneBorder( false ).MinSize( m_notebook->GetBestSize() ) );
+    // Editor/tool launchers as a compact left icon rail (the "activity bar").
+    m_auimgr.AddPane( m_notebook, EDA_PANE().Name( "Editors" ).Left().Layer( 3 ).Position( 0 )
+                                            .CaptionVisible( false ).PaneBorder( false )
+                                            .CloseButton( false ).Floatable( false ).Movable( false )
+                                            .DockFixed( true )
+                                            .MinSize( FromDIP( 40 ), -1 ).BestSize( FromDIP( 40 ), -1 ) );
+
+    // KiCad Next single-window shell (Layer B): the center editor-tab area.  Each
+    // editor (Schematic/PCB/Gerber/Calculator/…) is re-hosted here as a tab by
+    // DockEditorAsTab() instead of floating as its own window.  Created only when
+    // the flag is set, so the legacy layout is untouched when off.
+    if( ADVANCED_CFG::GetCfg().m_SingleWindowShell )
+    {
+        // Step 2: an X on every tab (VS Code / Cursor style).  Clicking it does NOT
+        // destroy the reparented editor frame (that would dangle KIWAY's player
+        // pointer); onEditorTabCloseRequest() reparents the frame back to a hidden
+        // top-level so it survives and can be re-docked later — see DetachDockedEditor().
+        // wxAUI_NB_TAB_SPLIT: drag an editor tab to an edge to split the editor area into
+        // side-by-side groups (VS Code style); the Split-Editor title-bar button does the
+        // same on click.  Each page is a plain host panel, so splitting just re-homes that
+        // panel between tab groups and never disturbs the reparented editor inside it.
+        m_editorTabs = new wxAuiNotebook( this, wxID_ANY, wxDefaultPosition,
+                                          FromDIP( wxSize( 700, 590 ) ),
+                                          wxAUI_NB_TOP | wxAUI_NB_TAB_MOVE | wxAUI_NB_TAB_SPLIT
+                                                  | wxAUI_NB_CLOSE_ON_ALL_TABS
+                                                  | wxAUI_NB_SCROLL_BUTTONS | wxNO_BORDER );
+        m_editorTabs->SetArtProvider( new WX_AUI_TAB_ART() );
+
+        m_editorTabs->Bind( wxEVT_AUINOTEBOOK_PAGE_CLOSE,
+                            &KICAD_MANAGER_FRAME::onEditorTabCloseRequest, this );
+
+        // Make the shell's top menu follow whichever editor tab is active (Track 1 menu +
+        // Layer B tabs): switching to a Schematic/PCB tab swaps the title-bar menu to that
+        // editor's File/Edit/View/Place/Route/Inspect/Tools set.
+        m_editorTabs->Bind( wxEVT_AUINOTEBOOK_PAGE_CHANGED,
+                            &KICAD_MANAGER_FRAME::onEditorTabChanged, this );
+
+        // Make the top menu also follow which PANE has focus, not only tab switches.  The
+        // Project Explorer tree and the editor-tab area are separate AUI panes, so focusing the
+        // tree never fires PAGE_CHANGED; without this the Project Manager's own menu is
+        // unreachable while any editor tab is open.  Clicking the tree restores the PM menu;
+        // clicking back into the editor area restores the active editor's menu.
+        m_projectTreePane->Bind( wxEVT_CHILD_FOCUS,
+                                 &KICAD_MANAGER_FRAME::onShellPaneFocus, this );
+        m_editorTabs->Bind( wxEVT_CHILD_FOCUS,
+                            &KICAD_MANAGER_FRAME::onEditorAreaFocus, this );
+
+        m_auimgr.AddPane( m_editorTabs, EDA_PANE().Name( "EditorTabs" ).Center().Layer( 0 )
+                                                  .CaptionVisible( false ).PaneBorder( false )
+                                                  .Floatable( false ).Movable( false ) );
+
+        // KiCad Next single-window shell: register this shell as the KIWAY tab host so editor
+        // KIFACEs (eeschema "Update PCB" / pcbnew "Update Schematic", etc.) dock the sibling
+        // editor they open as a tab here instead of floating it as a separate window.  Cleared
+        // in doCloseWindow().  Only registered when the shell's tab area actually exists.
+        Kiway().SetTabHost( this );
+    }
+
+#ifdef __WXMSW__
+    // Custom single-row title bar (logo + menu + window buttons), created earlier above.
+    // The native caption is removed by the WM_NCCALCSIZE handler; this strip replaces it.
+    m_auimgr.AddPane( m_titleBar, wxAuiPaneInfo().Name( "TitleBar" ).Top().Layer( 10 )
+                                  .CaptionVisible( false ).PaneBorder( false ).Gripper( false )
+                                  .DockFixed( true ).Floatable( false ).Movable( false )
+                                  .Resizable( false )
+                                  .MinSize( -1, FromDIP( 32 ) ).BestSize( -1, FromDIP( 32 ) ) );
+#endif
+
+    // KiCad Next: a single shell-owned "AI Assistant" panel (Cursor style).  Created only
+    // when CommonAiPanel + SingleWindowShell are set; the per-editor panels are suppressed
+    // (see SCH_EDIT_FRAME / PCB_EDIT_FRAME) so this is the ONLY AI panel in the window.  It
+    // retargets to whichever editor tab is in front via syncAiPanelToActiveTab(); the editors
+    // keep their own IPC reload channel, so the backend's revert/open_file still refreshes the
+    // right document.  Wrapped in try/catch so a WebView failure never blocks the shell.
+    if( ADVANCED_CFG::GetCfg().m_SingleWindowShell && ADVANCED_CFG::GetCfg().m_CommonAiPanel )
+    {
+        try
+        {
+            m_aiChatPanel = new WEBVIEW_PANEL( this );
+
+            // Locate chat.html the same way the editors do: stock data path, then the exe
+            // directory (build output), then the wx resources dir.
+            wxString      chatHtmlFound;
+            wxArrayString searchPaths;
+            searchPaths.Add( PATHS::GetStockDataPath( true ) );
+            searchPaths.Add( wxFileName( wxStandardPaths::Get().GetExecutablePath() ).GetPath() );
+            searchPaths.Add( wxStandardPaths::Get().GetResourcesDir() );
+
+            for( const wxString& basePath : searchPaths )
+            {
+                wxString p = basePath + wxFileName::GetPathSeparator() + wxT( "ai_chat" )
+                             + wxFileName::GetPathSeparator() + wxT( "chat.html" );
+
+                if( wxFileExists( p ) )
+                {
+                    chatHtmlFound = p;
+                    break;
+                }
+            }
+
+            m_aiChatPanel->BindLoadedEvent();
+
+            if( !chatHtmlFound.IsEmpty() )
+            {
+                wxString fileUrl = wxT( "file:///" ) + chatHtmlFound;
+                fileUrl.Replace( wxT( "\\" ), wxT( "/" ) );
+
+                wxString projPath = Prj().GetProjectPath();
+                projPath.Replace( wxT( "\\" ), wxT( "/" ) );
+                projPath.Replace( wxT( " " ), wxT( "%20" ) );
+
+                // No app= scope here — the shell is not an editor.  syncAiPanelToActiveTab()
+                // calls window.envilSetSchematic / envilSetPcb on tab switch, which is the
+                // authoritative app-context signal chat.html honours.
+                fileUrl += wxString::Format( wxT( "?t=%ld&backend=localhost:8765&project=%s" ),
+                                             (long) wxDateTime::Now().GetTicks(), projPath );
+                m_aiChatPanel->LoadURL( fileUrl );
+
+                // A tab may already be open before the async WebView load finishes; push the
+                // active document once the panel is ready.
+                if( wxWebView* browser = m_aiChatPanel->GetWebView() )
+                {
+                    browser->Bind( wxEVT_WEBVIEW_LOADED,
+                            [this]( wxWebViewEvent& aEvt )
+                            {
+                                syncAiPanelToActiveTab();
+                                aEvt.Skip();
+                            } );
+                }
+            }
+            else
+            {
+                m_aiChatPanel->SetPage( wxT( "<!DOCTYPE html><html><body style='background:#1e1e2e;color:#e0e0e0;font-family:sans-serif;display:flex;align-items:center;justify-content:center;height:100vh'><p>AI Chat — chat.html not found</p></body></html>" ) );
+            }
+
+            KICAD_SETTINGS* aiCfg = kicadSettings();
+
+            m_auimgr.AddPane( m_aiChatPanel, EDA_PANE().Name( AiChatPanelName() )
+                              .Right().Layer( 6 )
+                              .Caption( _( "AI Assistant" ) )
+                              .CaptionVisible( true )
+                              .PaneBorder( true )
+                              .Floatable( true )     // can be torn off into its own floating window
+                              .Movable( true )       // drag the "AI Assistant" caption to move it
+                              .Dockable( true )      // dock on any side: left / right / top / bottom
+                              .CloseButton( true )
+                              .MinSize( FromDIP( wxSize( 320, 200 ) ) )
+                              .BestSize( FromDIP( wxSize( 380, 600 ) ) )
+                              .FloatingSize( FromDIP( wxSize( 500, 700 ) ) )
+                              .Show( aiCfg ? aiCfg->m_ShowAiChat : true ) );
+        }
+        catch( ... )
+        {
+            wxLogWarning( wxT( "Shell AI Chat panel failed to initialize — continuing without it" ) );
+            m_aiChatPanel = nullptr;
+        }
+
+        // KiCad Next (Cursor-style): give the SHELL its own backend command channel so a
+        // just-built project can be loaded into the Project Files tree automatically. The
+        // editors already listen for open_file/revert; the shell listens for "open_project"
+        // and calls LoadProject() — which rebuilds the tree and resets the file watcher, so
+        // the new files appear (and update live) like Cursor opening a folder. Additive: the
+        // backend only emits open_project behind a config flag; eeschema/pcbnew ignore the
+        // action. Port is resolved lazily in TryConnectAiIpc() (retry timer) so a backend
+        // started after the shell still connects.
+        if( m_aiChatPanel )
+        {
+            m_aiIpcClient = std::make_unique<AI_IPC_CLIENT>( "127.0.0.1", 5556 );
+
+            m_aiIpcClient->SetCommandCallback(
+                    [this]( const std::string& /* aAction */, const std::string& aData )
+                    {
+                        CallAfter( [this, aData]()
+                        {
+                            try
+                            {
+                                nlohmann::json payload = nlohmann::json::parse( aData );
+                                wxString action = wxString::FromUTF8( payload.value( "action", "" ) );
+                                nlohmann::json data = payload.value( "data", nlohmann::json::object() );
+
+                                if( action != wxT( "open_project" ) )
+                                    return;   // open_file/revert/refresh are for the editors
+
+                                wxString proPath = wxString::FromUTF8( data.value( "path", "" ) );
+
+                                if( proPath.IsEmpty() || !wxFileExists( proPath ) )
+                                    return;
+
+                                wxFileName proFn( proPath );
+
+                                // Skip if it is already the active project so an in-place edit
+                                // does not trigger a needless tree reload.
+                                wxString current = Prj().GetProjectFullName();
+
+                                if( current.IsEmpty() || !wxFileName( current ).SameAs( proFn ) )
+                                    LoadProject( proFn );   // rebuilds the tree + resets the watcher
+                            }
+                            catch( ... )
+                            {
+                                wxLogDebug( wxT( "AI Chat (shell): bad IPC payload ignored" ) );
+                            }
+                        } );
+                    } );
+
+            if( !TryConnectAiIpc() )
+            {
+                m_aiIpcRetryAttempts = 0;
+                m_aiIpcRetryTimer.SetOwner( this );
+                Bind( wxEVT_TIMER, &KICAD_MANAGER_FRAME::OnAiIpcRetryTimer, this,
+                      m_aiIpcRetryTimer.GetId() );
+                m_aiIpcRetryTimer.Start( 2000, wxTIMER_CONTINUOUS );
+                wxLogDebug( wxT( "AI Chat (shell): IPC connect failed on startup; retrying" ) );
+            }
+        }
+    }
 
     m_auimgr.Update();
+
+    // Restore the AI panel's saved width now that the pane exists (AddPane only set BestSize).
+    if( m_aiChatPanel )
+    {
+        KICAD_SETTINGS* aiCfg = kicadSettings();
+
+        if( aiCfg && aiCfg->m_AiChatPanelWidth > 0 )
+        {
+            wxAuiPaneInfo& aiPane = m_auimgr.GetPane( AiChatPanelName() );
+
+            if( aiPane.IsOk() )
+                SetAuiPaneSize( m_auimgr, aiPane, aiCfg->m_AiChatPanelWidth, -1 );
+        }
+    }
+
+#ifdef __WXMSW__
+    // Force a non-client recompute so the native title bar is dropped before first paint
+    // (a style/frame change only takes visual effect after SWP_FRAMECHANGED).
+    if( HWND hwnd = static_cast<HWND>( GetHandle() ) )
+        ::SetWindowPos( hwnd, nullptr, 0, 0, 0, 0,
+                        SWP_FRAMECHANGED | SWP_NOMOVE | SWP_NOSIZE | SWP_NOZORDER | SWP_NOACTIVATE );
+
+    // The panes now exist, so the layout-toggle buttons can reflect real visibility
+    // (Project Explorer shown, Local History hidden by default).
+    if( m_titleBar )
+        m_titleBar->RefreshLayoutToggles();
+#endif
 
     // Now the actual m_projectTreePane size is set, give it a reasonable min width
     m_auimgr.GetPane( m_projectTreePane ).MinSize( defaultLeftWinWidth, FromDIP( 80 ) );
@@ -300,16 +1392,150 @@ KICAD_MANAGER_FRAME::KICAD_MANAGER_FRAME( wxWindow* parent, const wxString& titl
     m_acceptedExts.emplace( FILEEXT::DrillFileExtension, &KICAD_MANAGER_ACTIONS::viewDroppedGerbers );
 
     DragAcceptFiles( true );
+
+    // Envil "Vibrant Purple & Indigo" theme: repaint the shell's own backgrounds to match.
+    if( ADVANCED_CFG::GetCfg().m_EnvilPurpleFrame )
+        applyEnvilShellTheme();
+
+    // KiCad Next single-window shell: warm the heavy editor KIFACEs in the background so
+    // the user's first click on Symbol/Footprint/Gerber/Drawing-Sheet is instant instead
+    // of "loading the whole app".  No-op unless the shell + prewarm flags are set.  Use a
+    // unique timer id and bind only to it, so this never intercepts the base frame's
+    // auto-save timer (ID_AUTO_SAVE_TIMER), which also raises wxEVT_TIMER on this frame.
+    m_prewarmTimer.SetOwner( this, wxWindow::NewControlId() );
+    Bind( wxEVT_TIMER, &KICAD_MANAGER_FRAME::prewarmNextEditor, this, m_prewarmTimer.GetId() );
+    schedulePrewarmEditors();
+}
+
+
+bool KICAD_MANAGER_FRAME::TryConnectAiIpc()
+{
+    if( !m_aiIpcClient )
+        return false;
+
+    if( m_aiIpcClient->IsConnected() )
+        return true;
+
+    // Re-read ipc_port.txt each attempt — same resolution order as the editors — so a backend
+    // that came up after the shell (writing a fresh dynamic port) still connects.
+    int           aiIpcPort = m_aiIpcClient->GetPort();
+    wxFileName    exePath( wxStandardPaths::Get().GetExecutablePath() );
+    wxArrayString portSearchPaths;
+
+    // 1. Portable per-user state dir — matches the Python server's _user_state_dir().
+    wxString orchestratorDir;
+#ifdef __WXMSW__
+    wxString localAppData;
+    if( wxGetEnv( wxT( "LOCALAPPDATA" ), &localAppData ) && !localAppData.IsEmpty() )
+        orchestratorDir = localAppData + wxFileName::GetPathSeparator() + wxT( "orchestrator" );
+#elif defined( __WXMAC__ )
+    orchestratorDir = wxGetHomeDir() + wxT( "/Library/Application Support/orchestrator" );
+#else
+    wxString xdgState;
+    if( !wxGetEnv( wxT( "XDG_STATE_HOME" ), &xdgState ) || xdgState.IsEmpty() )
+        xdgState = wxGetHomeDir() + wxT( "/.local/state" );
+    orchestratorDir = xdgState + wxT( "/orchestrator" );
+#endif
+
+    if( !orchestratorDir.IsEmpty() )
+        portSearchPaths.Add( orchestratorDir );
+
+    // 2. Stock data dir + exe-relative — dev-tree fallbacks.
+    portSearchPaths.Add( PATHS::GetStockDataPath( true ) + wxFileName::GetPathSeparator()
+                        + wxT( "ai_backend" ) );
+    portSearchPaths.Add( exePath.GetPath() + wxFileName::GetPathSeparator()
+                        + wxT( "ai_backend" ) );
+
+    for( const wxString& dir : portSearchPaths )
+    {
+        wxString portFile = dir + wxFileName::GetPathSeparator() + wxT( "ipc_port.txt" );
+
+        if( !wxFileExists( portFile ) )
+            continue;
+
+        wxFile f( portFile );
+
+        if( !f.IsOpened() )
+            continue;
+
+        wxString content;
+        f.ReadAll( &content );
+        long port;
+
+        if( content.Trim().ToLong( &port ) && port > 0 && port < 65536 )
+            aiIpcPort = (int) port;
+
+        break;
+    }
+
+    m_aiIpcClient->SetPort( aiIpcPort );
+    return m_aiIpcClient->Connect();
+}
+
+
+void KICAD_MANAGER_FRAME::OnAiIpcRetryTimer( wxTimerEvent& )
+{
+    // Never give up — back off the polling interval instead (the backend may start late).
+    // Two-stage: 2 s for the first minute, then 10 s indefinitely. Mirrors the editors.
+    constexpr int kFastAttempts  = 30;          // 30 × 2 s = 60 s
+    constexpr int kSlowIntervalMs = 10000;      // 10 s after that
+
+    if( !m_aiIpcClient || m_aiIpcClient->IsConnected() )
+    {
+        m_aiIpcRetryTimer.Stop();
+        return;
+    }
+
+    m_aiIpcRetryAttempts++;
+
+    if( TryConnectAiIpc() )
+    {
+        wxLogDebug( wxT( "AI Chat (shell): IPC connected on retry attempt %d (port %d)" ),
+                    m_aiIpcRetryAttempts, m_aiIpcClient->GetPort() );
+        m_aiIpcRetryTimer.Stop();
+        return;
+    }
+
+    if( m_aiIpcRetryAttempts == kFastAttempts )
+        m_aiIpcRetryTimer.Start( kSlowIntervalMs, wxTIMER_CONTINUOUS );
 }
 
 
 KICAD_MANAGER_FRAME::~KICAD_MANAGER_FRAME()
 {
+    // Stop the editor pre-warm before anything else so a queued tick cannot fire mid-teardown.
+    m_prewarmTimer.Stop();
+
+    // Tear down the shell's backend command channel + its retry timer.
+    m_aiIpcRetryTimer.Stop();
+    Unbind( wxEVT_TIMER, &KICAD_MANAGER_FRAME::OnAiIpcRetryTimer, this, m_aiIpcRetryTimer.GetId() );
+
+    if( m_aiIpcClient )
+    {
+        m_aiIpcClient->Disconnect();
+        m_aiIpcClient.reset();
+    }
+    Unbind( wxEVT_TIMER, &KICAD_MANAGER_FRAME::prewarmNextEditor, this, m_prewarmTimer.GetId() );
+
     Unbind( wxEVT_CHAR, &TOOL_DISPATCHER::DispatchWxEvent, m_toolDispatcher );
     Unbind( wxEVT_CHAR_HOOK, &TOOL_DISPATCHER::DispatchWxEvent, m_toolDispatcher );
 
     m_notebook->Unbind( wxEVT_AUINOTEBOOK_PAGE_CLOSE, &KICAD_MANAGER_FRAME::onNotebookPageCloseRequest, this );
     m_notebook->Unbind( wxEVT_AUINOTEBOOK_PAGE_CLOSED, &KICAD_MANAGER_FRAME::onNotebookPageCountChanged, this );
+
+    if( m_editorTabs )
+    {
+        m_editorTabs->Unbind( wxEVT_AUINOTEBOOK_PAGE_CLOSE,
+                              &KICAD_MANAGER_FRAME::onEditorTabCloseRequest, this );
+        m_editorTabs->Unbind( wxEVT_AUINOTEBOOK_PAGE_CHANGED,
+                              &KICAD_MANAGER_FRAME::onEditorTabChanged, this );
+        m_editorTabs->Unbind( wxEVT_CHILD_FOCUS,
+                              &KICAD_MANAGER_FRAME::onEditorAreaFocus, this );
+    }
+
+    if( m_projectTreePane )
+        m_projectTreePane->Unbind( wxEVT_CHILD_FOCUS,
+                                   &KICAD_MANAGER_FRAME::onShellPaneFocus, this );
 
     Pgm().GetBackgroundJobMonitor().UnregisterStatusBar( (KISTATUSBAR*) GetStatusBar() );
     Pgm().GetNotificationsManager().UnregisterStatusBar( (KISTATUSBAR*) GetStatusBar() );
@@ -340,6 +1566,608 @@ void KICAD_MANAGER_FRAME::HideTabsIfNeeded()
         m_notebook->SetTabCtrlHeight( 0 );
     else
         m_notebook->SetTabCtrlHeight( -1 );
+}
+
+
+void KICAD_MANAGER_FRAME::PruneDeadEditorTabs()
+{
+#ifdef __WXMSW__
+    if( !m_editorTabs )
+        return;
+
+    std::vector<std::pair<int, wxWindow*>> live;
+    live.reserve( m_dockedEditors.size() );
+
+    for( const std::pair<int, wxWindow*>& entry : m_dockedEditors )
+    {
+        // FindWindowById returns null once the player frame has been destroyed (the
+        // same test KIWAY uses), so this never touches a freed frame.
+        if( wxWindow::FindWindowById( entry.first ) )
+        {
+            live.push_back( entry );
+        }
+        else
+        {
+            int idx = m_editorTabs->GetPageIndex( entry.second );
+
+            if( idx != wxNOT_FOUND )
+                m_editorTabs->DeletePage( idx );   // destroys the now-orphaned host page
+        }
+    }
+
+    m_dockedEditors = std::move( live );
+#endif
+}
+
+
+void KICAD_MANAGER_FRAME::DetachDockedEditor( wxWindow* aPlayer )
+{
+#ifdef __WXMSW__
+    if( !aPlayer )
+        return;
+
+    // Reverse the WS_CHILD surgery DockEditorAsTab() applied: detach the frame from its
+    // host panel and restore its top-level decorations so it is a normal (hidden) window
+    // again — ready to be re-docked.  We do NOT destroy it, so KIWAY's pointer stays valid.
+    if( HWND child = static_cast<HWND>( aPlayer->GetHandle() ) )
+    {
+        ::SetParent( child, nullptr );
+
+        LONG_PTR style = ::GetWindowLongPtr( child, GWL_STYLE );
+        style &= ~( WS_CHILD | WS_POPUP );
+        style |= WS_CAPTION | WS_THICKFRAME | WS_MINIMIZEBOX | WS_MAXIMIZEBOX
+                 | WS_SYSMENU | WS_OVERLAPPED | WS_CLIPSIBLINGS | WS_CLIPCHILDREN;
+        ::SetWindowLongPtr( child, GWL_STYLE, style );
+
+        ::SetWindowPos( child, nullptr, 0, 0, 0, 0,
+                        SWP_FRAMECHANGED | SWP_NOMOVE | SWP_NOSIZE | SWP_NOZORDER | SWP_NOACTIVATE );
+    }
+
+    // wx-side bookkeeping: top-level again, hidden, with its own status bar restored.
+    aPlayer->Reparent( nullptr );
+    aPlayer->Hide();
+
+    if( wxFrame* frame = dynamic_cast<wxFrame*>( aPlayer ) )
+    {
+        if( wxStatusBar* sb = frame->GetStatusBar() )
+            sb->Show();
+    }
+#endif
+}
+
+
+void KICAD_MANAGER_FRAME::onEditorTabCloseRequest( wxAuiNotebookEvent& evt )
+{
+#ifdef __WXMSW__
+    if( !m_editorTabs )
+        return;
+
+    wxWindow* page = m_editorTabs->GetPage( evt.GetSelection() );
+
+    // Find the docked editor whose host panel is the page being closed, detach its frame
+    // (keeping it alive), and drop it from the registry.  The notebook then destroys the
+    // now-empty host page — but the editor frame was reparented out above, so it survives.
+    for( std::vector<std::pair<int, wxWindow*>>::iterator it = m_dockedEditors.begin();
+         it != m_dockedEditors.end(); ++it )
+    {
+        if( it->second != page )
+            continue;
+
+        if( wxWindow* player = wxWindow::FindWindowById( it->first ) )
+            DetachDockedEditor( player );
+
+        m_dockedEditors.erase( it );
+        break;
+    }
+
+    // wxAuiNotebook does not reliably fire PAGE_CHANGED when the LAST page is removed, so the
+    // menu would otherwise stay on the just-closed editor.  When no editor tabs remain, restore
+    // the Project Manager's own menu explicitly.
+    if( m_dockedEditors.empty() )
+        syncShellMenuToActiveTab( true );
+#endif
+}
+
+
+EDA_BASE_FRAME* KICAD_MANAGER_FRAME::getActiveDockedEditorFrame()
+{
+#ifdef __WXMSW__
+    if( !m_editorTabs )
+        return nullptr;
+
+    int sel = m_editorTabs->GetSelection();
+
+    if( sel == wxNOT_FOUND )
+        return nullptr;
+
+    wxWindow* page = m_editorTabs->GetPage( sel );
+
+    for( const std::pair<int, wxWindow*>& entry : m_dockedEditors )
+    {
+        if( entry.second != page )
+            continue;
+
+        // Look the player up by window-id (not a stored pointer) so a destroyed frame is
+        // detected as null rather than dereferenced — same guard as PruneDeadEditorTabs().
+        return dynamic_cast<EDA_BASE_FRAME*>( wxWindow::FindWindowById( entry.first ) );
+    }
+#endif
+    return nullptr;
+}
+
+
+void KICAD_MANAGER_FRAME::syncShellMenuToActiveTab( bool aForcePM )
+{
+#ifdef __WXMSW__
+    // Only the single-window shell with the unified menu bar re-hosts editors as tabs and owns
+    // a single shared top menu; in every other configuration each editor shows its own menu.
+    if( !m_editorTabs || !ADVANCED_CFG::GetCfg().m_SingleWindowShell
+            || !ADVANCED_CFG::GetCfg().m_UnifiedMenuBar )
+    {
+        return;
+    }
+
+    // aForcePM: the caller is on the Project Manager (a non-editor pane has focus, or the last
+    // tab just closed), so show the PM menu even though an editor tab may still be selected.
+    EDA_BASE_FRAME* editor = aForcePM ? nullptr : getActiveDockedEditorFrame();
+
+    if( editor )
+    {
+        // Show the active editor's menu (File/Edit/View/Place/Route/Inspect/Tools/Preferences):
+        // the shell owns the wxMenuBar, but each ACTION_MENU dispatches through the editor's own
+        // tool manager, so clicks reach the editor.
+        buildCommonMenuBarFrom( editor );
+        buildTitleBarMenuButtons();
+        m_shellMenuShowsEditor = true;
+    }
+    else
+    {
+        // Project Manager context (no editor tab, or forced): restore the manager's own menu.
+        // The manager's doReCreateMenuBar() already refreshes the title-bar buttons on this path.
+        doReCreateMenuBar();
+        m_shellMenuShowsEditor = false;
+    }
+#endif
+}
+
+
+void KICAD_MANAGER_FRAME::onEditorTabChanged( wxAuiNotebookEvent& evt )
+{
+    syncShellMenuToActiveTab();
+    syncAiPanelToActiveTab();
+    evt.Skip();
+}
+
+
+void KICAD_MANAGER_FRAME::syncAiPanelToActiveTab()
+{
+    if( !m_aiChatPanel )
+        return;
+
+    EDA_BASE_FRAME* editor = getActiveDockedEditorFrame();
+
+    if( !editor )
+        return;   // launcher / no editor tab — leave the panel's current context
+
+    wxString setter;
+
+    if( editor->GetFrameType() == FRAME_SCH )
+        setter = wxT( "envilSetSchematic" );
+    else if( editor->GetFrameType() == FRAME_PCB_EDITOR )
+        setter = wxT( "envilSetPcb" );
+    else
+        return;   // a non-schematic/PCB tab (Gerber, Calculator, …) — keep current context
+
+    wxString projPath = Prj().GetProjectPath();
+    wxString file     = editor->GetCurrentFileName();
+
+    projPath.Replace( wxT( "\\" ), wxT( "/" ) );
+    projPath.Replace( wxT( "\"" ), wxT( "\\\"" ) );
+    file.Replace( wxT( "\\" ), wxT( "/" ) );
+    file.Replace( wxT( "\"" ), wxT( "\\\"" ) );
+
+    // envilSetSchematic / envilSetPcb set the panel's app context AND re-hello the backend
+    // with the new file, so the one shell panel always acts on the front tab's document.
+    wxString script = wxString::Format(
+            wxT( "if (window.%s) window.%s(\"%s\", \"%s\");" ),
+            setter, setter, projPath, file );
+    m_aiChatPanel->RunScriptAsync( script );
+}
+
+
+bool KICAD_MANAGER_FRAME::AiChatPanelShown()
+{
+    if( !m_aiChatPanel )
+        return false;
+
+    wxAuiPaneInfo& pane = m_auimgr.GetPane( AiChatPanelName() );
+    return pane.IsOk() && pane.IsShown();
+}
+
+
+void KICAD_MANAGER_FRAME::ToggleAiChat()
+{
+    if( !m_aiChatPanel )
+        return;
+
+    wxAuiPaneInfo& pane = m_auimgr.GetPane( AiChatPanelName() );
+
+    if( !pane.IsOk() )
+        return;
+
+    bool            show = !pane.IsShown();
+    KICAD_SETTINGS* cfg  = kicadSettings();
+
+    pane.Show( show );
+
+    if( show )
+    {
+        int width = ( cfg && cfg->m_AiChatPanelWidth > 0 ) ? cfg->m_AiChatPanelWidth : 380;
+        SetAuiPaneSize( m_auimgr, pane, width, -1 );
+        syncAiPanelToActiveTab();
+
+        // Cursor-style "fresh on open": reopening the panel starts a blank chat.
+        // This fires ONLY here (an explicit pane show), not in syncAiPanelToActiveTab
+        // which also runs on tab flips. chat.html's envilPanelOpened() guards itself
+        // (no-op if blank, kept if a build is in flight), so this is safe to call.
+        m_aiChatPanel->RunScriptAsync( wxT( "if (window.envilPanelOpened) window.envilPanelOpened();" ) );
+    }
+    else
+    {
+        if( cfg )
+            cfg->m_AiChatPanelWidth = m_aiChatPanel->GetSize().x;
+
+        m_auimgr.Update();
+    }
+
+    if( cfg )
+        cfg->m_ShowAiChat = show;
+
+    if( m_titleBar )
+        m_titleBar->RefreshLayoutToggles();
+}
+
+
+void KICAD_MANAGER_FRAME::ShowAiSplitLayout()
+{
+    if( !m_aiChatPanel )
+        return;
+
+    wxAuiPaneInfo& pane = m_auimgr.GetPane( AiChatPanelName() );
+
+    if( !pane.IsOk() )
+        return;
+
+    pane.Show( true );
+
+    // Side-by-side "split" layout: give the AI panel ~40% of the client width so it sits
+    // beside the active editor like a VS Code editor split, rather than the narrow sidebar
+    // width that the chat-bubble toggle restores.
+    int clientW = GetClientSize().x;
+    int aiW     = clientW > 0 ? ( clientW * 2 ) / 5 : FromDIP( 380 );
+
+    if( aiW < FromDIP( 380 ) )
+        aiW = FromDIP( 380 );
+
+    SetAuiPaneSize( m_auimgr, pane, aiW, -1 );
+    syncAiPanelToActiveTab();
+
+    // Cursor-style "fresh on open" — see ToggleAiChat(). Only on explicit show.
+    m_aiChatPanel->RunScriptAsync( wxT( "if (window.envilPanelOpened) window.envilPanelOpened();" ) );
+
+    if( KICAD_SETTINGS* cfg = kicadSettings() )
+    {
+        cfg->m_ShowAiChat       = true;
+        cfg->m_AiChatPanelWidth = aiW;
+    }
+
+    if( m_titleBar )
+        m_titleBar->RefreshLayoutToggles();
+}
+
+
+namespace
+{
+// Recursively repaint a shell-owned panel subtree with the Envil chrome colours.  Safe only for
+// the shell's own widgets — never call on the editor tab pages (reparented editor frames keep
+// their own theme + a drawing canvas that must stay untouched).
+void envilRecolorShellTree( wxWindow* aWindow, const wxColour& aBg, const wxColour& aFg )
+{
+    if( !aWindow )
+        return;
+
+    aWindow->SetBackgroundColour( aBg );
+    aWindow->SetForegroundColour( aFg );
+
+    for( wxWindow* child : aWindow->GetChildren() )
+        envilRecolorShellTree( child, aBg, aFg );
+
+    aWindow->Refresh();
+}
+} // namespace
+
+
+void KICAD_MANAGER_FRAME::applyEnvilShellTheme()
+{
+    // Envil chrome palette (matches sch_edit_frame.cpp and the MSW dark-mode palette).
+    const wxColour bgDeep  ( 24, 20, 42 );
+    const wxColour bgPanel ( 33, 27, 56 );
+    const wxColour accent  ( 139, 92, 246 );
+    const wxColour capAct  ( 88, 52, 156 );
+    const wxColour capInact( 43, 35, 70 );
+    const wxColour border  ( 58, 46, 99 );
+    const wxColour sash    ( 40, 33, 66 );
+    const wxColour text    ( 255, 255, 255 );
+
+    // 1) Dock-pane chrome: the background behind/between panes, sashes, borders, captions.
+    if( wxAuiDockArt* dockArt = m_auimgr.GetArtProvider() )
+    {
+        dockArt->SetColour( wxAUI_DOCKART_BACKGROUND_COLOUR, bgDeep );
+        dockArt->SetColour( wxAUI_DOCKART_SASH_COLOUR, sash );
+        dockArt->SetColour( wxAUI_DOCKART_BORDER_COLOUR, border );
+        dockArt->SetColour( wxAUI_DOCKART_GRIPPER_COLOUR, bgPanel );
+        dockArt->SetColour( wxAUI_DOCKART_ACTIVE_CAPTION_COLOUR, capAct );
+        dockArt->SetColour( wxAUI_DOCKART_ACTIVE_CAPTION_GRADIENT_COLOUR, capAct );
+        dockArt->SetColour( wxAUI_DOCKART_INACTIVE_CAPTION_COLOUR, capInact );
+        dockArt->SetColour( wxAUI_DOCKART_INACTIVE_CAPTION_GRADIENT_COLOUR, capInact );
+        dockArt->SetColour( wxAUI_DOCKART_ACTIVE_CAPTION_TEXT_COLOUR, text );
+        dockArt->SetColour( wxAUI_DOCKART_INACTIVE_CAPTION_TEXT_COLOUR, text );
+    }
+
+    // 2) Tab strips of the side notebook and the centre editor notebook.
+    for( wxAuiNotebook* nb : { m_notebook, m_editorTabs } )
+    {
+        if( !nb )
+            continue;
+
+        if( wxAuiTabArt* tabArt = nb->GetArtProvider() )
+        {
+            tabArt->SetColour( bgPanel );
+            tabArt->SetActiveColour( accent );
+        }
+
+        nb->SetBackgroundColour( bgPanel );
+        nb->Refresh();
+    }
+
+    // 3) Shell-owned side panels (project tree + launcher).  Not the editor tab pages.
+    envilRecolorShellTree( m_projectTreePane, bgPanel, text );
+    envilRecolorShellTree( m_launcher, bgPanel, text );
+
+    // 4) Status bar.
+    if( wxStatusBar* sb = GetStatusBar() )
+    {
+        sb->SetBackgroundColour( bgPanel );
+        sb->SetForegroundColour( text );
+        sb->Refresh();
+    }
+
+    Refresh();
+}
+
+
+void KICAD_MANAGER_FRAME::onShellPaneFocus( wxChildFocusEvent& aEvent )
+{
+#ifdef __WXMSW__
+    // The Project Explorer (a non-editor pane) gained focus: the user is on the Project
+    // Manager, so bring its own menu back.  Only rebuild when an editor menu is currently
+    // shown, so repeated clicks in the tree don't rebuild the bar.
+    if( ADVANCED_CFG::GetCfg().m_SingleWindowShell && ADVANCED_CFG::GetCfg().m_UnifiedMenuBar
+            && m_shellMenuShowsEditor )
+    {
+        syncShellMenuToActiveTab( true );
+    }
+#endif
+    aEvent.Skip();
+}
+
+
+void KICAD_MANAGER_FRAME::onEditorAreaFocus( wxChildFocusEvent& aEvent )
+{
+#ifdef __WXMSW__
+    // Focus returned to the editor-tab area: show the active editor's menu again.  Only rebuild
+    // when the PM menu is currently shown and an editor tab actually exists.
+    if( ADVANCED_CFG::GetCfg().m_SingleWindowShell && ADVANCED_CFG::GetCfg().m_UnifiedMenuBar
+            && !m_shellMenuShowsEditor && getActiveDockedEditorFrame() )
+    {
+        syncShellMenuToActiveTab( false );
+    }
+#endif
+    aEvent.Skip();
+}
+
+
+void KICAD_MANAGER_FRAME::schedulePrewarmEditors()
+{
+    // Background editor pre-warm: only in the single-window shell, and only when the
+    // separate ShellPrewarmEditors flag is on, so the behaviour stays additive/reversible.
+    if( !ADVANCED_CFG::GetCfg().m_SingleWindowShell
+            || !ADVANCED_CFG::GetCfg().m_ShellPrewarmEditors )
+    {
+        return;
+    }
+
+    // The library/tool editors whose first open "loads the whole app".  All are
+    // project-independent, so warming them needs no open project and cannot touch project
+    // state.  Schematic/PCB are intentionally excluded: they must parse the project file
+    // on open anyway, and the user reaches them through the normal project flow.
+    m_prewarmQueue = { FRAME_SCH_SYMBOL_EDITOR, FRAME_FOOTPRINT_EDITOR,
+                       FRAME_GERBER, FRAME_PL_EDITOR };
+
+    // Start after the manager window has painted and become responsive; the queue then
+    // warms one editor per tick (sequential, never concurrent), yielding to the UI in
+    // between so clicking/typing stays smooth while the editors load silently.
+    m_prewarmTimer.StartOnce( 1500 );
+}
+
+
+void KICAD_MANAGER_FRAME::prewarmNextEditor( wxTimerEvent& aEvent )
+{
+    if( m_prewarmQueue.empty() )
+        return;
+
+    FRAME_T type = static_cast<FRAME_T>( m_prewarmQueue.front() );
+    m_prewarmQueue.erase( m_prewarmQueue.begin() );
+
+    try
+    {
+        // Create-but-don't-show: this builds the editor frame (loads its KIFACE, creates
+        // its GAL canvas, initialises its library tree) and caches it in KIWAY.  We never
+        // Show() it, so nothing appears on screen; ShowPlayer()/Execute() later find the
+        // ready player and just dock it as a tab — instantly.
+        Kiway().Player( type, true );
+    }
+    catch( const IO_ERROR& )
+    {
+        // KIFACE missing or failed to load: pre-warm is best-effort, so skip and carry on.
+    }
+
+    // Warm the next one on a short tick so the GUI thread breathes between heavy loads.
+    if( !m_prewarmQueue.empty() )
+        m_prewarmTimer.StartOnce( 400 );
+}
+
+
+bool KICAD_MANAGER_FRAME::DockEditorAsTab( KIWAY_PLAYER* aPlayer, const wxString& aTitle )
+{
+#ifdef __WXMSW__
+    if( !m_editorTabs || !aPlayer )
+        return false;
+
+    // Drop any tab whose editor was destroyed (e.g. on a prior project close) so we
+    // never leave an orphan tab or add a duplicate when the editor is re-opened.
+    PruneDeadEditorTabs();
+
+    // Already docked?  Match by window-id and select its tab.
+    for( const std::pair<int, wxWindow*>& entry : m_dockedEditors )
+    {
+        if( entry.first == aPlayer->GetId() )
+        {
+            int idx = m_editorTabs->GetPageIndex( entry.second );
+
+            if( idx != wxNOT_FOUND )
+                m_editorTabs->SetSelection( idx );
+
+            return true;
+        }
+    }
+
+    // A plain panel is the notebook page; the editor frame is reparented inside it so
+    // wxAuiNotebook only ever manages an ordinary child window, sized via the sizer.
+    wxPanel*    host  = new wxPanel( m_editorTabs, wxID_ANY );
+    wxBoxSizer* sizer = new wxBoxSizer( wxVERTICAL );
+    host->SetSizer( sizer );
+
+    // Strip the editor frame's top-level decorations: no caption, resize border, or
+    // system menu of its own — the shell's single title/menu bar (Track 1) owns the
+    // chrome.  Turn it into a child window so it lives inside the tab.
+    if( HWND child = static_cast<HWND>( aPlayer->GetHandle() ) )
+    {
+        // wx-side reparent first so the sizer / child bookkeeping is correct.
+        aPlayer->Reparent( host );
+
+        // CRITICAL: wxWidgets does NOT reliably perform the native ::SetParent for a
+        // top-level wxFrame, so without this call the editor keeps the DESKTOP as its
+        // real parent — it gets WS_CHILD set but still floats borderless at (0,0) over
+        // the shell, hiding the activity rail and Project Explorer.  Force it natively.
+        if( HWND hostHwnd = static_cast<HWND>( host->GetHandle() ) )
+            ::SetParent( child, hostHwnd );
+
+        // Strip the frame's top-level decorations (caption / resize border / sys menu)
+        // and turn it into a child window — the shell owns the chrome.  Set the style
+        // AFTER the parent change so the WS_CHILD conversion sticks.
+        LONG_PTR style = ::GetWindowLongPtr( child, GWL_STYLE );
+        style &= ~( WS_CAPTION | WS_THICKFRAME | WS_MINIMIZEBOX | WS_MAXIMIZEBOX
+                    | WS_SYSMENU | WS_POPUP | WS_OVERLAPPED | WS_DLGFRAME | WS_BORDER );
+        style |= WS_CHILD | WS_CLIPSIBLINGS | WS_CLIPCHILDREN;
+        ::SetWindowLongPtr( child, GWL_STYLE, style );
+
+        sizer->Add( aPlayer, 1, wxEXPAND );
+
+        // A style change only takes visual effect after a frame recompute.
+        ::SetWindowPos( child, nullptr, 0, 0, 0, 0,
+                        SWP_FRAMECHANGED | SWP_NOMOVE | SWP_NOSIZE | SWP_NOZORDER | SWP_NOACTIVATE );
+    }
+    else
+    {
+        aPlayer->Reparent( host );
+        sizer->Add( aPlayer, 1, wxEXPAND );
+    }
+
+    // The editor frame keeps its own status bar; hide it so it does not double up with
+    // the shell's status bar at the bottom of the window.
+    if( wxStatusBar* sb = aPlayer->GetStatusBar() )
+        sb->Hide();
+
+    // Guard against a blank tab when a freshly created frame has no title yet.
+    wxString tabLabel = aTitle;
+
+    if( tabLabel.IsEmpty() )
+        tabLabel = aPlayer->GetTitle();
+
+    if( tabLabel.IsEmpty() )
+        tabLabel = _( "Editor" );
+
+    m_editorTabs->AddPage( host, tabLabel, true );
+    m_dockedEditors.emplace_back( aPlayer->GetId(), host );
+
+    aPlayer->Show( true );
+    host->Layout();
+
+    // The reparented frame does not always honour the box sizer on first dock (a wxFrame
+    // is an unusual sizer item), so size it explicitly to the host's client area now;
+    // subsequent shell resizes are handled by the sizer / host EVT_SIZE.
+    aPlayer->SetSize( host->GetClientSize() );
+
+    // Give the editor keyboard focus so hotkeys work immediately (the floating path
+    // did this via player->SetFocus(); the docked path must do it too).
+    aPlayer->SetFocus();
+
+    // Make the shell's top menu reflect the just-docked editor.  AddPage(..., true) above may
+    // have fired PAGE_CHANGED before m_dockedEditors held this entry (so its handler fell back
+    // to the manager menu); now that the registry is populated, set the editor's menu for real.
+    syncShellMenuToActiveTab();
+
+    // Point the shell-owned common AI panel at the just-docked document for the same reason.
+    syncAiPanelToActiveTab();
+
+    return true;
+#else
+    // Non-Windows: native reparenting recipe differs (GTK/Cocoa); fall back to a
+    // floating frame for now so the caller shows it as before.
+    return false;
+#endif
+}
+
+
+bool KICAD_MANAGER_FRAME::DockPlayerAsTab( KIWAY_PLAYER* aPlayer )
+{
+    // Cross-KIFACE bridge (KIFACE_TAB_HOST): an editor opened a sibling editor and is asking
+    // the shell to host it as a tab.  Reuse the same docking path the shell uses when it
+    // opens editors itself, so an editor launched via "Update PCB" / "Update Schematic"
+    // behaves identically to one opened from the Project Explorer.  DockEditorAsTab() is
+    // idempotent: if the player is already docked it just re-selects its tab.
+    if( !aPlayer )
+        return false;
+
+    return DockEditorAsTab( aPlayer, aPlayer->GetTitle() );
+}
+
+
+bool KICAD_MANAGER_FRAME::IsPlayerDocked( KIWAY_PLAYER* aPlayer )
+{
+    if( !m_editorTabs || !aPlayer )
+        return false;
+
+    // Matched by window-id (same key DockEditorAsTab() stores), then confirm the host page
+    // is still a live tab so a stale entry from a destroyed editor never reads as docked.
+    for( const std::pair<int, wxWindow*>& entry : m_dockedEditors )
+    {
+        if( entry.first == aPlayer->GetId() )
+            return m_editorTabs->GetPageIndex( entry.second ) != wxNOT_FOUND;
+    }
+
+    return false;
 }
 
 
@@ -596,6 +2424,13 @@ void KICAD_MANAGER_FRAME::OnSize( wxSizeEvent& event )
     if( m_auimgr.GetManagedWindow() )
         m_auimgr.Update();
 
+#ifdef __WXMSW__
+    // Keep the title-bar maximize/restore glyph in sync when the window is maximized
+    // or restored via the OS (double-click caption, snap, Win+Up) — not just the button.
+    if( m_titleBar )
+        m_titleBar->UpdateMaximizeGlyph();
+#endif
+
     PrintPrjInfo();
 
 #if defined( _WIN32 )
@@ -718,6 +2553,12 @@ void KICAD_MANAGER_FRAME::doCloseWindow()
     m_projectTreePane->Show( false );
     Pgm().m_Quitting = true;
 
+    // KiCad Next single-window shell: stop advertising ourselves as the KIWAY tab host before
+    // we are destroyed, so any late editor → sibling-editor launch floats instead of calling
+    // into a dead shell.
+    if( Kiway().GetTabHost() == this )
+        Kiway().SetTabHost( nullptr );
+
     Destroy();
 
 #ifdef _WINDOWS_
@@ -759,6 +2600,9 @@ bool KICAD_MANAGER_FRAME::CloseProject( bool aSave )
 {
     if( !Kiway().PlayersClose( false ) )
         return false;
+
+    // Players just closed; drop their now-orphaned docked tabs (single-window shell).
+    PruneDeadEditorTabs();
 
     // Abort any in-progress background load, since the threads depend on the project not changing
     KIFACE *schface = Kiway().KiFACE( KIWAY::FACE_SCH );
@@ -1460,10 +3304,127 @@ void KICAD_MANAGER_FRAME::onToolbarSizeChanged()
     delete m_tbLeft;
     m_tbLeft = nullptr;
     RecreateToolbars();
-    m_auimgr.AddPane( m_tbLeft, EDA_PANE().HToolbar().Name( "TopMainToolbar" ).Left().Layer( 2 ) );
+    m_auimgr.AddPane( m_tbLeft, EDA_PANE().HToolbar().Name( "TopMainToolbar" ).Left().Layer( 2 ).Hide() );
 
     m_auimgr.Update();
 }
+
+
+void KICAD_MANAGER_FRAME::buildTitleBarMenuButtons()
+{
+#ifdef __WXMSW__
+    if( !m_titleBar )
+        return;
+
+    wxMenuBar* bar = GetMenuBar();
+    m_titleBar->SetMenus( bar );    // takes ownership of the menus (Remove()s each)
+
+    // The menus now live in the custom title bar; drop the (now-empty) native menu bar
+    // so Windows does not also render a native menu row beneath the caption.
+    if( bar )
+        SetMenuBar( nullptr );
+
+    if( m_auimgr.GetManagedWindow() )
+        m_auimgr.Update();
+#endif
+}
+
+
+#ifdef __WXMSW__
+WXLRESULT KICAD_MANAGER_FRAME::MSWWindowProc( WXUINT message, WXWPARAM wParam, WXLPARAM lParam )
+{
+    HWND hwnd = static_cast<HWND>( GetHandle() );
+
+    switch( message )
+    {
+    case WM_NCCALCSIZE:
+        // Returning 0 for the "compute client size" pass makes the client area span the
+        // entire window, which removes the native title bar. (Never DefWindowProc here —
+        // that re-adds the caption and was the cause of the previous double-title-bar.)
+        if( wParam == TRUE )
+            return 0;
+
+        break;
+
+    case WM_NCHITTEST:
+    {
+        const int sx = GET_X_LPARAM( lParam );
+        const int sy = GET_Y_LPARAM( lParam );
+
+        RECT  wr;
+        ::GetWindowRect( hwnd, &wr );
+
+        POINT pt = { sx, sy };
+        ::ScreenToClient( hwnd, &pt );
+
+        // Resize borders (only when not maximized).
+        if( !::IsZoomed( hwnd ) )
+        {
+            const int bx = ::GetSystemMetrics( SM_CXFRAME ) + ::GetSystemMetrics( SM_CXPADDEDBORDER );
+            const int by = ::GetSystemMetrics( SM_CYFRAME ) + ::GetSystemMetrics( SM_CXPADDEDBORDER );
+
+            enum { L = 1, R = 2, T = 4, B = 8 };
+            int m = ( sx <  wr.left  + bx ? L : 0 ) | ( sx >= wr.right  - bx ? R : 0 )
+                  | ( sy <  wr.top   + by ? T : 0 ) | ( sy >= wr.bottom - by ? B : 0 );
+
+            switch( m )
+            {
+            case T | L: return HTTOPLEFT;     case T: return HTTOP;     case T | R: return HTTOPRIGHT;
+            case L:     return HTLEFT;                                  case R:     return HTRIGHT;
+            case B | L: return HTBOTTOMLEFT;  case B: return HTBOTTOM;  case B | R: return HTBOTTOMRIGHT;
+            default: break;
+            }
+        }
+
+        // The title-bar strip (minus its buttons) is the draggable caption: this gives
+        // window move, double-click-maximize and Aero Snap natively.
+        const int  tbH = m_titleBar ? m_titleBar->GetSize().GetHeight() : 0;
+        const bool overButton = m_titleBar && m_titleBar->HitInteractive( wxPoint( pt.x, pt.y ) );
+
+        if( pt.y >= 0 && pt.y < tbH && !overButton )
+            return HTCAPTION;
+
+        return HTCLIENT;
+    }
+
+    case WM_GETMINMAXINFO:
+    {
+        // Constrain maximize to the monitor work area so the taskbar stays visible and
+        // content is not clipped (the window has no native frame to account for).
+        MINMAXINFO* mmi = reinterpret_cast<MINMAXINFO*>( lParam );
+
+        if( HMONITOR mon = ::MonitorFromWindow( hwnd, MONITOR_DEFAULTTONEAREST ) )
+        {
+            MONITORINFO mi;
+            mi.cbSize = sizeof( mi );
+
+            if( ::GetMonitorInfo( mon, &mi ) )
+            {
+                mmi->ptMaxPosition.x  = mi.rcWork.left   - mi.rcMonitor.left;
+                mmi->ptMaxPosition.y  = mi.rcWork.top    - mi.rcMonitor.top;
+                mmi->ptMaxSize.x      = mi.rcWork.right  - mi.rcWork.left;
+                mmi->ptMaxSize.y      = mi.rcWork.bottom - mi.rcWork.top;
+                mmi->ptMaxTrackSize.x = mmi->ptMaxSize.x;
+                mmi->ptMaxTrackSize.y = mmi->ptMaxSize.y;
+                return 0;
+            }
+        }
+
+        break;
+    }
+
+    default:
+        break;
+    }
+
+    // Preserve EDA_BASE_FRAME's Alt-key (SC_KEYMENU) workaround — its handler is private,
+    // so we replicate the one line here — then defer to wxFrame.
+    if( message == WM_SYSCOMMAND && wParam == SC_KEYMENU && ( lParam >> 16 ) <= 0 )
+        return 0;
+
+    return wxFrame::MSWWindowProc( message, wParam, lParam );
+}
+#endif // __WXMSW__
 
 
 void KICAD_MANAGER_FRAME::ToggleLocalHistory()
@@ -1498,4 +3459,36 @@ void KICAD_MANAGER_FRAME::RestoreCommitFromHistory( const wxString& aHash )
 bool KICAD_MANAGER_FRAME::HistoryPanelShown()
 {
     return m_historyPane && m_auimgr.GetPane( m_historyPane ).IsShown();
+}
+
+
+void KICAD_MANAGER_FRAME::ToggleProjectExplorer()
+{
+    if( !m_projectTreePane )
+        return;
+
+    wxAuiPaneInfo& pane = m_auimgr.GetPane( m_projectTreePane );
+    pane.Show( !pane.IsShown() );
+    m_auimgr.Update();
+}
+
+
+bool KICAD_MANAGER_FRAME::ProjectExplorerShown()
+{
+    return m_projectTreePane && m_auimgr.GetPane( m_projectTreePane ).IsShown();
+}
+
+
+void KICAD_MANAGER_FRAME::SplitActiveEditor()
+{
+    // Move the active editor tab into a new side-by-side group (VS Code "split editor").
+    // Needs a second tab to split into: every docked editor is a unique reparented frame,
+    // so the same editor cannot be shown in both halves — splitting a lone tab is a no-op.
+    if( !m_editorTabs || m_editorTabs->GetPageCount() < 2 )
+        return;
+
+    int sel = m_editorTabs->GetSelection();
+
+    if( sel != wxNOT_FOUND )
+        m_editorTabs->Split( static_cast<size_t>( sel ), wxRIGHT );
 }

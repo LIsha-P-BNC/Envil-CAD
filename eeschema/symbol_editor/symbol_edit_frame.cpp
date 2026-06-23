@@ -23,6 +23,7 @@
  * 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA
  */
 
+#include <advanced_config.h>
 #include <bitmaps.h>
 #include <wx/hyperlink.h>
 #include <base_screen.h>
@@ -255,8 +256,17 @@ SYMBOL_EDIT_FRAME::SYMBOL_EDIT_FRAME( KIWAY* aKiway, wxWindow* aParent ) :
     if( m_settings->m_LibWidth > 0 )
         SetAuiPaneSize( m_auimgr, m_auimgr.GetPane( "LibraryTree" ), m_settings->m_LibWidth, -1 );
 
-    Raise();
-    Show( true );
+    // KiCad Next single-window shell: when this frame is going to be docked as a tab,
+    // the manager shell (KICAD_MANAGER_FRAME::DockEditorAsTab) shows it *after*
+    // reparenting it inside the tab.  Showing it here would flash a floating top-level
+    // Symbol Editor window during construction — and keep it floating for the whole of
+    // the slow SyncLibraries() load below — before it snaps into the tab.  Skip the
+    // self-show when the flag is on; the dock path (or the floating fallback) shows it.
+    if( !ADVANCED_CFG::GetCfg().m_SingleWindowShell )
+    {
+        Raise();
+        Show( true );
+    }
 
     SyncView();
     GetCanvas()->GetView()->UseDrawPriority( true );
@@ -285,8 +295,10 @@ SYMBOL_EDIT_FRAME::SYMBOL_EDIT_FRAME( KIWAY* aKiway, wxWindow* aParent ) :
     Bind( wxEVT_CHAR, &TOOL_DISPATCHER::DispatchWxEvent, m_toolDispatcher );
     Bind( wxEVT_CHAR_HOOK, &TOOL_DISPATCHER::DispatchWxEvent, m_toolDispatcher );
 
-    // Ensure the window is on top
-    Raise();
+    // Ensure the window is on top (skip under the single-window shell — the tab host
+    // owns z-order, and raising a not-yet-docked frame re-floats it; see note above).
+    if( !ADVANCED_CFG::GetCfg().m_SingleWindowShell )
+        Raise();
 
     // run SyncLibraries with progress reporter enabled. The progress reporter is useful
     // in debug mode because the loading time of ecah library can be really noticeable

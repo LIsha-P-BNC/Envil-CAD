@@ -63,6 +63,8 @@
 #include <wx/bmpbuttn.h>        // needed on wxMSW for OnSetFocus()
 #include <core/profile.h>
 #include <pgm_base.h>
+#include <advanced_config.h>
+#include <bitmaps/bitmap_types.h>
 
 
 NET_GRID_TABLE::NET_GRID_TABLE( PCB_BASE_FRAME* aFrame, wxColor aBackgroundColor ) :
@@ -404,6 +406,57 @@ LAYER_PRESET APPEARANCE_CONTROLS::presetBackAssembly( _HKI( "Back Assembly View"
 LAYER_PRESET APPEARANCE_CONTROLS::m_lastBuiltinPreset;
 
 
+namespace
+{
+/**
+ * Rebuild a visibility-toggle bitmap bundle with the glyph luminance-inverted, preserving the
+ * source icon's alpha.
+ *
+ * The stock "eye" glyphs are dark-on-transparent (designed for a light panel); on the Envil
+ * purple/forced-dark panel (background lum ~18–33) the dark ink blends into the background and the
+ * icons read as "missing".  Inverting each channel (255 − v) turns the dark iris/outline light
+ * while keeping the internal structure, so the toggle reads clearly as an eye on the dark panel.
+ * Returns an invalid bundle on failure so the caller can fall back to the stock bundle.
+ */
+wxBitmapBundle invertVisibilityBundle( BITMAPS aId )
+{
+    wxVector<wxBitmap> bmps;
+
+    for( int size : { 16, 32 } )
+    {
+        wxBitmap src = KiBitmap( aId, size );
+
+        if( !src.IsOk() )
+            continue;
+
+        wxImage img = src.ConvertToImage();
+
+        if( !img.IsOk() || !img.HasAlpha() )
+            continue;
+
+        const int w = img.GetWidth();
+        const int h = img.GetHeight();
+
+        for( int y = 0; y < h; ++y )
+        {
+            for( int x = 0; x < w; ++x )
+            {
+                img.SetRGB( x, y, 255 - img.GetRed( x, y ), 255 - img.GetGreen( x, y ),
+                            255 - img.GetBlue( x, y ) );
+            }
+        }
+
+        bmps.push_back( wxBitmap( img ) );
+    }
+
+    if( bmps.empty() )
+        return wxBitmapBundle();
+
+    return wxBitmapBundle::FromBitmaps( bmps );
+}
+} // namespace
+
+
 APPEARANCE_CONTROLS::APPEARANCE_CONTROLS( PCB_BASE_FRAME* aParent, wxWindow* aFocusOwner, bool aFpEditorMode ) :
         APPEARANCE_CONTROLS_BASE( aParent ),
         m_frame( aParent ),
@@ -422,6 +475,17 @@ APPEARANCE_CONTROLS::APPEARANCE_CONTROLS( PCB_BASE_FRAME* aParent, wxWindow* aFo
     // We can get a crazy amount of nets and netclasses
     m_visibleBitmapBundle = KiBitmapBundle( BITMAPS::visibility );
     m_notVisibileBitmapBundle = KiBitmapBundle( BITMAPS::visibility_off );
+
+    // Under the Envil forced-dark (purple) chrome the stock dark "eye" glyphs blend into the dark
+    // panel; luminance-invert them so they read as light icons on the dark background.
+    if( ADVANCED_CFG::GetCfg().m_EnvilPurpleFrame )
+    {
+        if( wxBitmapBundle inverted = invertVisibilityBundle( BITMAPS::visibility ); inverted.IsOk() )
+            m_visibleBitmapBundle = inverted;
+
+        if( wxBitmapBundle inverted = invertVisibilityBundle( BITMAPS::visibility_off ); inverted.IsOk() )
+            m_notVisibileBitmapBundle = inverted;
+    }
 
     int screenHeight   = wxSystemSettings::GetMetric( wxSYS_SCREEN_Y );
     m_iconProvider     = new ROW_ICON_PROVIDER( KIUI::c_IndicatorSizeDIP, this );

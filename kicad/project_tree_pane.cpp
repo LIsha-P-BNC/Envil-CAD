@@ -647,14 +647,20 @@ wxTreeItemId PROJECT_TREE_PANE::addItemToProjectTree( const wxString& aName,
 
 void PROJECT_TREE_PANE::ReCreateTreePrj()
 {
-    std::lock_guard<std::mutex> lock1( m_gitStatusMutex );
-    std::lock_guard<std::mutex> lock2( m_gitTreeCacheMutex );
+    // Drain the shared thread pool WITHOUT holding the git mutexes.  Holding them across this
+    // blocking wait freezes the UI thread for the duration of any unrelated long-running pool
+    // task (footprint load, DRC, zone fill) and risks deadlock against the git workers that
+    // take these same mutexes.  Acquire the mutexes only afterwards, to guard the cache/status
+    // rebuild below.
     thread_pool& tp = GetKiCadThreadPool();
 
     while( tp.get_tasks_running() )
     {
         tp.wait_for( std::chrono::milliseconds( 250 ) );
     }
+
+    std::lock_guard<std::mutex> lock1( m_gitStatusMutex );
+    std::lock_guard<std::mutex> lock2( m_gitTreeCacheMutex );
 
     m_gitStatusTimer.Stop();
     m_gitSyncTimer.Stop();
@@ -664,9 +670,17 @@ void PROJECT_TREE_PANE::ReCreateTreePrj()
     wxString pro_dir = m_Parent->GetProjectFileName();
 
     if( !m_TreeProject )
+    {
         m_TreeProject = new PROJECT_TREE( this );
+
+        // VS Code / Cursor style single-click open.  Bind once, on creation; the handler
+        // itself is a no-op unless ADVANCED_CFG::m_SingleClickOpen is set.
+        m_TreeProject->Bind( wxEVT_LEFT_UP, &PROJECT_TREE_PANE::onItemClicked, this );
+    }
     else
+    {
         m_TreeProject->DeleteAllItems();
+    }
 
     if( !pro_dir )  // This is empty from PROJECT_TREE_PANE constructor
         return;
@@ -1168,6 +1182,58 @@ void PROJECT_TREE_PANE::onSelect( wxTreeEvent& Event )
     // there will be more events at least on Windows in this frame that will steal focus from
     // any newly launched windows
     m_selectedItem = tree_data[0];
+}
+
+
+void PROJECT_TREE_PANE::onItemClicked( wxMouseEvent& aEvent )
+{
+    // Let the normal selection / drawing happen regardless of what we decide below.
+    aEvent.Skip();
+
+    // VS Code / Cursor style: a single left-click opens the file.  This is purely additive
+    // to the classic double-click path (onSelect); when disabled we behave exactly as before.
+    if( !ADVANCED_CFG::GetCfg().m_SingleClickOpen )
+        return;
+
+    // A press-drag-release is not a click; don't open files at the end of a drag/marquee.
+    if( aEvent.Dragging() )
+        return;
+
+    // The tree allows multi-select (wxTR_MULTIPLE).  A Ctrl/Shift click is the user building
+    // a selection (e.g. to delete or rename several files), not a request to open — leave it
+    // to the default handler, matching how file explorers behave.
+    if( aEvent.ControlDown() || aEvent.ShiftDown() )
+        return;
+
+    // Work out what was actually clicked.  Everything here is data-driven: we ask the tree
+    // what is under the cursor and the item what kind of file it is — nothing is hardcoded,
+    // so this opens any file type the tree knows about, now and in the future.
+    int          hitFlags = 0;
+    wxTreeItemId itemId = m_TreeProject->HitTest( aEvent.GetPosition(), hitFlags );
+
+    if( !itemId.IsOk() )
+        return;
+
+    // Only react to a click squarely on the label or icon.  Clicks on the +/- expand button,
+    // the indent area, or empty space are left to the default handler so navigation and
+    // expand/collapse keep working untouched.
+    if( !( hitFlags & ( wxTREE_HITTEST_ONITEMLABEL | wxTREE_HITTEST_ONITEMICON ) ) )
+        return;
+
+    PROJECT_TREE_ITEM* tree_data = GetItemIdData( itemId );
+
+    if( !tree_data )
+        return;
+
+    // Directories expand/collapse via the default handler (and the +/- button); don't hijack
+    // a folder click into an "open".  The current/root project is also a no-op to re-open.
+    if( tree_data->GetType() == TREE_FILE_TYPE::DIRECTORY )
+        return;
+
+    // Bookmark for activation in onIdle, exactly like the double-click path: opening from
+    // idle time (after this event burst settles) is what prevents focus wars when a new
+    // editor window launches.
+    m_selectedItem = tree_data;
 }
 
 

@@ -100,8 +100,14 @@ std::optional<TOOLBAR_CONFIGURATION> SCH_EDIT_TOOLBAR_SETTINGS::DefaultToolbarCo
 
         config.AppendSeparator()
               .AppendAction( SCH_ACTIONS::showHierarchy )
-              .AppendAction( ACTIONS::showProperties )
-              .AppendAction( SCH_ACTIONS::showAiChat );
+              .AppendAction( ACTIONS::showProperties );
+
+        // The per-editor AI toggle (the "i" icon) is redundant in the shell's common-AI mode:
+        // the shell owns one shared AI panel with its own title-bar toggle.  Hide it there;
+        // keep it when CommonAiPanel is off, since each editor then owns its own AI panel.
+        if( !( ADVANCED_CFG::GetCfg().m_SingleWindowShell
+               && ADVANCED_CFG::GetCfg().m_CommonAiPanel ) )
+            config.AppendAction( SCH_ACTIONS::showAiChat );
 
         if( ADVANCED_CFG::GetCfg().m_DrawBoundingBoxes )
             config.AppendAction( ACTIONS::toggleBoundingBoxes );

@@ -37,6 +37,7 @@
 #include <tool/tool_manager.h>
 #include <kiplatform/ui.h>
 #include <widgets/unit_binder.h>
+#include <advanced_config.h>
 
 #include <wx/display.h>
 #include <wx/evtloop.h>
@@ -114,6 +115,16 @@ DIALOG_SHIM::DIALOG_SHIM( wxWindow* aParent, wxWindowID id, const wxString& titl
 {
     KIWAY_HOLDER* kiwayHolder = nullptr;
     m_initialSize = size;
+
+    // Envil: apply the app-wide UI base font size (EnvilUiFontPt) before the derived dialog builds
+    // its controls, so every widget inherits it.  A dialog is a top-level window and does not
+    // inherit its parent frame's font, so it must be set here independently of EDA_BASE_FRAME.
+    if( ADVANCED_CFG::GetCfg().m_EnvilUiFontPt > 0.0 )
+    {
+        wxFont uiFont = GetFont();
+        uiFont.SetFractionalPointSize( ADVANCED_CFG::GetCfg().m_EnvilUiFontPt );
+        SetFont( uiFont );
+    }
 
     if( aParent )
     {

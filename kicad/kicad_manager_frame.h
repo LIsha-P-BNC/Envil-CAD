@@ -26,6 +26,11 @@
 #define KICAD_H
 
 #include <kiway_player.h>
+#include <kiway.h>           // KIFACE_TAB_HOST (single-window shell dock bridge)
+
+#include <utility>
+#include <vector>
+#include <wx/timer.h>
 
 class ACTION_TOOLBAR;
 class BITMAP_BUTTON;
@@ -37,11 +42,16 @@ class PROJECT_TREE;
 class PROJECT_TREE_PANE;
 class LOCAL_HISTORY_PANE;
 class UPDATE_MANAGER;
+class WEBVIEW_PANEL;
+class AI_IPC_CLIENT;
 
 /**
  * The main KiCad project manager frame.  It is not a KIWAY_PLAYER.
+ *
+ * It also implements KIFACE_TAB_HOST so editor KIFACEs can dock newly opened sibling
+ * editors as tabs in the single-window shell (see KIWAY::DockPlayer).
  */
-class KICAD_MANAGER_FRAME : public EDA_BASE_FRAME
+class KICAD_MANAGER_FRAME : public EDA_BASE_FRAME, public KIFACE_TAB_HOST
 {
 public:
     KICAD_MANAGER_FRAME( wxWindow* parent, const wxString& title,
@@ -61,8 +71,37 @@ public:
     void ToggleLocalHistory();
     bool HistoryPanelShown();
 
+    /// Single-window shell: show/hide the left Project Explorer pane (driven by the
+    /// VS Code-style layout toggle in the custom title bar).
+    void ToggleProjectExplorer();
+    bool ProjectExplorerShown();
+
+    /// Single-window shell: split the editor-tab area into side-by-side groups, moving the
+    /// active editor into the new group (VS Code "split editor"; needs 2+ open editors).
+    void SplitActiveEditor();
+
+    /// Single-window shell common AI panel (CommonAiPanel): the shell owns ONE "AI Assistant"
+    /// pane (Cursor style) instead of one per editor.  Name of that pane, and a show/hide
+    /// toggle + visibility query driven by the title-bar AI button.  No-op when the panel was
+    /// not created (flag off, or WebView init failed).
+    static const wxString AiChatPanelName() { return wxT( "AiChat" ); }
+    void ToggleAiChat();
+    bool AiChatPanelShown();
+
+    /// Single-window shell: arrange the AI panel as a side-by-side editor split (Cursor
+    /// "open AI beside code") — show it docked right at ~40% width so it sits next to the
+    /// active editor rather than as the narrow sidebar.  Driven by the title-bar AI-split
+    /// button.  No-op when the AI panel was not created.
+    void ShowAiSplitLayout();
+
     void OnOpenFileInTextEditor( wxCommandEvent& event );
     void OnEditAdvancedCfg( wxCommandEvent& event );
+
+    /// Envil "Vibrant Purple & Indigo" theme: repaint the shell's own chrome (AUI dock area,
+    /// editor/side tab strips, project tree, launcher, status bar) to match the frame theme.
+    /// Gated by the EnvilPurpleFrame advanced-config flag; does NOT descend into the hosted
+    /// editor tabs (those keep their own theme + canvas).
+    void applyEnvilShellTheme();
 
     void OnFileHistory( wxCommandEvent& event );
     void OnClearFileHistory( wxCommandEvent& aEvent );
@@ -79,6 +118,51 @@ public:
      * Hides the tabs for Editor notebook if there is only 1 page
      */
     void HideTabsIfNeeded();
+
+    /**
+     * KiCad Next single-window shell (Layer B): re-host an in-process editor frame
+     * (Schematic / PCB / Gerber / Calculator / …) as a tab in the manager window's
+     * center editor notebook instead of letting it float as its own OS window.
+     * The frame's top-level decorations are stripped so the shell's single title /
+     * menu bar owns the chrome — the editor itself is unchanged.
+     *
+     * Only active when ADVANCED_CFG m_SingleWindowShell is set (otherwise m_editorTabs
+     * is null and this is a no-op returning false, so the caller floats the frame as
+     * before). Windows-only for now; returns false elsewhere.
+     *
+     * @return true if the frame was docked (or its existing tab was selected).
+     */
+    bool DockEditorAsTab( KIWAY_PLAYER* aPlayer, const wxString& aTitle );
+
+    /**
+     * KIFACE_TAB_HOST implementation: cross-KIFACE entry point letting eeschema / pcbnew
+     * dock a sibling editor they just opened (e.g. "Update PCB", "Update Schematic") as a
+     * tab in this shell.  Delegates to DockEditorAsTab() using the player's own title.
+     */
+    bool DockPlayerAsTab( KIWAY_PLAYER* aPlayer ) override;
+
+    /**
+     * KIFACE_TAB_HOST implementation: report whether @a aPlayer is currently hosted as a
+     * live tab.  Used by editor KIFACEs to avoid re-opening (reverting) an editor that is
+     * already loaded but parked on a background tab.
+     */
+    bool IsPlayerDocked( KIWAY_PLAYER* aPlayer ) override;
+
+    /**
+     * Remove docked editor tabs whose KIWAY_PLAYER frame has been destroyed (e.g. on
+     * project close).  Validity is tested by window-id via wxWindow::FindWindowById —
+     * the same mechanism KIWAY itself uses — so it never dereferences a freed frame and
+     * is safe to call at any time the shell is alive.  No-op when the shell is off.
+     */
+    void PruneDeadEditorTabs();
+
+    /**
+     * Detach a docked editor frame from its tab host (reverse of DockEditorAsTab): restore
+     * its top-level window decorations and hide it WITHOUT destroying it, so KIWAY's player
+     * pointer stays valid and the editor can be re-docked later.  Windows-only; no-op
+     * elsewhere.  Called when the user clicks a tab's close (X) button.
+     */
+    void DetachDockedEditor( wxWindow* aPlayer );
 
     wxString GetCurrentFileName() const override;
 
@@ -222,15 +306,76 @@ protected:
 
     void doReCreateMenuBar() override;
 
+    // KiCad Next unified menu bar (see EDA_BASE_FRAME::buildCommonMenuBar()).
+    TOOL_INTERACTIVE* getCurrentMenuTool() override;
+    void buildFileMenu( ACTION_MENU* aMenu ) override;
+    void buildEditMenu( ACTION_MENU* aMenu ) override;
+    void buildViewMenu( ACTION_MENU* aMenu ) override;
+    void buildToolsMenu( ACTION_MENU* aMenu ) override;
+    void buildPreferencesMenu( ACTION_MENU* aMenu ) override;
+
     void onToolbarSizeChanged();
 
     void onNotebookPageCloseRequest( wxAuiNotebookEvent& evt );
 
     void onNotebookPageCountChanged( wxAuiNotebookEvent& evt );
 
+    /// Single-window shell: user clicked a center editor tab's close (X) button.  Detaches
+    /// the editor frame (kept alive, re-dockable) and lets the empty host page be destroyed.
+    void onEditorTabCloseRequest( wxAuiNotebookEvent& evt );
+
+    /// Single-window shell: the active center editor tab changed (user switched tabs); make
+    /// the top (title-bar) menu follow it.  See syncShellMenuToActiveTab().
+    void onEditorTabChanged( wxAuiNotebookEvent& evt );
+
+    /// Single-window shell + unified menu: rebuild the shell's top menu from the editor in the
+    /// active center tab (Schematic/PCB/… contribute their own File/Edit/View/Place/Route/
+    /// Inspect/Tools menus), falling back to the Project Manager's own menu when no editor tab
+    /// is active.  No-op unless both shell flags are set.
+    void syncShellMenuToActiveTab( bool aForcePM = false );
+
+    /// Single-window shell: a non-editor pane (the Project Explorer tree) gained focus, so the
+    /// user is on the Project Manager — restore its own menu even while editor tabs stay open.
+    void onShellPaneFocus( wxChildFocusEvent& aEvent );
+
+    /// Single-window shell: focus returned to the center editor-tab area — show the active
+    /// editor's menu again.
+    void onEditorAreaFocus( wxChildFocusEvent& aEvent );
+
+#ifdef __WXMSW__
+    /// Custom single-row title bar: intercept WM_NCCALCSIZE/NCHITTEST/GETMINMAXINFO so the
+    /// native caption is removed and replaced by the app-drawn title strip (VS Code style).
+    WXLRESULT MSWWindowProc( WXUINT message, WXWPARAM wParam, WXLPARAM lParam ) override;
+#endif
+
+    /// (Re)populate the custom title bar's menu buttons from the live menu bar.
+    void buildTitleBarMenuButtons();
+
 private:
     void setupTools();
     void setupActions();
+
+    /// Single-window shell: the editor frame hosted in the currently-selected center tab, or
+    /// null when none is selected.  Resolved by matching the active page against m_dockedEditors
+    /// and looking the player up by window-id (same validity test as PruneDeadEditorTabs()).
+    EDA_BASE_FRAME* getActiveDockedEditorFrame();
+
+    /// Single-window shell common AI panel: push the active editor tab's document (app +
+    /// path) into the shell-owned AI panel via window.envilSetSchematic / envilSetPcb, so
+    /// the one panel always targets whatever tab is in front (the Cursor behaviour).  No-op
+    /// when the panel does not exist or the active tab is neither schematic nor PCB.
+    void syncAiPanelToActiveTab();
+
+    /// Single-window shell: queue the heavy editor KIFACEs (Symbol/Footprint/Gerber/
+    /// Drawing-Sheet) to be warmed in the background after startup so the user's first
+    /// click on one is instant instead of "loading the whole app".  Gated on
+    /// m_SingleWindowShell + m_ShellPrewarmEditors; a no-op otherwise.
+    void schedulePrewarmEditors();
+
+    /// Timer handler: create (but do not show) the next queued editor on the GUI thread,
+    /// then re-arm for the one after it.  Strictly one-at-a-time, never concurrent, so it
+    /// cannot race a foreground editor open.
+    void prewarmNextEditor( wxTimerEvent& aEvent );
 
     void DoWithAcceptedFiles() override;
 
@@ -254,6 +399,24 @@ private:
     PROJECT_TREE_PANE*    m_projectTreePane;
     LOCAL_HISTORY_PANE*   m_historyPane;
     wxAuiNotebook*        m_notebook;
+    wxAuiNotebook*        m_editorTabs;   ///< Center editor-tab area; only created when m_SingleWindowShell
+    WEBVIEW_PANEL*        m_aiChatPanel;  ///< Shell-owned common AI panel; only when CommonAiPanel + shell
+
+    /// Single-window shell: true while the title-bar menu shows an editor's menu (vs the
+    /// Project Manager's own menu).  Lets focus changes flip the menu without rebuilding it
+    /// on every event.  See onShellPaneFocus()/onEditorAreaFocus().
+    bool                  m_shellMenuShowsEditor = false;
+
+    /// Docked editors as (player window-id, host page) pairs.  Window-id (not pointer)
+    /// so a destroyed player is detected via FindWindowById without a dangling deref.
+    std::vector<std::pair<int, wxWindow*>> m_dockedEditors;
+
+    /// Single-window shell editor pre-warm: FRAME_T values (stored as int to keep this
+    /// header light) still to warm, and the timer that warms the next one after a short
+    /// idle gap.  Empty and stopped once warming is complete.
+    std::vector<int>      m_prewarmQueue;
+    wxTimer               m_prewarmTimer;
+
     PANEL_KICAD_LAUNCHER* m_launcher;
     int                   m_lastToolbarIconSize;
 
@@ -261,6 +424,27 @@ private:
     BITMAP_BUTTON*                          m_pcmButton;
     int                                     m_pcmUpdateCount;
     std::unique_ptr<UPDATE_MANAGER>         m_updateManager;
+
+    // KiCad Next custom single-row title bar (logo + menu + window buttons)
+    class TITLEBAR_PANEL;          // defined in kicad_manager_frame.cpp
+    TITLEBAR_PANEL*                         m_titleBar = nullptr;
+
+    // KiCad Next (Cursor-style): the SHELL's own backend command channel. The editors
+    // listen for open_file/revert; the shell listens for "open_project" and calls
+    // LoadProject() so a just-built project appears in the Project Files tree and updates
+    // live (LoadProject rebuilds the tree + resets the file watcher). Created only when the
+    // shell AI panel exists; the backend emits open_project behind a config flag, so this is
+    // purely additive. Port is resolved lazily (retry timer) like the editor IPC clients.
+    std::unique_ptr<AI_IPC_CLIENT>          m_aiIpcClient;
+    wxTimer                                 m_aiIpcRetryTimer;
+    int                                     m_aiIpcRetryAttempts = 0;
+
+    /// Resolve the backend IPC port (reads ipc_port.txt, same search order as the editors)
+    /// and (re)connect m_aiIpcClient. Returns true on success. Mirrors SCH_EDIT_FRAME.
+    bool TryConnectAiIpc();
+
+    /// Retry-timer tick: keep re-attempting the IPC connect (backoff) until the backend is up.
+    void OnAiIpcRetryTimer( wxTimerEvent& aEvent );
 };
 
 

@@ -1,0 +1,290 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>KiCad Next</title>
+<style>
+/* ============================================================
+   KiCad Next — Dashboard / Welcome screen
+   Faithful port of the C:/UI-KICAD prototype dashboard.
+   Self-contained: no external fonts/assets (offline-safe for the
+   wxWebView panel). Dark + light themes; defaults to light to
+   match the current app theme.
+   ============================================================ */
+
+/* ---------- Theme tokens (from prototype design system) ---------- */
+:root {
+  --bg-0:#0c0d11; --bg-1:#14161d; --bg-2:#1a1d26; --bg-3:#222632; --bg-4:#2b3040;
+  --border:#2a2f3c; --border-2:#363c4c;
+  --text:#dbe0ea; --text-2:#9aa1b1; --text-3:#6b7280;
+  --accent:#5b7cfa; --accent-2:#a974ff; --accent-soft:rgba(91,124,250,.16);
+  --ok:#46c98b; --warn:#e0b341; --bad:#f0616d; --info:#3fb6e0;
+  --shadow:0 12px 40px rgba(0,0,0,.45);
+  --r:9px; --r-sm:6px; --r-lg:14px;
+  --sans:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+  --mono:"SFMono-Regular",ui-monospace,"Cascadia Code","Consolas",monospace;
+}
+[data-theme="light"]{
+  --bg-0:#eef0f4; --bg-1:#f7f8fa; --bg-2:#ffffff; --bg-3:#eef1f6; --bg-4:#e3e7ef;
+  --border:#dde1ea; --border-2:#cdd3df;
+  --text:#1c2230; --text-2:#5a6376; --text-3:#8b93a4;
+  --accent:#3a5bd9; --accent-2:#8a4fe0; --accent-soft:rgba(58,91,217,.12);
+  --shadow:0 12px 40px rgba(20,30,60,.18);
+}
+
+*{box-sizing:border-box}
+html,body{height:100%;margin:0}
+body{
+  font-family:var(--sans); background:var(--bg-0); color:var(--text);
+  font-size:13px; line-height:1.45; overflow:hidden;
+  -webkit-font-smoothing:antialiased;
+}
+::-webkit-scrollbar{width:10px;height:10px}
+::-webkit-scrollbar-thumb{background:var(--bg-4);border-radius:8px;border:2px solid transparent;background-clip:content-box}
+::-webkit-scrollbar-thumb:hover{background:var(--border-2);background-clip:content-box}
+svg{display:block}
+
+/* icon system */
+.svi{width:18px;height:18px;flex:none;stroke:currentColor;fill:none;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
+.svi.sm{width:15px;height:15px}
+
+/* ---------- Buttons / inputs ---------- */
+.btn{display:inline-flex;align-items:center;gap:7px;background:var(--bg-3);border:1px solid var(--border-2);
+  color:var(--text);padding:7px 13px;border-radius:var(--r-sm);cursor:pointer;font-size:12.5px;
+  transition:.13s;white-space:nowrap}
+.btn:hover{background:var(--bg-4);border-color:var(--border-2)}
+.btn.primary{background:var(--accent);border-color:transparent;color:#fff;font-weight:600}
+.btn.primary:hover{filter:brightness(1.08)}
+.btn.ghost{background:transparent;border-color:transparent;color:var(--text-3)}
+.btn.ghost:hover{color:var(--text);background:var(--bg-1)}
+.btn.sm{padding:4px 9px;font-size:11.5px;border-radius:5px}
+input{font-family:inherit;font-size:12.5px;color:var(--text);background:var(--bg-2);
+  border:1px solid var(--border-2);border-radius:var(--r-sm);padding:8px 10px;outline:none}
+input:focus{border-color:var(--accent)}
+.tag{display:inline-flex;align-items:center;gap:5px;font-size:11px;padding:2px 8px;border-radius:20px;
+  background:var(--bg-3);border:1px solid var(--border);color:var(--text-2);cursor:pointer;transition:.13s}
+.tag.accent{background:var(--accent-soft);color:var(--accent);border-color:transparent}
+.tag.accent:hover{filter:brightness(1.06);transform:translateY(-1px)}
+
+/* ============================================================
+   Dashboard
+   ============================================================ */
+.dashboard{position:absolute;inset:0;background:radial-gradient(900px 480px at 50% -16%,rgba(91,124,250,.10),transparent),var(--bg-0);
+  overflow:auto;z-index:30}
+.dash-inner{max-width:900px;margin:0 auto;padding:64px 28px 72px}
+
+/* hero — centered, calm */
+.dash-hero{display:flex;flex-direction:column;align-items:center;text-align:center;margin-bottom:30px}
+.dash-hero .logo{width:54px;height:54px;border-radius:16px;background:linear-gradient(135deg,var(--accent),var(--accent-2));
+  display:grid;place-items:center;color:#fff;font-size:27px;font-weight:800;margin-bottom:16px}
+.dash-hero h1{margin:0;font-size:30px;letter-spacing:-.02em}
+.dash-hero p{margin:7px 0 0;color:var(--text-2);font-size:14.5px}
+
+/* create box — the single focal action */
+.create-box{margin:0 0 40px;background:var(--bg-1);border:1px solid var(--border-2);border-radius:var(--r-lg);padding:14px;box-shadow:var(--shadow)}
+.create-box .inrow{display:flex;gap:9px}
+.create-box input{flex:1;font-size:14px;padding:12px 14px;border-radius:10px}
+.chips-row{display:flex;flex-wrap:wrap;gap:7px;margin-top:12px}
+
+/* sections — generous spacing, light headers */
+.dash-sect{margin-bottom:30px}
+.dash-sect .sect-head{display:flex;align-items:center;margin-bottom:12px}
+.dash-sect h3{flex:1;font-size:11.5px;text-transform:uppercase;letter-spacing:.07em;color:var(--text-3);margin:0;font-weight:600}
+
+/* templates — uniform compact tiles */
+.tpl-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:10px}
+.tpl{display:flex;gap:10px;align-items:center;padding:13px 14px;border:1px solid var(--border);border-radius:11px;cursor:pointer;background:var(--bg-1);transition:.13s}
+.tpl:hover{border-color:var(--accent);background:var(--bg-2)}
+.tpl .ic{width:30px;height:30px;border-radius:8px;display:grid;place-items:center;background:var(--bg-3);color:var(--accent);flex:none}
+.tpl .t{font-weight:600;font-size:13px}
+
+/* recent — clean list */
+.recent{display:flex;flex-direction:column;gap:2px}
+.recent .ri{display:flex;align-items:center;gap:10px;padding:11px 12px;border-radius:9px;cursor:pointer;color:var(--text-2)}
+.recent .ri:hover{background:var(--bg-1);color:var(--text)}
+.recent .ri .ico{color:var(--text-3)}
+.recent .ri:hover .ico{color:var(--accent)}
+.recent .ri .meta{margin-left:auto;font-size:11px;color:var(--text-3)}
+.recent .empty{padding:11px 12px;color:var(--text-3);font-size:12px}
+</style>
+</head>
+<body data-theme="light">
+
+<!-- icon sprite (from prototype) -->
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <symbol id="i-chip" viewBox="0 0 24 24"><rect x="7" y="7" width="10" height="10" rx="1.5"/><rect x="10" y="10" width="4" height="4"/><path d="M9 3v3M15 3v3M9 18v3M15 18v3M3 9h3M3 15h3M18 9h3M18 15h3"/></symbol>
+  <symbol id="i-net" viewBox="0 0 24 24"><circle cx="5" cy="12" r="2"/><circle cx="19" cy="6" r="2"/><circle cx="19" cy="18" r="2"/><circle cx="11" cy="12" r="2"/><path d="M7 12h2M13 12l4-5M13 12l4 5"/></symbol>
+  <symbol id="i-bolt" viewBox="0 0 24 24"><path d="M13 2 4 14h6l-1 8 9-12h-6z"/></symbol>
+  <symbol id="i-power" viewBox="0 0 24 24"><circle cx="12" cy="4" r="2"/><path d="M12 6v5M6 19v-2a6 6 0 0 1 12 0v2"/><circle cx="6" cy="20" r="2"/><circle cx="18" cy="20" r="2"/></symbol>
+  <symbol id="i-plus" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></symbol>
+  <symbol id="i-folder" viewBox="0 0 24 24"><path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></symbol>
+  <symbol id="i-agent" viewBox="0 0 24 24"><path d="M12 3l1.6 5L19 10l-5.4 2L12 17l-1.6-5L5 10l5.4-2z"/><path d="M18.5 14.5l.7 2 .8.3-.8.7-.7 2-.7-2-.8-.7.8-.3z"/></symbol>
+</svg>
+
+<div class="dashboard" id="dashboard">
+  <div class="dash-inner">
+    <div class="dash-hero">
+      <span class="logo">A</span>
+      <h1>KiCad Next</h1>
+      <p>Describe your board — the AI engineers it.</p>
+    </div>
+
+    <div class="create-box">
+      <div class="inrow">
+        <input id="dashPrompt" placeholder="Design an automotive STM32 CAN logger with microSD and USB-C…">
+        <button class="btn primary" id="dashCreate"><svg class="svi sm"><use href="#i-agent"/></svg> Plan &amp; Build</button>
+      </div>
+      <div class="chips-row" id="chipsRow"></div>
+    </div>
+
+    <div class="dash-sect">
+      <div class="sect-head"><h3>Start from a template</h3></div>
+      <div class="tpl-grid" id="tplGrid"></div>
+    </div>
+
+    <div class="dash-sect">
+      <div class="sect-head"><h3>Recent projects</h3><button class="btn sm ghost" id="openBtn"><svg class="svi sm"><use href="#i-folder"/></svg> Open…</button></div>
+      <div class="recent" id="recentList"></div>
+    </div>
+  </div>
+</div>
+
+<script>
+"use strict";
+
+/* ------------------------------------------------------------------
+   Host bridge — talks to the C++ KICAD_MANAGER_FRAME webview host.
+   Falls back to a harmless no-op in a plain browser so the page is
+   fully viewable for design review.
+------------------------------------------------------------------ */
+function postToHost(type, value) {
+  var payload = JSON.stringify({ type: type, value: value == null ? "" : value });
+  var envelope = JSON.stringify({ handler: "dashboard", message: payload });
+  try {
+    if (window.chrome && window.chrome.webview && window.chrome.webview.postMessage) {
+      window.chrome.webview.postMessage(envelope); return true;
+    }
+    if (window.dashboard && window.dashboard.postMessage) {        // registered script handler
+      window.dashboard.postMessage(payload); return true;
+    }
+    if (window.external && window.external.invoke) {
+      window.external.invoke(envelope); return true;
+    }
+  } catch (e) { /* ignore */ }
+  console.log("[dashboard] (no host) " + type + ": " + (value || ""));
+  return false;
+}
+
+/* ---------- Data (defaults match the prototype / screenshots) ---------- */
+var CHIPS = ["STM32 CAN Logger", "4-Layer BMS", "ESP32 IoT Sensor", "Buck Converter"];
+
+var TEMPLATES = [
+  { id: "stm32",  name: "STM32 Board",   icon: "i-chip"  },
+  { id: "esp32",  name: "ESP32 Board",   icon: "i-chip"  },
+  { id: "can",    name: "CAN Device",    icon: "i-net"   },
+  { id: "power",  name: "Power Supply",  icon: "i-bolt"  },
+  { id: "bms",    name: "BMS",           icon: "i-power" },
+  { id: "blank",  name: "Blank Project", icon: "i-plus"  }
+];
+
+var RECENT = [
+  { name: "CAN_Logger",          meta: "2 min ago · 4-layer", path: "" },
+  { name: "BNC_BMS_16S",         meta: "yesterday",                path: "" },
+  { name: "Motor_Controller_v3", meta: "3 days ago",               path: "" },
+  { name: "USB_C_PD_Tester",     meta: "last week",                path: "" }
+];
+
+/* ---------- Render ---------- */
+function icon(id) { return '<svg class="svi sm"><use href="#' + id + '"/></svg>'; }
+
+function renderChips() {
+  document.getElementById("chipsRow").innerHTML =
+    CHIPS.map(function (c) { return '<span class="tag accent">' + c + '</span>'; }).join("");
+}
+
+function renderTemplates() {
+  document.getElementById("tplGrid").innerHTML = TEMPLATES.map(function (t) {
+    return '<div class="tpl" data-tpl="' + t.id + '"><span class="ic">' + icon(t.icon) +
+           '</span><span class="t">' + t.name + '</span></div>';
+  }).join("");
+}
+
+function renderRecent() {
+  var el = document.getElementById("recentList");
+  if (!RECENT.length) { el.innerHTML = '<div class="empty">No recent projects.</div>'; return; }
+  el.innerHTML = RECENT.map(function (r, i) {
+    return '<div class="ri" data-recent="' + i + '">' + icon("i-folder") + ' ' +
+           r.name + ' <span class="meta">' + r.meta + '</span></div>';
+  }).join("");
+}
+
+function renderAll() { renderChips(); renderTemplates(); renderRecent(); }
+
+/* ---------- Actions ---------- */
+function planAndBuild() {
+  var prompt = document.getElementById("dashPrompt").value.trim();
+  if (!prompt) { document.getElementById("dashPrompt").focus(); return; }
+  postToHost("build", prompt);
+}
+
+document.getElementById("dashCreate").addEventListener("click", planAndBuild);
+document.getElementById("dashPrompt").addEventListener("keydown", function (e) {
+  if (e.key === "Enter") planAndBuild();
+});
+
+document.getElementById("chipsRow").addEventListener("click", function (e) {
+  var chip = e.target.closest(".tag");
+  if (!chip) return;
+  var inp = document.getElementById("dashPrompt");
+  inp.value = chip.textContent.trim();
+  inp.focus();
+});
+
+document.getElementById("tplGrid").addEventListener("click", function (e) {
+  var tile = e.target.closest(".tpl");
+  if (!tile) return;
+  postToHost("template", tile.getAttribute("data-tpl"));
+});
+
+document.getElementById("recentList").addEventListener("click", function (e) {
+  var ri = e.target.closest(".ri");
+  if (!ri) return;
+  var idx = parseInt(ri.getAttribute("data-recent"), 10);
+  var proj = RECENT[idx];
+  postToHost("open", proj ? (proj.path || proj.name) : "");
+});
+
+document.getElementById("openBtn").addEventListener("click", function () {
+  postToHost("openDialog", "");
+});
+
+/* ------------------------------------------------------------------
+   Host API — the C++ side may call these to feed live data / theme.
+------------------------------------------------------------------ */
+window.kicadSetTheme = function (theme) {
+  document.body.setAttribute("data-theme", theme === "dark" ? "dark" : "light");
+};
+window.kicadSetRecent = function (list) {
+  try { RECENT = (typeof list === "string" ? JSON.parse(list) : list) || []; }
+  catch (e) { RECENT = []; }
+  renderRecent();
+};
+window.kicadSetTemplates = function (list) {
+  try { TEMPLATES = (typeof list === "string" ? JSON.parse(list) : list) || TEMPLATES; }
+  catch (e) { /* keep defaults */ }
+  renderTemplates();
+};
+
+/* read ?theme= override (default light to match the app screenshots) */
+(function () {
+  var params = new URLSearchParams(window.location.search);
+  var theme = params.get("theme");
+  if (theme) document.body.setAttribute("data-theme", theme);
+})();
+
+renderAll();
+postToHost("ready", "");
+</script>
+</body>
+</html>

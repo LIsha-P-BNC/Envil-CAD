@@ -23,6 +23,7 @@
 
 #include <typeinfo>
 
+#include <advanced_config.h>
 #include <bitmaps.h>
 #include <bitmap_store.h>
 #include <geometry/shape_poly_set.h>
@@ -194,6 +195,13 @@ void PCB_CALCULATOR_FRAME::loadPages()
 
 void PCB_CALCULATOR_FRAME::doReCreateMenuBar()
 {
+    // KiCad Next: build the shared common menu bar instead of the legacy one when enabled.
+    if( ADVANCED_CFG::GetCfg().m_UnifiedMenuBar )
+    {
+        buildCommonMenuBar();
+        return;
+    }
+
     COMMON_CONTROL* tool = m_toolManager->GetTool<COMMON_CONTROL>();
     EDA_BASE_FRAME* base_frame = dynamic_cast<EDA_BASE_FRAME*>( this );
 
@@ -230,6 +238,36 @@ void PCB_CALCULATOR_FRAME::doReCreateMenuBar()
 
     base_frame->SetMenuBar( menuBar );
     delete oldMenuBar;
+}
+
+
+//================================ KiCad Next unified menu bar ================================
+// The following hooks reproduce the menus built above, but populate a menu supplied by the
+// shared EDA_BASE_FRAME::buildCommonMenuBar() orchestrator.  They are used only when the
+// m_UnifiedMenuBar advanced flag is set; otherwise the legacy doReCreateMenuBar() above runs.
+// The calculator has no canvas, so it supplies only File and Preferences (Help is shared).
+
+TOOL_INTERACTIVE* PCB_CALCULATOR_FRAME::getCurrentMenuTool()
+{
+    return m_toolManager->GetTool<COMMON_CONTROL>();
+}
+
+
+void PCB_CALCULATOR_FRAME::buildFileMenu( ACTION_MENU* fileMenu )
+{
+    fileMenu->AddClose( _( "Calculator Tools" ) );
+    fileMenu->AddQuit( _( "Calculator Tools" ) );
+}
+
+
+void PCB_CALCULATOR_FRAME::buildPreferencesMenu( ACTION_MENU* prefsMenu )
+{
+    COMMON_CONTROL* tool = m_toolManager->GetTool<COMMON_CONTROL>();
+
+    prefsMenu->Add( ACTIONS::openPreferences );
+
+    prefsMenu->AppendSeparator();
+    AddMenuLanguageList( prefsMenu, tool );
 }
 
 

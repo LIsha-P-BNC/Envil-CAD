@@ -67,6 +67,7 @@
 #include <sch_rule_area.h>
 #include <settings/settings_manager.h>
 #include <advanced_config.h>
+#include <widgets/wx_aui_art_providers.h>
 #include <paths.h>
 #include <sim/simulator_frame.h>
 #include <tool/action_manager.h>
@@ -247,10 +248,18 @@ SCH_EDIT_FRAME::SCH_EDIT_FRAME( KIWAY* aKiway, wxWindow* aParent ) :
     m_selectionFilterPanel = new PANEL_SCH_SELECTION_FILTER( this );
     m_designBlocksPane = new SCH_DESIGN_BLOCK_PANE( this, nullptr, m_designBlockHistoryList );
 
-    // AI Chat Panel — wrapped in try/catch so schematic editor loads even if WebView fails
+    // AI Chat Panel — wrapped in try/catch so schematic editor loads even if WebView fails.
+    // KiCad Next: when the project-manager shell owns ONE common AI panel (CommonAiPanel +
+    // SingleWindowShell), this editor builds NO chat panel of its own — only the shell's.
+    // The AI_IPC_CLIENT below is still created so the backend's revert/open_file broadcast
+    // keeps refreshing this editor's document while the shell hosts the chat surface.
+    const bool commonAiPanel = ADVANCED_CFG::GetCfg().m_SingleWindowShell
+                               && ADVANCED_CFG::GetCfg().m_CommonAiPanel;
+
     try
     {
-        m_aiChatPanel = new WEBVIEW_PANEL( this );
+        if( !commonAiPanel )
+            m_aiChatPanel = new WEBVIEW_PANEL( this );
 
         // Search for chat.html in priority order:
         // 1. KiCad stock data path (works for both installed and KICAD_RUN_FROM_BUILD_DIR)
@@ -283,9 +292,10 @@ SCH_EDIT_FRAME::SCH_EDIT_FRAME( KIWAY* aKiway, wxWindow* aParent ) :
             }
         }
 
-        m_aiChatPanel->BindLoadedEvent();
+        if( m_aiChatPanel )
+            m_aiChatPanel->BindLoadedEvent();
 
-        if( !chatHtmlFound.IsEmpty() )
+        if( m_aiChatPanel && !chatHtmlFound.IsEmpty() )
         {
             wxString fileUrl = wxT( "file:///" ) + chatHtmlFound;
             fileUrl.Replace( wxT( "\\" ), wxT( "/" ) );
@@ -296,7 +306,13 @@ SCH_EDIT_FRAME::SCH_EDIT_FRAME( KIWAY* aKiway, wxWindow* aParent ) :
             wxString schFile = Schematic().GetFileName();
             schFile.Replace( wxT( "\\" ), wxT( "/" ) );
             schFile.Replace( wxT( " " ), wxT( "%20" ) );
-            fileUrl += wxString::Format( wxT( "?t=%ld&backend=localhost:8765&project=%s&schematic=%s" ),
+            // app=eeschema tells the chat panel which KiCad editor it
+            // lives inside, so the Python backend can filter its tool
+            // list and emit the right page_summary card on hello.
+            // Without this hint, location.pathname is identical for both
+            // editors (chat.html sits in the shared share/kicad/ai_chat/
+            // folder) and the panel can't tell schematic from PCB.
+            fileUrl += wxString::Format( wxT( "?t=%ld&backend=localhost:8765&app=eeschema&project=%s&schematic=%s" ),
                                          wxDateTime::Now().GetTicks(), projPath, schFile );
             wxLogDebug( wxT( "AI Chat: loading URL %s" ), fileUrl );
             m_aiChatPanel->LoadURL( fileUrl );
@@ -332,7 +348,7 @@ SCH_EDIT_FRAME::SCH_EDIT_FRAME( KIWAY* aKiway, wxWindow* aParent ) :
                     } );
             }
         }
-        else
+        else if( m_aiChatPanel )
         {
             wxLogWarning( wxT( "AI Chat: chat.html not found in any search path" ) );
             m_aiChatPanel->SetPage( wxT( "<!DOCTYPE html><html><body style='background:#1e1e2e;color:#e0e0e0;font-family:sans-serif;display:flex;align-items:center;justify-content:center;height:100vh'><p>AI Chat — chat.html not found</p></body></html>" ) );
@@ -399,6 +415,23 @@ SCH_EDIT_FRAME::SCH_EDIT_FRAME( KIWAY* aKiway, wxWindow* aParent ) :
                                                       KICTL_REVERT );
                                 }
                             }
+                            else if( action == wxT( "update_pcb_from_schematic" ) )
+                            {
+                                // Envil Cursor-style F8: push the schematic netlist to
+                                // the PCB automatically. OnUpdatePCB( true ) opens/docks
+                                // pcbnew (if needed) and applies the update silently.
+                                wxLogDebug( wxT( "AI: Update PCB from Schematic via IPC" ) );
+                                OnUpdatePCB( true );
+                            }
+                            else if( action == wxT( "open_pcb" ) )
+                            {
+                                // Chat "Open PCB" button: just SHOW the board. The
+                                // .kicad_pcb is generated at build time (pcb_gen), so no
+                                // netlist update — OnOpenPcbnew() opens the project board
+                                // and docks the PCB editor as a tab (single-window shell).
+                                wxLogDebug( wxT( "AI: Open PCB view via IPC" ) );
+                                OnOpenPcbnew();
+                            }
                         }
                         catch( ... )
                         {
@@ -407,7 +440,10 @@ SCH_EDIT_FRAME::SCH_EDIT_FRAME( KIWAY* aKiway, wxWindow* aParent ) :
                     } );
                 } );
 
-        // Wire JS → C++ message handlers for the AI chat panel
+        // Wire JS → C++ message handlers for the AI chat panel.  Skipped when the shell owns
+        // the common panel (m_aiChatPanel is null) — there is no per-editor panel to wire.
+        if( m_aiChatPanel )
+        {
         m_aiChatPanel->AddMessageHandler( wxT( "sendMessage" ),
                 [this]( const wxString& aMessage )
                 {
@@ -493,6 +529,7 @@ SCH_EDIT_FRAME::SCH_EDIT_FRAME( KIWAY* aKiway, wxWindow* aParent ) :
                         }
                     } );
                 } );
+        }   // end if( m_aiChatPanel ) — per-editor message handlers
     }
     catch( ... )
     {
@@ -808,6 +845,99 @@ SCH_EDIT_FRAME::SCH_EDIT_FRAME( KIWAY* aKiway, wxWindow* aParent ) :
             wxLogDebug( wxT( "AI Chat (SCH): IPC connect failed on startup; retrying every 2s" ) );
         }
     }
+
+    // Envil "Vibrant Purple & Indigo" frame theme (opt-in; byte-identical chrome when off).
+    if( ADVANCED_CFG::GetCfg().m_EnvilPurpleFrame )
+        applyEnvilPurpleFrameTheme();
+}
+
+
+namespace
+{
+// Envil "Vibrant Purple & Indigo" chrome palette (RGB).  Kept local to the schematic editor;
+// the canvas ("screen") is themed separately by the colour theme, not here.
+const wxColour ENVIL_BG_DEEP{ 24, 20, 42 };    // deepest indigo: dock/background fill
+const wxColour ENVIL_BG_PANEL{ 33, 27, 56 };   // dockable panels & tool-bars
+const wxColour ENVIL_CAP_ACTIVE{ 88, 52, 156 };// active pane caption (purple)
+const wxColour ENVIL_CAP_INACTIVE{ 43, 35, 70 };
+const wxColour ENVIL_ACCENT{ 139, 92, 246 };   // vibrant purple: hover / pressed / checked
+const wxColour ENVIL_BORDER{ 58, 46, 99 };
+const wxColour ENVIL_SASH{ 40, 33, 66 };
+const wxColour ENVIL_TEXT{ 255, 255, 255 };    // white
+
+/**
+ * Recursively repaint @p aWindow and its descendants with the Envil chrome colours, skipping
+ * any window in @p aExclude (and its subtree) so the drawing canvas and the AI web panel keep
+ * their own rendering.
+ */
+void envilRecolorTree( wxWindow* aWindow, const std::vector<wxWindow*>& aExclude )
+{
+    if( !aWindow )
+        return;
+
+    for( wxWindow* skip : aExclude )
+    {
+        if( aWindow == skip )
+            return;
+    }
+
+    aWindow->SetBackgroundColour( ENVIL_BG_PANEL );
+    aWindow->SetForegroundColour( ENVIL_TEXT );
+
+    for( wxWindow* child : aWindow->GetChildren() )
+        envilRecolorTree( child, aExclude );
+}
+} // namespace
+
+
+void SCH_EDIT_FRAME::applyEnvilPurpleFrameTheme()
+{
+    // 1) Dockable-pane chrome (backgrounds, sashes, borders, captions) via the AUI dock art.
+    if( wxAuiDockArt* dockArt = m_auimgr.GetArtProvider() )
+    {
+        dockArt->SetColour( wxAUI_DOCKART_BACKGROUND_COLOUR, ENVIL_BG_DEEP );
+        dockArt->SetColour( wxAUI_DOCKART_SASH_COLOUR, ENVIL_SASH );
+        dockArt->SetColour( wxAUI_DOCKART_BORDER_COLOUR, ENVIL_BORDER );
+        dockArt->SetColour( wxAUI_DOCKART_GRIPPER_COLOUR, ENVIL_BG_PANEL );
+        dockArt->SetColour( wxAUI_DOCKART_ACTIVE_CAPTION_COLOUR, ENVIL_CAP_ACTIVE );
+        dockArt->SetColour( wxAUI_DOCKART_ACTIVE_CAPTION_GRADIENT_COLOUR, ENVIL_CAP_ACTIVE );
+        dockArt->SetColour( wxAUI_DOCKART_INACTIVE_CAPTION_COLOUR, ENVIL_CAP_INACTIVE );
+        dockArt->SetColour( wxAUI_DOCKART_INACTIVE_CAPTION_GRADIENT_COLOUR, ENVIL_CAP_INACTIVE );
+        dockArt->SetColour( wxAUI_DOCKART_ACTIVE_CAPTION_TEXT_COLOUR, ENVIL_TEXT );
+        dockArt->SetColour( wxAUI_DOCKART_INACTIVE_CAPTION_TEXT_COLOUR, ENVIL_TEXT );
+    }
+
+    // 2) AUI tool-bars: the bar background and the hover/pressed/checked highlight.
+    for( ACTION_TOOLBAR* tb : { m_tbTopMain, m_tbTopAux, m_tbLeft, m_tbRight } )
+    {
+        if( !tb )
+            continue;
+
+        if( WX_AUI_TOOLBAR_ART* art = dynamic_cast<WX_AUI_TOOLBAR_ART*>( tb->GetArtProvider() ) )
+            art->EnableEnvilTheme( ENVIL_BG_PANEL, ENVIL_ACCENT );
+
+        tb->SetBackgroundColour( ENVIL_BG_PANEL );
+        tb->Refresh();
+    }
+
+    // 3) Child controls (panels, trees, lists, message panel, status bar).  The drawing canvas
+    //    and the AI web panel are excluded so the "screen" and the chat view keep their own
+    //    rendering — those are out of scope for the frame theme.
+    std::vector<wxWindow*> exclude;
+
+    if( GetCanvas() )
+        exclude.push_back( GetCanvas() );
+
+    if( m_aiChatPanel )
+        exclude.push_back( m_aiChatPanel );
+
+    if( m_infoBar )
+        exclude.push_back( m_infoBar );
+
+    for( wxWindow* child : GetChildren() )
+        envilRecolorTree( child, exclude );
+
+    Refresh();
 }
 
 
@@ -1765,7 +1895,7 @@ void SCH_EDIT_FRAME::OnModify()
 }
 
 
-void SCH_EDIT_FRAME::OnUpdatePCB()
+void SCH_EDIT_FRAME::OnUpdatePCB( bool aAutoApply )
 {
     if( Kiface().IsSingle() )
     {
@@ -1793,16 +1923,27 @@ void SCH_EDIT_FRAME::OnUpdatePCB()
         frame->OpenProjectFiles( std::vector<wxString>( 1, fn.GetFullPath() ) );
     }
 
-    if( !frame->IsVisible() )
-        frame->Show( true );
+    // KiCad Next single-window shell: dock the PCB editor as a tab in the one shell window
+    // instead of letting it float as its own OS window.  DockPlayer() returns false when no
+    // shell is hosting (stand-alone editor, SingleWindowShell flag off, or non-Windows), so
+    // the legacy floating path below runs unchanged in every other configuration.
+    if( !Kiway().DockPlayer( frame ) )
+    {
+        if( !frame->IsVisible() )
+            frame->Show( true );
 
-    // On Windows, Raise() does not bring the window on screen, when iconized
-    if( frame->IsIconized() )
-        frame->Iconize( false );
+        // On Windows, Raise() does not bring the window on screen, when iconized
+        if( frame->IsIconized() )
+            frame->Iconize( false );
 
-    frame->Raise();
+        frame->Raise();
+    }
 
-    std::string payload;
+    // Envil: an empty payload keeps the normal interactive F8 (pcbnew opens the
+    // Update-PCB dialog). "auto" (sent only by the AI IPC path via OnUpdatePCB(true))
+    // makes pcbnew apply the netlist update silently — no dialog, no click — for
+    // Cursor-style end-to-end automation.
+    std::string payload = aAutoApply ? std::string( "auto" ) : std::string();
     Kiway().ExpressMail( FRAME_PCB_EDITOR, MAIL_PCB_UPDATE, payload, this );
 }
 
@@ -1965,14 +2106,19 @@ void SCH_EDIT_FRAME::OnOpenPcbnew()
                 frame->OpenProjectFiles( std::vector<wxString>( 1, boardfn.GetFullPath() ) );
             }
 
-            if( !frame->IsVisible() )
-                frame->Show( true );
+            // KiCad Next single-window shell: dock the PCB editor as a tab rather than
+            // floating it; falls back to the legacy floating path when no shell is hosting.
+            if( !Kiway().DockPlayer( frame ) )
+            {
+                if( !frame->IsVisible() )
+                    frame->Show( true );
 
-            // On Windows, Raise() does not bring the window on screen, when iconized
-            if( frame->IsIconized() )
-                frame->Iconize( false );
+                // On Windows, Raise() does not bring the window on screen, when iconized
+                if( frame->IsIconized() )
+                    frame->Iconize( false );
 
-            frame->Raise();
+                frame->Raise();
+            }
         }
     }
     else

@@ -74,6 +74,26 @@ private:
 
     bool isLibraryPathValid() const;
 
+    /**
+     * Envil folder-library read accelerator (opt-in via ADVANCED_CFG::m_SymDirAggregateCache).
+     *
+     * For a `*.kicad_symdir` folder, these collapse the per-file enumeration (one open+parse
+     * per symbol file, amplified by real-time antivirus) into a single consolidated read.
+     */
+
+    /// Resolve the sibling cache paths for the current folder library.  Returns false if the
+    /// library is not a folder (single-file libs are unaffected).
+    bool getAggregateCachePaths( wxString& aAggregateSym, wxString& aManifest,
+                                 wxString& aCacheDir ) const;
+
+    /// Try to populate m_symbols + m_symbolSourceFiles from the consolidated cache.  Returns
+    /// true only if the cache exists and its stored fingerprint matches @p aDirTimestamp.
+    bool loadFromAggregateCache( long long aDirTimestamp );
+
+    /// (Re)write the consolidated cache + manifest from the in-memory symbols.  Best-effort:
+    /// never throws — a write failure just means the next load rebuilds from the folder.
+    void writeAggregateCache( long long aDirTimestamp );
+
     int m_fileFormatVersionAtLoad;
 
     static void saveSymbolDrawItem( SCH_ITEM* aItem, OUTPUTFORMATTER& aFormatter );

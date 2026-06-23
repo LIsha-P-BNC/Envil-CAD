@@ -287,6 +287,42 @@ struct KIFACE
 
 
 /**
+ * KiCad Next single-window shell bridge.
+ *
+ * Implemented by the manager shell (KICAD_MANAGER_FRAME) so any KIFACE (eeschema, pcbnew,
+ * …) can ask the shell to re-host a freshly created editor frame as a docked tab instead
+ * of letting it float as its own top-level window.  The editor KIFACEs cannot link against
+ * KICAD_MANAGER_FRAME (it lives in the kicad executable, not a shared library), so they
+ * reach it through this abstract interface registered on the KIWAY bus via
+ * KIWAY::SetTabHost().  When no host is registered (stand-alone editor, the
+ * SingleWindowShell flag is off, or a platform without native reparenting) DockPlayerAsTab
+ * is never reached and callers fall back to the legacy floating Show()/Raise().
+ */
+class KIFACE_TAB_HOST
+{
+public:
+    virtual ~KIFACE_TAB_HOST() {}
+
+    /**
+     * Re-host @a aPlayer as a tab in the single-window shell.
+     *
+     * @return true if the player was docked (or was already docked and its tab selected),
+     *         false if docking was unavailable so the caller should float the frame instead.
+     */
+    virtual bool DockPlayerAsTab( KIWAY_PLAYER* aPlayer ) = 0;
+
+    /**
+     * @return true if @a aPlayer is currently hosted as a tab in the shell.
+     *
+     * Lets a caller tell "already a loaded tab" apart from "not yet open": a docked editor
+     * is fully loaded even when it sits on a background tab (where IsShownOnScreen() is
+     * false), so this guards against needlessly re-opening (and thus reverting) it.
+     */
+    virtual bool IsPlayerDocked( KIWAY_PLAYER* aPlayer ) = 0;
+};
+
+
+/**
  * A minimalistic software bus for communications between various DLLs/DSOs (DSOs) within
  * the same KiCad process.
  *
@@ -468,6 +504,30 @@ public:
     void SetTop( wxFrame* aTop );
     wxFrame* GetTop() { return m_top; }
 
+    /**
+     * Register (or clear) the single-window shell tab host.
+     *
+     * The manager shell calls this with itself when the SingleWindowShell flag is on, and
+     * with nullptr when it closes.  See #KIFACE_TAB_HOST.
+     */
+    void SetTabHost( KIFACE_TAB_HOST* aHost ) { m_tabHost = aHost; }
+    KIFACE_TAB_HOST* GetTabHost() const { return m_tabHost; }
+
+    /**
+     * Dock @a aPlayer as a tab in the single-window shell when one is hosting.
+     *
+     * This is the cross-KIFACE entry point used by editor → sibling-editor launches
+     * (e.g. eeschema's "Update PCB", pcbnew's "Update Schematic") so the opened editor
+     * appears as a tab in the one shell window rather than floating separately.
+     *
+     * @return true if the player was docked as a tab; false when no shell is hosting, so
+     *         the caller should fall back to Show()/Raise() on the floating frame.
+     */
+    bool DockPlayer( KIWAY_PLAYER* aPlayer )
+    {
+        return m_tabHost && aPlayer ? m_tabHost->DockPlayerAsTab( aPlayer ) : false;
+    }
+
     void OnKiCadExit();
 
     void OnKiwayEnd();
@@ -522,6 +582,12 @@ private:
     int             m_ctl;
 
     wxFrame*        m_top;      // Usually m_top is the Project manager
+
+    // KiCad Next single-window shell: the manager shell registers itself here (when the
+    // SingleWindowShell flag is on) so editor KIFACEs can dock newly opened sibling
+    // editors as tabs via DockPlayer().  Null in every other configuration → callers fall
+    // back to floating the frame, so the legacy behaviour is untouched.
+    KIFACE_TAB_HOST* m_tabHost = nullptr;
 
     wxWindowID      m_blockingDialog;
 

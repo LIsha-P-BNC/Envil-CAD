@@ -22,6 +22,7 @@
 
 #include <wx/app.h>
 #include <wx/log.h>
+#include <wx/pen.h>
 #include <wx/string.h>
 #include <wx/window.h>
 #if wxCHECK_VERSION( 3, 3, 0 )
@@ -64,12 +65,74 @@ extern "C"
 }
 #endif
 
+// Envil "Vibrant Purple & Indigo" frame theme.  Set by SetDarkModePurple() before EnableDarkMode().
+static bool g_envilPurpleDark = false;
+
 #if wxCHECK_VERSION( 3, 3, 0 )
 class KICAD_DARK_MODE_SETTINGS : public wxDarkModeSettings
 {
 public:
     wxColour GetColour( wxSystemColour index ) override
     {
+        if( g_envilPurpleDark )
+        {
+            // Envil chrome palette.  Three distinct surface levels + a visible border so adjacent
+            // regions (lists/tree/text vs. panel faces vs. dialogs) don't blend into one dark blob:
+            //   content  = deepest  (text fields, lists, tree, list/combo popups)
+            //   panel    = mid      (dialog & panel faces, buttons, tool-bars, menus)
+            //   border   = light    (control / group outlines, so panels read as separate)
+            const wxColour content( 18, 16, 32 );    // deepest — content/data areas
+            const wxColour panel  ( 36, 30, 58 );    // mid — panel & dialog faces
+            const wxColour border ( 92, 80, 132 );   // light — visible edges/separators
+            const wxColour accent ( 139, 92, 246 );  // vibrant purple highlight
+            const wxColour text   ( 255, 255, 255 ); // white
+
+            switch( index )
+            {
+            case wxSYS_COLOUR_WINDOW:
+            case wxSYS_COLOUR_LISTBOX:
+                return content;
+
+            case wxSYS_COLOUR_BTNFACE:   // == wxSYS_COLOUR_3DFACE
+                return panel;
+
+            // Dropdown / context-menu background — the lighter "premium purple" the user wants.
+            // (Some wx/Windows paths colour popups from here rather than GetMenuColour().)
+            case wxSYS_COLOUR_MENU:
+            case wxSYS_COLOUR_MENUBAR:
+                return wxColour( 76, 74, 120 );   // #4C4A78
+
+            // Control edges / separators / group-box outlines — lift them so they're visible.
+            case wxSYS_COLOUR_3DLIGHT:
+                return wxColour( 60, 52, 92 );
+
+            case wxSYS_COLOUR_WINDOWFRAME:
+            case wxSYS_COLOUR_ACTIVEBORDER:
+            case wxSYS_COLOUR_INACTIVEBORDER:
+                return border;
+
+            case wxSYS_COLOUR_WINDOWTEXT:
+            case wxSYS_COLOUR_BTNTEXT:
+            case wxSYS_COLOUR_LISTBOXTEXT:
+            case wxSYS_COLOUR_MENUTEXT:
+            case wxSYS_COLOUR_CAPTIONTEXT:
+                return text;
+
+            // Dim (disabled/secondary) text — still readable, not muddy.
+            case wxSYS_COLOUR_GRAYTEXT:
+                return wxColour( 155, 150, 180 );
+
+            case wxSYS_COLOUR_HIGHLIGHT:
+                return accent;
+
+            case wxSYS_COLOUR_HIGHLIGHTTEXT:
+                return wxColour( 255, 255, 255 );
+
+            default:
+                return wxDarkModeSettings::GetColour( index );
+            }
+        }
+
         switch( index )
         {
             // This fixes "Control Light"
@@ -78,6 +141,33 @@ public:
 
         default: return wxDarkModeSettings::GetColour( index );
         }
+    }
+
+    wxColour GetMenuColour( wxMenuColour which ) override
+    {
+        if( g_envilPurpleDark )
+        {
+            switch( which )
+            {
+            // Lighter "premium purple" dropdown / context-menu popups (flat; native menus can't
+            // do gradient/glass).  Popups only — the menu *bar* and the rest of the chrome keep
+            // the darker indigo from GetColour() above.
+            case wxMenuColour::StandardBg: return wxColour(  76,  74, 120 ); // #4C4A78 popup bg
+            case wxMenuColour::StandardFg: return wxColour( 248, 250, 252 ); // #F8FAFC text
+            case wxMenuColour::HotBg:      return wxColour( 109,  99, 230 ); // #6D63E6 hover
+            case wxMenuColour::DisabledFg: return wxColour( 176, 172, 205 ); // dim, readable
+            }
+        }
+
+        return wxDarkModeSettings::GetMenuColour( which );
+    }
+
+    wxPen GetBorderPen() override
+    {
+        if( g_envilPurpleDark )
+            return wxPen( wxColour( 92, 80, 132 ) );   // visible group-box / static-box outline
+
+        return wxDarkModeSettings::GetBorderPen();
     }
 };
 #endif
@@ -131,6 +221,12 @@ void KIPLATFORM::APP::EnableDarkMode( bool aForce )
 #if wxCHECK_VERSION( 3, 3, 0 )
     wxTheApp->MSWEnableDarkMode( aForce ? wxApp::DarkMode_Always : wxApp::DarkMode_Auto, new KICAD_DARK_MODE_SETTINGS() );
 #endif
+}
+
+
+void KIPLATFORM::APP::SetDarkModePurple( bool aOn )
+{
+    g_envilPurpleDark = aOn;
 }
 
 

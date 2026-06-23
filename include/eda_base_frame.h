@@ -491,6 +491,35 @@ public:
      */
     void AddStandardHelpMenu( wxMenuBar* aMenuBar );
 
+    /**
+     * KiCad Next unified ("common") menu bar.
+     *
+     * Assemble the menu bar from the shared common root (File, Edit, View, Place, Route,
+     * Inspect, Tools, Preferences) plus the standard Help menu, in a single canonical order.
+     * Each menu is filled by the corresponding virtual build*Menu() hook (default empty) and
+     * is appended only when the hook produced at least one item, so a frame opts into a menu
+     * simply by overriding the matching hook. This is the additive replacement for the legacy
+     * per-frame doReCreateMenuBar() bodies and is invoked only when ADVANCED_CFG
+     * m_UnifiedMenuBar is set; otherwise the legacy code path is used unchanged.
+     */
+    void buildCommonMenuBar();
+
+    /**
+     * KiCad Next single-window shell: build the unified menu bar of THIS frame from the
+     * menu hooks of ANOTHER frame (@p aSource) and install it on this frame.
+     *
+     * buildCommonMenuBar() builds a frame's menu from its own hooks; this variant lets the
+     * shell (KICAD_MANAGER_FRAME) show the menu of whichever editor is in the active center
+     * tab — the Schematic/PCB/… frame contributes its File/Edit/View/Place/Route/Inspect/
+     * Tools items while the shell owns the wxMenuBar.  This is safe because ACTION_MENU
+     * dispatches its events through the menu's own tool manager (the source frame's), not
+     * through the frame that owns the menu bar, so menu clicks still reach the editor.
+     *
+     * buildCommonMenuBar() is exactly buildCommonMenuBarFrom( this ), so existing callers are
+     * unchanged.
+     */
+    void buildCommonMenuBarFrom( EDA_BASE_FRAME* aSource );
+
     wxString GetRunMenuCommandDescription( const TOOL_ACTION& aAction );
 
     /**
@@ -649,6 +678,27 @@ protected:
     static constexpr int KICAD_AUI_TB_STYLE = wxAUI_TB_DEFAULT_STYLE | wxAUI_TB_PLAIN_BACKGROUND;
 
     virtual void doReCreateMenuBar() {}
+
+    /**
+     * KiCad Next unified menu bar hooks (see buildCommonMenuBar()).
+     *
+     * getCurrentMenuTool() returns the TOOL_INTERACTIVE used for menu event dispatch (the same
+     * tool each legacy doReCreateMenuBar() passes to its ACTION_MENUs). buildCommonMenuBar()
+     * skips the unified path if it is null. Each build*Menu() hook fills the passed menu with the
+     * frame's items for that top-level menu; the default empty body means "this frame has no such
+     * menu" (e.g. Gerber has no Edit; Symbol/DrawingSheet/Calculator have no Tools; only PCB has
+     * Route). Preferences/Help are handled by buildPreferencesMenu()/AddStandardHelpMenu().
+     */
+    virtual TOOL_INTERACTIVE* getCurrentMenuTool() { return nullptr; }
+
+    virtual void buildFileMenu( ACTION_MENU* aMenu )        {}
+    virtual void buildEditMenu( ACTION_MENU* aMenu )        {}
+    virtual void buildViewMenu( ACTION_MENU* aMenu )        {}
+    virtual void buildPlaceMenu( ACTION_MENU* aMenu )       {}
+    virtual void buildRouteMenu( ACTION_MENU* aMenu )       {}
+    virtual void buildInspectMenu( ACTION_MENU* aMenu )     {}
+    virtual void buildToolsMenu( ACTION_MENU* aMenu )       {}
+    virtual void buildPreferencesMenu( ACTION_MENU* aMenu ) {}
 
     virtual void configureToolbars();
 

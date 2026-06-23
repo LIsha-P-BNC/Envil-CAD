@@ -23,6 +23,7 @@
  * 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA
  */
 
+#include <advanced_config.h>
 #include <bitmaps.h>
 #include <file_history.h>
 #include <kiface_base.h>
@@ -39,6 +40,13 @@
 
 void PL_EDITOR_FRAME::doReCreateMenuBar()
 {
+    // KiCad Next: build the shared common menu bar instead of the legacy one when enabled.
+    if( ADVANCED_CFG::GetCfg().m_UnifiedMenuBar )
+    {
+        buildCommonMenuBar();
+        return;
+    }
+
     PL_SELECTION_TOOL* selTool = m_toolManager->GetTool<PL_SELECTION_TOOL>();
     // wxWidgets handles the Mac Application menu behind the scenes, but that means
     // we always have to start from scratch with a new wxMenuBar.
@@ -157,4 +165,120 @@ void PL_EDITOR_FRAME::doReCreateMenuBar()
 
     SetMenuBar( menuBar );
     delete oldMenuBar;
+}
+
+
+//================================ KiCad Next unified menu bar ================================
+// The following hooks reproduce the menus built above, but populate a menu supplied by the
+// shared EDA_BASE_FRAME::buildCommonMenuBar() orchestrator.  They are used only when the
+// m_UnifiedMenuBar advanced flag is set; otherwise the legacy doReCreateMenuBar() above runs.
+
+TOOL_INTERACTIVE* PL_EDITOR_FRAME::getCurrentMenuTool()
+{
+    return m_toolManager->GetTool<PL_SELECTION_TOOL>();
+}
+
+
+void PL_EDITOR_FRAME::buildFileMenu( ACTION_MENU* fileMenu )
+{
+    PL_SELECTION_TOOL* selTool = m_toolManager->GetTool<PL_SELECTION_TOOL>();
+
+    static ACTION_MENU* openRecentMenu;  // Open Recent submenu, static to remember this menu
+    FILE_HISTORY&       recentFiles = GetFileHistory();
+
+    // Create the menu if it does not exist. Adding a file to/from the history
+    // will automatically refresh the menu.
+    if( !openRecentMenu )
+    {
+        openRecentMenu = new ACTION_MENU( false, selTool );
+        openRecentMenu->SetIcon( BITMAPS::recent );
+
+        recentFiles.UseMenu( openRecentMenu );
+        recentFiles.AddFilesToMenu();
+    }
+
+    // Ensure the title is up to date after changing language
+    openRecentMenu->SetTitle( _( "Open Recent" ) );
+    recentFiles.UpdateClearText( openRecentMenu, _( "Clear Recent Files" ) );
+
+    fileMenu->Add( ACTIONS::doNew );
+    fileMenu->Add( ACTIONS::open );
+
+    wxMenuItem* item = fileMenu->Add( openRecentMenu->Clone() );
+
+    // Add the file menu condition here since it needs the item ID for the submenu
+    ACTION_CONDITIONS cond;
+    cond.Enable( FILE_HISTORY::FileHistoryNotEmpty( recentFiles ) );
+    RegisterUIUpdateHandler( item->GetId(), cond );
+
+    fileMenu->AppendSeparator();
+    fileMenu->Add( ACTIONS::save );
+    fileMenu->Add( ACTIONS::saveAs );
+
+    fileMenu->AppendSeparator();
+    fileMenu->Add( ACTIONS::print );
+
+    fileMenu->AppendSeparator();
+    fileMenu->AddClose( _( "Drawing Sheet Editor" ) );
+    fileMenu->AddQuit( _( "Drawing Sheet Editor" ) );
+}
+
+
+void PL_EDITOR_FRAME::buildEditMenu( ACTION_MENU* editMenu )
+{
+    editMenu->Add( ACTIONS::undo );
+    editMenu->Add( ACTIONS::redo );
+
+    editMenu->AppendSeparator();
+    editMenu->Add( ACTIONS::cut );
+    editMenu->Add( ACTIONS::copy );
+    editMenu->Add( ACTIONS::paste );
+    editMenu->Add( ACTIONS::doDelete );
+}
+
+
+void PL_EDITOR_FRAME::buildViewMenu( ACTION_MENU* viewMenu )
+{
+    viewMenu->Add( ACTIONS::zoomInCenter );
+    viewMenu->Add( ACTIONS::zoomOutCenter );
+    viewMenu->Add( ACTIONS::zoomFitScreen );
+    viewMenu->Add( ACTIONS::zoomTool );
+    viewMenu->Add( ACTIONS::zoomRedraw );
+
+    viewMenu->AppendSeparator();
+    viewMenu->Add( PL_ACTIONS::previewSettings );
+
+#ifdef __APPLE__
+    // Add a separator only on macOS because the OS adds menu items to the view menu after ours
+    viewMenu->AppendSeparator();
+#endif
+}
+
+
+void PL_EDITOR_FRAME::buildPlaceMenu( ACTION_MENU* placeMenu )
+{
+    placeMenu->Add( PL_ACTIONS::drawLine );
+    placeMenu->Add( PL_ACTIONS::drawRectangle );
+    placeMenu->Add( PL_ACTIONS::placeText );
+    placeMenu->Add( PL_ACTIONS::placeImage );
+
+    placeMenu->AppendSeparator();
+    placeMenu->Add( PL_ACTIONS::appendImportedDrawingSheet );
+}
+
+
+void PL_EDITOR_FRAME::buildInspectMenu( ACTION_MENU* inspectorMenu )
+{
+    inspectorMenu->Add( PL_ACTIONS::showInspector );
+}
+
+
+void PL_EDITOR_FRAME::buildPreferencesMenu( ACTION_MENU* preferencesMenu )
+{
+    PL_SELECTION_TOOL* selTool = m_toolManager->GetTool<PL_SELECTION_TOOL>();
+
+    preferencesMenu->Add( ACTIONS::openPreferences );
+
+    // Language submenu
+    AddMenuLanguageList( preferencesMenu, selTool );
 }

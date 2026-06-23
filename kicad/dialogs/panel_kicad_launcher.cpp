@@ -92,54 +92,31 @@ void PANEL_KICAD_LAUNCHER::CreateLaunchers()
         m_toolsSizer->SetRows( 0 );
     }
 
-    wxFont titleFont = wxSystemSettings::GetFont( wxSYS_DEFAULT_GUI_FONT );
-#ifndef __WXGTK__
-    titleFont.SetPointSize( titleFont.GetPointSize() + 2 );
-#endif
-    titleFont.SetWeight( wxFONTWEIGHT_BOLD );
-
-    wxFont helpFont = wxSystemSettings::GetFont( wxSYS_DEFAULT_GUI_FONT );
-    helpFont.SetStyle( wxFONTSTYLE_ITALIC );
+    // KiCad Next: lay the 9 tools out as a single-column compact icon+label rail
+    // (matching the web prototype's activity rail) instead of the 2-column
+    // big-button + help-paragraph list.
+    m_toolsSizer->SetCols( 1 );
 
     auto addLauncher =
             [&]( const TOOL_ACTION& aAction, BITMAPS aBitmaps, const wxString& aHelpText, bool enabled = true )
             {
+                // Small activity-bar icons (compact rail). Force a 24 px default glyph
+                // (Def() resamples down) so the rail stays slim like VS Code's bar.
                 BITMAP_BUTTON* btn = new BITMAP_BUTTON( m_scrolledWindow, wxID_ANY );
-                btn->SetBitmap( KiBitmapBundle( aBitmaps ) );
-                btn->SetDisabledBitmap( KiDisabledBitmapBundle( aBitmaps ) );
+                btn->SetBitmap( KiBitmapBundleDef( aBitmaps, 24 ) );
+                btn->SetDisabledBitmap( KiDisabledBitmapBundleDef( aBitmaps, 24 ) );
                 btn->SetPadding( 4 );
-                btn->SetToolTip( aAction.GetTooltip() );
 
-                m_scrolledWindow->SetFont( titleFont ); // Use font inheritance to avoid extra SetFont call.
-                wxStaticText* label = new wxStaticText( m_scrolledWindow, wxID_ANY, aAction.GetFriendlyName() );
-                label->SetToolTip( aAction.GetTooltip() );
-
-                m_scrolledWindow->SetFont( helpFont ); // Use font inheritance to avoid extra SetFont call.
-                wxStaticText* help = new wxStaticText( m_scrolledWindow, wxID_ANY, aHelpText );
+                // Icon-only activity rail: the tool name lives in the tooltip (the rail is
+                // narrow, like the web prototype's activity bar). No duplicate text label.
+                btn->SetToolTip( aAction.GetFriendlyName() + wxT( "\n" ) + aHelpText );
 
                 btn->Bind( wxEVT_BUTTON, &PANEL_KICAD_LAUNCHER::onLauncherButtonClick, this );
                 btn->SetClientData( (void*) &aAction );
 
-                // The bug fix below makes this handler active for the entire window width.  Without any visual
-                // feedback that's a bit odd.  Disabling for now.
-                // label->Bind( wxEVT_LEFT_UP, handler );
-
-                m_toolsSizer->Add( btn, 1, wxALIGN_CENTER_VERTICAL );
-
-                wxBoxSizer* textSizer = new wxBoxSizer( wxVERTICAL );
-
-                textSizer->Add( label );
-                textSizer->Add( help );
-
-                m_toolsSizer->Add( textSizer, 1, wxEXPAND | wxALIGN_CENTER_VERTICAL );
+                m_toolsSizer->Add( btn, 0, wxALIGN_CENTER_HORIZONTAL | wxALL, 4 );
 
                 btn->Enable( enabled );
-
-                if( !enabled )
-                {
-                    help->Disable();
-                    label->Disable();
-                }
 
                 return btn;
             };

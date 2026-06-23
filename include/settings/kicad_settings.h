@@ -37,6 +37,11 @@ public:
     int m_LeftWinWidth;
     bool m_ShowHistoryPanel;
 
+    /// Single-window shell common AI panel (CommonAiPanel): last shown state and width,
+    /// so the shell-owned "AI Assistant" pane restores like the per-editor panels do.
+    bool m_ShowAiChat;
+    int  m_AiChatPanelWidth;
+
 
     std::vector<wxString> m_OpenProjects;
 

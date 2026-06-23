@@ -50,6 +50,16 @@
 
 void KICAD_MANAGER_FRAME::doReCreateMenuBar()
 {
+    // KiCad Next: build the shared common menu bar instead of the legacy one when enabled.
+    if( ADVANCED_CFG::GetCfg().m_UnifiedMenuBar )
+    {
+        buildCommonMenuBar();
+#ifdef __WXMSW__
+        buildTitleBarMenuButtons();
+#endif
+        return;
+    }
+
     KICAD_MANAGER_CONTROL* controlTool = m_toolManager->GetTool<KICAD_MANAGER_CONTROL>();
     // wxWidgets handles the Mac Application menu behind the scenes, but that means
     // we always have to start from scratch with a new wxMenuBar.
@@ -261,4 +271,219 @@ void KICAD_MANAGER_FRAME::doReCreateMenuBar()
 
     SetMenuBar( menuBar );
     delete oldMenuBar;
+
+#ifdef __WXMSW__
+    // Move the freshly-built menu into the custom single-row title bar.
+    buildTitleBarMenuButtons();
+#endif
+}
+
+
+//================================ KiCad Next unified menu bar ================================
+// The following hooks reproduce the menus built above, but populate a menu supplied by the
+// shared EDA_BASE_FRAME::buildCommonMenuBar() orchestrator.  They are used only when the
+// m_UnifiedMenuBar advanced flag is set; otherwise the legacy doReCreateMenuBar() above runs.
+// The Project Manager has no canvas, so it supplies no Place/Route/Inspect menus.
+
+TOOL_INTERACTIVE* KICAD_MANAGER_FRAME::getCurrentMenuTool()
+{
+    return m_toolManager->GetTool<KICAD_MANAGER_CONTROL>();
+}
+
+
+void KICAD_MANAGER_FRAME::buildFileMenu( ACTION_MENU* fileMenu )
+{
+    KICAD_MANAGER_CONTROL* controlTool = m_toolManager->GetTool<KICAD_MANAGER_CONTROL>();
+    FILE_HISTORY&          fileHistory = GetFileHistory();
+
+    fileHistory.SetClearText( _( "Clear Recent Projects" ) );
+
+    static ACTION_MENU* openRecentMenu;
+
+    // Create the menu if it does not exist. Adding a file to/from the history
+    // will automatically refresh the menu.
+    if( !openRecentMenu )
+    {
+        openRecentMenu = new ACTION_MENU( false, controlTool );
+        openRecentMenu->SetIcon( BITMAPS::recent );
+
+        fileHistory.UseMenu( openRecentMenu );
+        fileHistory.AddFilesToMenu();
+    }
+
+    // Ensure the title is up to date after changing language
+    openRecentMenu->SetTitle( _( "Open Recent" ) );
+
+    fileMenu->Add( KICAD_MANAGER_ACTIONS::newProject );
+
+    if( Pgm().GetCommonSettings() && Pgm().GetCommonSettings()->m_Git.enableGit )
+        fileMenu->Add( KICAD_MANAGER_ACTIONS::newFromRepository );
+
+    if( wxDir::Exists( PATHS::GetStockDemosPath() ) )
+        fileMenu->Add( KICAD_MANAGER_ACTIONS::openDemoProject );
+
+    fileMenu->Add( KICAD_MANAGER_ACTIONS::openProject );
+
+    wxMenuItem* item = fileMenu->Add( openRecentMenu->Clone() );
+
+    fileMenu->AppendSeparator();
+    fileMenu->Add( KICAD_MANAGER_ACTIONS::newJobsetFile );
+    fileMenu->Add( KICAD_MANAGER_ACTIONS::openJobsetFile );
+
+    // Add the file menu condition here since it needs the item ID for the submenu
+    ACTION_CONDITIONS cond;
+    cond.Enable( FILE_HISTORY::FileHistoryNotEmpty( fileHistory ) );
+    RegisterUIUpdateHandler( item->GetId(), cond );
+
+    fileMenu->AppendSeparator();
+    fileMenu->Add( KICAD_MANAGER_ACTIONS::closeProject );
+
+    fileMenu->AppendSeparator();
+    wxMenuItem* restoreItem = fileMenu->Add( KICAD_MANAGER_ACTIONS::restoreLocalHistory );
+    ACTION_CONDITIONS historyCond;
+    historyCond.Enable( [&]( const SELECTION& )
+    {
+        return Pgm().GetCommonSettings()->m_System.local_history_enabled
+               && Kiway().LocalHistory().HistoryExists( Prj().GetProjectPath() );
+    } );
+    RegisterUIUpdateHandler( restoreItem->GetId(), historyCond );
+
+    fileMenu->AppendSeparator();
+    fileMenu->Add( ACTIONS::saveAs );
+
+    fileMenu->AppendSeparator();
+
+    //Import Sub-menu
+    ACTION_MENU* importMenu = new ACTION_MENU( false, controlTool );
+    importMenu->SetTitle( _( "Import Non-KiCad Project..." ) );
+    importMenu->SetIcon( BITMAPS::import_project );
+
+    importMenu->Add( _( "Altium Project..." ),
+                     _( "Import Altium Schematic and PCB (*.PrjPcb)" ),
+                     ID_IMPORT_ALTIUM_PROJECT,
+                     BITMAPS::import_project );
+    importMenu->Add( _( "CADSTAR Project..." ),
+                     _( "Import CADSTAR Archive Schematic and PCB (*.csa, *.cpa)" ),
+                     ID_IMPORT_CADSTAR_ARCHIVE_PROJECT,
+                     BITMAPS::import_project );
+
+    importMenu->Add( _( "EAGLE Project..." ),
+                     _( "Import EAGLE CAD XML schematic and board" ),
+                     ID_IMPORT_EAGLE_PROJECT,
+                     BITMAPS::import_project );
+
+    importMenu->Add( _( "EasyEDA (JLCEDA) Std Backup..." ),
+                     _( "Import EasyEDA (JLCEDA) Standard schematic and board" ),
+                     ID_IMPORT_EASYEDA_PROJECT,
+                     BITMAPS::import_project );
+
+    importMenu->Add( _( "EasyEDA (JLCEDA) Pro Project..." ),
+                     _( "Import EasyEDA (JLCEDA) Professional schematic and board" ),
+                     ID_IMPORT_EASYEDAPRO_PROJECT, BITMAPS::import_project );
+
+    importMenu->Add( _( "PADS Project..." ),
+                     _( "Import PADS Logic schematic and PADS ASCII PCB (*.asc, *.txt)" ),
+                     ID_IMPORT_PADS_PROJECT, BITMAPS::import_project );
+
+    importMenu->Add( _( "gEDA / Lepton EDA Project..." ),
+                     _( "Import gEDA or Lepton EDA schematic and PCB layout" ),
+                     ID_IMPORT_GEDA_PROJECT,
+                     BITMAPS::import_project );
+
+    fileMenu->Add( importMenu );
+
+    fileMenu->AppendSeparator();
+    fileMenu->Add( KICAD_MANAGER_ACTIONS::archiveProject );
+    fileMenu->Add( KICAD_MANAGER_ACTIONS::unarchiveProject );
+
+    fileMenu->AppendSeparator();
+    fileMenu->AddQuitOrClose( nullptr, wxS( "KiCad" ) );
+}
+
+
+void KICAD_MANAGER_FRAME::buildEditMenu( ACTION_MENU* editMenu )
+{
+    /*
+     * While we don't presently use these, they need to be here so that cut/copy/paste work
+     * in things like search boxes in file open dialogs.
+     */
+    editMenu->Add( ACTIONS::cut );
+    editMenu->Add( ACTIONS::copy );
+    editMenu->Add( ACTIONS::paste );
+
+    wxString editCfgEnv;
+    if( wxGetEnv( wxS( "KICAD_EDIT_ADVANCED_CFG" ), &editCfgEnv ); editCfgEnv == wxS( "1" ) )
+    {
+        editMenu->Add( _( "Edit Advanced Config..." ),
+                        _( "Edit advanced settings" ),
+                        ID_EDIT_ADVANCED_CFG,
+                        BITMAPS::editor );
+    }
+}
+
+
+void KICAD_MANAGER_FRAME::buildViewMenu( ACTION_MENU* viewMenu )
+{
+    KICAD_MANAGER_CONTROL* controlTool = m_toolManager->GetTool<KICAD_MANAGER_CONTROL>();
+
+    ACTION_MENU* panelsMenu = new ACTION_MENU( false, controlTool );
+    panelsMenu->SetTitle( _( "Panels" ) );
+    panelsMenu->Add( KICAD_MANAGER_ACTIONS::showLocalHistory, ACTION_MENU::CHECK );
+    viewMenu->Add( panelsMenu );
+
+    viewMenu->AppendSeparator();
+    viewMenu->Add( ACTIONS::zoomRedraw );
+
+    viewMenu->AppendSeparator();
+    viewMenu->Add( KICAD_MANAGER_ACTIONS::openTextEditor );
+    viewMenu->Add( KICAD_MANAGER_ACTIONS::openProjectDirectory );
+
+#ifdef __APPLE__
+    // Add a separator only on macOS because the OS adds menu items to the view menu after ours
+    viewMenu->AppendSeparator();
+#endif
+}
+
+
+void KICAD_MANAGER_FRAME::buildToolsMenu( ACTION_MENU* toolsMenu )
+{
+    toolsMenu->Add( KICAD_MANAGER_ACTIONS::editSchematic );
+    toolsMenu->Add( KICAD_MANAGER_ACTIONS::editSymbols );
+    toolsMenu->Add( KICAD_MANAGER_ACTIONS::editPCB );
+    toolsMenu->Add( KICAD_MANAGER_ACTIONS::editFootprints );
+
+    toolsMenu->AppendSeparator();
+    toolsMenu->Add( KICAD_MANAGER_ACTIONS::viewGerbers );
+    toolsMenu->Add( KICAD_MANAGER_ACTIONS::convertImage );
+    toolsMenu->Add( KICAD_MANAGER_ACTIONS::showCalculator );
+    toolsMenu->Add( KICAD_MANAGER_ACTIONS::editDrawingSheet );
+
+    wxMenuItem* pcmMenuItem = toolsMenu->Add( KICAD_MANAGER_ACTIONS::showPluginManager );
+
+    if( KIPLATFORM::POLICY::GetPolicyBool( POLICY_KEY_PCM )
+        == KIPLATFORM::POLICY::PBOOL::DISABLED )
+    {
+        pcmMenuItem->Enable( false );
+    }
+
+    toolsMenu->AppendSeparator();
+    toolsMenu->Add( _( "Edit Local File..." ),
+                    _( "Edit local file in text editor" ),
+                    ID_EDIT_LOCAL_FILE_IN_TEXT_EDITOR,
+                    BITMAPS::editor );
+}
+
+
+void KICAD_MANAGER_FRAME::buildPreferencesMenu( ACTION_MENU* prefsMenu )
+{
+    KICAD_MANAGER_CONTROL* controlTool = m_toolManager->GetTool<KICAD_MANAGER_CONTROL>();
+
+    prefsMenu->Add( ACTIONS::configurePaths );
+    prefsMenu->Add( ACTIONS::showSymbolLibTable );
+    prefsMenu->Add( ACTIONS::showFootprintLibTable );
+    prefsMenu->Add( ACTIONS::showDesignBlockLibTable );
+    prefsMenu->Add( ACTIONS::openPreferences );
+
+    prefsMenu->AppendSeparator();
+    AddMenuLanguageList( prefsMenu, controlTool );
 }

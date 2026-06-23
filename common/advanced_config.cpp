@@ -106,8 +106,16 @@ static const wxChar V3DRT_BevelHeight_um[] = wxT( "V3DRT_BevelHeight_um" );
 static const wxChar V3DRT_BevelExtentFactor[] = wxT( "V3DRT_BevelExtentFactor" );
 static const wxChar EnablePcbDesignBlocks[] = wxT( "EnablePcbDesignBlocks" );
 static const wxChar EnableGenerators[] = wxT( "EnableGenerators" );
+static const wxChar UnifiedMenuBar[] = wxT( "UnifiedMenuBar" );
+static const wxChar SingleWindowShell[] = wxT( "SingleWindowShell" );
+static const wxChar CommonAiPanel[] = wxT( "CommonAiPanel" );
+static const wxChar ShellPrewarmEditors[] = wxT( "ShellPrewarmEditors" );
 static const wxChar EnableLibWithText[] = wxT( "EnableLibWithText" );
 static const wxChar EnableLibDir[] = wxT( "EnableLibDir" );
+static const wxChar SingleClickOpen[] = wxT( "SingleClickOpen" );
+static const wxChar SymDirAggregateCache[] = wxT( "SymDirAggregateCache" );
+static const wxChar EnvilPurpleFrame[] = wxT( "EnvilPurpleFrame" );
+static const wxChar EnvilUiFontPt[] = wxT( "EnvilUiFontPt" );
 static const wxChar DisambiguationTime[] = wxT( "DisambiguationTime" );
 static const wxChar PcbSelectionVisibilityRatio[] = wxT( "PcbSelectionVisibilityRatio" );
 static const wxChar FontErrorSize[] = wxT( "FontErrorSize" );
@@ -276,8 +284,16 @@ ADVANCED_CFG::ADVANCED_CFG()
     m_UpdateUIEventInterval = 50;
     m_EnablePcbDesignBlocks = true;
     m_EnableGenerators = false;
+    m_UnifiedMenuBar = false;
+    m_SingleWindowShell = false;
+    m_CommonAiPanel = false;   // opt-in: one shell-owned AI panel (needs SingleWindowShell); see header
+    m_ShellPrewarmEditors = false;   // opt-in: GUI-thread KIFACE warm can freeze startup; see header
     m_EnableLibWithText = false;
     m_EnableLibDir = false;
+    m_SingleClickOpen = true;   // VS Code / Cursor style one-click open in the project tree
+    m_SymDirAggregateCache = false;   // opt-in: consolidated read cache for *.kicad_symdir folders; see header
+    m_EnvilPurpleFrame = false;   // opt-in: vibrant-purple dark chrome on the schematic editor frame; see header
+    m_EnvilUiFontPt = 10.0;       // app-wide UI base font size (pt); 0 disables the override; see header
 
     m_3DRT_BevelHeight_um = 30;
     m_3DRT_BevelExtentFactor = 1.0 / 16.0;
@@ -541,6 +557,18 @@ void ADVANCED_CFG::loadSettings( wxConfigBase& aCfg )
     m_entries.push_back( std::make_unique<PARAM_CFG_BOOL>( true, AC_KEYS::EnableGenerators, &m_EnableGenerators,
                                                            m_EnableGenerators ) );
 
+    m_entries.push_back( std::make_unique<PARAM_CFG_BOOL>( true, AC_KEYS::UnifiedMenuBar, &m_UnifiedMenuBar,
+                                                           m_UnifiedMenuBar ) );
+
+    m_entries.push_back( std::make_unique<PARAM_CFG_BOOL>( true, AC_KEYS::SingleWindowShell,
+                                                           &m_SingleWindowShell, m_SingleWindowShell ) );
+
+    m_entries.push_back( std::make_unique<PARAM_CFG_BOOL>( true, AC_KEYS::CommonAiPanel,
+                                                           &m_CommonAiPanel, m_CommonAiPanel ) );
+
+    m_entries.push_back( std::make_unique<PARAM_CFG_BOOL>( true, AC_KEYS::ShellPrewarmEditors,
+                                                           &m_ShellPrewarmEditors, m_ShellPrewarmEditors ) );
+
     m_entries.push_back( std::make_unique<PARAM_CFG_BOOL>( true, AC_KEYS::EnableAPILogging, &m_EnableAPILogging,
                                                            m_EnableAPILogging ) );
 
@@ -549,6 +577,21 @@ void ADVANCED_CFG::loadSettings( wxConfigBase& aCfg )
 
     m_entries.push_back(
             std::make_unique<PARAM_CFG_BOOL>( true, AC_KEYS::EnableLibDir, &m_EnableLibDir, m_EnableLibDir ) );
+
+    m_entries.push_back( std::make_unique<PARAM_CFG_BOOL>( true, AC_KEYS::SingleClickOpen, &m_SingleClickOpen,
+                                                           m_SingleClickOpen ) );
+
+    m_entries.push_back( std::make_unique<PARAM_CFG_BOOL>( true, AC_KEYS::SymDirAggregateCache,
+                                                           &m_SymDirAggregateCache,
+                                                           m_SymDirAggregateCache ) );
+
+    m_entries.push_back( std::make_unique<PARAM_CFG_BOOL>( true, AC_KEYS::EnvilPurpleFrame,
+                                                           &m_EnvilPurpleFrame,
+                                                           m_EnvilPurpleFrame ) );
+
+    m_entries.push_back( std::make_unique<PARAM_CFG_DOUBLE>( true, AC_KEYS::EnvilUiFontPt,
+                                                             &m_EnvilUiFontPt, m_EnvilUiFontPt,
+                                                             0.0, 32.0 ) );
 
     m_entries.push_back( std::make_unique<PARAM_CFG_DOUBLE>( true, AC_KEYS::PcbSelectionVisibilityRatio,
                                                              &m_PcbSelectionVisibilityRatio,

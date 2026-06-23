@@ -505,7 +505,15 @@ public:
 
     void OnOpenPcbnew();
     void OnOpenCvpcb();
-    void OnUpdatePCB();
+
+    /**
+     * Push the schematic netlist to the PCB ("Update PCB from Schematic" / F8).
+     *
+     * @param aAutoApply when true (Envil AI/IPC path) pcbnew applies the netlist
+     *        silently with default options — no modal dialog, no click. When false
+     *        (the normal F8 menu) pcbnew shows the interactive Update-PCB dialog.
+     */
+    void OnUpdatePCB( bool aAutoApply = false );
     void OnAnnotate();
 
     /**
@@ -939,6 +947,16 @@ protected:
 
     void doReCreateMenuBar() override;
 
+    // KiCad Next unified menu bar (see EDA_BASE_FRAME::buildCommonMenuBar()).
+    TOOL_INTERACTIVE* getCurrentMenuTool() override;
+    void buildFileMenu( ACTION_MENU* aMenu ) override;
+    void buildEditMenu( ACTION_MENU* aMenu ) override;
+    void buildViewMenu( ACTION_MENU* aMenu ) override;
+    void buildPlaceMenu( ACTION_MENU* aMenu ) override;
+    void buildInspectMenu( ACTION_MENU* aMenu ) override;
+    void buildToolsMenu( ACTION_MENU* aMenu ) override;
+    void buildPreferencesMenu( ACTION_MENU* aMenu ) override;
+
     /**
      * Send the KiCad netlist over to CVPCB.
      */
@@ -1057,6 +1075,11 @@ private:
     /// Returns true on success. Used by both the startup attempt and the retry timer.
     bool TryConnectAiIpc();
     void OnAiIpcRetryTimer( wxTimerEvent& aEvent );
+
+    /// Envil "Vibrant Purple & Indigo" theme: repaint this frame's window chrome (dock panels,
+    /// sashes/captions, AUI tool-bars and child controls) with the dark purple palette.  Gated
+    /// by the EnvilPurpleFrame advanced-config flag; the drawing canvas is left untouched.
+    void applyEnvilPurpleFrameTheme();
 
 private:
     // The schematic editor control class should be able to access some internal

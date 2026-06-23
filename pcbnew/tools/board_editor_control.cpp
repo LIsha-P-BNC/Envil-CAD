@@ -56,6 +56,8 @@
 #include <kiface_base.h>
 #include <kiway.h>
 #include <netlist_reader/pcb_netlist.h>
+#include <netlist_reader/board_netlist_updater.h>
+#include <reporter.h>
 #include <origin_viewitem.h>
 #include <pcb_edit_frame.h>
 #include <pcbnew_id.h>
@@ -716,6 +718,49 @@ int BOARD_EDITOR_CONTROL::UpdatePCBFromSchematic( const TOOL_EVENT& aEvent )
     return 0;
 }
 
+
+int BOARD_EDITOR_CONTROL::UpdatePCBFromSchematicSilent()
+{
+    // Cursor-style automatic F8: same as UpdatePCBFromSchematic() but applies the
+    // netlist directly via BOARD_NETLIST_UPDATER instead of popping DIALOG_UPDATE_PCB.
+    // Options mirror the dialog's defaults (see DIALOG_UPDATE_PCB_BASE): update
+    // footprints + fields ON, delete-extra/transfer-groups/override-locks OFF, and
+    // match symbols<->footprints by UUID (relink-by-ref unchecked).
+    NETLIST netlist;
+
+    if( !m_frame->FetchNetlistFromSchematic(
+                netlist, _( "Updating PCB requires a fully annotated schematic." ) ) )
+        return 0;
+
+    netlist.SetFindByTimeStamp( true );    // relink-by-reference unchecked -> match by UUID
+    netlist.SetReplaceFootprints( true );  // "Replace footprints..." checked by default
+
+    NULL_REPORTER         reporter;
+    BOARD_NETLIST_UPDATER updater( m_frame, m_frame->GetBoard() );
+    updater.SetReporter( &reporter );
+    updater.SetIsDryRun( false );
+    updater.SetLookupByTimestamp( true );
+    updater.SetDeleteUnusedFootprints( false );
+    updater.SetReplaceFootprints( true );
+    updater.SetTransferGroups( false );
+    updater.SetOverrideLocks( false );
+    updater.SetUpdateFields( true );
+    updater.SetRemoveExtraFields( false );
+    updater.UpdateNetlist( netlist );
+
+    // Refresh connectivity/ratsnest and the canvas. runDragCommand is intentionally
+    // ignored: in the dialog it would start an interactive move of the freshly-added
+    // footprints, but an automatic update must not leave the user holding a drag.
+    bool runDragCommand = false;
+    m_frame->OnNetlistChanged( updater, &runDragCommand );
+
+    if( m_frame->GetCanvas() )
+        m_frame->GetCanvas()->Refresh();
+
+    return 0;
+}
+
+
 int BOARD_EDITOR_CONTROL::UpdateSchematicFromPCB( const TOOL_EVENT& aEvent )
 {
     if( Kiface().IsSingle() )
@@ -810,25 +855,41 @@ int BOARD_EDITOR_CONTROL::ShowEeschema( const TOOL_EVENT& aEvent )
                     if( !frame )
                         return;
 
-                    if( !frame->IsShownOnScreen() ) // the frame exists, (created by the dialog field editor)
-                                                    // but no project loaded.
-                    {
+                    // KiCad Next single-window shell: a schematic editor parked on a background
+                    // tab is fully loaded even though IsShownOnScreen() is false there, so treat
+                    // "already a hosted tab" as "already open" to avoid re-opening (reverting) it.
+                    KIFACE_TAB_HOST* tabHost = boardFrame->Kiway().GetTabHost();
+                    bool             alreadyHosted = tabHost && tabHost->IsPlayerDocked( frame );
+
+                    if( !frame->IsShownOnScreen() && !alreadyHosted )
+                        // the frame exists, (created by the dialog field editor) but no project loaded.
                         frame->OpenProjectFiles( std::vector<wxString>( 1, schematic.GetFullPath() ) );
-                        frame->Show( true );
-                    }
 
-                    // On Windows, Raise() does not bring the window on screen, when iconized or not shown
-                    // On Linux, Raise() brings the window on screen, but this code works fine
-                    if( frame->IsIconized() )
+                    if( tabHost )
                     {
-                        frame->Iconize( false );
-
-                        // If an iconized frame was created by Pcbnew, Iconize( false ) is not enough
-                        // to show the frame at its normal size: Maximize should be called.
-                        frame->Maximize( false );
+                        // Single-window shell: dock the schematic as a tab and bring it to front
+                        // (this is the user's "open/update the schematic" action) rather than
+                        // floating a separate window.
+                        tabHost->DockPlayerAsTab( frame );
                     }
+                    else
+                    {
+                        if( !frame->IsShownOnScreen() )
+                            frame->Show( true );
 
-                    frame->Raise();
+                        // On Windows, Raise() does not bring the window on screen, when iconized or not shown
+                        // On Linux, Raise() brings the window on screen, but this code works fine
+                        if( frame->IsIconized() )
+                        {
+                            frame->Iconize( false );
+
+                            // If an iconized frame was created by Pcbnew, Iconize( false ) is not enough
+                            // to show the frame at its normal size: Maximize should be called.
+                            frame->Maximize( false );
+                        }
+
+                        frame->Raise();
+                    }
                 } );
     }
 

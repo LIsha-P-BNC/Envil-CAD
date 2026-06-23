@@ -233,20 +233,25 @@ std::shared_ptr<BACKGROUND_JOB> BACKGROUND_JOBS_MONITOR::Create( const wxString&
     job->m_name = aName;
     job->m_reporter = std::make_shared<BACKGROUND_JOB_REPORTER>( this, job );
 
-    std::lock_guard<std::shared_mutex> lock( m_mutex );
-    m_jobs.push_back( job );
+    std::vector<BACKGROUND_JOB_LIST*> shownDialogs;
 
-    if( m_shownDialogs.size() > 0 )
     {
-        // update dialogs
-        for( BACKGROUND_JOB_LIST* list : m_shownDialogs )
-        {
-            list->CallAfter(
-                    [=]()
-                    {
-                        list->Add( job );
-                    } );
-        }
+        std::lock_guard<std::shared_mutex> lock( m_mutex );
+        m_jobs.push_back( job );
+        shownDialogs = m_shownDialogs;
+    }
+
+    // Issue the wx CallAfter() calls OUTSIDE the lock.  CallAfter() enters the wx event
+    // system (which has its own locks); holding m_mutex across it can deadlock against the
+    // exclusive lock taken by RegisterStatusBar()/UnregisterStatusBar() when an editor
+    // frame is created/destroyed on the UI thread while worker threads report job progress.
+    for( BACKGROUND_JOB_LIST* list : shownDialogs )
+    {
+        list->CallAfter(
+                [=]()
+                {
+                    list->Add( job );
+                } );
     }
 
     return job;
@@ -255,34 +260,45 @@ std::shared_ptr<BACKGROUND_JOB> BACKGROUND_JOBS_MONITOR::Create( const wxString&
 
 void BACKGROUND_JOBS_MONITOR::Remove( std::shared_ptr<BACKGROUND_JOB> aJob )
 {
-    if( m_shownDialogs.size() > 0 )
-    {
-        // update dialogs
+    std::vector<BACKGROUND_JOB_LIST*> shownDialogs;
+    std::vector<KISTATUSBAR*>         statusBars;
+    std::shared_ptr<BACKGROUND_JOB>   frontJob;
 
-        for( BACKGROUND_JOB_LIST* list : m_shownDialogs )
-        {
-            list->CallAfter(
-                    [=]()
-                    {
-                        list->Remove( aJob );
-                    } );
-        }
+    {
+        std::lock_guard<std::shared_mutex> lock( m_mutex );
+
+        m_jobs.erase( std::remove_if( m_jobs.begin(), m_jobs.end(),
+                                      [&]( std::shared_ptr<BACKGROUND_JOB> job )
+                                      {
+                                          return job == aJob;
+                                      } ),
+                      m_jobs.end() );
+
+        shownDialogs = m_shownDialogs;
+        statusBars   = m_statusBars;
+
+        if( !m_jobs.empty() )
+            frontJob = m_jobs.front();
     }
 
-    std::lock_guard<std::shared_mutex> lock( m_mutex );
-    m_jobs.erase( std::remove_if( m_jobs.begin(), m_jobs.end(),
-                                  [&]( std::shared_ptr<BACKGROUND_JOB> job )
-                                  {
-                                      return job == aJob;
-                                  } ) );
-
-    if( m_jobs.size() > 0 )
+    // wx CallAfter() / jobUpdated() run OUTSIDE the lock (see Create()): never hold
+    // m_mutex while calling into the wx event system.
+    for( BACKGROUND_JOB_LIST* list : shownDialogs )
     {
-        jobUpdated( m_jobs.front() );
+        list->CallAfter(
+                [=]()
+                {
+                    list->Remove( aJob );
+                } );
+    }
+
+    if( frontJob )
+    {
+        jobUpdated( frontJob );
     }
     else
     {
-        for( KISTATUSBAR* statusBar : m_statusBars )
+        for( KISTATUSBAR* statusBar : statusBars )
         {
             statusBar->CallAfter(
                     [=]()
@@ -299,11 +315,15 @@ void BACKGROUND_JOBS_MONITOR::onListWindowClosed( wxCloseEvent& aEvent )
 {
     BACKGROUND_JOB_LIST* evtWindow = dynamic_cast<BACKGROUND_JOB_LIST*>( aEvent.GetEventObject() );
 
-    m_shownDialogs.erase( std::remove_if( m_shownDialogs.begin(), m_shownDialogs.end(),
-                                          [&]( BACKGROUND_JOB_LIST* dialog )
-                                          {
-                                              return dialog == evtWindow;
-                                          } ) );
+    {
+        std::lock_guard<std::shared_mutex> lock( m_mutex );
+        m_shownDialogs.erase( std::remove_if( m_shownDialogs.begin(), m_shownDialogs.end(),
+                                              [&]( BACKGROUND_JOB_LIST* dialog )
+                                              {
+                                                  return dialog == evtWindow;
+                                              } ),
+                              m_shownDialogs.end() );
+    }
 
     aEvent.Skip();
 }
@@ -313,14 +333,17 @@ void BACKGROUND_JOBS_MONITOR::ShowList( wxWindow* aParent, wxPoint aPos )
 {
     BACKGROUND_JOB_LIST* list = new BACKGROUND_JOB_LIST( aParent, aPos );
 
-    std::shared_lock<std::shared_mutex> lock( m_mutex, std::try_to_lock );
+    std::vector<std::shared_ptr<BACKGROUND_JOB>> jobs;
 
-    for( const std::shared_ptr<BACKGROUND_JOB>& job : m_jobs )
+    {
+        std::lock_guard<std::shared_mutex> lock( m_mutex );
+        jobs = m_jobs;
+        m_shownDialogs.push_back( list );
+    }
+
+    // Populate the list OUTSIDE the lock (list->Add() creates wx widgets).
+    for( const std::shared_ptr<BACKGROUND_JOB>& job : jobs )
         list->Add( job );
-
-    lock.unlock();
-
-    m_shownDialogs.push_back( list );
 
     list->Bind( wxEVT_CLOSE_WINDOW, &BACKGROUND_JOBS_MONITOR::onListWindowClosed, this );
 
@@ -334,32 +357,47 @@ void BACKGROUND_JOBS_MONITOR::ShowList( wxWindow* aParent, wxPoint aPos )
 
 void BACKGROUND_JOBS_MONITOR::jobUpdated( std::shared_ptr<BACKGROUND_JOB> aJob )
 {
-    std::shared_lock<std::shared_mutex> lock( m_mutex, std::try_to_lock );
+    // This method is called from the reporters from potentially other threads.
+    // Snapshot the data we need under the lock, then RELEASE the lock before issuing any
+    // CallAfter(): holding m_mutex across a wx event-system call can deadlock against the
+    // exclusive lock taken by RegisterStatusBar() when a new editor frame is opened on the
+    // UI thread.  A plain (blocking) shared_lock is safe here because no caller enters this
+    // method while already holding m_mutex (Remove()/RegisterStatusBar() call jobUpdated()
+    // only after their own lock scope has closed), so there is no reentrancy on the
+    // non-recursive shared_mutex.
+    bool                              isFrontJob = false;
+    std::vector<KISTATUSBAR*>         statusBars;
+    std::vector<BACKGROUND_JOB_LIST*> shownDialogs;
 
-    // this method is called from the reporters from potentially other threads
-    // we have to guard ui calls with CallAfter
-    if( m_jobs.size() > 0 )
     {
-        //for now, we go and update the status bar if its the first job in the vector
-        if( m_jobs.front() == aJob )
+        std::shared_lock<std::shared_mutex> lock( m_mutex );
+
+        // for now, we go and update the status bar if it's the first job in the vector
+        if( !m_jobs.empty() && m_jobs.front() == aJob )
+            isFrontJob = true;
+
+        statusBars   = m_statusBars;
+        shownDialogs = m_shownDialogs;
+    }
+
+    // we have to guard ui calls with CallAfter (and must do so without holding m_mutex)
+    if( isFrontJob )
+    {
+        // update all status bar entries
+        for( KISTATUSBAR* statusBar : statusBars )
         {
-            // update all status bar entries
-            for( KISTATUSBAR* statusBar : m_statusBars )
-            {
-                statusBar->CallAfter(
-                        [=]()
-                        {
-                            statusBar->ShowBackgroundProgressBar();
-                            statusBar->SetBackgroundProgressMax( aJob->m_maxProgress );
-                            statusBar->SetBackgroundProgress( aJob->m_currentProgress );
-                            statusBar->SetBackgroundStatusText( aJob->m_status );
-                        } );
-            }
+            statusBar->CallAfter(
+                    [=]()
+                    {
+                        statusBar->ShowBackgroundProgressBar();
+                        statusBar->SetBackgroundProgressMax( aJob->m_maxProgress );
+                        statusBar->SetBackgroundProgress( aJob->m_currentProgress );
+                        statusBar->SetBackgroundStatusText( aJob->m_status );
+                    } );
         }
     }
 
-
-    for( BACKGROUND_JOB_LIST* list : m_shownDialogs )
+    for( BACKGROUND_JOB_LIST* list : shownDialogs )
     {
         list->CallAfter(
                 [=]()

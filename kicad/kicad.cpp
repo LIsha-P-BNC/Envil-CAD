@@ -61,6 +61,7 @@
 
 #include <kiplatform/app.h>
 #include <kiplatform/environment.h>
+#include <advanced_config.h>
 
 #ifdef KICAD_IPC_API
 #include <api/api_server.h>
@@ -187,9 +188,16 @@ bool PGM_KICAD::OnPgmInit()
     GetSettingsManager().SetKiway( &Kiway );
     m_bm.Init();
 
+    // Envil "Vibrant Purple & Indigo" frame theme: tint the dark-mode chrome purple and force
+    // dark mode on so the native menu bar + title bar go dark too (the canvas is unaffected).
+    const bool envilPurpleFrame = ADVANCED_CFG::GetCfg().m_EnvilPurpleFrame;
+
+    if( envilPurpleFrame )
+        KIPLATFORM::APP::SetDarkModePurple( true );
+
     if( const COMMON_SETTINGS* cfg = Pgm().GetCommonSettings() )
     {
-        if( cfg->m_Appearance.app_theme == APP_THEME::DARK )
+        if( envilPurpleFrame || cfg->m_Appearance.app_theme == APP_THEME::DARK )
             KIPLATFORM::APP::EnableDarkMode( true );
         else if( cfg->m_Appearance.app_theme == APP_THEME::AUTO )
             KIPLATFORM::APP::EnableDarkMode( false );

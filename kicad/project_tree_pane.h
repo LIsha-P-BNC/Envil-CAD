@@ -104,6 +104,14 @@ private:
     void onSelect( wxTreeEvent& Event );
 
     /**
+     * Called on a single left-click in the tree.  When ADVANCED_CFG::m_SingleClickOpen is
+     * set, a single click on a file's label/icon opens it (VS Code / Cursor style); the
+     * +/- expand button, directories, empty space and keyboard navigation are left to the
+     * default handling, and double-click keeps working via onSelect().
+     */
+    void onItemClicked( wxMouseEvent& aEvent );
+
+    /**
      * Called on a click on the + or - button of an item with children
      */
     void onExpand( wxTreeEvent& Event );

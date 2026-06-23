@@ -303,9 +303,17 @@ PCB_EDIT_FRAME::PCB_EDIT_FRAME( KIWAY* aKiway, wxWindow* aParent ) :
     m_netInspectorPanel = new PCB_NET_INSPECTOR_PANEL( this, this );
     m_designBlocksPane = new PCB_DESIGN_BLOCK_PANE( this, nullptr, m_designBlockHistoryList );
 
-    // AI Chat Panel — wrapped in try/catch so PCB editor loads even if WebView fails
+    // AI Chat Panel — wrapped in try/catch so PCB editor loads even if WebView fails.
+    // KiCad Next: when the project-manager shell owns ONE common AI panel (CommonAiPanel +
+    // SingleWindowShell), this editor builds NO chat panel of its own — only the shell's.
+    // The AI_IPC_CLIENT below is still created so the backend's revert/open_file broadcast
+    // keeps refreshing this board while the shell hosts the chat surface.
+    const bool commonAiPanel = ADVANCED_CFG::GetCfg().m_SingleWindowShell
+                               && ADVANCED_CFG::GetCfg().m_CommonAiPanel;
+
     try
     {
+        if( !commonAiPanel )
         {
             // Debug: write AI panel init status to a file
             FILE* dbg = fopen( "F:\\Envil\\ai_panel_debug.log", "w" );
@@ -366,18 +374,36 @@ PCB_EDIT_FRAME::PCB_EDIT_FRAME( KIWAY* aKiway, wxWindow* aParent ) :
             }
         }
 
-        m_aiChatPanel->BindLoadedEvent();
+        if( m_aiChatPanel )
+            m_aiChatPanel->BindLoadedEvent();
 
-        if( !chatHtmlFound.IsEmpty() )
+        if( m_aiChatPanel && !chatHtmlFound.IsEmpty() )
         {
             wxString fileUrl = wxT( "file:///" ) + chatHtmlFound;
             fileUrl.Replace( wxT( "\\" ), wxT( "/" ) );
-            fileUrl += wxString::Format( wxT( "?t=%ld&backend=localhost:8765" ),
-                                         wxDateTime::Now().GetTicks() );
+            // app=pcbnew tells the chat panel which KiCad editor it
+            // lives inside, so the Python backend filters its tool list
+            // (PCB-only verbs, no schematic build) and emits a PCB
+            // page_summary card on hello. Without this hint, the chat
+            // can't distinguish itself from eeschema because chat.html
+            // lives in the shared share/kicad/ai_chat/ folder.
+            wxString projPath = Prj().GetProjectPath();
+            projPath.Replace( wxT( "\\" ), wxT( "/" ) );
+            projPath.Replace( wxT( " " ), wxT( "%20" ) );
+            wxString pcbFile;
+            if( GetBoard() )
+            {
+                pcbFile = GetBoard()->GetFileName();
+                pcbFile.Replace( wxT( "\\" ), wxT( "/" ) );
+                pcbFile.Replace( wxT( " " ), wxT( "%20" ) );
+            }
+            fileUrl += wxString::Format( wxT( "?t=%ld&backend=localhost:8765&app=pcbnew&project=%s&pcb=%s" ),
+                                         wxDateTime::Now().GetTicks(),
+                                         projPath, pcbFile );
             wxLogDebug( wxT( "AI Chat: loading URL %s" ), fileUrl );
             m_aiChatPanel->LoadURL( fileUrl );
         }
-        else
+        else if( m_aiChatPanel )
         {
             wxLogWarning( wxT( "AI Chat: chat.html not found in any search path" ) );
             m_aiChatPanel->SetPage( wxT( "<!DOCTYPE html><html><body style='background:#1e1e2e;"
@@ -426,7 +452,10 @@ PCB_EDIT_FRAME::PCB_EDIT_FRAME( KIWAY* aKiway, wxWindow* aParent ) :
                     } );
                 } );
 
-        // Wire JS → C++ message handlers for the AI chat panel
+        // Wire JS → C++ message handlers for the AI chat panel.  Skipped when the shell owns
+        // the common panel (m_aiChatPanel is null) — there is no per-editor panel to wire.
+        if( m_aiChatPanel )
+        {
         m_aiChatPanel->AddMessageHandler( wxT( "sendMessage" ),
                 [this]( const wxString& aMessage )
                 {
@@ -469,6 +498,7 @@ PCB_EDIT_FRAME::PCB_EDIT_FRAME( KIWAY* aKiway, wxWindow* aParent ) :
                 {
                     wxLogDebug( wxT( "AI Chat file upload: %s" ), aData );
                 } );
+        }   // end if( m_aiChatPanel ) — per-editor message handlers
     }
     catch( ... )
     {
@@ -2486,7 +2516,13 @@ int PCB_EDIT_FRAME::TestStandalone()
     if( !frame )
         return -1;
 
-    if( !frame->IsShownOnScreen() )
+    // KiCad Next single-window shell: a schematic editor parked on a background tab is fully
+    // loaded even though IsShownOnScreen() is false there.  Treat "already a hosted tab" as
+    // "already open" so the netlist fetch never re-opens (and reverts) it.
+    KIFACE_TAB_HOST* tabHost = Kiway().GetTabHost();
+    bool             alreadyHosted = tabHost && tabHost->IsPlayerDocked( frame );
+
+    if( !frame->IsShownOnScreen() && !alreadyHosted )
     {
         wxEventBlocker blocker( this );
         wxFileName fn( Prj().GetProjectPath(), Prj().GetProjectName(),
@@ -2508,11 +2544,21 @@ int PCB_EDIT_FRAME::TestStandalone()
         frame->OpenProjectFiles( std::vector<wxString>( 1, fn.GetFullPath() ) );
 
         // we show the schematic editor frame, because do not show is seen as
-        // a not yet opened schematic by Kicad manager, which is not the case
-        frame->Show( true );
+        // a not yet opened schematic by Kicad manager, which is not the case.
+        // Single-window shell: host it as a tab (loading it in the background for the
+        // netlist) instead of floating a separate window.
+        if( tabHost )
+        {
+            tabHost->DockPlayerAsTab( frame );   // schematic becomes a tab...
+            tabHost->DockPlayerAsTab( this );    // ...then bring our board tab back to front
+        }
+        else
+        {
+            frame->Show( true );
 
-        // bring ourselves back to the front
-        Raise();
+            // bring ourselves back to the front
+            Raise();
+        }
     }
 
     return 1;            //Success!

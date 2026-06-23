@@ -3,32 +3,33 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Envil AI</title>
+<title>Anvil AI</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
 <style>
   :root {
     color-scheme: dark;
-    --bg-0:        #0b0d12;
-    --bg-1:        #11141c;
-    --bg-2:        #161a24;
-    --bg-3:        #1d2230;
-    --bg-input:    #181c26;
-    --border-1:    #232838;
-    --border-2:    #303749;
-    --border-acc:  #3d4663;
-    --text-1:      #e8eaf3;
-    --text-2:      #a8aec3;
-    --text-3:      #6b7387;
-    --text-4:      #4a516a;
-    --user-grad-1: #2f5cd0;
-    --user-grad-2: #4d76e5;
-    --ai-bubble:   #181c26;
-    --ai-border:   #262c3c;
-    --accent:      #6c8aff;
-    --accent-hi:   #8ba4ff;
-    --accent-soft: rgba(108,138,255,.12);
+    /* Envil "Vibrant Purple & Indigo" — matches the KiCad frame chrome. */
+    --bg-0:        #18142a;
+    --bg-1:        #211b38;
+    --bg-2:        #2a2348;
+    --bg-3:        #322a55;
+    --bg-input:    #1e1933;
+    --border-1:    #3a2e63;
+    --border-2:    #4a3d78;
+    --border-acc:  #5e4e92;
+    --text-1:      #f1f0fa;
+    --text-2:      #c4bedd;
+    --text-3:      #8b85a8;
+    --text-4:      #5e5878;
+    --user-grad-1: #7c3aed;
+    --user-grad-2: #9d5bf0;
+    --ai-bubble:   #241f3c;
+    --ai-border:   #3a2e63;
+    --accent:      #8b5cf6;
+    --accent-hi:   #a78bfa;
+    --accent-soft: rgba(139,92,246,.14);
     --ok:          #34d399;
     --warn:        #fbbf24;
     --err:         #f87171;
@@ -66,7 +67,7 @@
   .brand { display: flex; align-items: center; gap: 10px; }
   .brand-logo {
     width: 32px; height: 32px; border-radius: 8px;
-    background: linear-gradient(135deg, var(--accent), #4f6ad6);
+    background: linear-gradient(135deg, var(--accent), #6d28d9);
     display: grid; place-items: center;
     box-shadow: var(--shadow-sm), inset 0 1px 0 rgba(255,255,255,.15);
   }
@@ -88,6 +89,9 @@
   .dot.connecting  { background: var(--warn); animation: pulse 1.2s infinite; }
   .dot.disconnected { background: var(--err); }
   @keyframes pulse { 0%,100% { opacity: 1 } 50% { opacity: .35 } }
+  .header-right { display: flex; align-items: center; gap: 10px; }
+  .newchat-btn { color: var(--text-2); }
+  .newchat-btn:hover { color: var(--accent-hi); background: var(--accent-soft); }
 
   /* ── Context bar ────────────────────────────────────── */
   #ctxBar {
@@ -119,7 +123,7 @@
     font-size: 12px; font-weight: 600; color: #fff;
     box-shadow: var(--shadow-sm);
   }
-  .avatar.ai   { background: linear-gradient(135deg, var(--accent), #4f6ad6); }
+  .avatar.ai   { background: linear-gradient(135deg, var(--accent), #6d28d9); }
   .avatar.user { background: linear-gradient(135deg, #444c66, #2a3148); color: var(--text-1); }
   .avatar svg  { width: 14px; height: 14px; }
 
@@ -194,10 +198,10 @@
   .es-chip {
     display: inline-block;
     padding: 2px 8px;
-    background: rgba(96,165,250,.12);
-    border: 1px solid rgba(96,165,250,.3);
+    background: rgba(139,92,246,.12);
+    border: 1px solid rgba(139,92,246,.3);
     border-radius: 999px;
-    font-size: 11px; font-weight: 500; color: #93c5fd;
+    font-size: 11px; font-weight: 500; color: #c4b5fd;
     font-family: ui-monospace, "Cascadia Code", Consolas, monospace;
   }
   .es-status {
@@ -216,7 +220,7 @@
   .es-status-label { flex: 1; }
   .es-status-count { font-size: 11px; opacity: .75; font-weight: 400; }
   .es-status-ok   { background: rgba(74,222,128,.10); border: 1px solid rgba(74,222,128,.3); color: #86efac; }
-  .es-status-info { background: rgba(96,165,250,.10); border: 1px solid rgba(96,165,250,.3); color: #93c5fd; }
+  .es-status-info { background: rgba(139,92,246,.10); border: 1px solid rgba(139,92,246,.3); color: #c4b5fd; }
   .es-status-warn { background: rgba(251,191,36,.10); border: 1px solid rgba(251,191,36,.3); color: #fcd34d; }
   .es-status-err  { background: rgba(248,113,113,.10); border: 1px solid rgba(248,113,113,.35); color: #fca5a5; }
 
@@ -295,8 +299,8 @@
   .es-circuit {
     padding: 6px 10px;
     margin-bottom: 8px;
-    background: rgba(96,165,250,.10);
-    border-left: 3px solid rgba(96,165,250,.55);
+    background: rgba(139,92,246,.10);
+    border-left: 3px solid rgba(139,92,246,.55);
     border-radius: 4px;
     font-size: 12.5px; font-weight: 600;
     color: #cbd5e1;
@@ -369,7 +373,7 @@
   }
   .btn.primary {
     background: var(--accent); color: #0b0d12;
-    box-shadow: 0 1px 0 rgba(255,255,255,.1) inset, 0 2px 8px rgba(108,138,255,.35);
+    box-shadow: 0 1px 0 rgba(255,255,255,.1) inset, 0 2px 8px rgba(139,92,246,.35);
   }
   .btn.primary:hover { background: var(--accent-hi); }
   .btn.secondary {
@@ -435,7 +439,7 @@
   .icon-btn svg { width: 16px; height: 16px; }
   .send-btn {
     background: var(--accent); color: #0b0d12;
-    box-shadow: 0 2px 6px rgba(108,138,255,.3);
+    box-shadow: 0 2px 6px rgba(139,92,246,.3);
   }
   .send-btn:hover { background: var(--accent-hi); color: #0b0d12; }
 
@@ -457,10 +461,10 @@
   }
   .empty-icon {
     width: 56px; height: 56px; border-radius: 16px;
-    background: linear-gradient(135deg, var(--accent), #4f6ad6);
+    background: linear-gradient(135deg, var(--accent), #6d28d9);
     display: grid; place-items: center;
     margin-bottom: 16px;
-    box-shadow: 0 8px 24px rgba(108,138,255,.25);
+    box-shadow: 0 8px 24px rgba(139,92,246,.25);
   }
   .empty-icon svg { width: 28px; height: 28px; color: #fff; }
   .empty h2 {
@@ -494,13 +498,20 @@
       </svg>
     </div>
     <div class="brand-text">
-      <div class="name">Envil AI</div>
+      <div class="name">Anvil AI</div>
       <div class="sub">KiCad schematic assistant</div>
     </div>
   </div>
-  <div class="status">
-    <span id="dot" class="dot disconnected"></span>
-    <span id="statusText">Connecting</span>
+  <div class="header-right">
+    <button id="newChatBtn" class="icon-btn newchat-btn" title="New chat (Ctrl+N)" aria-label="New chat">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M12 20h9"/><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4 12.5-12.5z"/>
+      </svg>
+    </button>
+    <div class="status">
+      <span id="dot" class="dot disconnected"></span>
+      <span id="statusText">Connecting</span>
+    </div>
   </div>
 </header>
 
@@ -532,21 +543,18 @@
 <footer>
   <div id="pending" class="pending"></div>
   <div class="input-shell">
-    <button class="icon-btn" id="attachBtn" title="Attach image or PDF">
+    <button class="icon-btn" id="attachBtn" title="Attach image, PDF, or ERC report (.rpt / .txt)">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
         <path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48"/>
       </svg>
     </button>
-    <input type="file" id="fileInput" accept="image/*,.pdf,application/pdf" hidden multiple>
+    <input type="file" id="fileInput" accept="image/*,.pdf,application/pdf,.rpt,.txt,text/plain" hidden multiple>
     <textarea id="input" placeholder="Describe a circuit or ask a question…" rows="1"></textarea>
     <button class="icon-btn send-btn" id="sendBtn" title="Send (Enter)">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
         <line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/>
       </svg>
     </button>
-  </div>
-  <div class="footer-hint">
-    <kbd>Enter</kbd> to send · <kbd>Shift+Enter</kbd> for newline · <kbd>/reset</kbd> to clear
   </div>
 </footer>
 
@@ -559,6 +567,52 @@ const wsUrl       = "ws://" + backendHost + "/ws/chat";
 const httpBase    = "http://" + backendHost;
 let projectPath = decodeURIComponent(params.get("project")   || "");
 let schematic   = decodeURIComponent(params.get("schematic") || "");
+let pcbFile     = decodeURIComponent(params.get("pcb")       || "");
+
+// Page-scope auto-detect. The same chat.html is shipped into both the
+// eeschema and pcbnew resource trees; we figure out which editor is
+// hosting the panel by inspecting the URL path KiCad loaded us from.
+// Priority order:
+//   1) explicit ?app= query param  (lets a dev override during testing)
+//   2) window.KICAD_APP global     (if a future KiCad build injects one)
+//   3) pathname containing "pcbnew" or "eeschema"
+//   4) fallback ""                 (server treats as unscoped / legacy)
+let appCtx = (params.get("app") || "").toLowerCase();
+if (!appCtx && typeof window.KICAD_APP === "string") {
+  appCtx = window.KICAD_APP.toLowerCase();
+}
+if (!appCtx) {
+  const pn = (location.pathname || "").toLowerCase();
+  if (pn.includes("pcbnew"))        appCtx = "pcb";
+  else if (pn.includes("eeschema")) appCtx = "schematic";
+}
+// URL-param heuristic — works even on KiCad builds that don't pass
+// `?app=` yet. eeschema's chat URL has `?...&schematic=<path>`; pcbnew's
+// doesn't (it currently passes no file path). So if we still don't know
+// the app, presence of `schematic=` says eeschema, presence of `pcb=`
+// says pcbnew. Absence of BOTH → assume pcbnew because that's the only
+// editor whose C++ side passes no file params.
+if (!appCtx) {
+  if (params.has("schematic")) appCtx = "schematic";
+  else if (params.has("pcb"))  appCtx = "pcb";
+  else                         appCtx = "pcb";
+}
+// Normalise aliases so the rest of this file uses one of two values.
+if (appCtx === "pcbnew" || appCtx === "board") appCtx = "pcb";
+if (appCtx === "sch" || appCtx === "eeschema") appCtx = "schematic";
+
+// Derive the sibling file when only one path is known — KiCad projects
+// keep matching basenames for .kicad_sch and .kicad_pcb. This is the
+// same convention ship_design.py uses on the backend.
+function deriveSiblingFile() {
+  if (schematic && !pcbFile) {
+    pcbFile = schematic.replace(/\.kicad_sch$/i, ".kicad_pcb");
+  }
+  if (pcbFile && !schematic) {
+    schematic = pcbFile.replace(/\.kicad_pcb$/i, ".kicad_sch");
+  }
+}
+deriveSiblingFile();
 
 // Called by the eeschema C++ side after every project / schematic open so the
 // chat panel always knows the live filename. Without this the URL params are
@@ -569,10 +623,37 @@ let schematic   = decodeURIComponent(params.get("schematic") || "");
 window.envilSetSchematic = function (newProject, newSchematic) {
   if (newProject)   projectPath = newProject;
   if (newSchematic) schematic   = newSchematic;
+  // C++ calling envilSetSchematic == this panel lives in eeschema.
+  // URL-path detection (location.pathname) is unreliable because KiCad
+  // loads chat.html from the shared share/kicad/ai_chat/ folder for
+  // both editors. This setter (and envilSetPcb below) is the authoritative
+  // app-context signal.
+  appCtx = "schematic";
+  deriveSiblingFile();
   showCtxFile(schematic);
   // Re-hello so the Python server's room.attach_schematic gets the new path.
   if (ws && ws.readyState === WebSocket.OPEN) {
-    send({ kind: "hello", project_path: projectPath, schematic_file: schematic });
+    send({ kind: "hello", project_path: projectPath,
+           schematic_file: schematic, pcb_file: pcbFile, app: appCtx });
+  }
+};
+
+// Symmetric setter the pcbnew C++ side can call after every board open.
+// Mirrors envilSetSchematic. KiCad's pcbnew panel-launch code should
+// invoke this so the chat tracks the live .kicad_pcb path the same way
+// the schematic panel tracks .kicad_sch.
+window.envilSetPcb = function (newProject, newPcb) {
+  if (newProject) projectPath = newProject;
+  if (newPcb)     pcbFile     = newPcb;
+  // C++ calling envilSetPcb == this panel lives in pcbnew. See the
+  // envilSetSchematic comment above for why this setter is the
+  // authoritative signal (URL pathname is the same for both editors).
+  appCtx = "pcb";
+  deriveSiblingFile();
+  showCtxFile(pcbFile || schematic);
+  if (ws && ws.readyState === WebSocket.OPEN) {
+    send({ kind: "hello", project_path: projectPath,
+           schematic_file: schematic, pcb_file: pcbFile, app: appCtx });
   }
 };
 
@@ -631,10 +712,31 @@ function escHtml(s) {
 }
 function renderMd(text) {
   let s = escHtml(text);
+  const hasFence = /```/.test(text);
   s = s.replace(/```([\w-]*)\n([\s\S]*?)```/g, (_,__,c) => "<pre><code>" + c + "</code></pre>");
   s = s.replace(/`([^`\n]+)`/g, "<code>$1</code>");
   s = s.replace(/\*\*([^*\n]+)\*\*/g, "<strong>$1</strong>");
-  return s;
+  // Line-level formatting so multi-line replies (e.g. the architecture
+  // summary) stay readable instead of collapsing into one paragraph:
+  // turn "- "/"* " leading bullets into a real list and keep remaining
+  // line breaks as <br>. Skipped when a code fence is present so <pre>
+  // blocks (which legitimately contain newlines) are never broken up.
+  if (hasFence) return s;
+  const parts = [];
+  let list = null;
+  for (const ln of s.split("\n")) {
+    const m = ln.match(/^\s*[-*]\s+(.*)$/);
+    if (m) { (list = list || []).push("<li>" + m[1] + "</li>"); continue; }
+    if (list) { parts.push("<ul>" + list.join("") + "</ul>"); list = null; }
+    parts.push(ln);
+  }
+  if (list) parts.push("<ul>" + list.join("") + "</ul>");
+  let html = "";
+  for (let i = 0; i < parts.length; i++) {
+    if (i > 0 && !parts[i-1].startsWith("<ul>") && !parts[i].startsWith("<ul>")) html += "<br>";
+    html += parts[i];
+  }
+  return html;
 }
 
 function addRow(role, html) {
@@ -797,7 +899,10 @@ function addUserRow(text, attachments) {
       img.src = a.dataUrl;
       div.appendChild(img);
     } else {
-      div.textContent = (a.kind === "pdf" ? "📄  " : "📎  ") + a.name;
+      const icon = a.kind === "pdf"        ? "📄  "
+                 : a.kind === "erc_report"  ? "📝  "
+                 :                            "📎  ";
+      div.textContent = icon + a.name;
     }
     bub.appendChild(div);
   }
@@ -821,13 +926,24 @@ function connect() {
     setStatus("connected", "Connected");
     reconnectMs = 1000;
     if (reconnectTimer) { clearTimeout(reconnectTimer); reconnectTimer = null; }
-    send({ kind: "hello", project_path: projectPath, schematic_file: schematic });
-    showCtxFile(schematic);
+    send({ kind: "hello", project_path: projectPath,
+           schematic_file: schematic, pcb_file: pcbFile, app: appCtx });
+    showCtxFile(appCtx === "pcb" ? (pcbFile || schematic) : schematic);
     if (keepalive) clearInterval(keepalive);
     keepalive = setInterval(() => send({ kind: "ping" }), 15000);
   };
   ws.onclose = () => {
     setStatus("disconnected", "Disconnected");
+    // If the socket drops while a build is in flight, the spinner would
+    // otherwise cycle "Analyzing…/Designing…" forever. Clear it and tell the
+    // user the build was interrupted (timeout/drop) so they can retry, instead
+    // of staring at a frozen spinner. Only fires when thinking was active, so a
+    // benign idle reconnect stays quiet.
+    if (thinkEl.classList.contains("active")) {
+      showThinking(false);
+      addError("Connection dropped during the build — it may have timed out. "
+               + "Reconnecting; please retry if it doesn't resume.");
+    }
     if (keepalive) { clearInterval(keepalive); keepalive = null; }
     scheduleReconnect();
   };
@@ -882,11 +998,17 @@ function handleSrv(m) {
     case "schematic_summary":
       renderSchematicSummary(m);
       return;
+    case "page_summary":
+      // Server-side deterministic page-summary card emitted right
+      // after `hello`. Tells the user what's on the page they just
+      // opened on (schematic or PCB) and offers click-to-send
+      // suggestion chips so they can start without typing.
+      renderPageSummary(m);
+      return;
     case "previews":
-      // Phase 9: inline schematic preview. Each entry is a .svg path on
-      // the server's disk; the /api/preview endpoint streams the file
-      // by path so the conversation context never carries the bytes.
-      renderPreviews(m.svgs || []);
+      // Inline schematic preview disabled per user request — server still
+      // generates the SVG (used for ERC/visual analysis) but the chat UI
+      // no longer embeds it.
       return;
     case "confirm_buttons":
       // Generic 3-button confirmation strip for the "Allow / Cancel /
@@ -935,6 +1057,113 @@ function renderPreviews(svgPaths) {
   scroll();
 }
 
+function renderPageSummary(m) {
+  // m: { kind:"page_summary", app, state, title, body, suggestions[],
+  //      stats? }. Render once at the top of the conversation as an
+  // AI bubble so the user knows what is currently on the open file
+  // without typing anything. Suggestion chips re-use the same send()
+  // pipeline as typed messages — clicking a chip is equivalent to
+  // typing the suggestion and pressing Enter.
+  const title  = m.title || (m.app === "pcb" ? "PCB" : "Schematic");
+  const body   = m.body  || "";
+  const sugg   = Array.isArray(m.suggestions) ? m.suggestions : [];
+  const scope  = (m.app === "pcb") ? "PCB Editor"
+               : (m.app === "schematic") ? "Schematic Editor"
+               : "Editor";
+
+  const target = addRow("ai", "");
+  // Title line. No `color:` override so the green inherits from the
+  // CSS variable / theme and the title text doesn't get clipped by
+  // the bubble's dark/light theme. Green-only for the accent.
+  const titleEl = document.createElement("div");
+  titleEl.style.cssText =
+    "font-weight:600;font-size:13px;margin-bottom:4px;color:#3ec97a;";
+  titleEl.textContent = `${scope} — ${title}`;
+  target.appendChild(titleEl);
+  // Body line — use renderMd (XSS-safe: escapes HTML first, then
+  // converts **bold** / `code` / ```pre```). The deep summary template
+  // uses **bold** to highlight the circuit type; without renderMd
+  // it would show literal ** characters.
+  // No `color:` override here — body inherits the bubble's text color
+  // so the card stays readable on both dark and light themes. The
+  // earlier `color:#222` was invisible on the default dark panel.
+  if (body) {
+    const bodyEl = document.createElement("div");
+    bodyEl.style.cssText = "font-size:13px;line-height:1.45;";
+    bodyEl.innerHTML = renderMd(body);
+    target.appendChild(bodyEl);
+  }
+  // "Open PCB" button — jumps the app to the PCB page. The board is generated
+  // at build time (pcb_gen writes the .kicad_pcb with footprints placed + nets),
+  // so this just asks the backend to open it: kind:"open_pcb" -> IPC -> eeschema
+  // OnOpenPcbnew() opens/docks the PCB editor as a tab. Hidden when already on
+  // the PCB page (nothing to switch to).
+  if (m.app !== "pcb") {
+    const pcbRow = document.createElement("div");
+    pcbRow.style.cssText = "margin-top:8px;";
+    const openBtn = document.createElement("button");
+    openBtn.textContent = "Open PCB";
+    openBtn.className = "btn primary";
+    openBtn.style.cssText =
+      "background:#3ec97a;color:#0b1f14;border:none;padding:5px 14px;"
+      + "border-radius:14px;cursor:pointer;font-size:12px;font-weight:600;";
+    openBtn.onclick = () => {
+      openBtn.disabled = true;
+      openBtn.style.opacity = "0.7";
+      openBtn.textContent = "Opening PCB…";
+      send({
+        kind: "open_pcb",
+        project_path: projectPath,
+        schematic_file: schematic,
+        pcb_file: pcbFile,
+        app: appCtx,
+      });
+    };
+    pcbRow.appendChild(openBtn);
+    target.appendChild(pcbRow);
+  }
+
+  // Suggestion chips
+  if (sugg.length) {
+    const hint = document.createElement("div");
+    hint.style.cssText =
+      "font-size:11px;opacity:0.7;margin-top:8px;margin-bottom:4px;";
+    hint.textContent = "Try one of these:";
+    target.appendChild(hint);
+    const row = document.createElement("div");
+    row.style.cssText =
+      "display:flex;gap:6px;margin-top:2px;flex-wrap:wrap;";
+    const buttons = [];
+    for (const s of sugg) {
+      const btn = document.createElement("button");
+      btn.textContent = s;
+      btn.className = "btn secondary";
+      btn.style.cssText =
+        "background:#eef3ff;color:#1c3d8c;border:1px solid #c7d4f3;"
+        + "padding:4px 10px;border-radius:14px;cursor:pointer;font-size:12px;";
+      btn.onclick = () => {
+        for (const b of buttons) b.disabled = true;
+        btn.style.opacity = "0.7";
+        addUserRow(s, []);
+        showThinking(true);
+        send({
+          kind: "message",
+          text: s,
+          project_path: projectPath,
+          schematic_file: schematic,
+          pcb_file: pcbFile,
+          app: appCtx,
+          attachments: [],
+        });
+      };
+      buttons.push(btn);
+      row.appendChild(btn);
+    }
+    target.appendChild(row);
+  }
+  scroll();
+}
+
 function renderConfirmButtons(options) {
   if (!Array.isArray(options) || options.length === 0) return;
   const last = msgsEl.lastElementChild;
@@ -977,6 +1206,8 @@ function renderConfirmButtons(options) {
         text: txt,
         project_path: projectPath,
         schematic_file: schematic,
+        pcb_file: pcbFile,
+        app: appCtx,
         attachments: [],
       });
     };
@@ -1001,11 +1232,250 @@ function appendStream(chunk) {
   scroll();
 }
 
+// --- Architecture card -----------------------------------------------------
+// The Intake Brain's ARCHITECTURE_FIRST reply is structured plain text
+// (a "**Architecture — <domain>**" title, "- Block: detail" bullets, an
+// "Estimated:" line and a "Want me to build it?" prompt). Render it as a
+// neat card instead of a bubble of bullets. Detection is conservative
+// (title + >=2 bullets) so ordinary replies are never reshaped.
+const ARCH_STYLE_ID = "arch-card-styles";
+function ensureArchStyles() {
+  if (document.getElementById(ARCH_STYLE_ID)) return;
+  const st = document.createElement("style");
+  st.id = ARCH_STYLE_ID;
+  st.textContent =
+    ".bubble.has-card{background:transparent;border:none;padding:0;box-shadow:none;}" +
+    ".arch-card{background:var(--bg-2);border:1px solid var(--border-2);border-radius:var(--radius,10px);overflow:hidden;box-shadow:var(--shadow-md);}" +
+    ".arch-head{display:flex;align-items:center;gap:9px;padding:10px 13px;background:linear-gradient(135deg,var(--accent-soft),transparent);border-bottom:1px solid var(--border-1);}" +
+    ".arch-ico{width:22px;height:22px;flex:0 0 22px;display:flex;align-items:center;justify-content:center;border-radius:6px;background:linear-gradient(135deg,var(--accent),#6d28d9);color:#0b0d12;font-size:13px;font-weight:700;}" +
+    ".arch-title{font-weight:600;color:var(--text-1);font-size:13.5px;flex:1;letter-spacing:.1px;}" +
+    ".arch-badge{font-size:11px;color:var(--accent-hi);background:var(--accent-soft);border:1px solid var(--border-acc);border-radius:999px;padding:2px 9px;white-space:nowrap;}" +
+    ".arch-blocks{padding:4px 13px 6px;}" +
+    ".arch-block{display:flex;gap:11px;padding:7px 0;border-bottom:1px dashed var(--border-1);}" +
+    ".arch-block:last-child{border-bottom:none;}" +
+    ".arch-bname{flex:0 0 96px;color:var(--accent-hi);font-weight:600;font-size:12.5px;}" +
+    ".arch-bdesc{flex:1;color:var(--text-2);font-size:12.5px;line-height:1.45;}" +
+    ".arch-foot{padding:9px 13px;border-top:1px solid var(--border-1);background:var(--bg-1);color:var(--text-1);font-size:12.5px;font-weight:500;}";
+  document.head.appendChild(st);
+}
+
+function parseArchitecture(text) {
+  const blocks = [];
+  let domain = null, est = "", foot = "";
+  for (const raw of String(text).split("\n")) {
+    const ln = raw.trim();
+    if (!ln) continue;
+    let m;
+    if (!domain && (m = ln.match(/^\*{0,2}\s*Architecture\s*[—\-–:]\s*(.+?)\s*\*{0,2}$/i))) {
+      domain = m[1].replace(/\*+$/, "").trim(); continue;
+    }
+    if ((m = ln.match(/^[-*]\s+(.+)$/))) {
+      const body = m[1].replace(/\*\*/g, "");
+      const c = body.match(/^(.+?)\s*:\s*(.+)$/);
+      blocks.push(c ? { name: c[1].trim(), desc: c[2].trim() } : { name: "", desc: body.trim() });
+      continue;
+    }
+    if ((m = ln.match(/^Estimated\s*:\s*(.+)$/i))) { est = m[1].trim(); continue; }
+    if (/build it\s*\?/i.test(ln)) { foot = ln.replace(/\*+/g, "").trim(); continue; }
+  }
+  return { domain, blocks, est, foot };
+}
+
+function looksLikeArchitecture(text) {
+  if (!text || !/Architecture\s*[—\-–:]/i.test(text)) return false;
+  const a = parseArchitecture(text);
+  return !!a.domain && a.blocks.length >= 2;
+}
+
+function badgeFromEst(est) {
+  if (!est) return "";
+  const comp = est.match(/~?\s*(\d+)\s*comp/i);
+  const sh = est.match(/(\d+)\s*sheet/i);
+  if (comp && sh) return "~" + comp[1] + " parts · " + sh[1] + " sheets";
+  if (comp) return "~" + comp[1] + " parts";
+  return est;
+}
+
+function renderArchitectureCard(text) {
+  ensureArchStyles();
+  const a = parseArchitecture(text);
+  let h = '<div class="arch-card"><div class="arch-head"><span class="arch-ico">▣</span>';
+  h += '<span class="arch-title">' + escHtml(a.domain || "Architecture") + '</span>';
+  const badge = badgeFromEst(a.est);
+  if (badge) h += '<span class="arch-badge">' + escHtml(badge) + '</span>';
+  h += '</div><div class="arch-blocks">';
+  for (const b of a.blocks) {
+    h += '<div class="arch-block">';
+    if (b.name) h += '<span class="arch-bname">' + escHtml(b.name) + '</span>';
+    h += '<span class="arch-bdesc">' + escHtml(b.desc) + '</span></div>';
+  }
+  h += '</div>';
+  if (a.foot) h += '<div class="arch-foot">' + escHtml(a.foot) + '</div>';
+  h += '</div>';
+  return h;
+}
+
+// --- Clarify (intake) question card ---------------------------------------
+// The Intake Brain's ASK_QUESTIONS reply is structured plain text: a short
+// bold intro, then "- <Label>: <choice> / <choice> / ..." bullets. Render it
+// as clickable option chips (single-select per question) with a Continue
+// button so the user picks instead of typing. Detection mirrors the
+// architecture card: conservative, only fires on the strict slash-option
+// layout, and never on an architecture / confirm reply.
+const CLR_STYLE_ID = "clarify-card-styles";
+function ensureClarifyStyles() {
+  if (document.getElementById(CLR_STYLE_ID)) return;
+  const st = document.createElement("style");
+  st.id = CLR_STYLE_ID;
+  st.textContent =
+    ".bubble.has-card{background:transparent;border:none;padding:0;box-shadow:none;}" +
+    ".clr-card{background:var(--bg-2);border:1px solid var(--border-2);border-radius:var(--radius,10px);overflow:hidden;box-shadow:var(--shadow-md);}" +
+    ".clr-head{display:flex;align-items:center;gap:9px;padding:10px 13px;background:linear-gradient(135deg,var(--accent-soft),transparent);border-bottom:1px solid var(--border-1);}" +
+    ".clr-ico{width:22px;height:22px;flex:0 0 22px;display:flex;align-items:center;justify-content:center;border-radius:6px;background:linear-gradient(135deg,var(--accent),#6d28d9);color:#0b0d12;font-size:14px;font-weight:700;}" +
+    ".clr-title{font-weight:600;color:var(--text-1);font-size:13.5px;flex:1;letter-spacing:.1px;}" +
+    ".clr-body{padding:8px 13px 2px;}" +
+    ".clr-q{padding:6px 0 9px;border-bottom:1px dashed var(--border-1);}" +
+    ".clr-q:last-child{border-bottom:none;}" +
+    ".clr-qlabel{color:var(--text-2);font-size:12px;font-weight:600;margin-bottom:7px;}" +
+    ".clr-opts{display:flex;flex-wrap:wrap;gap:6px;}" +
+    ".clr-opt{cursor:pointer;font:inherit;font-size:12.5px;padding:5px 12px;border-radius:999px;background:var(--bg-3);color:var(--text-1);border:1px solid var(--border-2);transition:background .12s,border-color .12s,color .12s;}" +
+    ".clr-opt:hover{border-color:var(--accent);background:var(--bg-1);}" +
+    ".clr-opt.sel{background:var(--accent);color:#0b0d12;border-color:var(--accent);font-weight:600;}" +
+    ".clr-foot{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:9px 13px;border-top:1px solid var(--border-1);background:var(--bg-1);}" +
+    ".clr-hint{font-size:11px;color:var(--text-3);}" +
+    ".clr-go{border:0;cursor:pointer;font:inherit;font-weight:600;font-size:12.5px;padding:7px 16px;border-radius:var(--radius-sm,6px);background:var(--accent);color:#0b0d12;box-shadow:0 2px 8px rgba(139,92,246,.35);}" +
+    ".clr-go:hover{background:var(--accent-hi);}" +
+    ".clr-card.done{opacity:.6;pointer-events:none;}";
+  document.head.appendChild(st);
+}
+
+function parseClarify(text) {
+  let intro = "";
+  const questions = [];
+  for (const raw of String(text).split("\n")) {
+    const ln = raw.trim();
+    if (!ln) continue;
+    let m;
+    // First standalone **bold** (non-bullet) line is the intro.
+    if (!intro && !/^[-*]\s/.test(ln) && (m = ln.match(/^\*\*(.+?)\*\*:?$/))) {
+      intro = m[1].trim(); continue;
+    }
+    // "- Label: a / b / c" — only counts as a question when the value side
+    // is a " / "-separated list of short choices.
+    m = ln.match(/^[-*]\s+(.+?)\s*:\s*(.+?)\s*\??$/);
+    if (m && m[2].includes("/")) {
+      const label = m[1].replace(/\*\*/g, "").trim();
+      const opts = m[2].replace(/\*\*/g, "").split("/")
+        .map(s => s.trim()).filter(Boolean);
+      if (opts.length >= 2 && opts.every(o => o.length > 0 && o.length <= 26)) {
+        questions.push({ label, options: opts });
+      }
+    }
+  }
+  return { intro, questions };
+}
+
+function looksLikeClarify(text) {
+  if (!text) return false;
+  if (looksLikeArchitecture(text)) return false;
+  if (/build it\s*\?|\ballow\b|\bcancel\b/i.test(text)) return false;
+  return parseClarify(text).questions.length >= 1;
+}
+
+function renderClarifyInto(bubble, text) {
+  ensureClarifyStyles();
+  const data = parseClarify(text);
+  bubble.classList.add("has-card");
+  bubble.innerHTML = "";
+  const card = document.createElement("div");
+  card.className = "clr-card";
+
+  const head = document.createElement("div");
+  head.className = "clr-head";
+  head.innerHTML = '<span class="clr-ico">?</span><span class="clr-title">'
+    + escHtml(data.intro || "A few details first") + '</span>';
+  card.appendChild(head);
+
+  const body = document.createElement("div");
+  body.className = "clr-body";
+  const selected = new Array(data.questions.length).fill(null);
+  data.questions.forEach((q, qi) => {
+    const qd = document.createElement("div");
+    qd.className = "clr-q";
+    const lab = document.createElement("div");
+    lab.className = "clr-qlabel";
+    lab.textContent = q.label;
+    qd.appendChild(lab);
+    const opts = document.createElement("div");
+    opts.className = "clr-opts";
+    q.options.forEach(opt => {
+      const b = document.createElement("button");
+      b.type = "button";
+      b.className = "clr-opt";
+      b.textContent = opt;
+      b.onclick = () => {
+        if (card.classList.contains("done")) return;
+        for (const sib of opts.children) sib.classList.remove("sel");
+        b.classList.add("sel");
+        selected[qi] = opt;
+      };
+      opts.appendChild(b);
+    });
+    qd.appendChild(opts);
+    body.appendChild(qd);
+  });
+  card.appendChild(body);
+
+  const foot = document.createElement("div");
+  foot.className = "clr-foot";
+  const hint = document.createElement("span");
+  hint.className = "clr-hint";
+  hint.textContent = "Pick options or type your own below";
+  const go = document.createElement("button");
+  go.type = "button";
+  go.className = "clr-go";
+  go.textContent = "Continue";
+  go.onclick = () => {
+    if (card.classList.contains("done")) return;
+    const picks = [];
+    data.questions.forEach((q, qi) => {
+      if (selected[qi]) picks.push(q.label + ": " + selected[qi]);
+    });
+    if (!picks.length) { if (inputEl) inputEl.focus(); return; }
+    card.classList.add("done");
+    const txt = picks.join(". ") + ".";
+    addUserRow(txt, []);
+    showThinking(true);
+    send({
+      kind: "message",
+      text: txt,
+      project_path: projectPath,
+      schematic_file: schematic,
+      pcb_file: pcbFile,
+      app: appCtx,
+      attachments: [],
+    });
+  };
+  foot.appendChild(hint);
+  foot.appendChild(go);
+  card.appendChild(foot);
+
+  bubble.appendChild(card);
+  scroll();
+}
+
 function finalizeStream(finalText) {
-  if (currentStream) {
-    if (finalText) currentStream.innerHTML = renderMd(finalText);
-  } else if (finalText) {
-    addRow("ai", renderMd(finalText));
+  let target = currentStream;
+  if (!target && finalText) target = addRow("ai", "");
+  if (target && finalText) {
+    if (looksLikeArchitecture(finalText)) {
+      target.classList.add("has-card");
+      target.innerHTML = renderArchitectureCard(finalText);
+    } else if (looksLikeClarify(finalText)) {
+      renderClarifyInto(target, finalText);
+    } else {
+      target.innerHTML = renderMd(finalText);
+    }
   }
   currentStream = null;
   currentBuf = "";
@@ -1081,7 +1551,11 @@ function renderPending() {
   pending.forEach((p, i) => {
     const chip = document.createElement("span");
     chip.className = "chip";
-    chip.appendChild(document.createTextNode((p.kind === "image" ? "🖼  " : "📄  ") + p.name));
+    const icon = p.kind === "image" ? "🖼  "
+               : p.kind === "pdf"   ? "📄  "
+               : p.kind === "erc_report" ? "📝  "
+               : "📎  ";
+    chip.appendChild(document.createTextNode(icon + p.name));
     const x = document.createElement("span");
     x.className = "x"; x.textContent = "×";
     x.onclick = () => { pending.splice(i, 1); renderPending(); };
@@ -1093,8 +1567,15 @@ function renderPending() {
 async function attach(file) {
   const isImg = /^image\//.test(file.type);
   const isPdf = /\/pdf$/.test(file.type) || /\.pdf$/i.test(file.name);
-  if (!isImg && !isPdf) { addError("Only image and PDF files are supported."); return; }
-  const kind = isImg ? "image" : "pdf";
+  const nameLc = (file.name || "").toLowerCase();
+  const isReport = /\.rpt$/i.test(nameLc)
+                || /\.erc\.txt$/i.test(nameLc)
+                || (/\.txt$/i.test(nameLc) && nameLc.includes("erc"));
+  if (!isImg && !isPdf && !isReport) {
+    addError("Only image, PDF, or ERC report (.rpt / .txt) files are supported.");
+    return;
+  }
+  const kind = isImg ? "image" : (isPdf ? "pdf" : "erc_report");
   const dataUrl = isImg ? await readAsDataUrl(file) : null;
   const entry = { name: file.name, kind, file, dataUrl, attachment_id: null };
   pending.push(entry);
@@ -1131,6 +1612,8 @@ async function sendChat() {
     text,
     project_path: projectPath,
     schematic_file: schematic,
+    pcb_file: pcbFile,
+    app: appCtx,
     attachments: attachments.map(a => ({
       kind: a.kind,
       name: a.server_name || a.name,
@@ -1139,6 +1622,57 @@ async function sendChat() {
   });
   if (!ok) { showThinking(false); addError("Not connected — reconnecting."); connect(); }
 }
+
+// Cursor-style clean slate. Toggling the panel preserves the chat (the
+// panel is a persistent shared webview, so the transcript otherwise lives
+// for the whole app session); "New chat" is the explicit reset, matching
+// Cursor's verified behaviour — brand-new session, zero prior memory, no
+// summary carried forward. Bound to the + button and Ctrl/Cmd+N.
+function newChat() {
+  // 1) Drop the CURRENT session's memory on the server (uses the old id,
+  //    which send() injects) BEFORE we rotate to a new one.
+  send({ kind: "reset" });
+  // 2) Rotate to a brand-new session id so the next turn starts empty.
+  sessionId = (window.crypto && crypto.randomUUID)
+    ? crypto.randomUUID().replace(/-/g, "")
+    : ("s" + Date.now().toString(36) + Math.random().toString(36).slice(2, 10));
+  localStorage.setItem("envil_session_id", sessionId);
+  // 3) Wipe the visible transcript but keep the empty-state welcome node.
+  for (const node of Array.from(msgsEl.children)) {
+    if (node !== emptyEl) node.remove();
+  }
+  if (emptyEl) emptyEl.style.display = "";
+  // 4) Reset transient UI state.
+  showThinking(false);
+  currentStream = null; currentBuf = "";
+  pending.length = 0; renderPending();
+  inputEl.value = ""; autosize();
+  // 5) Re-anchor the fresh session on the server (page_summary is disabled,
+  //    so this emits no card — the panel stays blank like Cursor's new chat).
+  if (ws && ws.readyState === WebSocket.OPEN) {
+    send({ kind: "hello", project_path: projectPath,
+           schematic_file: schematic, pcb_file: pcbFile, app: appCtx });
+  }
+  inputEl.focus();
+}
+
+function hasConversation() {
+  for (const node of msgsEl.children) {
+    if (node !== emptyEl) return true;
+  }
+  return false;
+}
+
+// Called by the C++ shell ONLY when the AI pane is actually shown (panel
+// reopened) — NOT on schematic<->pcb tab flips. This is what gives the
+// Cursor-style "blank on open": every time you reopen the panel it starts
+// fresh. Guarded so it never destroys work in progress: skipped while a
+// build is running, and a no-op when the panel is already blank.
+window.envilPanelOpened = function () {
+  if (thinkEl.classList.contains("active")) return;   // build in flight — keep it
+  if (!hasConversation()) return;                      // already blank
+  newChat();
+};
 
 function autosize() {
   inputEl.style.height = "auto";
@@ -1149,8 +1683,16 @@ inputEl.addEventListener("input", autosize);
 inputEl.addEventListener("keydown", (e) => {
   if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); sendChat(); }
 });
+// Ctrl/Cmd+N → new chat, matching Cursor's clean-slate shortcut.
+window.addEventListener("keydown", (e) => {
+  if ((e.ctrlKey || e.metaKey) && (e.key === "n" || e.key === "N")) {
+    e.preventDefault();
+    newChat();
+  }
+});
 $("attachBtn").onclick = () => $("fileInput").click();
 $("sendBtn").onclick   = () => sendChat();
+$("newChatBtn").onclick = () => newChat();
 $("fileInput").onchange = async (e) => {
   for (const f of e.target.files) await attach(f);
   e.target.value = "";

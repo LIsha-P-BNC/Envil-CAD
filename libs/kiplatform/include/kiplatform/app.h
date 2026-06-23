@@ -39,6 +39,15 @@ namespace KIPLATFORM
         void EnableDarkMode( bool aForce );
 
         /**
+         * Envil "Vibrant Purple & Indigo" theme: when enabled, the MSW dark-mode palette
+         * (window/panel backgrounds, text, highlight, the native menu bar and title bar) is
+         * tinted dark purple instead of the default grey.  Must be called BEFORE EnableDarkMode()
+         * so the colours are in place when the native controls are created.  Only affects the
+         * window chrome — the drawing canvas is painted from the colour theme, not these colours.
+         */
+        void SetDarkModePurple( bool aOn );
+
+        /**
          * Tries to attach a console window with stdout, stderr and stdin.
          *
          * @param aTryAlloc try to allocate the console if cannot attach to it.

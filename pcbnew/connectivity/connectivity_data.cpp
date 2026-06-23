@@ -227,13 +227,17 @@ void CONNECTIVITY_DATA::addRatsnestCluster( const std::shared_ptr<CN_CLUSTER>& a
 
 void CONNECTIVITY_DATA::RecalculateRatsnest( BOARD_COMMIT* aCommit  )
 {
+    // Try to take the lock; do NOT block on it.  KISPINLOCK has no owner/recursion concept,
+    // so a blocking acquire busy-spins forever if the SAME thread already holds m_lock (e.g.
+    // the zone filler holds it across a UI progress pump that then dispatches a ratsnest
+    // redraw).  When the lock is already held the current holder recalculates on release, so
+    // skipping here is safe — and this matches the try_to_lock pattern in the Build() paths.
+    std::unique_lock<KISPINLOCK> lock( m_lock, std::try_to_lock );
 
-    // We can take over the lock here if called in the same thread
-    // This is to prevent redraw during a RecalculateRatsnets process
-    std::unique_lock<KISPINLOCK> lock( m_lock );
+    if( !lock )
+        return;
 
     internalRecalculateRatsnest( aCommit );
-
 }
 
 void CONNECTIVITY_DATA::internalRecalculateRatsnest( BOARD_COMMIT* aCommit  )

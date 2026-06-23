@@ -455,6 +455,13 @@ protected:
     void setupUIConditions() override;
     void doReCreateMenuBar() override;
 
+    // KiCad Next unified menu bar (see EDA_BASE_FRAME::buildCommonMenuBar()).
+    TOOL_INTERACTIVE* getCurrentMenuTool() override;
+    void buildFileMenu( ACTION_MENU* aMenu ) override;
+    void buildViewMenu( ACTION_MENU* aMenu ) override;
+    void buildToolsMenu( ACTION_MENU* aMenu ) override;
+    void buildPreferencesMenu( ACTION_MENU* aMenu ) override;
+
     void handleActivateEvent( wxActivateEvent& aEvent ) override;
     void handleIconizeEvent( wxIconizeEvent& aEvent ) override;
 

@@ -54,6 +54,7 @@
 #include <richio.h>
 #include <tool/tool_manager.h>
 #include <tools/pcb_actions.h>
+#include <tools/board_editor_control.h>
 #include <tools/pcb_selection_tool.h>
 #include <trace_helpers.h>
 #include <netlist_reader/netlist_reader.h>
@@ -681,7 +682,19 @@ void PCB_EDIT_FRAME::KiwayMailIn( KIWAY_MAIL_EVENT& mail )
     }
 
     case MAIL_PCB_UPDATE:
-        m_toolManager->RunAction( ACTIONS::updatePcbFromSchematic );
+        // Envil: payload "auto" (AI/IPC path) applies the update silently — no modal.
+        // Any other payload (the normal F8 menu) runs the interactive action unchanged.
+        if( payload == "auto" )
+        {
+            if( BOARD_EDITOR_CONTROL* bec = m_toolManager->GetTool<BOARD_EDITOR_CONTROL>() )
+                bec->UpdatePCBFromSchematicSilent();
+            else
+                m_toolManager->RunAction( ACTIONS::updatePcbFromSchematic );
+        }
+        else
+        {
+            m_toolManager->RunAction( ACTIONS::updatePcbFromSchematic );
+        }
         break;
 
     case MAIL_IMPORT_FILE:
