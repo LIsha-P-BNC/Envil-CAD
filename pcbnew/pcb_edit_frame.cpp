@@ -444,6 +444,56 @@ PCB_EDIT_FRAME::PCB_EDIT_FRAME( KIWAY* aKiway, wxWindow* aParent ) :
                                 if( GetBoard() )
                                     Refresh();
                             }
+                            else if( action == wxT( "revert" ) )
+                            {
+                                // Cursor-style live sync: silently reload the
+                                // board from disk when the backend rewrites it
+                                // (AI update_pcb / route / layout). Mirrors
+                                // eeschema's revert + pcbnew's own File>Revert
+                                // (files.cpp): clear the modified flag so no
+                                // "discard changes?" dialog, then reopen with
+                                // KICTL_REVERT. Guarded so a schematic-side
+                                // revert broadcast never yanks the board: only
+                                // act when the path IS the board we have open
+                                // (or the payload omits a path).
+                                wxString targetFile = wxString::FromUTF8(
+                                                            data.value( "path", "" ) );
+                                wxString openFile = GetBoard()
+                                                        ? GetBoard()->GetFileName()
+                                                        : wxString();
+
+                                if( targetFile.IsEmpty() )
+                                    targetFile = openFile;
+
+                                bool sameBoard = false;
+
+                                if( !targetFile.IsEmpty() )
+                                {
+                                    wxFileName a( targetFile );
+                                    wxFileName b( openFile );
+                                    a.MakeAbsolute();
+                                    b.MakeAbsolute();
+                                    sameBoard = openFile.IsEmpty()
+                                            || a.GetFullPath().IsSameAs(
+                                                       b.GetFullPath(), false );
+                                }
+
+                                if( sameBoard && !targetFile.IsEmpty()
+                                        && wxFileExists( targetFile )
+                                        && targetFile.Lower().EndsWith(
+                                                wxT( ".kicad_pcb" ) ) )
+                                {
+                                    wxLogDebug( wxT( "AI: Silent PCB revert via IPC: %s" ),
+                                                targetFile );
+
+                                    if( GetScreen() )
+                                        GetScreen()->SetContentModified( false );
+
+                                    OpenProjectFiles(
+                                            std::vector<wxString>( 1, targetFile ),
+                                            KICTL_REVERT );
+                                }
+                            }
                         }
                         catch( ... )
                         {

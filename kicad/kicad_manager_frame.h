@@ -366,6 +366,12 @@ private:
     /// when the panel does not exist or the active tab is neither schematic nor PCB.
     void syncAiPanelToActiveTab();
 
+    /// Single-window shell unified footer (m_UnifiedStatusBar): each docked editor shows its OWN
+    /// native status bar (exactly like standalone KiCad); this just hides the shell's own status
+    /// bar while an editor tab is in front (so there is only one footer) and shows it again on the
+    /// Project Manager tab. No-op unless SingleWindowShell + UnifiedStatusBar are both set.
+    void syncShellStatusBarToActiveTab();
+
     /// Single-window shell: queue the heavy editor KIFACEs (Symbol/Footprint/Gerber/
     /// Drawing-Sheet) to be warmed in the background after startup so the user's first
     /// click on one is instant instead of "loading the whole app".  Gated on

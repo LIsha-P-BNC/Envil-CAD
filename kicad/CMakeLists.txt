@@ -134,6 +134,16 @@ set_source_files_properties(
     PROPERTIES SKIP_PRECOMPILE_HEADERS ON
 )
 
+# Envil branding: emit the project-manager GUI launcher as envilcad.exe directly
+# on Windows. This removes the manual post-build "kicad.exe -> envilcad.exe" copy
+# (and the antivirus file-lock races it caused); the NSIS installer + shortcuts
+# already point at envilcad.exe. Only the GUI launcher is renamed -- kicad-cli
+# keeps its name because the Envil Python backend invokes `kicad-cli` for netlist
+# export / golden-harness hashing.
+if( WIN32 )
+    set_target_properties( kicad PROPERTIES OUTPUT_NAME "envilcad" )
+endif()
+
 add_executable( kicad-cli WIN32
     kicad_cli.cpp
     ${KICAD_CLI_SRCS}

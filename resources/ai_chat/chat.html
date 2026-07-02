@@ -66,12 +66,10 @@
   }
   .brand { display: flex; align-items: center; gap: 10px; }
   .brand-logo {
-    width: 32px; height: 32px; border-radius: 8px;
-    background: linear-gradient(135deg, var(--accent), #6d28d9);
+    width: 34px; height: 34px;
     display: grid; place-items: center;
-    box-shadow: var(--shadow-sm), inset 0 1px 0 rgba(255,255,255,.15);
   }
-  .brand-logo svg { width: 18px; height: 18px; color: #fff; }
+  .brand-logo img { width: 34px; height: 34px; object-fit: contain; display: block; }
   .brand-text .name { font-weight: 600; font-size: 14px; letter-spacing: -0.01em; }
   .brand-text .sub  { font-size: 11px; color: var(--text-3); margin-top: 1px; }
 
@@ -99,12 +97,22 @@
     padding: 8px 18px; font-size: 12px; color: var(--text-2);
     background: var(--bg-2); border-bottom: 1px solid var(--border-1);
   }
-  #ctxBar.active { display: flex; align-items: center; gap: 8px; }
+  #ctxBar.active { display: flex; align-items: center; gap: 7px; }
   #ctxBar .label { color: var(--text-3); }
+  #ctxBar .ctx-proj {
+    color: var(--text-2); font-weight: 600;
+  }
+  #ctxBar .ctx-sep { color: var(--text-3); opacity: .6; }
   #ctxBar code {
     color: var(--accent-hi);
     font-family: "JetBrains Mono", ui-monospace, Consolas, monospace;
     font-size: 11px;
+  }
+  /* "whole project" hint dot — signals the AI sees the entire project,
+     this file is just the one in focus. */
+  #ctxBar .ctx-scope {
+    margin-left: auto; color: var(--text-3); font-size: 10.5px;
+    opacity: .8; white-space: nowrap;
   }
 
   /* ── Messages ───────────────────────────────────────── */
@@ -123,12 +131,12 @@
     font-size: 12px; font-weight: 600; color: #fff;
     box-shadow: var(--shadow-sm);
   }
-  .avatar.ai   { background: linear-gradient(135deg, var(--accent), #6d28d9); }
+  .avatar.ai   { background: transparent; }
   .avatar.user { background: linear-gradient(135deg, #444c66, #2a3148); color: var(--text-1); }
   .avatar svg  { width: 14px; height: 14px; }
 
   .bubble {
-    max-width: calc(100% - 40px);
+    max-width: 100%;
     padding: 10px 14px;
     border-radius: var(--radius-lg);
     font-size: 13.5px; line-height: 1.55;
@@ -348,6 +356,40 @@
     40%           { transform: scale(1.0); opacity: 1; }
   }
 
+  /* Collapsible "Thinking" panel — streams the model's real reasoning
+     (Claude.ai-style). Expanded while the model reasons, auto-collapses
+     once the actual reply starts; click the header to toggle. Only ever
+     rendered when chat_ui.thinking is enabled server-side. */
+  .think-panel {
+    margin: 4px 18px 10px; border: 1px solid var(--border-1);
+    border-radius: var(--radius-sm); background: var(--bg-3);
+    font-size: 12px; overflow: hidden;
+  }
+  .think-panel .tp-head {
+    display: flex; align-items: center; gap: 7px;
+    padding: 7px 10px; cursor: pointer; user-select: none;
+    color: var(--text-2);
+  }
+  .think-panel .tp-head:hover { color: var(--accent-hi); }
+  .think-panel .tp-chevron {
+    display: inline-flex; transition: transform .15s ease; opacity: .8;
+  }
+  .think-panel.collapsed .tp-chevron { transform: rotate(-90deg); }
+  .think-panel .tp-label { flex: 1; }
+  .think-panel .tp-spark {
+    display: inline-block; width: 6px; height: 6px; border-radius: 50%;
+    background: var(--accent-hi);
+    animation: bounce 1.4s infinite ease-in-out both;
+  }
+  .think-panel.done .tp-spark { display: none; }
+  .think-panel .tp-body {
+    padding: 2px 12px 10px 12px; color: var(--text-3);
+    white-space: pre-wrap; word-break: break-word;
+    max-height: 260px; overflow-y: auto; line-height: 1.5;
+    border-top: 1px solid var(--border-1);
+  }
+  .think-panel.collapsed .tp-body { display: none; }
+
   .ops {
     margin-top: 10px; padding: 10px 12px;
     background: var(--bg-3); border: 1px solid var(--border-1);
@@ -440,8 +482,50 @@
   .send-btn {
     background: var(--accent); color: #0b0d12;
     box-shadow: 0 2px 6px rgba(139,92,246,.3);
+    transition: background .12s, color .12s;
   }
   .send-btn:hover { background: var(--accent-hi); color: #0b0d12; }
+  /* Stop button — Envil purple theme, same family as the send button */
+  .send-btn.stop-mode {
+    background: var(--bg-3);
+    color: var(--accent-hi);
+    box-shadow: 0 0 0 2px var(--border-acc);
+    border: none;
+  }
+  .send-btn.stop-mode:hover { background: var(--border-acc); color: #fff; }
+
+  /* ── Claude-style message action row ─────────────────────
+     Sits below each bubble, hidden until the row is hovered.
+     AI messages: left-aligned (under the bubble).
+     User messages: right-aligned (mirror of the bubble).       */
+  .msg-actions {
+    display: flex; align-items: center; gap: 2px;
+    margin-top: 4px;
+    opacity: 0.3;
+    transition: opacity 150ms ease;
+    height: 26px;
+  }
+  .row:hover .msg-actions,
+  .row.hov   .msg-actions { opacity: 1; }
+  .row.user  .msg-actions { justify-content: flex-end; }
+
+  .act-btn {
+    display: flex; align-items: center; justify-content: center;
+    width: 26px; height: 26px; padding: 0;
+    border: none; border-radius: 6px;
+    background: transparent;
+    color: var(--text-3);
+    cursor: pointer;
+    transition: background 120ms, color 120ms;
+    flex-shrink: 0;
+  }
+  .act-btn svg { width: 14px; height: 14px; }
+  .act-btn:hover { background: var(--bg-3); color: var(--accent-hi); }
+  /* Confirmed (copy success) state: brief green flash */
+  .act-btn.copied { color: var(--ok); }
+  /* User bubble: slightly lighter base so icons read on the dark panel bg */
+  .row.user .act-btn { color: var(--text-3); }
+  .row.user .act-btn:hover { background: var(--bg-2); color: var(--accent-hi); }
 
   .footer-hint {
     font-size: 11px; color: var(--text-4); margin-top: 8px; text-align: center;
@@ -486,6 +570,85 @@
     border-color: var(--accent); color: var(--text-1);
     background: var(--bg-3);
   }
+
+  /* ── Rich markdown inside AI bubbles ─────────────────── */
+  .bubble h1, .bubble h2, .bubble h3, .bubble h4 {
+    line-height: 1.3; font-weight: 600; color: var(--text-1);
+    margin: 12px 0 6px; letter-spacing: -.01em;
+  }
+  .bubble h1:first-child, .bubble h2:first-child,
+  .bubble h3:first-child, .bubble h4:first-child { margin-top: 0; }
+  .bubble h1 { font-size: 17px; }
+  .bubble h2 { font-size: 15.5px; }
+  .bubble h3 { font-size: 14px; }
+  .bubble h4 { font-size: 13px; color: var(--text-2); }
+  .bubble p  { margin: 0 0 8px; }
+  .bubble p:last-child { margin-bottom: 0; }
+  .bubble ul, .bubble ol { margin: 4px 0 8px; padding-left: 20px; }
+  .bubble li { margin: 2px 0; }
+  .bubble li::marker { color: var(--accent-hi); }
+  .bubble a { color: var(--accent-hi); text-decoration: underline; text-underline-offset: 2px; }
+  .bubble a:hover { color: var(--text-1); }
+  .bubble blockquote {
+    margin: 6px 0; padding: 2px 0 2px 12px;
+    border-left: 3px solid var(--border-acc); color: var(--text-2);
+  }
+  .bubble hr { border: 0; border-top: 1px solid var(--border-1); margin: 12px 0; }
+  .bubble table {
+    border-collapse: collapse; margin: 8px 0; width: 100%;
+    font-size: 12.5px; display: block; overflow-x: auto;
+  }
+  .bubble th, .bubble td { border: 1px solid var(--border-1); padding: 5px 9px; text-align: left; }
+  .bubble th { background: var(--bg-2); font-weight: 600; color: var(--text-1); }
+
+  /* ── Code block: language bar + per-block copy ───────── */
+  .code-wrap {
+    margin: 8px 0; border: 1px solid var(--border-1);
+    border-radius: var(--radius-sm); overflow: hidden; background: var(--bg-0);
+  }
+  .code-bar {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 3px 6px 3px 10px; background: var(--bg-2);
+    border-bottom: 1px solid var(--border-1);
+  }
+  .code-lang {
+    font-size: 10.5px; font-weight: 600; letter-spacing: .04em;
+    text-transform: uppercase; color: var(--text-3);
+    font-family: "JetBrains Mono", ui-monospace, Consolas, monospace;
+  }
+  .code-lang::before { content: attr(data-lang); }
+  .code-copy {
+    display: flex; align-items: center; justify-content: center;
+    width: 24px; height: 22px; padding: 0; border: 0; border-radius: 4px;
+    background: transparent; color: var(--text-3); cursor: pointer;
+    transition: background 120ms, color 120ms;
+  }
+  .code-copy:hover { background: var(--bg-3); color: var(--text-1); }
+  .code-copy svg { width: 13px; height: 13px; }
+  .code-wrap pre { margin: 0; border: 0; border-radius: 0; }
+
+  /* ── Streaming caret ─────────────────────────────────── */
+  .bubble.ai.streaming::after {
+    content: "▋"; display: inline-block; margin-left: 1px;
+    color: var(--accent-hi); font-size: 12px; line-height: 1;
+    animation: caret-blink 1s steps(1) infinite;
+  }
+  @keyframes caret-blink { 0%,50% { opacity: 1 } 50.01%,100% { opacity: 0 } }
+
+  /* ── Jump-to-latest button ───────────────────────────── */
+  #scrollBtn {
+    position: fixed; right: 18px; bottom: 88px;
+    width: 34px; height: 34px; border-radius: 50%;
+    background: var(--bg-3); border: 1px solid var(--border-2);
+    color: var(--text-1); cursor: pointer; z-index: 30;
+    display: flex; align-items: center; justify-content: center;
+    box-shadow: var(--shadow-md);
+    opacity: 0; transform: translateY(6px); pointer-events: none;
+    transition: opacity 150ms ease, transform 150ms ease;
+  }
+  #scrollBtn.show { opacity: 1; transform: translateY(0); pointer-events: auto; }
+  #scrollBtn:hover { background: var(--border-acc); }
+  #scrollBtn svg { width: 18px; height: 18px; }
 </style>
 </head>
 <body>
@@ -493,9 +656,7 @@
 <header>
   <div class="brand">
     <div class="brand-logo">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
-        <path d="M12 2L2 7l10 5 10-5-10-5z"/><path d="M2 17l10 5 10-5"/><path d="M2 12l10 5 10-5"/>
-      </svg>
+      <img src="anvil_logo.png" alt="Anvil AI" />
     </div>
     <div class="brand-text">
       <div class="name">Anvil AI</div>
@@ -504,8 +665,8 @@
   </div>
   <div class="header-right">
     <button id="newChatBtn" class="icon-btn newchat-btn" title="New chat (Ctrl+N)" aria-label="New chat">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-        <path d="M12 20h9"/><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4 12.5-12.5z"/>
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+        <line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/>
       </svg>
     </button>
     <div class="status">
@@ -515,9 +676,11 @@
   </div>
 </header>
 
-<div id="ctxBar"><span class="label">Editing</span><code id="ctxFile"></code></div>
+<div id="ctxBar" title="The AI has full context of the whole project. This is just the file you're focused on right now — you can ask it to read or edit any file in the project.">
+  <span class="ctx-proj" id="ctxProj"></span><span class="ctx-sep" id="ctxSep"></span><span class="label">in focus:</span><code id="ctxFile"></code><span class="ctx-scope">· full project in context</span>
+</div>
 
-<div id="messages">
+<div id="messages" aria-live="polite" aria-atomic="false">
   <div id="empty" class="empty">
     <div class="empty-icon">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -528,12 +691,16 @@
     <p>Describe a circuit to add, ask for a review, or attach an image / PDF datasheet to extract from.</p>
     <div class="examples">
       <span class="ex-chip" data-msg="Add a 100nF decoupling capacitor near U1 VCC">Add decoupling cap</span>
-      <span class="ex-chip" data-msg="Review this schematic for design issues">Review design</span>
+      <span class="ex-chip" data-msg="Review this design and give me a scored report of the real issues in this file">Review design</span>
       <span class="ex-chip" data-msg="Add a 10k pull-up on RESET to 3V3">RESET pull-up</span>
       <span class="ex-chip" data-msg="Design a 5V to 3.3V LDO regulator">5V → 3V3 LDO</span>
     </div>
   </div>
 </div>
+
+<button id="scrollBtn" title="Jump to latest" aria-label="Jump to latest">
+  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14"/><path d="m19 12-7 7-7-7"/></svg>
+</button>
 
 <div id="thinking" class="thinking">
   <span class="think-dots"><span></span><span></span><span></span></span>
@@ -551,8 +718,11 @@
     <input type="file" id="fileInput" accept="image/*,.pdf,application/pdf,.rpt,.txt,text/plain" hidden multiple>
     <textarea id="input" placeholder="Describe a circuit or ask a question…" rows="1"></textarea>
     <button class="icon-btn send-btn" id="sendBtn" title="Send (Enter)">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+      <svg id="sendIcon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
         <line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/>
+      </svg>
+      <svg id="stopIcon" viewBox="0 0 24 24" fill="currentColor" style="display:none">
+        <rect x="6" y="6" width="12" height="12" rx="3"/>
       </svg>
     </button>
   </div>
@@ -661,6 +831,12 @@ let ws = null;
 let sessionId = localStorage.getItem("envil_session_id") || null;
 let currentStream = null;
 let currentBuf = "";
+// Live "Thinking" panel for the current turn (collapsible reasoning, Claude
+// style). Null until the first `thinking` event of a turn arrives.
+let currentThink = null;     // the .think-panel element
+let currentThinkBody = null; // its scrollable body
+let currentThinkBuf = "";    // accumulated reasoning text
+let thinkStartMs = 0;        // for the "Thought for Ns" label on collapse
 let reconnectMs = 1000;
 let reconnectTimer = null;
 let keepalive = null;
@@ -673,27 +849,86 @@ const dotEl   = $("dot");
 const stxtEl  = $("statusText");
 const ctxBar  = $("ctxBar");
 const ctxFile = $("ctxFile");
+const ctxProj = $("ctxProj");
+const ctxSep  = $("ctxSep");
 const inputEl = $("input");
 const thinkEl = $("thinking");
 const thinkLabelEl = $("thinkLabel");
 const THINK_LABELS = ["Analyzing", "Designing", "Processing"];
 let thinkTimer = null;
 const pendEl  = $("pending");
+const scrollBtnEl = $("scrollBtn");
+// Auto-scroll only sticks to the bottom while the user is already there. If they
+// scroll up to read mid-stream, new tokens no longer yank them down (a 2026 chat
+// UX baseline). Reset to true whenever the user sends or hits the jump button.
+let stickToBottom = true;
+// True only while a real model turn is in flight (a prompt was sent and we're
+// awaiting the reply). Gates the "working" spinner so New Chat and bare status
+// acks never trigger it without a prompt — matches Cursor/Claude, where the
+// thinking indicator appears only after you submit a prompt. See send() and the
+// "status" handler in handleSrv().
+let turnActive = false;
 
 const SVG_USER = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>';
-const SVG_AI   = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2L2 7l10 5 10-5-10-5z"/></svg>';
+// AI avatar: Envil "A" logo image instead of the robot SVG
+const SVG_AI   = '<img src="anvil_logo.png" alt="A" style="width:18px;height:18px;object-fit:contain;display:block;">';
+// Proper inline-SVG copy / check icons for the per-message copy button (the old
+// unicode clipboard glyph rendered as tofu in WebView2).
+const SVG_COPY  = '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="14" height="14" x="8" y="8" rx="2" ry="2"/><path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"/></svg>';
+const SVG_CHECK = '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>';
 
 function setStatus(state, text) { dotEl.className = "dot " + state; stxtEl.textContent = text; }
 
 function showCtxFile(path) {
   if (!path) { ctxBar.classList.remove("active"); return; }
   ctxFile.textContent = path.split(/[\\/]/).pop();
+  // Project name = the folder the design lives in (or the .kicad_pro stem).
+  // Shows "<project> / in focus: <file> · full project in context" so it reads
+  // as whole-project awareness, not a single-file lock.
+  let proj = "";
+  if (projectPath) {
+    proj = String(projectPath).replace(/[\\/]+$/, "").split(/[\\/]/).pop() || "";
+  }
+  if (proj && ctxProj) { ctxProj.textContent = proj; if (ctxSep) ctxSep.textContent = "/"; }
+  else { if (ctxProj) ctxProj.textContent = ""; if (ctxSep) ctxSep.textContent = ""; }
   ctxBar.classList.add("active");
 }
 
 function hideEmpty() { if (emptyEl) emptyEl.style.display = "none"; }
-function scroll()    { msgsEl.scrollTop = msgsEl.scrollHeight; }
+function nearBottom() {
+  return msgsEl.scrollHeight - msgsEl.scrollTop - msgsEl.clientHeight < 80;
+}
+function updateScrollBtn() {
+  if (scrollBtnEl) scrollBtnEl.classList.toggle("show", !nearBottom());
+}
+function scroll() {
+  if (stickToBottom) msgsEl.scrollTop = msgsEl.scrollHeight;
+  updateScrollBtn();
+}
+function jumpToBottom() {
+  stickToBottom = true;
+  msgsEl.scrollTop = msgsEl.scrollHeight;
+  updateScrollBtn();
+}
+msgsEl.addEventListener("scroll", () => { stickToBottom = nearBottom(); updateScrollBtn(); });
+if (scrollBtnEl) scrollBtnEl.onclick = jumpToBottom;
+
+// Shared clipboard helper (message copy button + per-code-block copy button),
+// with an execCommand fallback for WebView2 builds without the async API.
+function copyText(text, onDone) {
+  const fb = () => {
+    const ta = document.createElement("textarea");
+    ta.value = text; document.body.appendChild(ta); ta.select();
+    try { document.execCommand("copy"); onDone && onDone(); } catch (_) {}
+    ta.remove();
+  };
+  if (navigator.clipboard && navigator.clipboard.writeText)
+    navigator.clipboard.writeText(text).then(() => onDone && onDone()).catch(fb);
+  else fb();
+}
 function showThinking(on) {
+  // Show stop button while AI is generating, send button when idle.
+  if (typeof setBusy === "function") setBusy(!!on);
   thinkEl.classList.toggle("active", !!on);
   if (thinkTimer) { clearInterval(thinkTimer); thinkTimer = null; }
   if (on) {
@@ -710,103 +945,192 @@ function showThinking(on) {
 function escHtml(s) {
   return String(s).replace(/[&<>"']/g, c => ({ "&":"&amp;", "<":"&lt;", ">":"&gt;", '"':"&quot;", "'":"&#39;" }[c]));
 }
+// Inline markdown (links, bold, italic, inline code) applied to already-
+// HTML-escaped text. Inline code runs first so * / _ inside a code span are
+// left alone.
+function renderInline(s) {
+  s = s.replace(/`([^`\n]+)`/g, (_, c) => "<code>" + c + "</code>");
+  s = s.replace(/\*\*([^*\n]+)\*\*/g, "<strong>$1</strong>");
+  s = s.replace(/(^|[^*\w])\*([^*\n]+)\*(?!\*)/g, "$1<em>$2</em>");
+  s = s.replace(/(^|[^_\w])_([^_\n]+)_(?![_\w])/g, "$1<em>$2</em>");
+  // Links — only http(s) or root-relative targets (URL is already escaped).
+  s = s.replace(/\[([^\]]+)\]\((https?:\/\/[^\s)]+|\/[^\s)]+)\)/g,
+    (_, t, u) => '<a href="' + u + '" target="_blank" rel="noopener noreferrer">' + t + '</a>');
+  return s;
+}
+
+// Markdown -> safe HTML. Fenced code is pulled out to placeholders first so the
+// block/inline passes never touch it, then restored as <pre data-lang><code>.
+// Adds headings, ordered/unordered lists, blockquotes, tables and rules on top
+// of the original bold / inline-code / bullet support.
 function renderMd(text) {
   let s = escHtml(text);
-  const hasFence = /```/.test(text);
-  s = s.replace(/```([\w-]*)\n([\s\S]*?)```/g, (_,__,c) => "<pre><code>" + c + "</code></pre>");
-  s = s.replace(/`([^`\n]+)`/g, "<code>$1</code>");
-  s = s.replace(/\*\*([^*\n]+)\*\*/g, "<strong>$1</strong>");
-  // Line-level formatting so multi-line replies (e.g. the architecture
-  // summary) stay readable instead of collapsing into one paragraph:
-  // turn "- "/"* " leading bullets into a real list and keep remaining
-  // line breaks as <br>. Skipped when a code fence is present so <pre>
-  // blocks (which legitimately contain newlines) are never broken up.
-  if (hasFence) return s;
-  const parts = [];
-  let list = null;
-  for (const ln of s.split("\n")) {
-    const m = ln.match(/^\s*[-*]\s+(.*)$/);
-    if (m) { (list = list || []).push("<li>" + m[1] + "</li>"); continue; }
-    if (list) { parts.push("<ul>" + list.join("") + "</ul>"); list = null; }
-    parts.push(ln);
+
+  // Progressive streaming: an unclosed fence (odd ``` count) is closed for this
+  // render so the in-progress block shows as code, not raw backticks.
+  if (((s.match(/```/g) || []).length) % 2 === 1) s += "\n```";
+
+  const blocks = [];
+  s = s.replace(/```([\w-]*)\n?([\s\S]*?)```/g, (_, lang, code) => {
+    blocks.push({ lang: (lang || "").trim(), code: code.replace(/\n+$/, "") });
+    return "C" + (blocks.length - 1) + "";
+  });
+
+  const out = [];
+  let list = null;     // { type:"ul"|"ol", items:[] }
+  let table = null;    // array of cell-arrays
+  let para = [];
+  const flushPara  = () => { if (para.length) { out.push("<p>" + renderInline(para.join("<br>")) + "</p>"); para = []; } };
+  const flushList  = () => { if (list) { out.push("<" + list.type + ">" + list.items.map(i => "<li>" + renderInline(i) + "</li>").join("") + "</" + list.type + ">"); list = null; } };
+  const flushTable = () => {
+    if (table && table.length) {
+      let h = "<table><thead><tr>" + table[0].map(c => "<th>" + renderInline(c.trim()) + "</th>").join("") + "</tr></thead><tbody>";
+      for (let r = 2; r < table.length; r++) h += "<tr>" + table[r].map(c => "<td>" + renderInline(c.trim()) + "</td>").join("") + "</tr>";
+      out.push(h + "</tbody></table>");
+      table = null;
+    }
+  };
+  const flushAll = () => { flushPara(); flushList(); flushTable(); };
+
+  for (const line of s.split("\n")) {
+    if (/^C\d+$/.test(line)) { flushAll(); out.push(line); continue; }
+    if (/^\s*\|.*\|\s*$/.test(line)) {                       // table row
+      flushPara(); flushList();
+      (table = table || []).push(line.trim().replace(/^\||\|$/g, "").split("|"));
+      continue;
+    }
+    if (table) flushTable();
+    let m = line.match(/^\s*(#{1,4})\s+(.*)$/);              // heading
+    if (m) { flushAll(); const n = m[1].length; out.push("<h" + n + ">" + renderInline(m[2].trim()) + "</h" + n + ">"); continue; }
+    if (/^\s*([-*_])\1\1+\s*$/.test(line)) { flushAll(); out.push("<hr>"); continue; }   // rule
+    m = line.match(/^\s*>\s?(.*)$/);                         // blockquote
+    if (m) { flushPara(); flushList(); out.push("<blockquote>" + renderInline(m[1]) + "</blockquote>"); continue; }
+    m = line.match(/^\s*\d+[.)]\s+(.*)$/);                   // ordered item
+    if (m) { flushPara(); if (list && list.type !== "ol") flushList(); (list = list || { type: "ol", items: [] }).items.push(m[1]); continue; }
+    m = line.match(/^\s*[-*]\s+(.*)$/);                      // unordered item
+    if (m) { flushPara(); if (list && list.type !== "ul") flushList(); (list = list || { type: "ul", items: [] }).items.push(m[1]); continue; }
+    if (/^\s*$/.test(line)) { flushPara(); flushList(); continue; }   // blank line
+    flushList();
+    para.push(line);
   }
-  if (list) parts.push("<ul>" + list.join("") + "</ul>");
-  let html = "";
-  for (let i = 0; i < parts.length; i++) {
-    if (i > 0 && !parts[i-1].startsWith("<ul>") && !parts[i].startsWith("<ul>")) html += "<br>";
-    html += parts[i];
-  }
+  flushAll();
+
+  let html = out.join("\n");
+  html = html.replace(/C(\d+)/g, (_, i) => {
+    const b = blocks[+i];
+    return "<pre" + (b.lang ? ' data-lang="' + b.lang + '"' : "") + "><code>" + b.code + "</code></pre>";
+  });
   return html;
+}
+
+// Add a header bar (language label + copy button) to each code block in a
+// rendered bubble. Idempotent via a data-flag so re-renders never double-wrap.
+function decorateCodeBlocks(container) {
+  container.querySelectorAll("pre").forEach(pre => {
+    if (pre.dataset.decorated) return;
+    pre.dataset.decorated = "1";
+    const code = pre.querySelector("code");
+    const bar = document.createElement("div");
+    bar.className = "code-bar";
+    const label = document.createElement("span");
+    label.className = "code-lang";
+    // data-lang via CSS ::before so the label never lands in the message-copy text.
+    label.setAttribute("data-lang", pre.getAttribute("data-lang") || "code");
+    const btn = document.createElement("button");
+    btn.type = "button"; btn.className = "code-copy"; btn.title = "Copy code";
+    btn.innerHTML = SVG_COPY;
+    btn.addEventListener("click", () => copyText(code ? code.innerText : pre.innerText,
+      () => { btn.innerHTML = SVG_CHECK; setTimeout(() => { btn.innerHTML = SVG_COPY; }, 900); }));
+    bar.appendChild(label); bar.appendChild(btn);
+    const wrap = document.createElement("div");
+    wrap.className = "code-wrap";
+    pre.parentNode.insertBefore(wrap, pre);
+    wrap.appendChild(bar);
+    wrap.appendChild(pre);
+  });
+}
+
+// SVG icons for the action row
+const SVG_ACT_COPY = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="14" height="14" x="8" y="8" rx="2"/><path d="M4 16V6a2 2 0 0 1 2-2h10"/></svg>';
+const SVG_ACT_CHECK = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>';
+
+function makeActBtn(icon, title) {
+  const b = document.createElement("button");
+  b.type = "button"; b.className = "act-btn"; b.title = title;
+  b.innerHTML = icon;
+  return b;
 }
 
 function addRow(role, html) {
   hideEmpty();
   const row = document.createElement("div");
   row.className = "row " + role;
+  row.addEventListener("mouseenter", () => row.classList.add("hov"));
+  row.addEventListener("mouseleave", () => row.classList.remove("hov"));
+
   const av = document.createElement("div");
   av.className = "avatar " + role;
   av.innerHTML = role === "ai" ? SVG_AI : SVG_USER;
+
+  // Bubble + action-row live in a flex-column wrapper so the action row
+  // sits flush below the bubble (Claude / ChatGPT style).
+  // flex:1 + min-width:0 lets the bubble use available space without double-
+  // constraining (the bubble's own max-width handles capping).
+  const col = document.createElement("div");
+  col.style.cssText = "display:flex;flex-direction:column;flex:1;min-width:0;";
+
   const bub = document.createElement("div");
   bub.className = "bubble " + role;
   bub.innerHTML = html;
-  // Copy button — shows on hover. Copies the rendered text of the
-  // bubble to the clipboard. Works for both user input + AI replies.
-  attachCopyButton(bub);
+
+  const actions = buildActionRow(bub);
+
+  col.appendChild(bub);
+  col.appendChild(actions);
   row.appendChild(av);
-  row.appendChild(bub);
+  row.appendChild(col);
   msgsEl.appendChild(row);
   scroll();
   return bub;
 }
 
-function attachCopyButton(bub) {
-  // Wrap the bubble in a position-relative container so the button
-  // can absolutely-position itself at the top-right corner.
-  bub.style.position = "relative";
-  const btn = document.createElement("button");
-  btn.type = "button";
-  btn.className = "copy-btn";
-  btn.title = "Copy message";
-  btn.innerHTML = "&#x2398;";  // small clipboard glyph
-  btn.style.cssText = (
-    "position:absolute;top:4px;right:4px;width:22px;height:22px;"
-    + "border:0;border-radius:4px;background:rgba(0,0,0,0.06);"
-    + "color:#555;font-size:14px;line-height:18px;text-align:center;"
-    + "cursor:pointer;opacity:0;transition:opacity 120ms ease;"
-    + "padding:0;"
-  );
-  bub.addEventListener("mouseenter", () => { btn.style.opacity = "1"; });
-  bub.addEventListener("mouseleave", () => { btn.style.opacity = "0"; });
-  btn.addEventListener("click", (ev) => {
-    ev.stopPropagation();
-    // Prefer the rendered text (innerText) so markdown HTML doesn't
-    // leak into the clipboard. innerText preserves visible line breaks.
-    const text = bub.innerText.replace(/⎘$/, "").trim();
-    const done = () => {
-      const old = btn.innerHTML;
-      btn.innerHTML = "&#x2713;"; // checkmark
-      btn.style.background = "rgba(34,139,75,0.25)";
+// Returns the action row div; also stores a ref on bub so streaming can refresh it.
+function buildActionRow(bub) {
+  const actions = document.createElement("div");
+  actions.className = "msg-actions";
+
+  const copyBtn = makeActBtn(SVG_ACT_COPY, "Copy message");
+  copyBtn.addEventListener("click", () => {
+    const text = bub.innerText.trim();
+    copyText(text, () => {
+      copyBtn.innerHTML = SVG_ACT_CHECK;
+      copyBtn.classList.add("copied");
       setTimeout(() => {
-        btn.innerHTML = old;
-        btn.style.background = "rgba(0,0,0,0.06)";
-      }, 900);
-    };
-    if (navigator.clipboard && navigator.clipboard.writeText) {
-      navigator.clipboard.writeText(text).then(done).catch(() => {
-        // Fall back to execCommand for webviews without clipboard API
-        const ta = document.createElement("textarea");
-        ta.value = text; document.body.appendChild(ta); ta.select();
-        try { document.execCommand("copy"); done(); } catch (_) {}
-        ta.remove();
-      });
-    } else {
-      const ta = document.createElement("textarea");
-      ta.value = text; document.body.appendChild(ta); ta.select();
-      try { document.execCommand("copy"); done(); } catch (_) {}
-      ta.remove();
-    }
+        copyBtn.innerHTML = SVG_ACT_COPY;
+        copyBtn.classList.remove("copied");
+      }, 1200);
+    });
   });
-  bub.appendChild(btn);
+
+  actions.appendChild(copyBtn);
+  bub._actionRow = actions;   // ref so streaming re-uses same row
+  return actions;
+}
+
+// Called after streaming finalises innerHTML — re-wires the copy button
+// (streaming resets innerHTML, which drops any previously appended child).
+function attachCopyButton(bub) {
+  if (bub._actionRow) {
+    // Action row already exists below the bubble (added by addRow).
+    // Nothing to do — the copy button is already wired.
+    return;
+  }
+  // Fallback: streaming added a bubble directly without going through addRow.
+  const col = bub.parentElement;
+  if (col) {
+    const actions = buildActionRow(bub);
+    col.appendChild(actions);
+  }
 }
 
 function addSystem(text) {
@@ -890,6 +1214,7 @@ function renderSchematicSummary(m) {
 }
 
 function addUserRow(text, attachments) {
+  stickToBottom = true;   // sending always jumps you to the latest message
   const bub = addRow("user", escHtml(text));
   for (const a of (attachments || [])) {
     const div = document.createElement("div");
@@ -912,6 +1237,12 @@ function addUserRow(text, attachments) {
 function send(obj) {
   if (!ws || ws.readyState !== WebSocket.OPEN) return false;
   obj.session_id = sessionId;
+  // A real turn starts only when a prompt (or the no-LLM Gerber export) is
+  // sent; a "reset" (New Chat / /clear) explicitly ends any turn. This single
+  // choke point is what lets the "status" handler below ignore the server's
+  // "Conversation reset." ack so New Chat no longer flashes the spinner.
+  if (obj.kind === "message" || obj.kind === "export_gerbers") turnActive = true;
+  else if (obj.kind === "reset") turnActive = false;
   ws.send(JSON.stringify(obj));
   return true;
 }
@@ -939,8 +1270,10 @@ function connect() {
     // user the build was interrupted (timeout/drop) so they can retry, instead
     // of staring at a frozen spinner. Only fires when thinking was active, so a
     // benign idle reconnect stays quiet.
-    if (thinkEl.classList.contains("active")) {
+    if (thinkEl.classList.contains("active") || currentThink) {
+      turnActive = false;
       showThinking(false);
+      collapseThink();
       addError("Connection dropped during the build — it may have timed out. "
                + "Reconnecting; please retry if it doesn't resume.");
     }
@@ -971,13 +1304,24 @@ function handleSrv(m) {
   switch (m.kind) {
     case "ready":   return;
     case "pong":    return;
-    case "status":  return showThinking(true);
+    case "status":
+      // Only spin while a turn is actually in flight. Bare status acks (e.g.
+      // "Conversation reset." after New Chat, "Opened the folder.") must NOT
+      // show the thinking indicator without a prompt — matches Cursor/Claude.
+      if (turnActive) showThinking(true);
+      return;
+    case "thinking":
+      // Streamed reasoning -> live collapsible panel (created lazily).
+      appendThinking(m.text || "");
+      return;
     case "chunk":
       showThinking(false);
       appendStream(m.text || "");
       return;
     case "reply":
+      turnActive = false;
       showThinking(false);
+      collapseThink();
       finalizeStream(m.text);
       if (m.action_id && Array.isArray(m.ops) && m.ops.length) renderApproval(m);
       return;
@@ -1017,8 +1361,17 @@ function handleSrv(m) {
       // input box for free-form reply).
       renderConfirmButtons(m.options || []);
       return;
-    case "error":
+    case "gerbers_ready":
+      // Fab bundle is on disk. Show a card with an "Open Folder" button so
+      // the user can grab the zip and upload it to the factory.
+      turnActive = false;
       showThinking(false);
+      renderGerbersReady(m);
+      return;
+    case "error":
+      turnActive = false;
+      showThinking(false);
+      collapseThink();
       addError(m.text || "Unknown error");
       return;
     default:
@@ -1121,6 +1474,13 @@ function renderPageSummary(m) {
     };
     pcbRow.appendChild(openBtn);
     target.appendChild(pcbRow);
+  } else {
+    // Already on the PCB page — offer the one-click fab export instead.
+    // Makes Gerbers + drill + pick&place + zip without the KiCad menus.
+    const gRow = document.createElement("div");
+    gRow.style.cssText = "margin-top:8px;";
+    gRow.appendChild(makeGerbersButton("⬇ Download Gerbers"));
+    target.appendChild(gRow);
   }
 
   // Suggestion chips
@@ -1218,7 +1578,159 @@ function renderConfirmButtons(options) {
   scroll();
 }
 
+// --- Gerbers / fab bundle --------------------------------------------------
+// One-click "Download Gerbers" flow. The button sends {kind:"export_gerbers"};
+// the server runs DRC + export_pcb (no LLM) and replies with {kind:
+// "gerbers_ready"}. We then show a card with an "Open Folder" button that
+// reveals the zip in the file manager so the user can upload it to the fab.
+function gerbersTrigger(btn) {
+  if (btn) { btn.disabled = true; btn.style.opacity = "0.7"; }
+  addUserRow("Download the Gerber files", []);
+  showThinking(true);
+  send({
+    kind: "export_gerbers",
+    project_path: projectPath,
+    schematic_file: schematic,
+    pcb_file: pcbFile,
+    app: appCtx,
+  });
+}
+
+function makeGerbersButton(label) {
+  const b = document.createElement("button");
+  b.textContent = label || "⬇ Download Gerbers";
+  b.className = "btn primary";
+  b.style.cssText =
+    "background:#3ec97a;color:#0b1f14;border:none;padding:6px 14px;"
+    + "border-radius:14px;cursor:pointer;font-size:12px;font-weight:600;";
+  b.onclick = () => gerbersTrigger(b);
+  return b;
+}
+
+function renderGerbersReady(m) {
+  const target = addRow("ai", "");
+  const card = document.createElement("div");
+  card.style.cssText =
+    "border:1px solid #2f5d43;border-radius:10px;overflow:hidden;"
+    + "background:rgba(62,201,122,0.07);";
+
+  const head = document.createElement("div");
+  head.style.cssText =
+    "font-weight:600;font-size:13px;padding:10px 13px;color:#3ec97a;"
+    + "border-bottom:1px solid rgba(62,201,122,0.25);";
+  head.textContent = "✅ Gerber files are ready";
+  card.appendChild(head);
+
+  const body = document.createElement("div");
+  body.style.cssText = "padding:10px 13px;font-size:12.5px;line-height:1.5;";
+  const nFiles = Array.isArray(m.files) ? m.files.length : 0;
+  const zipName = (m.zip_path || "").split(/[\\/]/).pop();
+  let txt = "";
+  if (nFiles) txt += "Made " + nFiles + " files";
+  if (zipName) txt += (txt ? " + " : "Made ") + "a zip: <b>" + escHtml(zipName) + "</b>";
+  txt += ".<br>Click <b>Open Folder</b>, then upload the zip to JLCPCB or PCBWay.";
+  body.innerHTML = txt;
+
+  // Honest DRC line. -1 = the AI/natural-language path didn't measure here,
+  // so we say nothing (the AI already reported DRC in its own words).
+  if (typeof m.drc_errors === "number" && m.drc_errors >= 0) {
+    const drc = document.createElement("div");
+    drc.style.cssText = "margin-top:8px;font-size:12px;padding:6px 9px;border-radius:6px;";
+    if (m.drc_clean) {
+      drc.style.background = "rgba(62,201,122,0.14)";
+      drc.style.color = "#3ec97a";
+      drc.textContent = "DRC clean (0 problems) — safe to order.";
+    } else {
+      drc.style.background = "rgba(230,170,40,0.14)";
+      drc.style.color = "#e0a020";
+      drc.textContent = "⚠ The board still has " + m.drc_errors
+        + " DRC problem(s). The factory may build it wrong — fix these first.";
+    }
+    body.appendChild(drc);
+  }
+  card.appendChild(body);
+
+  const row = document.createElement("div");
+  row.style.cssText =
+    "display:flex;gap:8px;flex-wrap:wrap;padding:0 13px 12px;";
+  const openBtn = document.createElement("button");
+  openBtn.textContent = "📂 Open Folder";
+  openBtn.className = "btn primary";
+  openBtn.style.cssText =
+    "background:#3ec97a;color:#0b1f14;border:none;padding:6px 14px;"
+    + "border-radius:14px;cursor:pointer;font-size:12px;font-weight:600;";
+  openBtn.onclick = () => {
+    send({ kind: "open_path", path: m.output_dir || "",
+           project_path: projectPath, app: appCtx });
+  };
+  row.appendChild(openBtn);
+  card.appendChild(row);
+
+  target.appendChild(card);
+  scroll();
+}
+
+// --- Thinking panel --------------------------------------------------------
+// Streams the model's reasoning into one collapsible panel per turn. The panel
+// is created lazily on the first `thinking` chunk, stays expanded + live while
+// reasoning streams, and is collapsed to a "Thought for Ns" summary the moment
+// the real reply text begins (collapseThink). Click the header to re-toggle.
+const SVG_CHEVRON =
+  '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" '
+  + 'stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round">'
+  + '<polyline points="6 9 12 15 18 9"/></svg>';
+
+function appendThinking(chunk) {
+  if (!chunk) return;
+  hideEmpty();
+  if (!currentThink) {
+    thinkStartMs = Date.now();
+    currentThinkBuf = "";
+    const panel = document.createElement("div");
+    panel.className = "think-panel";
+    const head = document.createElement("div");
+    head.className = "tp-head";
+    head.innerHTML =
+      '<span class="tp-chevron">' + SVG_CHEVRON + '</span>'
+      + '<span class="tp-label">Thinking</span>'
+      + '<span class="tp-spark"></span>';
+    head.onclick = () => panel.classList.toggle("collapsed");
+    const body = document.createElement("div");
+    body.className = "tp-body";
+    panel.appendChild(head);
+    panel.appendChild(body);
+    msgsEl.appendChild(panel);
+    currentThink = panel;
+    currentThinkBody = body;
+  }
+  // The thinking spinner placeholder is now redundant — the live panel IS the
+  // working indicator.
+  showThinking(false);
+  currentThinkBuf += chunk;
+  currentThinkBody.textContent = currentThinkBuf;
+  currentThinkBody.scrollTop = currentThinkBody.scrollHeight;
+  scroll();
+}
+
+// Collapse the live panel into a "Thought for Ns" summary. Called when the
+// real reply starts (or the turn ends) so the reasoning tucks away like
+// Cursor/Claude. Idempotent and a no-op when no panel exists.
+function collapseThink() {
+  if (!currentThink) return;
+  const secs = Math.max(1, Math.round((Date.now() - thinkStartMs) / 1000));
+  const label = currentThink.querySelector(".tp-label");
+  if (label) label.textContent = "Thought for " + secs + "s";
+  currentThink.classList.add("done", "collapsed");
+  // Detach from the live refs so the next turn starts a fresh panel but this
+  // one stays in the transcript, re-expandable on click.
+  currentThink = null;
+  currentThinkBody = null;
+  currentThinkBuf = "";
+}
+
 function appendStream(chunk) {
+  // First real reply token -> tuck the reasoning panel away.
+  if (currentThink) collapseThink();
   if (!currentStream) { currentStream = addRow("ai", ""); currentBuf = ""; }
   currentBuf += chunk;
   // Hide raw JSON envelope ({"message":..., "ops":[...]}) while streaming —
@@ -1228,6 +1740,7 @@ function appendStream(chunk) {
     showThinking(true);
     return;
   }
+  currentStream.classList.add("streaming");   // blinking caret while tokens arrive
   currentStream.innerHTML = renderMd(currentBuf);
   scroll();
 }
@@ -1467,6 +1980,7 @@ function renderClarifyInto(bubble, text) {
 function finalizeStream(finalText) {
   let target = currentStream;
   if (!target && finalText) target = addRow("ai", "");
+  if (target) target.classList.remove("streaming");   // stop the caret
   if (target && finalText) {
     if (looksLikeArchitecture(finalText)) {
       target.classList.add("has-card");
@@ -1475,6 +1989,8 @@ function finalizeStream(finalText) {
       renderClarifyInto(target, finalText);
     } else {
       target.innerHTML = renderMd(finalText);
+      decorateCodeBlocks(target);
+      attachCopyButton(target);   // streaming's innerHTML resets wiped the one addRow() added
     }
   }
   currentStream = null;
@@ -1645,6 +2161,7 @@ function newChat() {
   // 4) Reset transient UI state.
   showThinking(false);
   currentStream = null; currentBuf = "";
+  currentThink = null; currentThinkBody = null; currentThinkBuf = "";
   pending.length = 0; renderPending();
   inputEl.value = ""; autosize();
   // 5) Re-anchor the fresh session on the server (page_summary is disabled,
@@ -1691,7 +2208,40 @@ window.addEventListener("keydown", (e) => {
   }
 });
 $("attachBtn").onclick = () => $("fileInput").click();
-$("sendBtn").onclick   = () => sendChat();
+const sendBtnEl  = $("sendBtn");
+const sendIconEl = $("sendIcon");
+const stopIconEl = $("stopIcon");
+
+function setBusy(on) {
+  if (on) {
+    sendBtnEl.classList.add("stop-mode");
+    sendBtnEl.title = "Stop generation";
+    sendIconEl.style.display = "none";
+    stopIconEl.style.display = "";
+  } else {
+    sendBtnEl.classList.remove("stop-mode");
+    sendBtnEl.title = "Send (Enter)";
+    sendIconEl.style.display = "";
+    stopIconEl.style.display = "none";
+  }
+}
+
+sendBtnEl.onclick = () => {
+  if (sendBtnEl.classList.contains("stop-mode")) {
+    // Stop: tell the server to cancel, immediately reset UI
+    send({ kind: "cancel" });
+    turnActive = false;
+    showThinking(false);
+    setBusy(false);
+    if (currentStream) {
+      currentStream.classList.remove("streaming");
+      if (!currentStream.innerText.trim()) currentStream.innerHTML = "<em style='opacity:.5'>Stopped.</em>";
+    }
+    currentStream = null; currentBuf = "";
+  } else {
+    sendChat();
+  }
+};
 $("newChatBtn").onclick = () => newChat();
 $("fileInput").onchange = async (e) => {
   for (const f of e.target.files) await attach(f);

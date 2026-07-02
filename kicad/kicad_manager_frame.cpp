@@ -56,6 +56,9 @@
 #include <ki_exception.h>           // IO_ERROR (editor pre-warm)
 #include <frame_type.h>             // FRAME_T values warmed by the editor pre-warm
 #include <wx/timer.h>
+#include <wx/graphics.h>           // wxGraphicsContext for the title-bar AI logo mark
+#include <wx/mstream.h>            // wxMemoryInputStream to decode the embedded AI logo PNG
+#include "envil_ai_logo_png.h"     // embedded Envil "A" logo bytes for the title-bar AI icon
 #include <launch_ext.h>
 #include <lockfile.h>
 #include <notifications_manager.h>
@@ -685,6 +688,93 @@ private:
     bool     m_hover  = false;
     bool     m_active = true;
 };
+
+
+// Envil AI logo mark — the purple "A" product logo (embedded PNG, see envil_ai_logo_png.h) drawn
+// in the title bar as the AI-panel toggle, the way VS Code / Cursor put their product icon in the
+// header.  Full strength while the AI panel is open, dimmed (semi-transparent) while it is closed.
+// Decoded once and cached; scaled with high-quality interpolation so it stays crisp at any DPI.
+class TITLEBAR_AI_BUTTON : public wxWindow
+{
+public:
+    TITLEBAR_AI_BUTTON( wxWindow* aParent, int aWidth, const wxColour& aHoverBg ) :
+            wxWindow( aParent, wxID_ANY ),
+            m_hoverBg( aHoverBg )
+    {
+        SetBackgroundStyle( wxBG_STYLE_PAINT );
+        SetMinSize( wxSize( aWidth, FromDIP( 24 ) ) );
+
+        Bind( wxEVT_PAINT, &TITLEBAR_AI_BUTTON::onPaint, this );
+        Bind( wxEVT_ENTER_WINDOW, [this]( wxMouseEvent& ) { m_hover = true;  Refresh(); } );
+        Bind( wxEVT_LEAVE_WINDOW, [this]( wxMouseEvent& ) { m_hover = false; Refresh(); } );
+        Bind( wxEVT_LEFT_DOWN,
+              [this]( wxMouseEvent& )
+              {
+                  wxCommandEvent evt( wxEVT_BUTTON, GetId() );
+                  evt.SetEventObject( this );
+                  ProcessWindowEvent( evt );
+              } );
+    }
+
+    /// Matches the other title-bar toggles: full mark while the pane is shown, dimmed while hidden.
+    void SetActiveGlyph( bool aActive ) { m_active = aActive; Refresh(); }
+
+private:
+    /// The embedded "A" logo, decoded once (PNG handler is registered at app start) and cached.
+    static const wxImage& logoImage()
+    {
+        static wxImage s_img = []() -> wxImage
+        {
+            wxMemoryInputStream stream( envil_ai_logo_png, envil_ai_logo_png_len );
+            wxImage             img( stream, wxBITMAP_TYPE_PNG );
+            return img;
+        }();
+
+        return s_img;
+    }
+
+    void onPaint( wxPaintEvent& )
+    {
+        wxAutoBufferedPaintDC dc( this );
+        const wxSize          sz = GetClientSize();
+
+        dc.SetPen( *wxTRANSPARENT_PEN );
+        dc.SetBrush( wxBrush( m_hover ? m_hoverBg : GetParent()->GetBackgroundColour() ) );
+        dc.DrawRectangle( 0, 0, sz.x, sz.y );
+
+        const wxImage& logo = logoImage();
+
+        if( !logo.IsOk() )
+            return;
+
+        wxGraphicsContext* gc = wxGraphicsContext::Create( dc );
+
+        if( !gc )
+            return;
+
+        gc->SetInterpolationQuality( wxINTERPOLATION_BEST );
+
+        const int    target = FromDIP( 26 );             // logo box inside the button
+        const double x      = ( sz.x - target ) / 2.0;
+        const double y      = ( sz.y - target ) / 2.0;
+
+        // Dim the logo itself slightly while the AI panel is closed; full strength while open —
+        // the same active/inactive read as the other title-bar toggles, but kept legible.
+        if( !m_active )
+            gc->BeginLayer( 0.8 );
+
+        gc->DrawBitmap( wxBitmap( logo ), x, y, target, target );
+
+        if( !m_active )
+            gc->EndLayer();
+
+        delete gc;
+    }
+
+    wxColour m_hoverBg;
+    bool     m_hover  = false;
+    bool     m_active = true;
+};
 } // namespace
 
 
@@ -730,10 +820,13 @@ public:
                                         []() { return false; } ),
                       0, wxEXPAND );
 
-        m_sizer->Add( makeLayoutButton( TITLEBAR_PANEL_BUTTON::RIGHT,
-                                        _( "Toggle AI Assistant" ),
-                                        [this]() { m_frame->ToggleAiChat(); },
-                                        [this]() { return m_frame->AiChatPanelShown(); } ),
+        // AI Assistant: the Envil "AI sparkle" logo mark (vector-drawn, see TITLEBAR_AI_BUTTON)
+        // instead of the abstract panel-region diagram.  VS Code / Cursor keep their AI toggle in
+        // the title bar so the panel is one click away after you close it; this is that icon.  It
+        // lights up while the AI panel is open and dims when it is closed.
+        m_sizer->Add( makeAiToggle( _( "Toggle AI Assistant" ),
+                                    [this]() { m_frame->ToggleAiChat(); },
+                                    [this]() { return m_frame->AiChatPanelShown(); } ),
                       0, wxEXPAND );
 
         m_sizer->AddSpacer( FromDIP( 6 ) );   // gap before the window-control buttons
@@ -860,6 +953,27 @@ private:
 
         // Brighten the glyph while its pane is visible, dim it while hidden (VS Code's
         // active/inactive toggle look).
+        auto refresh = [b, aIsShown]() { b->SetActiveGlyph( aIsShown() ); };
+
+        b->Bind( wxEVT_BUTTON,
+                 [aToggle, refresh]( wxCommandEvent& ) { aToggle(); refresh(); } );
+
+        refresh();
+        m_layoutBtns.push_back( b );
+        m_layoutRefreshers.push_back( refresh );
+        return b;
+    }
+
+    /// The Envil AI Assistant toggle: a vector "AI sparkle" logo mark (see TITLEBAR_AI_BUTTON) that
+    /// flips the AI panel (aToggle) and lights up while it is shown (aIsShown).  This is the
+    /// title-bar icon you click to reopen the AI chat after closing it — the way you reopen
+    /// Copilot / Cursor chat.
+    TITLEBAR_AI_BUTTON* makeAiToggle( const wxString& aTooltip, std::function<void()> aToggle,
+                                      std::function<bool()> aIsShown )
+    {
+        TITLEBAR_AI_BUTTON* b = new TITLEBAR_AI_BUTTON( this, FromDIP( 48 ), wxColour( 60, 52, 92 ) );
+        b->SetToolTip( aTooltip );
+
         auto refresh = [b, aIsShown]() { b->SetActiveGlyph( aIsShown() ); };
 
         b->Bind( wxEVT_BUTTON,
@@ -1405,6 +1519,10 @@ KICAD_MANAGER_FRAME::KICAD_MANAGER_FRAME( wxWindow* parent, const wxString& titl
     m_prewarmTimer.SetOwner( this, wxWindow::NewControlId() );
     Bind( wxEVT_TIMER, &KICAD_MANAGER_FRAME::prewarmNextEditor, this, m_prewarmTimer.GetId() );
     schedulePrewarmEditors();
+
+    // KiCad Next unified shell footer: with no editor tab docked yet, make sure the shell's own
+    // status bar is the one showing (Project Manager state). No-op when the flag is off.
+    syncShellStatusBarToActiveTab();
 }
 
 
@@ -1664,7 +1782,10 @@ void KICAD_MANAGER_FRAME::onEditorTabCloseRequest( wxAuiNotebookEvent& evt )
     // menu would otherwise stay on the just-closed editor.  When no editor tabs remain, restore
     // the Project Manager's own menu explicitly.
     if( m_dockedEditors.empty() )
+    {
         syncShellMenuToActiveTab( true );
+        syncShellStatusBarToActiveTab();   // last editor gone -> restore the manager's own footer
+    }
 #endif
 }
 
@@ -1735,7 +1856,40 @@ void KICAD_MANAGER_FRAME::onEditorTabChanged( wxAuiNotebookEvent& evt )
 {
     syncShellMenuToActiveTab();
     syncAiPanelToActiveTab();
+    syncShellStatusBarToActiveTab();
     evt.Skip();
+}
+
+
+void KICAD_MANAGER_FRAME::syncShellStatusBarToActiveTab()
+{
+#ifdef __WXMSW__
+    if( !m_editorTabs || !ADVANCED_CFG::GetCfg().m_SingleWindowShell
+            || !ADVANCED_CFG::GetCfg().m_UnifiedStatusBar )
+    {
+        return;
+    }
+
+    wxStatusBar* shellSb = GetStatusBar();
+
+    if( !shellSb )
+        return;
+
+    // Native-footer mode: each docked editor shows its OWN status bar (kept visible by
+    // DockEditorAsTab), exactly like standalone KiCad.  So all this has to do is hide the shell's
+    // own status bar while an editor tab is in front — otherwise there would be two footers — and
+    // show it again on the Project Manager tab.
+    const bool editorActive = getActiveDockedEditorFrame() != nullptr;
+
+    if( shellSb->IsShown() == !editorActive )
+        return;   // already in the right state — skip the relayout to avoid flicker
+
+    shellSb->Show( !editorActive );
+
+    // The frame's client area changes when the status bar is shown/hidden; force a resize so the
+    // AUI panes (and the embedded editor frame + its native footer) reflow to fill it.
+    SendSizeEvent();
+#endif
 }
 
 
@@ -2094,10 +2248,18 @@ bool KICAD_MANAGER_FRAME::DockEditorAsTab( KIWAY_PLAYER* aPlayer, const wxString
         sizer->Add( aPlayer, 1, wxEXPAND );
     }
 
-    // The editor frame keeps its own status bar; hide it so it does not double up with
-    // the shell's status bar at the bottom of the window.
+    // The editor frame keeps its own status bar.
+    //
+    // Default (UnifiedStatusBar off): hide it so it does not double up with the shell's status
+    // bar at the bottom of the window.
+    //
+    // UnifiedStatusBar on: do the opposite — keep the editor's OWN native footer visible (so the
+    // schematic / PCB tab shows exactly the same coords / grid / zoom / units footer as standalone
+    // KiCad).  syncShellStatusBarToActiveTab() then hides the shell's own bar while an editor tab
+    // is in front so there is still only one footer.
     if( wxStatusBar* sb = aPlayer->GetStatusBar() )
-        sb->Hide();
+        sb->Show( ADVANCED_CFG::GetCfg().m_SingleWindowShell
+                  && ADVANCED_CFG::GetCfg().m_UnifiedStatusBar );
 
     // Guard against a blank tab when a freshly created frame has no title yet.
     wxString tabLabel = aTitle;
@@ -2130,6 +2292,9 @@ bool KICAD_MANAGER_FRAME::DockEditorAsTab( KIWAY_PLAYER* aPlayer, const wxString
 
     // Point the shell-owned common AI panel at the just-docked document for the same reason.
     syncAiPanelToActiveTab();
+
+    // Mirror the just-docked editor's (now hidden) status bar into the shell footer.
+    syncShellStatusBarToActiveTab();
 
     return true;
 #else

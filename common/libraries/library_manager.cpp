@@ -18,7 +18,9 @@
  * with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
+#include <algorithm>
 #include <chrono>
+#include <advanced_config.h>
 #include <common.h>
 #include <env_vars.h>
 #include <list>
@@ -40,6 +42,7 @@ using namespace std::chrono_literals;
 #include <settings/kicad_settings.h>
 #include <settings/settings_manager.h>
 #include <wx/dir.h>
+#include <wx/filefn.h>
 #include <wx/log.h>
 
 struct LIBRARY_MANAGER_INTERNALS
@@ -516,6 +519,149 @@ void LIBRARY_MANAGER::LoadGlobalTables( std::initializer_list<LIBRARY_TABLE_TYPE
         cleanupRemovedPCMLibraries( LIBRARY_TABLE_TYPE::FOOTPRINT );
         cleanupRemovedPCMLibraries( LIBRARY_TABLE_TYPE::DESIGN_BLOCK );
     }
+
+    // Envil: rebuild a global table that loaded zero libraries (broken/missing nested template).
+    auto wasLoaded = [&]( LIBRARY_TABLE_TYPE aType )
+    {
+        return aTablesToLoad.size() == 0
+               || std::ranges::find( aTablesToLoad, aType ) != aTablesToLoad.end();
+    };
+
+    if( wasLoaded( LIBRARY_TABLE_TYPE::SYMBOL ) )
+        selfHealGlobalTable( LIBRARY_TABLE_TYPE::SYMBOL );
+
+    if( wasLoaded( LIBRARY_TABLE_TYPE::FOOTPRINT ) )
+        selfHealGlobalTable( LIBRARY_TABLE_TYPE::FOOTPRINT );
+}
+
+
+void LIBRARY_MANAGER::selfHealGlobalTable( LIBRARY_TABLE_TYPE aType )
+{
+    if( !ADVANCED_CFG::GetCfg().m_LibTableSelfHeal )
+        return;
+
+    // Per-type install location, env-var token, and the directory / single-file library extensions
+    // that mark a library inside the stock directory.
+    wxString              stockDir;
+    wxString              envToken;
+    std::vector<wxString> dirExts;    // directory-style libraries (folder names)
+    std::vector<wxString> fileExts;   // single-file libraries
+
+    switch( aType )
+    {
+    case LIBRARY_TABLE_TYPE::SYMBOL:
+        stockDir = PATHS::GetStockSymbolsPath();
+        envToken = wxString::Format( wxS( "${%s}" ), ENV_VAR::GetVersionedEnvVarName( wxS( "SYMBOL_DIR" ) ) );
+        dirExts  = { wxT( ".kicad_symdir" ) };
+        fileExts = { wxT( "." ) + wxString( FILEEXT::KiCadSymbolLibFileExtension ) }; // ".kicad_sym"
+        break;
+
+    case LIBRARY_TABLE_TYPE::FOOTPRINT:
+        stockDir = PATHS::GetStockFootprintsPath();
+        envToken = wxString::Format( wxS( "${%s}" ), ENV_VAR::GetVersionedEnvVarName( wxS( "FOOTPRINT_DIR" ) ) );
+        dirExts  = { wxT( "." ) + wxString( FILEEXT::KiCadFootprintLibPathExtension ) }; // ".pretty"
+        break;
+
+    default:
+        return;   // only symbol and footprint tables are self-healed
+    }
+
+    // The flattened global library list is exactly what the chooser / preview sees.  Include
+    // invalid rows so we only act when the table is genuinely EMPTY of libraries -- if it lists
+    // libraries that merely fail to load for some other reason, leave it alone.
+    if( !Rows( aType, LIBRARY_TABLE_SCOPE::GLOBAL, /* aIncludeInvalid */ true ).empty() )
+        return;
+
+    if( !wxFileName::IsDirReadable( stockDir ) )
+    {
+        wxLogTrace( traceLibraries, "LibTableSelfHeal: stock dir '%s' not readable; skipping", stockDir );
+        return;
+    }
+
+    struct LIB_ENTRY { wxString nickname; wxString fullname; };
+    std::vector<LIB_ENTRY> found;
+    std::set<wxString>     seenNicknames;
+
+    auto addEntry = [&]( const wxString& aFullName, const std::vector<wxString>& aExts )
+    {
+        for( const wxString& ext : aExts )
+        {
+            if( aFullName.EndsWith( ext ) )
+            {
+                wxString nickname = aFullName.Left( aFullName.length() - ext.length() );
+
+                if( !nickname.IsEmpty() && seenNicknames.insert( nickname ).second )
+                    found.push_back( { nickname, aFullName } );
+
+                return;
+            }
+        }
+    };
+
+    wxDir    dir( stockDir );
+    wxString name;
+
+    // Directory-style libraries (*.kicad_symdir, *.pretty)
+    for( bool ok = dir.GetFirst( &name, wxString(), wxDIR_DIRS ); ok; ok = dir.GetNext( &name ) )
+        addEntry( name, dirExts );
+
+    // Single-file libraries (*.kicad_sym)
+    if( !fileExts.empty() )
+    {
+        for( bool ok = dir.GetFirst( &name, wxString(), wxDIR_FILES ); ok; ok = dir.GetNext( &name ) )
+            addEntry( name, fileExts );
+    }
+
+    if( found.empty() )
+    {
+        wxLogTrace( traceLibraries, "LibTableSelfHeal: no libraries found in '%s'; nothing to rebuild",
+                    stockDir );
+        return;
+    }
+
+    // Back up the broken table (best-effort) before overwriting it.
+    wxFileName userTable( PATHS::GetUserSettingsPath(), tableFileName( aType ) );
+
+    if( userTable.IsFileReadable() )
+    {
+        wxString backup = userTable.GetFullPath() + wxT( ".broken.bak" );
+        wxCopyFile( userTable.GetFullPath(), backup, /* overwrite */ true );
+    }
+
+    std::ranges::sort( found, []( const LIB_ENTRY& a, const LIB_ENTRY& b )
+                              { return a.nickname.CmpNoCase( b.nickname ) < 0; } );
+
+    // Build and write a fresh global table with one direct row per library.
+    LIBRARY_TABLE table( userTable, LIBRARY_TABLE_SCOPE::GLOBAL );
+    table.SetType( aType );
+    table.Rows().clear();
+
+    for( const LIB_ENTRY& entry : found )
+    {
+        LIBRARY_TABLE_ROW& row = table.InsertRow();
+        row.SetNickname( entry.nickname );
+        row.SetURI( envToken + wxT( "/" ) + entry.fullname );
+        row.SetType( wxT( "KiCad" ) );
+        row.SetDescription( wxEmptyString );
+    }
+
+    try
+    {
+        PRETTIFIED_FILE_OUTPUTFORMATTER formatter( userTable.GetFullPath(),
+                                                   KICAD_FORMAT::FORMAT_MODE::LIBRARY_TABLE );
+        table.Format( &formatter );
+    }
+    catch( const IO_ERROR& e )
+    {
+        wxLogTrace( traceLibraries, "LibTableSelfHeal: failed to write rebuilt table: %s", e.What() );
+        return;
+    }
+
+    wxLogTrace( traceLibraries, "LibTableSelfHeal: rebuilt global table '%s' with %zu libraries from '%s'",
+                userTable.GetFullName(), found.size(), stockDir );
+
+    // Reload just this table so the freshly written rows take effect this session.
+    loadTables( PATHS::GetUserSettingsPath(), LIBRARY_TABLE_SCOPE::GLOBAL, { aType } );
 }
 
 

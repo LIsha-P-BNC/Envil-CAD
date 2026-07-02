@@ -592,6 +592,19 @@ public:
     bool m_CommonAiPanel;
 
     /**
+     * KiCad Next: in the single-window shell, mirror the active editor tab's status bar
+     * (cursor X/Y, dx/dy, grid, units, zoom, current tool, constraints) into the shell's
+     * own footer, which is otherwise the Project Manager's 2-field bar with no coordinates.
+     * Needs SingleWindowShell. Additive/reversible: when 0, the shell footer is the original
+     * 2-field bar and each docked editor's own footer stays hidden (the prior behaviour).
+     *
+     * Setting name: "UnifiedStatusBar"
+     * Valid values: 0 or 1
+     * Default value: 0
+     */
+    bool m_UnifiedStatusBar;
+
+    /**
      * Enable option to load lib files with text editor.
      *
      * Setting name: "EnableLibWithText"
@@ -1147,6 +1160,56 @@ public:
      * Default value: 10.0
      */
     double m_EnvilUiFontPt;
+
+    /**
+     * KiCad Next / Envil: consolidated read cache for *.pretty footprint folder libraries — the
+     * footprint twin of SymDirAggregateCache.  The PCB editor's first footprint load opens and
+     * parses every *.kicad_mod in every *.pretty library on the loader thread; on a large library
+     * (e.g. 155 folders / 15k files) with real-time antivirus scanning each open, that load blocks
+     * long enough that the window shows "Not Responding".  When enabled, FP_CACHE::Load() reads a
+     * single consolidated cache file per library (fingerprinted by the same directory timestamp it
+     * already uses for staleness), collapsing N file-opens to 1 and removing the per-open AV scan.
+     * Pure read accelerator: writes still go to the individual *.kicad_mod files; a stale or
+     * missing cache transparently falls back to the per-file scan and rebuilds.
+     *
+     * Declared LAST in the struct (after EnvilUiFontPt) on purpose: see the ABI note above —
+     * appending keeps every existing member's offset stable, so only kicommon + pcbnew (which
+     * reads the flag in the footprint cache loader) need rebuilding for this addition.
+     *
+     * OPT-IN (default 0) so behaviour is byte-identical until explicitly enabled.
+     *
+     * Setting name: "FpDirAggregateCache"
+     * Valid values: 0 or 1
+     * Default value: 0
+     */
+    bool m_FpDirAggregateCache;
+
+    /**
+     * KiCad Next / Envil: self-heal the global symbol AND footprint library tables on load.  A
+     * shipped install seeds each global table as a single nested "KiCad" row pointing at the stock
+     * template (share/kicad/template/sym-lib-table | fp-lib-table).  If that template is missing,
+     * empty, or was replaced by an older/broken installer, the table flattens to ZERO libraries and
+     * the symbol chooser shows "0 items loaded" / the footprint preview shows "Footprint not found"
+     * even though the library files are present on disk.  When enabled, after the global tables are
+     * loaded LIBRARY_MANAGER checks whether each of the global SYMBOL and FOOTPRINT tables resolves
+     * to any library at all; if one resolves to none, it rebuilds that user table directly from the
+     * matching installed stock directory — one ${KICADxx_SYMBOL_DIR}/<lib> row per *.kicad_symdir /
+     * *.kicad_sym for symbols, one ${KICADxx_FOOTPRINT_DIR}/<lib> row per *.pretty for footprints —
+     * backing up the broken table first, then reloads it.
+     *
+     * Strictly additive: the rebuild fires ONLY when a table already yields zero libraries, so a
+     * working install is never touched (no-op).  Reversible — the broken table is preserved as
+     * <name>.broken.bak beside it.
+     *
+     * Declared LAST in the struct (after FpDirAggregateCache) on purpose: see the ABI note above —
+     * appending keeps every existing member's offset stable, so only kicommon (which owns
+     * LIBRARY_MANAGER and reads this flag) needs rebuilding for this addition.
+     *
+     * Setting name: "LibTableSelfHeal"
+     * Valid values: 0 or 1
+     * Default value: 1
+     */
+    bool m_LibTableSelfHeal;
     ///@}
 
 private:

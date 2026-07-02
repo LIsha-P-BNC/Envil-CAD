@@ -256,6 +256,13 @@ class FP_CACHE
     long long m_cache_timestamp;   // A hash of the timestamps for all the footprint
                                    // files.
 
+    // Envil aggregate-cache (opt-in: ADVANCED_CFG::m_FpDirAggregateCache).  Collapses the
+    // per-*.kicad_mod scan in Load() into one consolidated read, removing the GUI "Not Responding"
+    // freeze (and the per-open antivirus scan) on large *.pretty libraries.  See advanced_config.h.
+    bool getAggregateCachePath( wxString& aCacheFile, wxString& aCacheDir ) const;
+    bool loadFromAggregateCache( long long aDirTimestamp );
+    void writeAggregateCache( long long aDirTimestamp );
+
 public:
     FP_CACHE( PCB_IO_KICAD_SEXPR* aOwner, const wxString& aLibraryPath );
 

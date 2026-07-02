@@ -109,11 +109,14 @@ static const wxChar EnableGenerators[] = wxT( "EnableGenerators" );
 static const wxChar UnifiedMenuBar[] = wxT( "UnifiedMenuBar" );
 static const wxChar SingleWindowShell[] = wxT( "SingleWindowShell" );
 static const wxChar CommonAiPanel[] = wxT( "CommonAiPanel" );
+static const wxChar UnifiedStatusBar[] = wxT( "UnifiedStatusBar" );
 static const wxChar ShellPrewarmEditors[] = wxT( "ShellPrewarmEditors" );
 static const wxChar EnableLibWithText[] = wxT( "EnableLibWithText" );
 static const wxChar EnableLibDir[] = wxT( "EnableLibDir" );
 static const wxChar SingleClickOpen[] = wxT( "SingleClickOpen" );
 static const wxChar SymDirAggregateCache[] = wxT( "SymDirAggregateCache" );
+static const wxChar FpDirAggregateCache[] = wxT( "FpDirAggregateCache" );
+static const wxChar LibTableSelfHeal[] = wxT( "LibTableSelfHeal" );
 static const wxChar EnvilPurpleFrame[] = wxT( "EnvilPurpleFrame" );
 static const wxChar EnvilUiFontPt[] = wxT( "EnvilUiFontPt" );
 static const wxChar DisambiguationTime[] = wxT( "DisambiguationTime" );
@@ -287,11 +290,14 @@ ADVANCED_CFG::ADVANCED_CFG()
     m_UnifiedMenuBar = false;
     m_SingleWindowShell = false;
     m_CommonAiPanel = false;   // opt-in: one shell-owned AI panel (needs SingleWindowShell); see header
+    m_UnifiedStatusBar = false;   // opt-in: mirror active editor's footer into shell footer; see header
     m_ShellPrewarmEditors = false;   // opt-in: GUI-thread KIFACE warm can freeze startup; see header
     m_EnableLibWithText = false;
     m_EnableLibDir = false;
     m_SingleClickOpen = true;   // VS Code / Cursor style one-click open in the project tree
     m_SymDirAggregateCache = false;   // opt-in: consolidated read cache for *.kicad_symdir folders; see header
+    m_FpDirAggregateCache = false;    // opt-in: consolidated read cache for *.pretty footprint folders; see header
+    m_LibTableSelfHeal = true;    // on: rebuild an empty/broken global sym/fp-lib-table from installed libs; see header
     m_EnvilPurpleFrame = false;   // opt-in: vibrant-purple dark chrome on the schematic editor frame; see header
     m_EnvilUiFontPt = 10.0;       // app-wide UI base font size (pt); 0 disables the override; see header
 
@@ -566,6 +572,9 @@ void ADVANCED_CFG::loadSettings( wxConfigBase& aCfg )
     m_entries.push_back( std::make_unique<PARAM_CFG_BOOL>( true, AC_KEYS::CommonAiPanel,
                                                            &m_CommonAiPanel, m_CommonAiPanel ) );
 
+    m_entries.push_back( std::make_unique<PARAM_CFG_BOOL>( true, AC_KEYS::UnifiedStatusBar,
+                                                           &m_UnifiedStatusBar, m_UnifiedStatusBar ) );
+
     m_entries.push_back( std::make_unique<PARAM_CFG_BOOL>( true, AC_KEYS::ShellPrewarmEditors,
                                                            &m_ShellPrewarmEditors, m_ShellPrewarmEditors ) );
 
@@ -584,6 +593,14 @@ void ADVANCED_CFG::loadSettings( wxConfigBase& aCfg )
     m_entries.push_back( std::make_unique<PARAM_CFG_BOOL>( true, AC_KEYS::SymDirAggregateCache,
                                                            &m_SymDirAggregateCache,
                                                            m_SymDirAggregateCache ) );
+
+    m_entries.push_back( std::make_unique<PARAM_CFG_BOOL>( true, AC_KEYS::FpDirAggregateCache,
+                                                           &m_FpDirAggregateCache,
+                                                           m_FpDirAggregateCache ) );
+
+    m_entries.push_back( std::make_unique<PARAM_CFG_BOOL>( true, AC_KEYS::LibTableSelfHeal,
+                                                           &m_LibTableSelfHeal,
+                                                           m_LibTableSelfHeal ) );
 
     m_entries.push_back( std::make_unique<PARAM_CFG_BOOL>( true, AC_KEYS::EnvilPurpleFrame,
                                                            &m_EnvilPurpleFrame,

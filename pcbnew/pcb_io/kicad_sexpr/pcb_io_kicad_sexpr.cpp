@@ -22,12 +22,15 @@
  * 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA
  */
 
+#include <cstdlib>
+
 #include <wx/dir.h>
 #include <wx/ffile.h>
 #include <wx/log.h>
 #include <wx/msgdlg.h>
 #include <wx/mstream.h>
 
+#include <advanced_config.h>
 #include <board.h>
 #include <board_design_settings.h>
 #include <callback_gal.h>
@@ -70,6 +73,8 @@
 #include <build_version.h>
 #include <filter_reader.h>
 #include <ctl_flags.h>
+#include <richio.h>
+#include <wx/tokenzr.h>
 
 
 using namespace PCB_KEYS_T;
@@ -154,6 +159,23 @@ void FP_CACHE::Load()
     m_cache_dirty = false;
     m_cache_timestamp = 0;
 
+    // Envil aggregate-cache fast path (opt-in).  Reading one consolidated file instead of opening
+    // + parsing every *.kicad_mod is what removes the GUI-thread "Not Responding" freeze on the
+    // first footprint load (and the per-open antivirus scan that amplifies it).  Falls through to
+    // the per-file scan below whenever the cache is missing or its fingerprint no longer matches
+    // the folder.
+    if( ADVANCED_CFG::GetCfg().m_FpDirAggregateCache )
+    {
+        long long aggDirTimestamp = GetTimestamp( m_lib_raw_path );
+
+        if( loadFromAggregateCache( aggDirTimestamp ) )
+        {
+            m_cache_timestamp = aggDirTimestamp;
+            m_cache_dirty = false;
+            return;
+        }
+    }
+
     wxDir dir( m_lib_raw_path );
 
     if( !dir.IsOpened() )
@@ -219,7 +241,300 @@ void FP_CACHE::Load()
 
         if( !cacheError.IsEmpty() )
             THROW_IO_ERROR( cacheError );
+
+        // Refresh the consolidated cache for next time (best-effort; never fatal).  Only reached
+        // on a clean per-file load (the THROW above skips it when any file failed to parse), so a
+        // bad file never gets baked into the cache.
+        if( ADVANCED_CFG::GetCfg().m_FpDirAggregateCache )
+            writeAggregateCache( m_cache_timestamp );
     }
+}
+
+
+bool FP_CACHE::getAggregateCachePath( wxString& aCacheFile, wxString& aCacheDir ) const
+{
+    // m_lib_path is the *.pretty folder itself (e.g. ".../kicad-fp-lib/Device.pretty").
+    wxFileName fn = m_lib_path;
+
+    if( !fn.IsDir() && wxFileName::DirExists( fn.GetFullPath() ) )
+        fn.AssignDir( fn.GetFullPath() );
+
+    if( !fn.IsDir() || fn.GetDirCount() == 0 )
+        return false;
+
+    // Key the cache on the folder name itself, e.g. "Device.pretty".
+    const wxString libKey = fn.GetDirs().Last();
+
+    // The shared cache folder lives beside the libraries, under the parent (e.g. the footprint
+    // library root).  Keeping it OUTSIDE the *.pretty folders means it never shows up in the
+    // per-file scan and never perturbs the directory fingerprint used to validate it.
+    wxFileName parent = fn;
+    parent.RemoveLastDir();
+
+    aCacheDir  = parent.GetPathWithSep() + wxT( ".envil_fpcache" );
+    aCacheFile = aCacheDir + wxFileName::GetPathSeparator() + libKey + wxT( ".fpcache" );
+    return true;
+}
+
+
+bool FP_CACHE::loadFromAggregateCache( long long aDirTimestamp )
+{
+    wxString cacheFile, cacheDir;
+
+    if( !getAggregateCachePath( cacheFile, cacheDir ) )
+        return false;
+
+    if( !wxFileName::FileExists( cacheFile ) )
+        return false;
+
+    // Slurp the whole cache file once (the single open that replaces the N per-footprint opens).
+    std::string buf;
+
+    {
+        wxFFile f( cacheFile, wxT( "rb" ) );
+
+        if( !f.IsOpened() )
+            return false;
+
+        wxFileOffset len = f.Length();
+
+        if( len <= 0 )
+            return false;
+
+        buf.resize( static_cast<size_t>( len ) );
+
+        if( f.Read( &buf[0], buf.size() ) != buf.size() )
+            return false;
+    }
+
+    // --- parse the small text header (fingerprint + count), then the length-prefixed blobs -----
+    size_t    pos      = 0;
+    bool      headerOk = false;
+    bool      tsFound  = false;
+    long long storedTs = 0;
+    long      declared = -1;
+
+    auto readLine = [&]( std::string& aOut ) -> bool
+    {
+        if( pos >= buf.size() )
+            return false;
+
+        size_t nl = buf.find( '\n', pos );
+
+        if( nl == std::string::npos )
+            nl = buf.size();
+
+        aOut.assign( buf, pos, nl - pos );
+        pos = ( nl < buf.size() ) ? nl + 1 : buf.size();
+        return true;
+    };
+
+    // Header lines precede the first "@\t" entry.
+    std::string line;
+
+    while( pos < buf.size() )
+    {
+        size_t mark = pos;
+
+        if( !readLine( line ) )
+            break;
+
+        if( line.rfind( "ENVIL_FPCACHE", 0 ) == 0 )
+        {
+            headerOk = true;
+        }
+        else if( line.rfind( "TS\t", 0 ) == 0 )
+        {
+            storedTs = std::strtoll( line.c_str() + 3, nullptr, 10 );
+            tsFound  = true;
+        }
+        else if( line.rfind( "N\t", 0 ) == 0 )
+        {
+            declared = std::strtol( line.c_str() + 2, nullptr, 10 );
+        }
+        else if( line.rfind( "@\t", 0 ) == 0 )
+        {
+            pos = mark;    // rewind: the entry loop below re-reads this "@" line
+            break;
+        }
+    }
+
+    // Stale or unrecognised cache → let the caller fall back to the folder scan + rebuild.
+    if( !headerOk || !tsFound || storedTs != aDirTimestamp )
+        return false;
+
+    // --- parse each "@\t<name>\t<byteLen>\n<raw bytes>\n" entry, committing only on full success.
+    // Hold parsed entries in a local vector (we own the pointers) and don't touch m_footprints
+    // until the whole cache validates, so a corrupt cache leaves m_footprints untouched/empty for
+    // the per-file fallback.
+    std::vector<std::pair<wxString, FP_CACHE_ENTRY*>> entries;
+
+    auto discard = [&]() -> bool
+    {
+        for( auto& e : entries )
+            delete e.second;
+
+        return false;
+    };
+
+    while( pos < buf.size() )
+    {
+        if( !readLine( line ) )
+            break;
+
+        if( line.rfind( "@\t", 0 ) != 0 )
+            continue;
+
+        // "@\t<name>\t<len>" — split on the LAST tab so a tab in the name is tolerated.
+        size_t lastTab = line.rfind( '\t' );
+        size_t firstTab = line.find( '\t' );
+
+        if( lastTab == std::string::npos || lastTab == firstTab )
+            return discard();
+
+        std::string name = line.substr( firstTab + 1, lastTab - firstTab - 1 );
+        size_t      blobLen = static_cast<size_t>( std::strtoul( line.c_str() + lastTab + 1,
+                                                                 nullptr, 10 ) );
+
+        if( pos + blobLen > buf.size() )
+            return discard();    // truncated cache (e.g. crash mid-write) → rebuild
+
+        std::string blob = buf.substr( pos, blobLen );
+        pos += blobLen;
+
+        if( pos < buf.size() && buf[pos] == '\n' )
+            pos += 1;        // skip the separator newline after the blob
+
+        wxString fpName = wxString::FromUTF8( name.c_str() );
+
+        try
+        {
+            STRING_LINE_READER         reader( blob, cacheFile );
+            PCB_IO_KICAD_SEXPR_PARSER  parser( &reader, nullptr, nullptr );
+
+            FOOTPRINT* footprint = dynamic_cast<FOOTPRINT*>( parser.Parse() );
+
+            if( !footprint || !parser.GetParseWarnings().empty() )
+            {
+                delete footprint;
+                return discard();    // unreliable cache → rebuild from the folder
+            }
+
+            footprint->SetFPID( LIB_ID( wxEmptyString, fpName ) );
+
+            // Reconstruct the per-footprint source path (KiCad stores one footprint per file named
+            // <fpName>.kicad_mod, so the filename equals the footprint name — same as the per-file
+            // path's fn.GetName()).  Save()/Remove() rely on this pointing at the real file.
+            WX_FILENAME fn( m_lib_raw_path, fpName + wxT( "." )
+                                   + wxString( FILEEXT::KiCadFootprintFileExtension ) );
+
+            entries.emplace_back( fpName, new FP_CACHE_ENTRY( footprint, fn ) );
+        }
+        catch( const IO_ERROR& )
+        {
+            return discard();
+        }
+    }
+
+    // Integrity check: a count mismatch means a truncated or corrupt cache → rebuild.
+    if( declared >= 0 && static_cast<long>( entries.size() ) != declared )
+        return discard();
+
+    if( entries.empty() )
+        return discard();
+
+    // Success — commit (m_footprints is empty on a fresh cache, same precondition as the per-file
+    // path which inserts without clearing first).
+    for( auto& e : entries )
+        m_footprints.insert( e.first, e.second );
+
+    return true;
+}
+
+
+void FP_CACHE::writeAggregateCache( long long aDirTimestamp )
+{
+    wxString cacheFile, cacheDir;
+
+    if( !getAggregateCachePath( cacheFile, cacheDir ) )
+        return;
+
+    if( !wxFileName::DirExists( cacheDir )
+        && !wxFileName::Mkdir( cacheDir, wxS_DIR_DEFAULT, wxPATH_MKDIR_FULL ) )
+    {
+        return;   // e.g. read-only library tree — silently skip caching
+    }
+
+    // Write to a temp file, then atomically rename, so a crash mid-write can never leave a
+    // half-written cache that still carries a valid fingerprint.
+    const wxString tmpFile = cacheFile + wxT( ".tmp" );
+
+    {
+        wxFFile out( tmpFile, wxT( "wb" ) );
+
+        if( !out.IsOpened() )
+            return;
+
+        wxString header;
+        header << wxT( "ENVIL_FPCACHE\t1\n" );
+        header << wxT( "TS\t" ) << wxString::Format( wxT( "%lld" ), aDirTimestamp ) << wxT( "\n" );
+        header << wxT( "N\t" ) << static_cast<int>( m_footprints.size() ) << wxT( "\n" );
+
+        const wxScopedCharBuffer headerUtf8 = header.utf8_str();
+
+        if( out.Write( headerUtf8.data(), headerUtf8.length() ) != (size_t) headerUtf8.length() )
+            return;
+
+        for( auto it = m_footprints.begin(); it != m_footprints.end(); ++it )
+        {
+            const wxString  name  = it->first;
+            FP_CACHE_ENTRY* entry = it->second;
+
+            // Cache the raw on-disk bytes (byte-exact; no re-serialisation, no shared-plugin
+            // formatter state touched — safe under the parallel library load).
+            const wxString srcPath = entry->GetFileName().GetFullPath();
+
+            std::string raw;
+
+            {
+                wxFFile src( srcPath, wxT( "rb" ) );
+
+                if( !src.IsOpened() )
+                    continue;    // skip a footprint we can't re-read; count check will rebuild
+
+                wxFileOffset len = src.Length();
+
+                if( len < 0 )
+                    continue;
+
+                raw.resize( static_cast<size_t>( len ) );
+
+                if( len > 0 && src.Read( &raw[0], raw.size() ) != raw.size() )
+                    continue;
+            }
+
+            wxString entryHdr;
+            entryHdr << wxT( "@\t" ) << name << wxT( "\t" )
+                     << wxString::Format( wxT( "%zu" ), raw.size() ) << wxT( "\n" );
+
+            const wxScopedCharBuffer eh = entryHdr.utf8_str();
+
+            if( out.Write( eh.data(), eh.length() ) != (size_t) eh.length() )
+                return;
+
+            if( !raw.empty() && out.Write( raw.data(), raw.size() ) != raw.size() )
+                return;
+
+            out.Write( "\n", 1 );
+        }
+    }
+
+    // Replace any existing cache atomically.
+    if( wxFileName::FileExists( cacheFile ) )
+        wxRemoveFile( cacheFile );
+
+    if( !wxRenameFile( tmpFile, cacheFile ) )
+        wxRemoveFile( tmpFile );   // best-effort cleanup; next load just rebuilds
 }
 
 
