@@ -41,6 +41,8 @@
 #include <sch_io/kicad_legacy/sch_io_kicad_legacy.h>
 #include <sch_io/kicad_sexpr/sch_io_kicad_sexpr.h>
 #include <dialogs/dialog_lib_new_symbol.h>
+#include <dialogs/dialog_envil_package_confirm.h>
+#include <advanced_config.h>
 #include <eda_list_dialog.h>
 #include <wx/clipbrd.h>
 #include <wx/filedlg.h>
@@ -417,6 +419,21 @@ void SYMBOL_EDIT_FRAME::CreateNewSymbol( const wxString& aInheritFrom )
     m_libMgr->CreateNewSymbol( lib, props );
     SyncLibraries( false );
     LoadSymbol( props.name, lib, 1 );
+
+    if( ADVANCED_CFG::GetCfg().m_ConfirmComponentPackage && !props.powerSymbol )
+    {
+        LIB_SYMBOL* newSymbol = m_libMgr->GetBufferedSymbol( props.name, lib );
+
+        if( newSymbol )
+        {
+            DIALOG_ENVIL_PACKAGE_CONFIRM pkgDlg( this, newSymbol->GetLibId(), props.name,
+                                                 newSymbol->GetFPFilters(),
+                                                 newSymbol->GetFootprintProp() );
+
+            if( pkgDlg.ShowModal() == wxID_OK && !pkgDlg.GetSelectedFootprint().IsEmpty() )
+                newSymbol->SetFootprintProp( pkgDlg.GetSelectedFootprint() );
+        }
+    }
 }
 
 

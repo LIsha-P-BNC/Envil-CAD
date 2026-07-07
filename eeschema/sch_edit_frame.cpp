@@ -378,7 +378,15 @@ SCH_EDIT_FRAME::SCH_EDIT_FRAME( KIWAY* aKiway, wxWindow* aParent ) :
                             {
                                 wxString filePath = wxString::FromUTF8( data.value( "path", "" ) );
 
-                                if( !filePath.IsEmpty() && wxFileExists( filePath ) )
+                                // The backend broadcasts open_file/revert to EVERY IPC
+                                // client (eeschema AND pcbnew). Only act on a real
+                                // schematic here; a .kicad_pcb path is meant for pcbnew.
+                                // Without this guard eeschema hands the board to
+                                // OpenProjectFiles and pops "'…kicad_pcb' is not a KiCad
+                                // schematic file" — a modal that also races/blocks the
+                                // pcbnew revert (the "routing not showing" symptom).
+                                if( !filePath.IsEmpty() && wxFileExists( filePath )
+                                        && filePath.Lower().EndsWith( wxT( ".kicad_sch" ) ) )
                                 {
                                     wxLogDebug( wxT( "AI: Opening generated schematic: %s" ), filePath );
                                     OpenProjectFiles( std::vector<wxString>( 1, filePath ) );
@@ -400,7 +408,14 @@ SCH_EDIT_FRAME::SCH_EDIT_FRAME( KIWAY* aKiway, wxWindow* aParent ) :
                                         && !Schematic().GetFileName().IsEmpty() )
                                     targetFile = Schematic().GetFileName();
 
-                                if( !targetFile.IsEmpty() && wxFileExists( targetFile ) )
+                                // Guard: the revert broadcast reaches pcbnew too, so a
+                                // board revert carries a .kicad_pcb path. Only revert a
+                                // real schematic here; ignore the board path and let
+                                // pcbnew handle it (its own handler is board-guarded).
+                                // Without this, eeschema OpenProjectFiles() the board and
+                                // pops the "not a KiCad schematic file" modal.
+                                if( !targetFile.IsEmpty() && wxFileExists( targetFile )
+                                        && targetFile.Lower().EndsWith( wxT( ".kicad_sch" ) ) )
                                 {
                                     if( Schematic().IsValid() )
                                     {
@@ -3686,6 +3701,20 @@ void SCH_EDIT_FRAME::RemoveVariant()
 
 bool SCH_EDIT_FRAME::doAutoSave()
 {
+    // KiCad Next / Envil: VSCode-style autosave to the REAL .kicad_sch (not the .history
+    // snapshot) so the AI backend, which reads the live project file, observes the user's
+    // manual edits automatically — the Cursor way.  Only writes when there is something to
+    // save and the project is writable; a clean or read-only design is a no-op.  Skips the
+    // local-history commit entirely (no snapshot), per the feature contract.
+    if( ADVANCED_CFG::GetCfg().m_EnvilAutoSaveRealFile )
+    {
+        if( IsContentModified() && !Prj().IsReadOnly() )
+            SaveProject();
+
+        m_autoSaveRequired = false;
+        return true;
+    }
+
     // Delegate to base auto-save behavior (commits pending local history) for now.
     return EDA_BASE_FRAME::doAutoSave();
 }

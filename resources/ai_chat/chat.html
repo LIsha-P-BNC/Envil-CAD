@@ -1854,6 +1854,13 @@ function ensureClarifyStyles() {
     ".clr-opt{cursor:pointer;font:inherit;font-size:12.5px;padding:5px 12px;border-radius:999px;background:var(--bg-3);color:var(--text-1);border:1px solid var(--border-2);transition:background .12s,border-color .12s,color .12s;}" +
     ".clr-opt:hover{border-color:var(--accent);background:var(--bg-1);}" +
     ".clr-opt.sel{background:var(--accent);color:#0b0d12;border-color:var(--accent);font-weight:600;}" +
+    // Checkbox-style options (used for "package" questions: THT vs SMD).
+    ".clr-checks{display:flex;flex-wrap:wrap;gap:6px;}" +
+    ".clr-check{display:flex;align-items:center;gap:8px;cursor:pointer;font:inherit;font-size:12.5px;padding:6px 12px;border-radius:var(--radius-sm,6px);background:var(--bg-3);color:var(--text-1);border:1px solid var(--border-2);transition:background .12s,border-color .12s;}" +
+    ".clr-check:hover{border-color:var(--accent);background:var(--bg-1);}" +
+    ".clr-box{width:15px;height:15px;flex:0 0 15px;display:flex;align-items:center;justify-content:center;border-radius:4px;border:1.5px solid var(--border-2);background:var(--bg-1);color:#0b0d12;font-size:11px;font-weight:800;line-height:1;transition:background .12s,border-color .12s;}" +
+    ".clr-check.sel{border-color:var(--accent);}" +
+    ".clr-check.sel .clr-box{background:var(--accent);border-color:var(--accent);}" +
     ".clr-foot{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:9px 13px;border-top:1px solid var(--border-1);background:var(--bg-1);}" +
     ".clr-hint{font-size:11px;color:var(--text-3);}" +
     ".clr-go{border:0;cursor:pointer;font:inherit;font-weight:600;font-size:12.5px;padding:7px 16px;border-radius:var(--radius-sm,6px);background:var(--accent);color:#0b0d12;box-shadow:0 2px 8px rgba(139,92,246,.35);}" +
@@ -1919,17 +1926,39 @@ function renderClarifyInto(bubble, text) {
     lab.className = "clr-qlabel";
     lab.textContent = q.label;
     qd.appendChild(lab);
+    // Package questions (THT vs SMD) render as checkbox rows; every other
+    // question keeps the pill-chip look. Both stay single-select and store a
+    // single string in selected[qi], so the "Label: choice" text sent on
+    // Continue is unchanged (the backend _detect_package_preference regex
+    // still parses it).
+    const isPackage = /\bpackage\b/i.test(q.label);
     const opts = document.createElement("div");
-    opts.className = "clr-opts";
+    opts.className = isPackage ? "clr-checks" : "clr-opts";
     q.options.forEach(opt => {
       const b = document.createElement("button");
       b.type = "button";
-      b.className = "clr-opt";
-      b.textContent = opt;
+      if (isPackage) {
+        b.className = "clr-check";
+        b.innerHTML = '<span class="clr-box"></span>';
+        const t = document.createElement("span");
+        t.textContent = opt;
+        b.appendChild(t);
+      } else {
+        b.className = "clr-opt";
+        b.textContent = opt;
+      }
       b.onclick = () => {
         if (card.classList.contains("done")) return;
         for (const sib of opts.children) sib.classList.remove("sel");
         b.classList.add("sel");
+        if (isPackage) {
+          const box = b.querySelector(".clr-box");
+          for (const sib of opts.children) {
+            const sbox = sib.querySelector(".clr-box");
+            if (sbox) sbox.textContent = "";
+          }
+          if (box) box.textContent = "✓";  // checkmark on the picked box
+        }
         selected[qi] = opt;
       };
       opts.appendChild(b);

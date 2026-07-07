@@ -111,6 +111,7 @@ set( EESCHEMA_DLGS
     dialogs/dialog_edit_symbols_libid.cpp
     dialogs/dialog_edit_symbols_libid_base.cpp
     dialogs/dialog_eeschema_page_settings.cpp
+    dialogs/dialog_envil_package_confirm.cpp
     dialogs/dialog_erc.cpp
     dialogs/dialog_erc_base.cpp
     dialogs/dialog_export_netlist.cpp

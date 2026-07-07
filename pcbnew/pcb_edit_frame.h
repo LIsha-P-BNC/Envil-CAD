@@ -867,6 +867,25 @@ private:
     WEBVIEW_PANEL*         m_aiChatPanel;
     std::unique_ptr<AI_IPC_CLIENT> m_aiIpcClient;
 
+    // AI backend IPC connection (Cursor-style live board refresh). The Python
+    // backend binds a DYNAMIC port and publishes it in ipc_port.txt; the fixed
+    // port in the client ctor is only a fallback. TryConnectAiIpc() re-reads
+    // that file each attempt, and OnAiIpcRetryTimer() keeps retrying until the
+    // backend is up — mirrors SCH_EDIT_FRAME so an open board actually joins the
+    // backend's IPC client set and receives the turn-end `revert` broadcast.
+    bool TryConnectAiIpc();
+    void OnAiIpcRetryTimer( wxTimerEvent& aEvent );
+    wxTimer m_aiIpcRetryTimer;
+    int     m_aiIpcRetryAttempts = 0;
+
+    // Re-entrancy guard for the AI `revert` IPC handler. OpenProjectFiles(
+    // KICTL_REVERT) spins a NESTED modal event loop (the "Load PCB —
+    // Tessellating copper zones…" progress dialog) on zone-bearing boards; a
+    // second revert arriving during that loop would re-enter OpenProjectFiles
+    // and hang the dialog. True while a revert-reload is in flight so the
+    // re-entrant call is dropped.
+    bool    m_aiIpcReverting = false;
+
     const std::map<std::string, UTF8>* m_importProperties; // Properties used for non-KiCad import.
 
     /**

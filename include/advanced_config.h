@@ -1210,6 +1210,53 @@ public:
      * Default value: 1
      */
     bool m_LibTableSelfHeal;
+
+    /**
+     * KiCad Next / Envil: before a symbol picked from the library chooser is placed on the
+     * sheet, or before a brand-new symbol is finalized in the symbol editor, show a small
+     * confirmation dialog asking (a) Through-Hole vs Surface-Mount package preference and
+     * (b) which candidate footprint/library to use for that part. Asked once per distinct
+     * LIB_ID per schematic-editor session (subsequent placements of the same part reuse the
+     * earlier answer silently); does not re-ask on every instance placed.
+     *
+     * Declared LAST in the struct (after LibTableSelfHeal) on purpose: see the ABI note above —
+     * appending keeps every existing member's offset stable, so only kicommon + eeschema (which
+     * read this flag) need rebuilding for this addition.
+     *
+     * OPT-IN (default 0) so symbol placement is byte-identical to stock KiCad until enabled.
+     *
+     * Setting name: "ConfirmComponentPackage"
+     * Valid values: 0 or 1
+     * Default value: 0
+     */
+    bool m_ConfirmComponentPackage;
+
+    /**
+     * KiCad Next / Envil: VSCode-style "auto save to the real file".  Stock KiCad's autosave
+     * timer commits the editor state to the git-backed .history snapshot store, NOT to the
+     * actual .kicad_sch / .kicad_pcb the AI backend reads.  So a user's MANUAL edits stay in the
+     * editor's memory (or only in .history) until an explicit Ctrl+S, and the AI — which reads the
+     * real project files each turn — never sees them.  When enabled, the existing autosave timer
+     * (already armed on every content change) instead writes the user's current in-memory design
+     * straight to the real project file on disk (like VSCode files.autoSave=afterDelay) and SKIPS
+     * the .history snapshot.  Result: the AI observes manual KiCad edits automatically, the
+     * Cursor/Claude-Code way (file on disk = source of truth, read live), with no snapshot and no
+     * per-turn "update" click.  Read by SCH_EDIT_FRAME::doAutoSave / PCB_EDIT_FRAME::DoAutoSave;
+     * EDA_BASE_FRAME::GetAutoSaveInterval returns a short positive default when this is on so the
+     * timer is guaranteed to arm.
+     *
+     * Declared LAST in the struct (after ConfirmComponentPackage) on purpose: see the ABI note
+     * above — appending keeps every existing member's offset stable, so only kicommon + the two
+     * editor KIFACEs (which read the flag in their autosave hooks) need rebuilding for this.
+     *
+     * OPT-IN (default 0) so autosave is byte-identical to stock KiCad (.history snapshot) until
+     * explicitly enabled.
+     *
+     * Setting name: "EnvilAutoSaveRealFile"
+     * Valid values: 0 or 1
+     * Default value: 0
+     */
+    bool m_EnvilAutoSaveRealFile;
     ///@}
 
 private:

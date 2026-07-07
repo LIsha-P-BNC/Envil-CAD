@@ -380,6 +380,40 @@ bool FOOTPRINT_EDIT_FRAME::IsContentModified() const
 }
 
 
+bool FOOTPRINT_EDIT_FRAME::doAutoSave()
+{
+    // KiCad Next / Envil: VSCode-style autosave to the REAL footprint library (not the
+    // .history snapshot) so the AI backend, which reads the live library file, observes
+    // the user's manual footprint edits automatically.  Only writes a modified footprint
+    // that lives in a named, writable library; a footprint linked to the board, an
+    // unnamed footprint, or a read-only/legacy library is a silent no-op (those paths
+    // would otherwise pop a Save-As / info dialog).
+    if( ADVANCED_CFG::GetCfg().m_EnvilAutoSaveRealFile )
+    {
+        FOOTPRINT* fp = GetBoard() ? GetBoard()->GetFirstFootprint() : nullptr;
+
+        if( fp && !IsCurrentFPFromBoard() && IsContentModified() && !Prj().IsReadOnly() )
+        {
+            const LIB_ID&  fpid = fp->GetFPID();
+            const wxString libName = fpid.GetLibNickname();
+
+            if( !libName.IsEmpty() && !fpid.GetLibItemName().empty() )
+            {
+                FOOTPRINT_LIBRARY_ADAPTER* adapter = PROJECT_PCB::FootprintLibAdapter( &Prj() );
+
+                if( adapter && adapter->IsFootprintLibWritable( libName ) )
+                    SaveFootprintInLibrary( fp, libName );  // write the real library (no dialog)
+            }
+        }
+
+        m_autoSaveRequired = false;
+        return true;
+    }
+
+    return EDA_BASE_FRAME::doAutoSave();
+}
+
+
 SELECTION& FOOTPRINT_EDIT_FRAME::GetCurrentSelection()
 {
     return m_toolManager->GetTool<PCB_SELECTION_TOOL>()->GetSelection();

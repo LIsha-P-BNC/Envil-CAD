@@ -68,6 +68,8 @@
 #include <dialogs/dialog_wire_bus_properties.h>
 #include <dialogs/dialog_junction_props.h>
 #include <dialogs/dialog_table_properties.h>
+#include <dialogs/dialog_envil_package_confirm.h>
+#include <advanced_config.h>
 #include <import_gfx/dialog_import_gfx_sch.h>
 #include <sync_sheet_pin/sheet_synchronization_agent.h>
 #include <string_utils.h>
@@ -382,6 +384,8 @@ int SCH_DRAWING_TOOLS::PlaceSymbol( const TOOL_EVENT& aEvent )
 
                 if( !libSymbol )
                     continue;
+
+                envilConfirmComponentPackage( libSymbol, sel );
 
                 // If we started with a hotkey which has a position then warp back to that.
                 // Otherwise update to the current mouse position pinned inside the autoscroll
@@ -3889,4 +3893,49 @@ void SCH_DRAWING_TOOLS::setTransitions()
     Go( &SCH_DRAWING_TOOLS::SyncAllSheetsPins,     SCH_ACTIONS::syncAllSheetsPins.MakeEvent() );
     Go( &SCH_DRAWING_TOOLS::AutoPlaceAllSheetPins, SCH_ACTIONS::autoplaceAllSheetPins.MakeEvent() );
     // clang-format on
+}
+
+
+void SCH_DRAWING_TOOLS::envilConfirmComponentPackage( LIB_SYMBOL* aLibSymbol, PICKED_SYMBOL& aSel )
+{
+    if( !ADVANCED_CFG::GetCfg().m_ConfirmComponentPackage )
+        return;
+
+    if( !aLibSymbol || aLibSymbol->IsPower() )
+        return;
+
+    wxString libIdStr = aSel.LibId.Format();
+    wxString footprintToApply;
+
+    auto cacheIt = m_envilConfirmedFootprints.find( libIdStr );
+
+    if( cacheIt != m_envilConfirmedFootprints.end() )
+    {
+        footprintToApply = cacheIt->second;
+    }
+    else
+    {
+        DIALOG_ENVIL_PACKAGE_CONFIRM dlg( m_frame, aSel.LibId, aLibSymbol->GetName(),
+                                          aLibSymbol->GetFPFilters(), aLibSymbol->GetFootprintProp() );
+
+        if( dlg.ShowModal() != wxID_OK )
+            return; // user cancelled the package/library choice; placement proceeds as-is
+
+        footprintToApply = dlg.GetSelectedFootprint();
+        m_envilConfirmedFootprints[libIdStr] = footprintToApply;
+    }
+
+    if( footprintToApply.IsEmpty() )
+        return;
+
+    for( std::pair<FIELD_T, wxString>& field : aSel.Fields )
+    {
+        if( field.first == FIELD_T::FOOTPRINT )
+        {
+            field.second = footprintToApply;
+            return;
+        }
+    }
+
+    aSel.Fields.emplace_back( FIELD_T::FOOTPRINT, footprintToApply );
 }

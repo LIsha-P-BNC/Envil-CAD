@@ -32,6 +32,7 @@
 #include <wx/file.h>
 #include <wx/stdpaths.h>
 #include <wx/socket.h>
+#include <wx/utils.h>      // wxGetEnv / wxGetHomeDir — ipc_port.txt resolution in TryConnectAiIpc
 #include <wx/wupdlock.h>
 
 #include <advanced_config.h>
@@ -433,7 +434,13 @@ PCB_EDIT_FRAME::PCB_EDIT_FRAME( KIWAY* aKiway, wxWindow* aParent ) :
                             {
                                 wxString filePath = wxString::FromUTF8( data.value( "path", "" ) );
 
-                                if( !filePath.IsEmpty() && wxFileExists( filePath ) )
+                                // The backend broadcasts open_file to every IPC client,
+                                // so the schematic's open_file (a .kicad_sch) reaches
+                                // pcbnew too. Only open a real board here; ignore the
+                                // schematic path (eeschema handles it) — otherwise pcbnew
+                                // pops a symmetric "not a board file" modal.
+                                if( !filePath.IsEmpty() && wxFileExists( filePath )
+                                        && filePath.Lower().EndsWith( wxT( ".kicad_pcb" ) ) )
                                 {
                                     wxLogDebug( wxT( "AI: Opening generated PCB: %s" ), filePath );
                                     OpenProjectFiles( std::vector<wxString>( 1, filePath ) );
@@ -483,15 +490,64 @@ PCB_EDIT_FRAME::PCB_EDIT_FRAME( KIWAY* aKiway, wxWindow* aParent ) :
                                         && targetFile.Lower().EndsWith(
                                                 wxT( ".kicad_pcb" ) ) )
                                 {
+                                    // Drop the revert if a reload is already in
+                                    // flight. OpenProjectFiles(KICTL_REVERT) spins
+                                    // a nested modal loop (zone tessellation); a
+                                    // second revert dispatched into that loop would
+                                    // re-enter here and hang the "Load PCB" dialog.
+                                    if( m_aiIpcReverting )
+                                        return;
+
                                     wxLogDebug( wxT( "AI: Silent PCB revert via IPC: %s" ),
                                                 targetFile );
 
                                     if( GetScreen() )
                                         GetScreen()->SetContentModified( false );
 
-                                    OpenProjectFiles(
-                                            std::vector<wxString>( 1, targetFile ),
-                                            KICTL_REVERT );
+                                    // Scope-bound guard: cleared on every exit path
+                                    // (including exceptions from OpenProjectFiles) so
+                                    // a failed reload can never wedge the flag true
+                                    // and mute all future reverts.
+                                    m_aiIpcReverting = true;
+
+                                    try
+                                    {
+                                        // We are called from an async IPC CallAfter,
+                                        // NOT the tool-action stack the native
+                                        // File>Revert (BOARD_EDITOR_CONTROL::Revert)
+                                        // runs on. OpenProjectFiles()->Clear_Pcb()
+                                        // deletes every board item; if an interactive
+                                        // tool or a live selection still holds pointers
+                                        // into them the reload dereferences freed
+                                        // memory and crashes — and since pcbnew is a
+                                        // docked child of the SingleWindowShell, that
+                                        // takes the WHOLE app down. Reach the same safe
+                                        // state the native revert relies on before
+                                        // reloading: cancel any active tool, drop the
+                                        // selection, and release our file lock (native
+                                        // does the last via ReleaseFile()).
+                                        if( TOOL_MANAGER* tm = GetToolManager() )
+                                        {
+                                            tm->RunAction( ACTIONS::cancelInteractive );
+
+                                            if( PCB_SELECTION_TOOL* selTool =
+                                                    tm->GetTool<PCB_SELECTION_TOOL>() )
+                                                selTool->ClearSelection( true );
+                                        }
+
+                                        ReleaseFile();
+
+                                        OpenProjectFiles(
+                                                std::vector<wxString>( 1, targetFile ),
+                                                KICTL_REVERT );
+                                    }
+                                    catch( ... )
+                                    {
+                                        m_aiIpcReverting = false;
+                                        throw;
+                                    }
+
+                                    m_aiIpcReverting = false;
                                 }
                             }
                         }
@@ -501,6 +557,28 @@ PCB_EDIT_FRAME::PCB_EDIT_FRAME( KIWAY* aKiway, wxWindow* aParent ) :
                         }
                     } );
                 } );
+
+        // Eagerly connect to the AI backend so an open board live-refreshes
+        // without waiting for a chat message. The backend usually starts AFTER
+        // pcbnew and binds a DYNAMIC port, so the fixed port in the ctor above is
+        // wrong and a one-shot connect would fail and stay dead forever — the
+        // "PCB page open but auto-refresh never fires" bug. On failure, arm a
+        // retry timer that re-reads ipc_port.txt each tick until the backend
+        // comes up (mirrors SCH_EDIT_FRAME). This runs even in the
+        // SingleWindowShell (m_aiChatPanel == null), where the per-editor
+        // sendMessage handler that used to be the ONLY Connect() call is absent.
+        if( m_aiIpcClient && !m_aiIpcClient->IsConnected() )
+        {
+            if( !TryConnectAiIpc() )
+            {
+                m_aiIpcRetryAttempts = 0;
+                m_aiIpcRetryTimer.SetOwner( this );
+                Bind( wxEVT_TIMER, &PCB_EDIT_FRAME::OnAiIpcRetryTimer, this,
+                      m_aiIpcRetryTimer.GetId() );
+                m_aiIpcRetryTimer.Start( 2000, wxTIMER_CONTINUOUS );
+                wxLogDebug( wxT( "AI Chat (PCB): IPC connect failed on startup; retrying every 2s" ) );
+            }
+        }
 
         // Wire JS → C++ message handlers for the AI chat panel.  Skipped when the shell owns
         // the common panel (m_aiChatPanel is null) — there is no per-editor panel to wire.
@@ -1064,6 +1142,10 @@ PCB_EDIT_FRAME::~PCB_EDIT_FRAME()
         delete m_eventCounterTimer;
     }
 
+    // Stop the IPC reconnect timer before teardown so a pending tick cannot fire
+    // OnAiIpcRetryTimer() against a half-destroyed frame (Windows event race).
+    m_aiIpcRetryTimer.Stop();
+
     // Disconnect AI IPC client
     if( m_aiIpcClient )
         m_aiIpcClient->Disconnect();
@@ -1093,6 +1175,113 @@ PCB_EDIT_FRAME::~PCB_EDIT_FRAME()
     // delete m_netInspectorPanel;
 
     delete m_exportNetlistAction;
+}
+
+
+bool PCB_EDIT_FRAME::TryConnectAiIpc()
+{
+    if( !m_aiIpcClient )
+        return false;
+
+    if( m_aiIpcClient->IsConnected() )
+        return true;
+
+    // Re-read ipc_port.txt each attempt — the backend may have just come up and
+    // written a fresh dynamic port. Falling back to the last known port is fine
+    // if the file is missing.
+    //
+    // Resolution order is fully portable (no machine-specific paths) and matches
+    // SCH_EDIT_FRAME::TryConnectAiIpc so both editors resolve the SAME port. The
+    // user-state dir entry is the single source of truth shared with the Python
+    // backend; the stock-data and exe-relative entries are dev-build fallbacks.
+    int           aiIpcPort = m_aiIpcClient->GetPort();
+    wxFileName    exePath( wxStandardPaths::Get().GetExecutablePath() );
+    wxArrayString portSearchPaths;
+
+    // 1. Portable per-user state dir — matches Python server's _user_state_dir().
+    wxString orchestratorDir;
+#ifdef __WXMSW__
+    wxString localAppData;
+    if( wxGetEnv( wxT( "LOCALAPPDATA" ), &localAppData ) && !localAppData.IsEmpty() )
+        orchestratorDir = localAppData + wxFileName::GetPathSeparator() + wxT( "orchestrator" );
+#elif defined( __WXMAC__ )
+    orchestratorDir = wxGetHomeDir() + wxT( "/Library/Application Support/orchestrator" );
+#else
+    wxString xdgState;
+    if( !wxGetEnv( wxT( "XDG_STATE_HOME" ), &xdgState ) || xdgState.IsEmpty() )
+        xdgState = wxGetHomeDir() + wxT( "/.local/state" );
+    orchestratorDir = xdgState + wxT( "/orchestrator" );
+#endif
+
+    if( !orchestratorDir.IsEmpty() )
+        portSearchPaths.Add( orchestratorDir );
+
+    // 2. Stock data dir + exe-relative — dev-tree fallbacks.
+    portSearchPaths.Add( PATHS::GetStockDataPath( true ) + wxFileName::GetPathSeparator()
+                        + wxT( "ai_backend" ) );
+    portSearchPaths.Add( exePath.GetPath() + wxFileName::GetPathSeparator()
+                        + wxT( "ai_backend" ) );
+
+    for( const wxString& dir : portSearchPaths )
+    {
+        wxString portFile = dir + wxFileName::GetPathSeparator() + wxT( "ipc_port.txt" );
+
+        if( !wxFileExists( portFile ) )
+            continue;
+
+        wxFile f( portFile );
+
+        if( !f.IsOpened() )
+            continue;
+
+        wxString content;
+        f.ReadAll( &content );
+        long port;
+
+        if( content.Trim().ToLong( &port ) && port > 0 && port < 65536 )
+            aiIpcPort = (int) port;
+
+        break;
+    }
+
+    m_aiIpcClient->SetPort( aiIpcPort );
+    return m_aiIpcClient->Connect();
+}
+
+
+void PCB_EDIT_FRAME::OnAiIpcRetryTimer( wxTimerEvent& )
+{
+    // Never give up — back off the polling interval instead. The backend may be
+    // slow to start (cold boot, AV scan, user launched it manually after
+    // pcbnew), and giving up permanently means the board silently stops
+    // auto-reloading until pcbnew is restarted. Two-stage backoff: 2 s for the
+    // first minute (fast catch when backend boots normally), then 10 s.
+    constexpr int kFastAttempts = 30;          // 30 × 2 s = 60 s
+    constexpr int kSlowIntervalMs = 10000;     // 10 s after that
+
+    if( !m_aiIpcClient || m_aiIpcClient->IsConnected() )
+    {
+        m_aiIpcRetryTimer.Stop();
+        return;
+    }
+
+    m_aiIpcRetryAttempts++;
+
+    if( TryConnectAiIpc() )
+    {
+        wxLogDebug( wxT( "AI Chat (PCB): IPC connected on retry attempt %d (port %d)" ),
+                    m_aiIpcRetryAttempts, m_aiIpcClient->GetPort() );
+        m_aiIpcRetryTimer.Stop();
+        return;
+    }
+
+    if( m_aiIpcRetryAttempts == kFastAttempts )
+    {
+        wxLogDebug( wxT( "AI Chat (PCB): IPC still not up after %d fast attempts; "
+                         "switching to %d ms polling" ),
+                    m_aiIpcRetryAttempts, kSlowIntervalMs );
+        m_aiIpcRetryTimer.Start( kSlowIntervalMs, wxTIMER_CONTINUOUS );
+    }
 }
 
 
@@ -3761,6 +3950,20 @@ void PCB_EDIT_FRAME::OnEditItemRequest( BOARD_ITEM* aItem )
 
 bool PCB_EDIT_FRAME::DoAutoSave()
 {
+    // KiCad Next / Envil: VSCode-style autosave to the REAL .kicad_pcb (not the .history
+    // snapshot) so the AI backend, which reads the live board file, observes the user's manual
+    // edits automatically — the Cursor way.  addToHistory=false (no snapshot) and
+    // aChangeProject=false (don't rewrite project metadata); only writes a modified, writable,
+    // named board.  A clean/unnamed/read-only board is a no-op.
+    if( ADVANCED_CFG::GetCfg().m_EnvilAutoSaveRealFile )
+    {
+        if( IsContentModified() && !Prj().IsReadOnly() && !GetBoard()->GetFileName().IsEmpty() )
+            SavePcbFile( Prj().AbsolutePath( GetBoard()->GetFileName() ), false, false );
+
+        m_autoSaveRequired = false;
+        return true;
+    }
+
     // For now we just delegate to the base implementation which commits any pending
     // local history snapshots.  If PCB-specific preconditions are later needed (e.g.
     // flushing zone fills or router state) they can be added here before calling the

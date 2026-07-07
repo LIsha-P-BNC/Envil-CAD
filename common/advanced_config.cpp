@@ -117,6 +117,8 @@ static const wxChar SingleClickOpen[] = wxT( "SingleClickOpen" );
 static const wxChar SymDirAggregateCache[] = wxT( "SymDirAggregateCache" );
 static const wxChar FpDirAggregateCache[] = wxT( "FpDirAggregateCache" );
 static const wxChar LibTableSelfHeal[] = wxT( "LibTableSelfHeal" );
+static const wxChar ConfirmComponentPackage[] = wxT( "ConfirmComponentPackage" );
+static const wxChar EnvilAutoSaveRealFile[] = wxT( "EnvilAutoSaveRealFile" );
 static const wxChar EnvilPurpleFrame[] = wxT( "EnvilPurpleFrame" );
 static const wxChar EnvilUiFontPt[] = wxT( "EnvilUiFontPt" );
 static const wxChar DisambiguationTime[] = wxT( "DisambiguationTime" );
@@ -298,6 +300,8 @@ ADVANCED_CFG::ADVANCED_CFG()
     m_SymDirAggregateCache = false;   // opt-in: consolidated read cache for *.kicad_symdir folders; see header
     m_FpDirAggregateCache = false;    // opt-in: consolidated read cache for *.pretty footprint folders; see header
     m_LibTableSelfHeal = true;    // on: rebuild an empty/broken global sym/fp-lib-table from installed libs; see header
+    m_ConfirmComponentPackage = false;   // opt-in: ask THT/SMD + library choice before placing/creating a symbol; see header
+    m_EnvilAutoSaveRealFile = false;   // opt-in: autosave writes the real .kicad_sch/.kicad_pcb (not .history) so the AI sees manual edits; see header
     m_EnvilPurpleFrame = false;   // opt-in: vibrant-purple dark chrome on the schematic editor frame; see header
     m_EnvilUiFontPt = 10.0;       // app-wide UI base font size (pt); 0 disables the override; see header
 
@@ -601,6 +605,14 @@ void ADVANCED_CFG::loadSettings( wxConfigBase& aCfg )
     m_entries.push_back( std::make_unique<PARAM_CFG_BOOL>( true, AC_KEYS::LibTableSelfHeal,
                                                            &m_LibTableSelfHeal,
                                                            m_LibTableSelfHeal ) );
+
+    m_entries.push_back( std::make_unique<PARAM_CFG_BOOL>( true, AC_KEYS::ConfirmComponentPackage,
+                                                           &m_ConfirmComponentPackage,
+                                                           m_ConfirmComponentPackage ) );
+
+    m_entries.push_back( std::make_unique<PARAM_CFG_BOOL>( true, AC_KEYS::EnvilAutoSaveRealFile,
+                                                           &m_EnvilAutoSaveRealFile,
+                                                           m_EnvilAutoSaveRealFile ) );
 
     m_entries.push_back( std::make_unique<PARAM_CFG_BOOL>( true, AC_KEYS::EnvilPurpleFrame,
                                                            &m_EnvilPurpleFrame,

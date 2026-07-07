@@ -1473,6 +1473,35 @@ void SYMBOL_EDIT_FRAME::storeCurrentSymbol()
 }
 
 
+bool SYMBOL_EDIT_FRAME::doAutoSave()
+{
+    // KiCad Next / Envil: VSCode-style autosave to the REAL .kicad_sym library (not the
+    // .history snapshot) so the AI backend, which reads the live library file, observes
+    // the user's manual symbol edits automatically.  Only writes a modified symbol that
+    // lives in a writable, file-based library; a symbol pulled from the schematic or a
+    // read-only library is a silent no-op (those paths would otherwise pop a dialog).
+    if( ADVANCED_CFG::GetCfg().m_EnvilAutoSaveRealFile )
+    {
+        if( GetCurSymbol() && !IsSymbolFromSchematic() && GetScreen()
+                && GetScreen()->IsContentModified() && !Prj().IsReadOnly() )
+        {
+            const wxString libName = GetCurSymbol()->GetLibId().GetLibNickname();
+
+            if( !libName.IsEmpty() && m_libMgr && !m_libMgr->IsLibraryReadOnly( libName ) )
+            {
+                storeCurrentSymbol();          // flush editor buffer into the lib manager
+                saveLibrary( libName, false );  // write the real .kicad_sym (no dialog)
+            }
+        }
+
+        m_autoSaveRequired = false;
+        return true;
+    }
+
+    return EDA_BASE_FRAME::doAutoSave();
+}
+
+
 bool SYMBOL_EDIT_FRAME::IsCurrentSymbol( const LIB_ID& aLibId ) const
 {
     // This will return the root symbol of any alias

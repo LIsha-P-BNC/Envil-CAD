@@ -383,7 +383,19 @@ bool EDA_BASE_FRAME::ProcessEvent( wxEvent& aEvent )
     if( Pgm().m_Quitting )
         return true;
 
-    if( !m_isClosing && m_supportsAutoSave && IsShownOnScreen() && IsActive()
+    // Envil: EnvilAutoSaveRealFile is VSCode-style autosave to the REAL project file, so
+    // both the user's manual edits AND the AI (which reads the file from disk each turn)
+    // always observe the current design. It MUST fire regardless of focus/visibility.
+    // In the SingleWindowShell the editor is reparented into a WS_CHILD tab (see
+    // KICAD_MANAGER_FRAME::DockPlayerAsTab), so IsActive() is always false — the shell
+    // owns activation — and the classic `IsShownOnScreen() && IsActive()` gate would never
+    // let the timer arm, meaning manual edits never reach disk. When the flag is on, arm on
+    // "content modified" alone; when off the condition is byte-identical to upstream.
+    const bool envilRealFileSave = ADVANCED_CFG::GetCfg().m_EnvilAutoSaveRealFile;
+    const bool eligibleForAutoSave = m_supportsAutoSave
+            && ( envilRealFileSave || ( IsShownOnScreen() && IsActive() ) );
+
+    if( !m_isClosing && eligibleForAutoSave
             && m_autoSavePending != isAutoSaveRequired()
             && GetAutoSaveInterval() > 0 )
     {
@@ -407,7 +419,15 @@ bool EDA_BASE_FRAME::ProcessEvent( wxEvent& aEvent )
 
 int EDA_BASE_FRAME::GetAutoSaveInterval() const
 {
-    return Pgm().GetCommonSettings()->m_System.local_history_debounce;
+    int interval = Pgm().GetCommonSettings()->m_System.local_history_debounce;
+
+    // KiCad Next / Envil: when autosave writes the real project file (so the AI sees manual
+    // edits), the timer MUST arm even if the user never configured a history debounce.  Fall
+    // back to a short positive default in that case; a user-set interval is still honoured.
+    if( ADVANCED_CFG::GetCfg().m_EnvilAutoSaveRealFile && interval <= 0 )
+        interval = 3;
+
+    return interval;
 }
 
 
