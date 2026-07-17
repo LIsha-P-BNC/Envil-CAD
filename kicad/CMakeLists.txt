@@ -38,6 +38,8 @@ set( KICAD_SRCS
     import_project.cpp
     kicad_manager_frame.cpp
     ${CMAKE_SOURCE_DIR}/common/widgets/ai_ipc_client.cpp
+    ${CMAKE_SOURCE_DIR}/common/envil_ai/envil_ai_agent.cpp
+    ${CMAKE_SOURCE_DIR}/common/envil_ai/envil_ai_tool_server.cpp
     local_history_pane.cpp
     menubar.cpp
     project_template.cpp
@@ -129,8 +131,14 @@ add_executable( kicad WIN32 MACOSX_BUNDLE
 # eeschema/pcbnew, which compile the same source into their own targets). The
 # shell links its own copy so KICAD_MANAGER_FRAME can handle the open_project
 # command — there is no shared lib exporting AI_IPC_CLIENT.
+#
+# envil_ai_agent is compiled in for the same reason: it drives the shell-owned AI panel
+# (CommonAiPanel) and cannot live in kicommon because it uses WEBVIEW_PANEL from `common`,
+# which links kicommon.
 set_source_files_properties(
     ${CMAKE_SOURCE_DIR}/common/widgets/ai_ipc_client.cpp
+    ${CMAKE_SOURCE_DIR}/common/envil_ai/envil_ai_agent.cpp
+    ${CMAKE_SOURCE_DIR}/common/envil_ai/envil_ai_tool_server.cpp
     PROPERTIES SKIP_PRECOMPILE_HEADERS ON
 )
 

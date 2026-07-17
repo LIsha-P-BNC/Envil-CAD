@@ -1,0 +1,11 @@
+{
+  "name": "envil-mcp",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "MCP server bridging an external Claude client to a running Envil-CAD instance.",
+  "bin": { "envil-mcp": "index.mjs" },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.29.0"
+  }
+}

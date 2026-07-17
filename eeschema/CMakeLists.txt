@@ -403,6 +403,8 @@ set( EESCHEMA_SRCS
     sch_draw_panel.cpp
     sch_edit_frame.cpp
     ${CMAKE_SOURCE_DIR}/common/widgets/ai_ipc_client.cpp
+    ${CMAKE_SOURCE_DIR}/common/envil_ai/envil_ai_agent.cpp
+    widgets/envil_ai_tool_exec.cpp
     sch_field.cpp
     sch_group.cpp
     sch_item.cpp
@@ -597,6 +599,8 @@ target_link_libraries( eeschema
 # Skip PCH for ai_ipc_client to avoid nlohmann/json symbol conflicts
 set_source_files_properties(
     ${CMAKE_SOURCE_DIR}/common/widgets/ai_ipc_client.cpp
+    ${CMAKE_SOURCE_DIR}/common/envil_ai/envil_ai_agent.cpp
+    widgets/envil_ai_tool_exec.cpp
     PROPERTIES SKIP_PRECOMPILE_HEADERS ON
 )
 

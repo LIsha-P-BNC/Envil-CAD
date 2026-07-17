@@ -115,6 +115,7 @@
 #include <wx/stdpaths.h>
 #include <widgets/webview_panel.h>
 #include <widgets/ai_ipc_client.h>
+#include <envil_ai/envil_ai_agent.h>
 #include <nlohmann/json.hpp>
 #include <wx/socket.h>
 #include <wx/debug.h>
@@ -180,6 +181,7 @@ SCH_EDIT_FRAME::SCH_EDIT_FRAME( KIWAY* aKiway, wxWindow* aParent ) :
         m_designBlocksPane( nullptr ),
         m_remoteSymbolPane( nullptr ),
         m_aiChatPanel( nullptr ),
+        m_envilAgent( nullptr ),
         m_currentVariantCtrl( nullptr )
 {
     m_maximizeByDefault = true;
@@ -260,6 +262,16 @@ SCH_EDIT_FRAME::SCH_EDIT_FRAME( KIWAY* aKiway, wxWindow* aParent ) :
     {
         if( !commonAiPanel )
             m_aiChatPanel = new WEBVIEW_PANEL( this );
+
+        // Envil native AI agent: drives the Anvil chat UI from an in-process C++ Claude
+        // agent (no Python backend). Register its JS<->C++ bridge handler before the page
+        // loads so chat.html's window.envilSend is wired up. Only for this editor's own
+        // panel — under CommonAiPanel the shell owns the panel and its own agent.
+        if( m_aiChatPanel )
+        {
+            m_envilAgent = new ENVIL_AI_AGENT( &Kiway(), this, m_aiChatPanel );
+            m_envilAgent->Attach();
+        }
 
         // Search for chat.html in priority order:
         // 1. KiCad stock data path (works for both installed and KICAD_RUN_FROM_BUILD_DIR)

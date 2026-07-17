@@ -43,10 +43,7 @@
       "features": [ "fts5", "fts4", "fts3", "rtree", "session" ]
     },
     "icu",
-    {
-      "name": "ngspice",
-      "default-features": false
-    },
+    "ngspice",
     {
       "name": "libgit2",
       "features": [ "ssh", "winhttp" ]
@@ -71,7 +68,7 @@
     },
     {
       "name": "ngspice",
-      "version": "45.2#0"
+      "version": "46#0"
     },
     {
       "name": "protobuf",

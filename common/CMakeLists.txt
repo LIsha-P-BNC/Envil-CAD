@@ -81,6 +81,14 @@ endif()
 # Functions and data all need to use the #include <import_export.h> and be declared
 # as APIEXPORT
 set( KICOMMON_SRCS
+    # Envil native AI client (Claude Messages API) + the KIWAY tool bridge (shared by the
+    # in-app agent and the MCP tool socket).  The agent that drives the chat panel is NOT
+    # here: it needs WEBVIEW_PANEL, which lives in `common`, and `common` already links
+    # kicommon -- so it is compiled into each consumer instead (see kicad/eeschema
+    # CMakeLists), mirroring how widgets/ai_ipc_client.cpp is handled.
+    envil_ai/envil_ai_client.cpp
+    envil_ai/envil_ai_tool_bridge.cpp
+
     # Fonts
     newstroke_font.cpp
     font/fontconfig.cpp

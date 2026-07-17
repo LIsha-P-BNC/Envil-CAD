@@ -92,6 +92,8 @@
 #include <widgets/wx_aui_utils.h>          // SetAuiPaneSize (common AI panel width restore)
 #include <widgets/webview_panel.h>         // shell-owned common AI chat panel
 #include <widgets/ai_ipc_client.h>         // shell-side backend command channel (open_project)
+#include <envil_ai/envil_ai_agent.h>       // native Claude agent driving the shell AI panel
+#include <envil_ai/envil_ai_tool_server.h> // MCP tool socket (external Claude clients)
 #include <nlohmann/json.hpp>               // parse the open_project IPC payload
 #include <paths.h>                         // PATHS::GetStockDataPath (locate chat.html)
 #include <wx/stdpaths.h>
@@ -1084,6 +1086,7 @@ KICAD_MANAGER_FRAME::KICAD_MANAGER_FRAME( wxWindow* parent, const wxString& titl
         m_historyPane( nullptr ),
         m_editorTabs( nullptr ),
         m_aiChatPanel( nullptr ),
+        m_envilAgent( nullptr ),
         m_launcher( nullptr ),
         m_lastToolbarIconSize( 0 ),
         m_pcmButton( nullptr ),
@@ -1308,6 +1311,13 @@ KICAD_MANAGER_FRAME::KICAD_MANAGER_FRAME( wxWindow* parent, const wxString& titl
         {
             m_aiChatPanel = new WEBVIEW_PANEL( this );
 
+            // Envil native AI agent: drives this panel from an in-process C++ Claude agent
+            // (no Python backend).  Attached before the page loads so window.envilSend
+            // exists when chat.html runs.  Tool calls reach the schematic editor over
+            // MAIL_ENVIL_AI_TOOL, since kicad.exe cannot see SCH_EDIT_FRAME directly.
+            m_envilAgent = new ENVIL_AI_AGENT( &Kiway(), this, m_aiChatPanel );
+            m_envilAgent->Attach();
+
             // Locate chat.html the same way the editors do: stock data path, then the exe
             // directory (build output), then the wx resources dir.
             wxString      chatHtmlFound;
@@ -1445,6 +1455,17 @@ KICAD_MANAGER_FRAME::KICAD_MANAGER_FRAME( wxWindow* parent, const wxString& titl
     }
 
     m_auimgr.Update();
+
+    // Envil AI MCP tool socket: lets an external Claude client (via the envil-mcp bridge)
+    // place parts in the schematic on the user's own subscription — an alternative to the
+    // in-app API-key agent. Loopback only, always on so MCP works regardless of CommonAiPanel.
+    m_envilToolServer = std::make_unique<ENVIL_AI_TOOL_SERVER>( &Kiway(), this );
+
+    if( !m_envilToolServer->Start() )
+    {
+        wxLogDebug( wxT( "Envil AI: MCP tool socket failed to start (port in use?)" ) );
+        m_envilToolServer.reset();
+    }
 
     // Restore the AI panel's saved width now that the pane exists (AddPane only set BestSize).
     if( m_aiChatPanel )

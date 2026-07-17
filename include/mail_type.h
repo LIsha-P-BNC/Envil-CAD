@@ -57,7 +57,23 @@ enum MAIL_T
     MAIL_RELOAD_LIB,               // Reload Library List if one was added
     MAIL_RELOAD_PLUGINS,           // Reload python plugins
     MAIL_REFRESH_SYMBOL,           // Refresh symbol in symbol viewer
-    MAIL_SCH_NAVIGATE_TO_SHEET     // Navigate to sheet by filename if in hierarchy
+    MAIL_SCH_NAVIGATE_TO_SHEET,    // Navigate to sheet by filename if in hierarchy
+
+    /**
+     * Envil AI: run one AI tool call against the schematic (SHELL/AI->SCH).
+     *
+     * Unlike the other mails this one is a request/response: the payload carries the tool
+     * request as JSON in, and the handler overwrites it with the result JSON out. This works
+     * because KIWAY::ExpressMail/ProcessEvent dispatch synchronously and hand the *same*
+     * KIWAY_MAIL_EVENT to the recipient, so writes to mail.GetPayload() are visible to the
+     * sender once dispatch returns. It is what lets the shell-owned AI panel (CommonAiPanel),
+     * which lives in kicad.exe and cannot see SCH_EDIT_FRAME across the KIFACE boundary,
+     * still place parts in the schematic.
+     *
+     * In:  {"tool":"add_component","input":{ ... }}
+     * Out: {"ok":true|false,"message":"..."}
+     */
+    MAIL_ENVIL_AI_TOOL
 };
 
 #endif  // MAIL_TYPE_H_

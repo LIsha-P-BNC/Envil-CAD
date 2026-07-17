@@ -62,6 +62,7 @@ class SCH_DESIGN_BLOCK_PANE;
 class PANEL_REMOTE_SYMBOL;
 class WEBVIEW_PANEL;
 class AI_IPC_CLIENT;
+class ENVIL_AI_AGENT;
 class DIALOG_BOOK_REPORTER;
 class DIALOG_ERC;
 class DIALOG_SYMBOL_FIELDS_TABLE;
@@ -1135,6 +1136,7 @@ private:
     PANEL_REMOTE_SYMBOL*        m_remoteSymbolPane;
     WEBVIEW_PANEL*              m_aiChatPanel;
     std::unique_ptr<AI_IPC_CLIENT> m_aiIpcClient;
+    ENVIL_AI_AGENT*             m_envilAgent;   // native in-process AI agent
     wxTimer                     m_aiIpcRetryTimer;
     int                         m_aiIpcRetryAttempts = 0;
 

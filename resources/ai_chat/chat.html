@@ -1234,67 +1234,31 @@ function addUserRow(text, attachments) {
   return bub;
 }
 
+// Native transport: messages go to the C++ host over the wxWebView bridge
+// (window.envilSend.postMessage) instead of a WebSocket to a Python backend.
+// The C++ side pushes server messages back by calling window.appendServerMessage().
 function send(obj) {
-  if (!ws || ws.readyState !== WebSocket.OPEN) return false;
   obj.session_id = sessionId;
-  // A real turn starts only when a prompt (or the no-LLM Gerber export) is
-  // sent; a "reset" (New Chat / /clear) explicitly ends any turn. This single
-  // choke point is what lets the "status" handler below ignore the server's
-  // "Conversation reset." ack so New Chat no longer flashes the spinner.
   if (obj.kind === "message" || obj.kind === "export_gerbers") turnActive = true;
   else if (obj.kind === "reset") turnActive = false;
-  ws.send(JSON.stringify(obj));
+  try {
+    window.envilSend.postMessage(JSON.stringify(obj));
+  } catch (e) {
+    console.error("[envil] bridge send failed", e);
+    return false;
+  }
   return true;
 }
 
 function connect() {
-  if (ws) { try { ws.close(); } catch(_) {} ws = null; }
-  setStatus("connecting", "Connecting");
-  try { ws = new WebSocket(wsUrl); }
-  catch(e) { setStatus("disconnected", "Disconnected"); scheduleReconnect(); return; }
-
-  ws.onopen = () => {
-    setStatus("connected", "Connected");
-    reconnectMs = 1000;
-    if (reconnectTimer) { clearTimeout(reconnectTimer); reconnectTimer = null; }
-    send({ kind: "hello", project_path: projectPath,
-           schematic_file: schematic, pcb_file: pcbFile, app: appCtx });
-    showCtxFile(appCtx === "pcb" ? (pcbFile || schematic) : schematic);
-    if (keepalive) clearInterval(keepalive);
-    keepalive = setInterval(() => send({ kind: "ping" }), 15000);
-  };
-  ws.onclose = () => {
-    setStatus("disconnected", "Disconnected");
-    // If the socket drops while a build is in flight, the spinner would
-    // otherwise cycle "Analyzing…/Designing…" forever. Clear it and tell the
-    // user the build was interrupted (timeout/drop) so they can retry, instead
-    // of staring at a frozen spinner. Only fires when thinking was active, so a
-    // benign idle reconnect stays quiet.
-    if (thinkEl.classList.contains("active") || currentThink) {
-      turnActive = false;
-      showThinking(false);
-      collapseThink();
-      addError("Connection dropped during the build — it may have timed out. "
-               + "Reconnecting; please retry if it doesn't resume.");
-    }
-    if (keepalive) { clearInterval(keepalive); keepalive = null; }
-    scheduleReconnect();
-  };
-  ws.onerror = (e) => console.error("[envil] ws error", e);
-  ws.onmessage = (e) => {
-    try { handleSrv(JSON.parse(e.data)); }
-    catch(err) { console.error("[envil] bad msg", err, e.data); }
-  };
+  // Native agent lives in-process; treat as always connected.
+  setStatus("connected", "Native");
+  send({ kind: "hello", project_path: projectPath,
+         schematic_file: schematic, pcb_file: pcbFile, app: appCtx });
+  showCtxFile(appCtx === "pcb" ? (pcbFile || schematic) : schematic);
 }
 
-function scheduleReconnect() {
-  if (reconnectTimer) return;
-  reconnectTimer = setTimeout(() => {
-    reconnectTimer = null;
-    reconnectMs = Math.min(reconnectMs * 2, 10000);
-    connect();
-  }, reconnectMs);
-}
+function scheduleReconnect() { /* native transport: no reconnect needed */ }
 
 function handleSrv(m) {
   if (m.session_id) {

@@ -41,6 +41,7 @@
 #include <richio.h>
 #include <tools/sch_actions.h>
 #include <tools/sch_editor_control.h>
+#include <widgets/envil_ai_tool_exec.h>
 #include <advanced_config.h>
 
 #include <pgm_base.h>
@@ -845,6 +846,13 @@ void SCH_EDIT_FRAME::KiwayMailIn( KIWAY_MAIL_EVENT& mail )
 
     switch( mail.Command() )
     {
+    case MAIL_ENVIL_AI_TOOL:
+        // Request/response mail: the AI agent (which may live in the shell, outside this
+        // KIFACE) sends a tool call as JSON and reads the result back out of the payload.
+        // Safe because KIWAY dispatches this synchronously with the same event object.
+        payload = EnvilExecAiTool( this, payload );
+        break;
+
     case MAIL_ADD_LOCAL_LIB:
     {
         std::stringstream ss( payload );
