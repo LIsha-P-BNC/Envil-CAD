@@ -61,11 +61,17 @@ function callEnvil(request) {
   });
 }
 
+// All coordinates are in MILS and should be multiples of 50 (the default schematic grid),
+// so pins and wire ends actually land on grid and connect.
+const XY = {
+  x_mils: { type: "integer", description: "X position in mils (multiple of 50)." },
+  y_mils: { type: "integer", description: "Y position in mils (multiple of 50)." },
+};
+
 const TOOLS = [
   {
     name: "add_component",
-    description:
-      "Place a component symbol into the schematic currently open in Envil-CAD.",
+    description: "Place a component symbol into the schematic open in Envil-CAD.",
     inputSchema: {
       type: "object",
       properties: {
@@ -73,14 +79,98 @@ const TOOLS = [
           type: "string",
           description:
             "KiCad library id 'Library:Symbol', e.g. 'Regulator_Linear:AP2112K-3.3', " +
-            "'Device:R', 'Device:C', 'power:GND'.",
+            "'Device:R', 'Device:C', 'power:GND', 'power:+3V3'.",
         },
         reference: { type: "string", description: "Reference designator, e.g. U1, R1, C1." },
         value: { type: "string", description: "Optional value, e.g. '10k'." },
-        x_mils: { type: "integer", description: "X position in mils (multiple of 50)." },
-        y_mils: { type: "integer", description: "Y position in mils (multiple of 50)." },
+        ...XY,
       },
       required: ["lib_id", "reference"],
+    },
+  },
+  {
+    name: "add_wire",
+    description:
+      "Draw a wire path. Each consecutive pair of points becomes one wire segment, so a " +
+      "multi-point path draws a connected polyline. Use right-angle paths.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        points: {
+          type: "array",
+          description: "Ordered [x_mils, y_mils] pairs, at least two.",
+          items: {
+            type: "array",
+            items: { type: "integer" },
+            minItems: 2,
+            maxItems: 2,
+          },
+          minItems: 2,
+        },
+      },
+      required: ["points"],
+    },
+  },
+  {
+    name: "add_label",
+    description: "Add a net label at a point (net naming / connect-by-name).",
+    inputSchema: {
+      type: "object",
+      properties: {
+        name: { type: "string", description: "Net name, e.g. 'VOUT', 'SW'." },
+        kind: {
+          type: "string",
+          enum: ["label", "global", "hier"],
+          description: "label = local (default), global = global label, hier = hierarchical.",
+        },
+        ...XY,
+      },
+      required: ["name"],
+    },
+  },
+  {
+    name: "add_junction",
+    description: "Add a junction dot where wires cross and must connect.",
+    inputSchema: { type: "object", properties: { ...XY }, required: ["x_mils", "y_mils"] },
+  },
+  {
+    name: "add_no_connect",
+    description: "Mark a pin as intentionally unconnected (X flag).",
+    inputSchema: { type: "object", properties: { ...XY }, required: ["x_mils", "y_mils"] },
+  },
+  {
+    name: "edit_value",
+    description: "Change the value field of an already-placed symbol.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        reference: { type: "string", description: "Reference designator, e.g. R2." },
+        new_value: { type: "string", description: "New value, e.g. '47k'." },
+      },
+      required: ["reference", "new_value"],
+    },
+  },
+  {
+    name: "move_component",
+    description: "Move an already-placed symbol to a new position.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        reference: { type: "string", description: "Reference designator, e.g. C3." },
+        ...XY,
+      },
+      required: ["reference", "x_mils", "y_mils"],
+    },
+  },
+  {
+    name: "delete_component",
+    description: "Delete a placed symbol by reference designator.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        reference: { type: "string", description: "Reference designator to delete." },
+      },
+      required: ["reference"],
     },
   },
 ];

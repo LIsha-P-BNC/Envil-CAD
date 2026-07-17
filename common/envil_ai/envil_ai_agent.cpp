@@ -138,30 +138,92 @@ void ENVIL_AI_AGENT::onBridgeMessage( const wxString& aJson )
 
 std::string ENVIL_AI_AGENT::toolsJson() const
 {
-    json tool;
-    tool["name"] = "add_component";
-    tool["description"] = "Place a component symbol into the open schematic in Envil-CAD.";
+    // Mirrors the tool set exposed over MCP (tools/envil-mcp) so the in-app panel and an
+    // external Claude client can do exactly the same things. All coords are mils, mult. of 50.
+    const json xMils = { { "type", "integer" }, { "description", "X position in mils (mult. of 50)." } };
+    const json yMils = { { "type", "integer" }, { "description", "Y position in mils (mult. of 50)." } };
 
-    json props = json::object();
-    props["lib_id"] = { { "type", "string" },
-                        { "description",
-                          "KiCad library id 'Library:Symbol', e.g. "
-                          "'Regulator_Linear:AP2112K-3.3', 'Device:R', 'Device:C', 'power:GND'." } };
-    props["reference"] = { { "type", "string" },
-                           { "description", "Reference designator, e.g. U1, R1, C1." } };
-    props["value"] = { { "type", "string" }, { "description", "Optional value, e.g. '10k'." } };
-    props["x_mils"] = { { "type", "integer" },
-                        { "description", "X position in mils (mult. of 50)." } };
-    props["y_mils"] = { { "type", "integer" },
-                        { "description", "Y position in mils (mult. of 50)." } };
+    json tools = json::array();
 
-    json schema;
-    schema["type"] = "object";
-    schema["properties"] = props;
-    schema["required"] = json::array( { "lib_id", "reference" } );
-    tool["input_schema"] = schema;
+    auto makeTool = []( const std::string& aName, const std::string& aDesc, const json& aProps,
+                        const json& aRequired )
+    {
+        json schema;
+        schema["type"] = "object";
+        schema["properties"] = aProps;
+        schema["required"] = aRequired;
 
-    return json::array( { tool } ).dump();
+        json t;
+        t["name"] = aName;
+        t["description"] = aDesc;
+        t["input_schema"] = schema;
+        return t;
+    };
+
+    tools.push_back( makeTool(
+            "add_component", "Place a component symbol into the open schematic in Envil-CAD.",
+            { { "lib_id",
+                { { "type", "string" },
+                  { "description", "KiCad library id 'Library:Symbol', e.g. "
+                                   "'Regulator_Linear:AP2112K-3.3', 'Device:R', 'Device:C', "
+                                   "'power:GND', 'power:+3V3'." } } },
+              { "reference",
+                { { "type", "string" }, { "description", "Reference designator, e.g. U1, R1." } } },
+              { "value", { { "type", "string" }, { "description", "Optional value, e.g. '10k'." } } },
+              { "x_mils", xMils },
+              { "y_mils", yMils } },
+            json::array( { "lib_id", "reference" } ) ) );
+
+    tools.push_back( makeTool(
+            "add_wire",
+            "Draw a wire path; each consecutive pair of points becomes one segment. Use "
+            "right-angle paths.",
+            { { "points",
+                { { "type", "array" },
+                  { "description", "Ordered [x_mils, y_mils] pairs, at least two." },
+                  { "items",
+                    { { "type", "array" }, { "items", { { "type", "integer" } } } } } } } },
+            json::array( { "points" } ) ) );
+
+    tools.push_back( makeTool(
+            "add_label", "Add a net label at a point (connect-by-name).",
+            { { "name", { { "type", "string" }, { "description", "Net name, e.g. 'VOUT'." } } },
+              { "kind",
+                { { "type", "string" },
+                  { "enum", json::array( { "label", "global", "hier" } ) },
+                  { "description", "label = local (default), global, or hier." } } },
+              { "x_mils", xMils },
+              { "y_mils", yMils } },
+            json::array( { "name" } ) ) );
+
+    tools.push_back( makeTool( "add_junction",
+                               "Add a junction dot where wires cross and must connect.",
+                               { { "x_mils", xMils }, { "y_mils", yMils } },
+                               json::array( { "x_mils", "y_mils" } ) ) );
+
+    tools.push_back( makeTool( "add_no_connect", "Mark a pin as intentionally unconnected.",
+                               { { "x_mils", xMils }, { "y_mils", yMils } },
+                               json::array( { "x_mils", "y_mils" } ) ) );
+
+    tools.push_back( makeTool(
+            "edit_value", "Change the value field of an already-placed symbol.",
+            { { "reference", { { "type", "string" }, { "description", "e.g. R2." } } },
+              { "new_value", { { "type", "string" }, { "description", "e.g. '47k'." } } } },
+            json::array( { "reference", "new_value" } ) ) );
+
+    tools.push_back( makeTool(
+            "move_component", "Move an already-placed symbol.",
+            { { "reference", { { "type", "string" }, { "description", "e.g. C3." } } },
+              { "x_mils", xMils },
+              { "y_mils", yMils } },
+            json::array( { "reference", "x_mils", "y_mils" } ) ) );
+
+    tools.push_back( makeTool(
+            "delete_component", "Delete a placed symbol by reference designator.",
+            { { "reference", { { "type", "string" }, { "description", "e.g. R5." } } } },
+            json::array( { "reference" } ) ) );
+
+    return tools.dump();
 }
 
 
