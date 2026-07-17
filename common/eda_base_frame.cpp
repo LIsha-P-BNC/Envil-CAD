@@ -194,15 +194,15 @@ EDA_BASE_FRAME::EDA_BASE_FRAME( wxWindow* aParent, FRAME_T aFrameType, const wxS
     m_tbLeft   = nullptr;
     m_uiUpdateHandlerBound = false;
 
-    // Envil: apply the app-wide UI base font size (EnvilUiFontPt) up-front, before commonInit()
+    // Anvil: apply the app-wide UI base font size (AnvilUiFontPt) up-front, before commonInit()
     // and the derived frame build their child controls, so the status bar, tool-bars, side panels
     // and project tree all inherit it.  The KIUI font helpers derive from the window font, so they
     // follow automatically.  The drawing canvas uses the GAL font stack and is left untouched, and
     // the single-window shell's top title-bar menu sets its own absolute size (so it is excluded).
-    if( ADVANCED_CFG::GetCfg().m_EnvilUiFontPt > 0.0 )
+    if( ADVANCED_CFG::GetCfg().m_AnvilUiFontPt > 0.0 )
     {
         wxFont uiFont = GetFont();
-        uiFont.SetFractionalPointSize( ADVANCED_CFG::GetCfg().m_EnvilUiFontPt );
+        uiFont.SetFractionalPointSize( ADVANCED_CFG::GetCfg().m_AnvilUiFontPt );
         SetFont( uiFont );
     }
 
@@ -383,7 +383,7 @@ bool EDA_BASE_FRAME::ProcessEvent( wxEvent& aEvent )
     if( Pgm().m_Quitting )
         return true;
 
-    // Envil: EnvilAutoSaveRealFile is VSCode-style autosave to the REAL project file, so
+    // Anvil: AnvilAutoSaveRealFile is VSCode-style autosave to the REAL project file, so
     // both the user's manual edits AND the AI (which reads the file from disk each turn)
     // always observe the current design. It MUST fire regardless of focus/visibility.
     // In the SingleWindowShell the editor is reparented into a WS_CHILD tab (see
@@ -391,9 +391,9 @@ bool EDA_BASE_FRAME::ProcessEvent( wxEvent& aEvent )
     // owns activation — and the classic `IsShownOnScreen() && IsActive()` gate would never
     // let the timer arm, meaning manual edits never reach disk. When the flag is on, arm on
     // "content modified" alone; when off the condition is byte-identical to upstream.
-    const bool envilRealFileSave = ADVANCED_CFG::GetCfg().m_EnvilAutoSaveRealFile;
+    const bool anvilRealFileSave = ADVANCED_CFG::GetCfg().m_AnvilAutoSaveRealFile;
     const bool eligibleForAutoSave = m_supportsAutoSave
-            && ( envilRealFileSave || ( IsShownOnScreen() && IsActive() ) );
+            && ( anvilRealFileSave || ( IsShownOnScreen() && IsActive() ) );
 
     if( !m_isClosing && eligibleForAutoSave
             && m_autoSavePending != isAutoSaveRequired()
@@ -421,10 +421,10 @@ int EDA_BASE_FRAME::GetAutoSaveInterval() const
 {
     int interval = Pgm().GetCommonSettings()->m_System.local_history_debounce;
 
-    // KiCad Next / Envil: when autosave writes the real project file (so the AI sees manual
+    // KiCad Next / Anvil: when autosave writes the real project file (so the AI sees manual
     // edits), the timer MUST arm even if the user never configured a history debounce.  Fall
     // back to a short positive default in that case; a user-set interval is still honoured.
-    if( ADVANCED_CFG::GetCfg().m_EnvilAutoSaveRealFile && interval <= 0 )
+    if( ADVANCED_CFG::GetCfg().m_AnvilAutoSaveRealFile && interval <= 0 )
         interval = 3;
 
     return interval;

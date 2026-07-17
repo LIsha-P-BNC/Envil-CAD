@@ -232,7 +232,7 @@ PCB_EDIT_FRAME::PCB_EDIT_FRAME( KIWAY* aKiway, wxWindow* aParent ) :
     // assume dirty
     m_ZoneFillsDirty = true;
 
-    m_aboutTitle = _HKI( "Envil PCB Editor" );
+    m_aboutTitle = _HKI( "Anvil PCB Editor" );
 
     // Must be created before the menus are created.
     if( ADVANCED_CFG::GetCfg().m_ShowPcbnewExportNetlist )
@@ -317,7 +317,7 @@ PCB_EDIT_FRAME::PCB_EDIT_FRAME( KIWAY* aKiway, wxWindow* aParent ) :
         if( !commonAiPanel )
         {
             // Debug: write AI panel init status to a file
-            FILE* dbg = fopen( "F:\\Envil\\ai_panel_debug.log", "w" );
+            FILE* dbg = fopen( "F:\\Anvil\\ai_panel_debug.log", "w" );
             if( dbg ) { fprintf( dbg, "=== PCBnew AI Panel Init ===\n" ); fflush( dbg ); }
 
             m_aiChatPanel = new WEBVIEW_PANEL( this );
@@ -443,7 +443,14 @@ PCB_EDIT_FRAME::PCB_EDIT_FRAME( KIWAY* aKiway, wxWindow* aParent ) :
                                         && filePath.Lower().EndsWith( wxT( ".kicad_pcb" ) ) )
                                 {
                                     wxLogDebug( wxT( "AI: Opening generated PCB: %s" ), filePath );
-                                    OpenProjectFiles( std::vector<wxString>( 1, filePath ) );
+
+                                    // Route through the crash-safe reload: open_file may load
+                                    // a DIFFERENT generated board, but it hits the same
+                                    // Clear_Pcb() board-swap surface as revert, so it needs
+                                    // the same tool/selection/timer teardown + no-drain load.
+                                    // The modified flag is deliberately left set, so a board
+                                    // with unsaved edits still prompts HandleUnsavedChanges.
+                                    reloadBoardSafely( filePath, KICTL_REVERT );
                                 }
                             }
                             else if( action == wxT( "refresh" ) )
@@ -490,64 +497,43 @@ PCB_EDIT_FRAME::PCB_EDIT_FRAME( KIWAY* aKiway, wxWindow* aParent ) :
                                         && targetFile.Lower().EndsWith(
                                                 wxT( ".kicad_pcb" ) ) )
                                 {
-                                    // Drop the revert if a reload is already in
-                                    // flight. OpenProjectFiles(KICTL_REVERT) spins
-                                    // a nested modal loop (zone tessellation); a
-                                    // second revert dispatched into that loop would
-                                    // re-enter here and hang the "Load PCB" dialog.
-                                    if( m_aiIpcReverting )
+                                    // Idempotency: skip if the on-disk board is unchanged
+                                    // since we loaded it. The backend replays this same
+                                    // sticky revert on EVERY reconnect (pcbnew's IPC socket
+                                    // bounces once per turn), so without this the identical
+                                    // board is reloaded repeatedly — each swap another chance
+                                    // to trip the use-after-free. mtime+size is conservative:
+                                    // a false mismatch only forces a (now crash-safe)
+                                    // redundant reload, never a wrong skip that loses edits.
+                                    wxFileName revFn( targetFile );
+                                    revFn.MakeAbsolute();
+
+                                    if( revFn.GetFullPath().IsSameAs( m_lastLoadedBoardPath,
+                                                                      false )
+                                            && revFn.IsFileReadable()
+                                            && revFn.GetModificationTime().GetTicks()
+                                                       == m_lastLoadedBoardMtime
+                                            && revFn.GetSize().GetValue()
+                                                       == m_lastLoadedBoardSize )
+                                    {
+                                        wxLogDebug( wxT( "AI: revert skipped (board unchanged "
+                                                         "since last load): %s" ),
+                                                    targetFile );
                                         return;
+                                    }
 
                                     wxLogDebug( wxT( "AI: Silent PCB revert via IPC: %s" ),
                                                 targetFile );
 
+                                    // Clear the modified flag so the silent reload is not
+                                    // blocked by a "discard changes?" dialog.
                                     if( GetScreen() )
                                         GetScreen()->SetContentModified( false );
 
-                                    // Scope-bound guard: cleared on every exit path
-                                    // (including exceptions from OpenProjectFiles) so
-                                    // a failed reload can never wedge the flag true
-                                    // and mute all future reverts.
-                                    m_aiIpcReverting = true;
-
-                                    try
-                                    {
-                                        // We are called from an async IPC CallAfter,
-                                        // NOT the tool-action stack the native
-                                        // File>Revert (BOARD_EDITOR_CONTROL::Revert)
-                                        // runs on. OpenProjectFiles()->Clear_Pcb()
-                                        // deletes every board item; if an interactive
-                                        // tool or a live selection still holds pointers
-                                        // into them the reload dereferences freed
-                                        // memory and crashes — and since pcbnew is a
-                                        // docked child of the SingleWindowShell, that
-                                        // takes the WHOLE app down. Reach the same safe
-                                        // state the native revert relies on before
-                                        // reloading: cancel any active tool, drop the
-                                        // selection, and release our file lock (native
-                                        // does the last via ReleaseFile()).
-                                        if( TOOL_MANAGER* tm = GetToolManager() )
-                                        {
-                                            tm->RunAction( ACTIONS::cancelInteractive );
-
-                                            if( PCB_SELECTION_TOOL* selTool =
-                                                    tm->GetTool<PCB_SELECTION_TOOL>() )
-                                                selTool->ClearSelection( true );
-                                        }
-
-                                        ReleaseFile();
-
-                                        OpenProjectFiles(
-                                                std::vector<wxString>( 1, targetFile ),
-                                                KICTL_REVERT );
-                                    }
-                                    catch( ... )
-                                    {
-                                        m_aiIpcReverting = false;
-                                        throw;
-                                    }
-
-                                    m_aiIpcReverting = false;
+                                    // Crash-safe reload (re-entrancy guard + tool/selection/
+                                    // flash-timer teardown + no-drain load). KICTL_REVERT
+                                    // selects the no-drain progress reporter (files.cpp).
+                                    reloadBoardSafely( targetFile, KICTL_REVERT );
                                 }
                             }
                         }
@@ -1129,6 +1115,57 @@ void PCB_EDIT_FRAME::OnCrossProbeFlashTimer( wxTimerEvent& aEvent )
         wxLogTrace( traceCrossProbeFlash, "Flashing complete (PCB). Final selection size=%zu",
                     m_crossProbeFlashItems.size() );
     }
+}
+
+
+bool PCB_EDIT_FRAME::reloadBoardSafely( const wxString& aTargetFile, int aCtl )
+{
+    // Drop the reload if one is already in flight. OpenProjectFiles() can spin a nested
+    // event loop; a second reload dispatched into it would re-enter this board swap. (The
+    // no-drain reporter now suppresses that pump for reverts, but keep the guard so a stray
+    // second IPC command can never re-enter mid-swap.)
+    if( m_aiIpcReverting )
+        return false;
+
+    // Scope-bound guard: cleared on every exit path (including an exception thrown out of
+    // OpenProjectFiles) so a failed reload can never wedge the flag true and mute all
+    // future reverts.
+    m_aiIpcReverting = true;
+
+    try
+    {
+        // Stop the cross-probe flash timer FIRST: its stored KIIDs (m_crossProbeFlashItems)
+        // point into the board that OpenProjectFiles()->Clear_Pcb()/delete m_pcb is about to
+        // free, and it fires on its own schedule, not just from the drained event queue.
+        m_crossProbeFlashing = false;
+        m_crossProbeFlashTimer.Stop();
+
+        // We are called from an async IPC CallAfter, NOT the tool-action stack the native
+        // File>Revert (BOARD_EDITOR_CONTROL::Revert) runs on. Reach the same safe state the
+        // native revert relies on before reloading: cancel any active tool, drop the live
+        // selection (both hold pointers into the board items Clear_Pcb() frees), and release
+        // our file lock. Since pcbnew is a docked child of the SingleWindowShell, a stale
+        // dereference here would take the WHOLE app down.
+        if( TOOL_MANAGER* tm = GetToolManager() )
+        {
+            tm->RunAction( ACTIONS::cancelInteractive );
+
+            if( PCB_SELECTION_TOOL* selTool = tm->GetTool<PCB_SELECTION_TOOL>() )
+                selTool->ClearSelection( true );
+        }
+
+        ReleaseFile();
+
+        OpenProjectFiles( std::vector<wxString>( 1, aTargetFile ), aCtl );
+    }
+    catch( ... )
+    {
+        m_aiIpcReverting = false;
+        throw;
+    }
+
+    m_aiIpcReverting = false;
+    return true;
 }
 
 
@@ -3950,12 +3987,12 @@ void PCB_EDIT_FRAME::OnEditItemRequest( BOARD_ITEM* aItem )
 
 bool PCB_EDIT_FRAME::DoAutoSave()
 {
-    // KiCad Next / Envil: VSCode-style autosave to the REAL .kicad_pcb (not the .history
+    // KiCad Next / Anvil: VSCode-style autosave to the REAL .kicad_pcb (not the .history
     // snapshot) so the AI backend, which reads the live board file, observes the user's manual
     // edits automatically — the Cursor way.  addToHistory=false (no snapshot) and
     // aChangeProject=false (don't rewrite project metadata); only writes a modified, writable,
     // named board.  A clean/unnamed/read-only board is a no-op.
-    if( ADVANCED_CFG::GetCfg().m_EnvilAutoSaveRealFile )
+    if( ADVANCED_CFG::GetCfg().m_AnvilAutoSaveRealFile )
     {
         if( IsContentModified() && !Prj().IsReadOnly() && !GetBoard()->GetFileName().IsEmpty() )
             SavePcbFile( Prj().AbsolutePath( GetBoard()->GetFileName() ), false, false );

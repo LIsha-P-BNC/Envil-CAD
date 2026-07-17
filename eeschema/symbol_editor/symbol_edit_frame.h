@@ -73,8 +73,8 @@ public:
     bool IsContentModified() const override;
 
     /**
-     * KiCad Next / Envil: autosave the edited symbol to its REAL .kicad_sym library
-     * (not the .history snapshot) when the EnvilAutoSaveRealFile advanced flag is on, so
+     * KiCad Next / Anvil: autosave the edited symbol to its REAL .kicad_sym library
+     * (not the .history snapshot) when the AnvilAutoSaveRealFile advanced flag is on, so
      * the AI backend sees manual library edits without a Ctrl+S.  Silent no-op for
      * symbols pulled from the schematic and for read-only libraries.
      */

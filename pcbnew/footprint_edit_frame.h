@@ -60,8 +60,8 @@ public:
     bool IsContentModified() const override;
 
     /**
-     * KiCad Next / Envil: autosave the edited footprint to its REAL library (not the
-     * .history snapshot) when the EnvilAutoSaveRealFile advanced flag is on, so the AI
+     * KiCad Next / Anvil: autosave the edited footprint to its REAL library (not the
+     * .history snapshot) when the AnvilAutoSaveRealFile advanced flag is on, so the AI
      * backend sees manual library edits without a Ctrl+S.  Silent no-op for footprints
      * linked to the board, unnamed footprints, and read-only/legacy libraries.
      */

@@ -412,7 +412,7 @@ namespace
  * Rebuild a visibility-toggle bitmap bundle with the glyph luminance-inverted, preserving the
  * source icon's alpha.
  *
- * The stock "eye" glyphs are dark-on-transparent (designed for a light panel); on the Envil
+ * The stock "eye" glyphs are dark-on-transparent (designed for a light panel); on the Anvil
  * purple/forced-dark panel (background lum ~18–33) the dark ink blends into the background and the
  * icons read as "missing".  Inverting each channel (255 − v) turns the dark iris/outline light
  * while keeping the internal structure, so the toggle reads clearly as an eye on the dark panel.
@@ -476,9 +476,9 @@ APPEARANCE_CONTROLS::APPEARANCE_CONTROLS( PCB_BASE_FRAME* aParent, wxWindow* aFo
     m_visibleBitmapBundle = KiBitmapBundle( BITMAPS::visibility );
     m_notVisibileBitmapBundle = KiBitmapBundle( BITMAPS::visibility_off );
 
-    // Under the Envil forced-dark (purple) chrome the stock dark "eye" glyphs blend into the dark
+    // Under the Anvil forced-dark (purple) chrome the stock dark "eye" glyphs blend into the dark
     // panel; luminance-invert them so they read as light icons on the dark background.
-    if( ADVANCED_CFG::GetCfg().m_EnvilPurpleFrame )
+    if( ADVANCED_CFG::GetCfg().m_AnvilPurpleFrame )
     {
         if( wxBitmapBundle inverted = invertVisibilityBundle( BITMAPS::visibility ); inverted.IsOk() )
             m_visibleBitmapBundle = inverted;

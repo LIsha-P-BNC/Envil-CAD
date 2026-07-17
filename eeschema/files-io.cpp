@@ -855,7 +855,7 @@ bool SCH_EDIT_FRAME::OpenProjectFiles( const std::vector<wxString>& aFileSet, in
         projPath.Replace( wxT( "\"" ), wxT( "\\\"" ) );
         schFile.Replace( wxT( "\"" ), wxT( "\\\"" ) );
         wxString script = wxString::Format(
-            wxT( "if (window.envilSetSchematic) window.envilSetSchematic(\"%s\", \"%s\");" ),
+            wxT( "if (window.anvilSetSchematic) window.anvilSetSchematic(\"%s\", \"%s\");" ),
             projPath, schFile );
         m_aiChatPanel->RunScriptAsync( script );
     }

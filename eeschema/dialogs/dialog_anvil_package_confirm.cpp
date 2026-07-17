@@ -1,8 +1,8 @@
 /*
- * This program source code file is part of Envil.
+ * This program source code file is part of Anvil.
  */
 
-#include "dialog_envil_package_confirm.h"
+#include "dialog_anvil_package_confirm.h"
 
 #include <sch_base_frame.h>
 #include <widgets/footprint_select_widget.h>
@@ -14,7 +14,7 @@
 #include <wx/stattext.h>
 
 
-DIALOG_ENVIL_PACKAGE_CONFIRM::DIALOG_ENVIL_PACKAGE_CONFIRM( SCH_BASE_FRAME* aParent,
+DIALOG_ANVIL_PACKAGE_CONFIRM::DIALOG_ANVIL_PACKAGE_CONFIRM( SCH_BASE_FRAME* aParent,
                                                              const LIB_ID& aLibId,
                                                              const wxString& aSymbolName,
                                                              const wxArrayString& aFpFilters,
@@ -66,9 +66,9 @@ DIALOG_ENVIL_PACKAGE_CONFIRM::DIALOG_ENVIL_PACKAGE_CONFIRM( SCH_BASE_FRAME* aPar
 
     SetSizer( mainSizer );
 
-    m_packageTypeCtrl->Bind( wxEVT_RADIOBOX, &DIALOG_ENVIL_PACKAGE_CONFIRM::onPackageTypeChanged,
+    m_packageTypeCtrl->Bind( wxEVT_RADIOBOX, &DIALOG_ANVIL_PACKAGE_CONFIRM::onPackageTypeChanged,
                               this );
-    m_fpSelect->Bind( EVT_FOOTPRINT_SELECTED, &DIALOG_ENVIL_PACKAGE_CONFIRM::onFootprintSelected,
+    m_fpSelect->Bind( EVT_FOOTPRINT_SELECTED, &DIALOG_ANVIL_PACKAGE_CONFIRM::onFootprintSelected,
                        this );
 
     SetupStandardButtons();
@@ -77,14 +77,14 @@ DIALOG_ENVIL_PACKAGE_CONFIRM::DIALOG_ENVIL_PACKAGE_CONFIRM( SCH_BASE_FRAME* aPar
 }
 
 
-void DIALOG_ENVIL_PACKAGE_CONFIRM::onPackageTypeChanged( wxCommandEvent& aEvent )
+void DIALOG_ANVIL_PACKAGE_CONFIRM::onPackageTypeChanged( wxCommandEvent& aEvent )
 {
     m_packagePref = ( m_packageTypeCtrl->GetSelection() == 1 ) ? PACKAGE_PREF::SMD
                                                                 : PACKAGE_PREF::THT;
 }
 
 
-void DIALOG_ENVIL_PACKAGE_CONFIRM::onFootprintSelected( wxCommandEvent& aEvent )
+void DIALOG_ANVIL_PACKAGE_CONFIRM::onFootprintSelected( wxCommandEvent& aEvent )
 {
     m_selectedFootprint = aEvent.GetString();
 }

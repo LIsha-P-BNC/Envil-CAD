@@ -1093,17 +1093,17 @@ public:
     bool m_SingleClickOpen;
 
     /**
-     * KiCad Next / Envil: folder-based symbol libraries (`*.kicad_symdir`, one `*.kicad_sym`
+     * KiCad Next / Anvil: folder-based symbol libraries (`*.kicad_symdir`, one `*.kicad_sym`
      * file per symbol) are loaded by opening and parsing every file in the directory on the
-     * GUI thread.  With the Envil library set (~223 libs / ~22,800 files) that synchronous
+     * GUI thread.  With the Anvil library set (~223 libs / ~22,800 files) that synchronous
      * enumeration freezes the window ("Not Responding") on the first Symbol Chooser / editor
      * load — and a real-time antivirus scanning each opened file amplifies it badly.
      *
      * When enabled, a per-library consolidated cache (one `*.kicad_sym` aggregate + a small
-     * manifest, kept in a sibling `.envil_symcache/` folder) is read on load instead of the
+     * manifest, kept in a sibling `.anvil_symcache/` folder) is read on load instead of the
      * thousands of individual files, collapsing N file-opens to 1.  The cache is keyed on the
      * directory's content fingerprint (the same TimestampDir value the staleness check already
-     * uses), so any add/remove/edit — including edits made out-of-process by the Envil Python
+     * uses), so any add/remove/edit — including edits made out-of-process by the Anvil Python
      * backend — invalidates it and triggers a one-time rebuild.  Purely a read accelerator:
      * symbol writes still go to the individual per-symbol files, and the manifest preserves the
      * original file grouping so saving is byte-identical.
@@ -1122,9 +1122,9 @@ public:
     bool m_SymDirAggregateCache;
 
     /**
-     * KiCad Next / Envil: paint the schematic editor's window chrome (the "frame": dockable
+     * KiCad Next / Anvil: paint the schematic editor's window chrome (the "frame": dockable
      * panel backgrounds, sashes/borders/captions, the AUI tool-bars and child controls) with
-     * the Envil "Vibrant Purple & Indigo" dark palette, instead of the OS/native colours.
+     * the Anvil "Vibrant Purple & Indigo" dark palette, instead of the OS/native colours.
      * Scoped to the schematic editor only — the project manager and the other editors are left
      * untouched.  The drawing canvas (the "screen") is intentionally NOT recoloured here; that
      * is driven by the colour theme and handled separately.
@@ -1136,14 +1136,14 @@ public:
      *
      * OPT-IN (default 0) so the chrome is byte-identical to stock KiCad until explicitly enabled.
      *
-     * Setting name: "EnvilPurpleFrame"
+     * Setting name: "AnvilPurpleFrame"
      * Valid values: 0 or 1
      * Default value: 0
      */
-    bool m_EnvilPurpleFrame;
+    bool m_AnvilPurpleFrame;
 
     /**
-     * KiCad Next / Envil: base point size for the application UI font (menus' dropdowns, side
+     * KiCad Next / Anvil: base point size for the application UI font (menus' dropdowns, side
      * panels, project tree, status bars, dialogs — every wx control that derives its font from
      * the window font).  Applied once on each EDA_BASE_FRAME and DIALOG_SHIM at construction;
      * the KIUI font helpers (GetControlFont / GetInfoFont / ...) then derive from it, so the
@@ -1151,18 +1151,18 @@ public:
      * not wxFont, and is intentionally untouched.  The single-window shell's top title-bar menu
      * sets its own absolute size and so is deliberately NOT governed by this value.
      *
-     * Declared LAST in the struct (after EnvilPurpleFrame) on purpose: see the ABI note above —
+     * Declared LAST in the struct (after AnvilPurpleFrame) on purpose: see the ABI note above —
      * appending keeps every existing member's offset stable, so the editor KIFACEs need not be
      * rebuilt for this addition (only kicommon, which owns EDA_BASE_FRAME / DIALOG_SHIM).
      *
-     * Setting name: "EnvilUiFontPt"
+     * Setting name: "AnvilUiFontPt"
      * Valid values: a point size, e.g. 10.0.  0 (or less) disables the override (native sizes).
      * Default value: 10.0
      */
-    double m_EnvilUiFontPt;
+    double m_AnvilUiFontPt;
 
     /**
-     * KiCad Next / Envil: consolidated read cache for *.pretty footprint folder libraries — the
+     * KiCad Next / Anvil: consolidated read cache for *.pretty footprint folder libraries — the
      * footprint twin of SymDirAggregateCache.  The PCB editor's first footprint load opens and
      * parses every *.kicad_mod in every *.pretty library on the loader thread; on a large library
      * (e.g. 155 folders / 15k files) with real-time antivirus scanning each open, that load blocks
@@ -1172,7 +1172,7 @@ public:
      * Pure read accelerator: writes still go to the individual *.kicad_mod files; a stale or
      * missing cache transparently falls back to the per-file scan and rebuilds.
      *
-     * Declared LAST in the struct (after EnvilUiFontPt) on purpose: see the ABI note above —
+     * Declared LAST in the struct (after AnvilUiFontPt) on purpose: see the ABI note above —
      * appending keeps every existing member's offset stable, so only kicommon + pcbnew (which
      * reads the flag in the footprint cache loader) need rebuilding for this addition.
      *
@@ -1185,7 +1185,7 @@ public:
     bool m_FpDirAggregateCache;
 
     /**
-     * KiCad Next / Envil: self-heal the global symbol AND footprint library tables on load.  A
+     * KiCad Next / Anvil: self-heal the global symbol AND footprint library tables on load.  A
      * shipped install seeds each global table as a single nested "KiCad" row pointing at the stock
      * template (share/kicad/template/sym-lib-table | fp-lib-table).  If that template is missing,
      * empty, or was replaced by an older/broken installer, the table flattens to ZERO libraries and
@@ -1212,7 +1212,7 @@ public:
     bool m_LibTableSelfHeal;
 
     /**
-     * KiCad Next / Envil: before a symbol picked from the library chooser is placed on the
+     * KiCad Next / Anvil: before a symbol picked from the library chooser is placed on the
      * sheet, or before a brand-new symbol is finalized in the symbol editor, show a small
      * confirmation dialog asking (a) Through-Hole vs Surface-Mount package preference and
      * (b) which candidate footprint/library to use for that part. Asked once per distinct
@@ -1232,7 +1232,7 @@ public:
     bool m_ConfirmComponentPackage;
 
     /**
-     * KiCad Next / Envil: VSCode-style "auto save to the real file".  Stock KiCad's autosave
+     * KiCad Next / Anvil: VSCode-style "auto save to the real file".  Stock KiCad's autosave
      * timer commits the editor state to the git-backed .history snapshot store, NOT to the
      * actual .kicad_sch / .kicad_pcb the AI backend reads.  So a user's MANUAL edits stay in the
      * editor's memory (or only in .history) until an explicit Ctrl+S, and the AI — which reads the
@@ -1252,11 +1252,11 @@ public:
      * OPT-IN (default 0) so autosave is byte-identical to stock KiCad (.history snapshot) until
      * explicitly enabled.
      *
-     * Setting name: "EnvilAutoSaveRealFile"
+     * Setting name: "AnvilAutoSaveRealFile"
      * Valid values: 0 or 1
      * Default value: 0
      */
-    bool m_EnvilAutoSaveRealFile;
+    bool m_AnvilAutoSaveRealFile;
     ///@}
 
 private:

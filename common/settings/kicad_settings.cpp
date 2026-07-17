@@ -31,7 +31,7 @@ const int kicadSchemaVersion = 0;
 
 const nlohmann::json PCM_DEFAULT_REPOSITORIES = nlohmann::json::array( {
     nlohmann::json( {
-        { "name", "Envil official repository" },
+        { "name", "Anvil official repository" },
         { "url", PCM_DEFAULT_REPOSITORY_URL },
     } )
 } );

@@ -1,5 +1,5 @@
 /*
- * This program source code file is part of Envil.
+ * This program source code file is part of Anvil.
  *
  * Component package/library confirmation dialog.
  *
@@ -11,8 +11,8 @@
  * the symbol's own FPFilters, same as the rest of KiCad -- should be assigned.
  */
 
-#ifndef ENVIL_DIALOG_PACKAGE_CONFIRM_H
-#define ENVIL_DIALOG_PACKAGE_CONFIRM_H
+#ifndef ANVIL_DIALOG_PACKAGE_CONFIRM_H
+#define ANVIL_DIALOG_PACKAGE_CONFIRM_H
 
 #include "dialog_shim.h"
 #include <lib_id.h>
@@ -24,7 +24,7 @@ class wxRadioBox;
 class wxCommandEvent;
 
 
-class DIALOG_ENVIL_PACKAGE_CONFIRM : public DIALOG_SHIM
+class DIALOG_ANVIL_PACKAGE_CONFIRM : public DIALOG_SHIM
 {
 public:
     enum class PACKAGE_PREF
@@ -42,11 +42,11 @@ public:
      *                          candidate footprint list to parts that actually fit.
      * @param aDefaultFootprint the footprint currently assigned (if any); preselected.
      */
-    DIALOG_ENVIL_PACKAGE_CONFIRM( SCH_BASE_FRAME* aParent, const LIB_ID& aLibId,
+    DIALOG_ANVIL_PACKAGE_CONFIRM( SCH_BASE_FRAME* aParent, const LIB_ID& aLibId,
                                    const wxString& aSymbolName, const wxArrayString& aFpFilters,
                                    const wxString& aDefaultFootprint );
 
-    ~DIALOG_ENVIL_PACKAGE_CONFIRM() override = default;
+    ~DIALOG_ANVIL_PACKAGE_CONFIRM() override = default;
 
     PACKAGE_PREF GetPackagePreference() const { return m_packagePref; }
 
@@ -65,4 +65,4 @@ private:
     PACKAGE_PREF              m_packagePref;
 };
 
-#endif // ENVIL_DIALOG_PACKAGE_CONFIRM_H
+#endif // ANVIL_DIALOG_PACKAGE_CONFIRM_H

@@ -875,6 +875,18 @@ private:
     // backend's IPC client set and receives the turn-end `revert` broadcast.
     bool TryConnectAiIpc();
     void OnAiIpcRetryTimer( wxTimerEvent& aEvent );
+
+    /**
+     * Crash-safe reload for silent AI-driven board refreshes (the `revert` and `open_file`
+     * IPC actions). Re-entrancy guarded; tears down everything holding pointers into the
+     * board that OpenProjectFiles()->Clear_Pcb() is about to free (cross-probe flash timer,
+     * active tool, selection, file lock), then reloads. @p aCtl carries KICTL_REVERT so the
+     * load's progress reporter runs in no-drain mode (see PCB_EDIT_FRAME::OpenProjectFiles /
+     * WX_PROGRESS_REPORTER::SetDrainPendingEvents). Returns false if a reload is already in
+     * flight (the call is dropped).
+     */
+    bool reloadBoardSafely( const wxString& aTargetFile, int aCtl );
+
     wxTimer m_aiIpcRetryTimer;
     int     m_aiIpcRetryAttempts = 0;
 
@@ -885,6 +897,16 @@ private:
     // and hang the dialog. True while a revert-reload is in flight so the
     // re-entrant call is dropped.
     bool    m_aiIpcReverting = false;
+
+    // Idempotent AI reverts. The Python backend replays a sticky "last PCB revert" to
+    // every reconnecting client, and pcbnew's IPC socket bounces once per turn, so the
+    // SAME unchanged board is reverted repeatedly — and every reload is another chance to
+    // trip the board-swap use-after-free. We stamp path+mtime+size on each successful load
+    // and skip a revert when the file on disk is unchanged. Conservative: a false mismatch
+    // only causes a (now crash-safe) redundant reload, never a wrong skip that loses data.
+    wxString           m_lastLoadedBoardPath;
+    long long          m_lastLoadedBoardMtime = 0;   // wxDateTime::GetTicks() (time_t), widened
+    unsigned long long m_lastLoadedBoardSize  = 0;   // wxFileName::GetSize().GetValue()
 
     const std::map<std::string, UTF8>* m_importProperties; // Properties used for non-KiCad import.
 

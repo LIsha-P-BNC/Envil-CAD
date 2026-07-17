@@ -96,7 +96,10 @@ bool WX_PROGRESS_REPORTER::updateUI()
     // Returns false when cancelled (if it's a cancellable dialog)
     bool diag = WX_PROGRESS_REPORTER_BASE::Update( cur, message );
 
-    DrainPendingEvents();
+    // Draining runs YieldFor(TIMER); a silent AI board reload disables it so no queued
+    // timer/CallAfter fires while the board is half-swapped (use-after-free -> crash).
+    if( m_drainPendingEvents )
+        DrainPendingEvents();
 
     return diag;
 }

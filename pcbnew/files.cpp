@@ -561,6 +561,15 @@ bool PCB_EDIT_FRAME::OpenProjectFiles( const std::vector<wxString>& aFileSet, in
 
     WX_PROGRESS_REPORTER progressReporter( this, is_new ? _( "Create PCB" ) : _( "Load PCB" ), 1,
                                            PR_CAN_ABORT );
+
+    // A revert reload (native File>Revert or the AI IPC silent revert) tears down and
+    // re-swaps the board.  Do NOT let the progress reporter drain pending events during
+    // that swap — YieldFor(TIMER) would fire the cross-probe flash timer (and other queued
+    // CallAfters) while the old board is already freed, dereferencing freed memory and
+    // crashing the whole (docked-in-shell) app.  The dialog still repaints via Update().
+    if( aCtl & KICTL_REVERT )
+        progressReporter.SetDrainPendingEvents( false );
+
     WX_STRING_REPORTER loadReporter;
     LOAD_INFO_REPORTER_SCOPE loadReporterScope( &loadReporter );
 
@@ -1014,6 +1023,26 @@ bool PCB_EDIT_FRAME::OpenProjectFiles( const std::vector<wxString>& aFileSet, in
 
     if( KISTATUSBAR* statusBar = dynamic_cast<KISTATUSBAR*>( GetStatusBar() ) )
         statusBar->SetLoadWarningMessages( loadReporter.GetMessages() );
+
+    // Stamp the just-loaded board so the AI IPC revert handler can skip a redundant reload
+    // when the on-disk file is unchanged (the backend replays a sticky revert on every
+    // reconnect). See m_lastLoadedBoard* in pcb_edit_frame.h.
+    {
+        wxFileName loadedFn( GetBoard()->GetFileName() );
+        loadedFn.MakeAbsolute();
+        m_lastLoadedBoardPath = loadedFn.GetFullPath();
+
+        if( loadedFn.IsFileReadable() )
+        {
+            m_lastLoadedBoardMtime = loadedFn.GetModificationTime().GetTicks();
+            m_lastLoadedBoardSize  = loadedFn.GetSize().GetValue();
+        }
+        else
+        {
+            m_lastLoadedBoardMtime = 0;
+            m_lastLoadedBoardSize  = 0;
+        }
+    }
 
     return true;
 }

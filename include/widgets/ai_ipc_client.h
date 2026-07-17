@@ -1,5 +1,5 @@
 /*
- * This program source code file is part of Envil.
+ * This program source code file is part of Anvil.
  *
  * AI IPC Client — sends design context to the Python AI backend
  * and receives commands (place component, highlight error, etc.)
@@ -8,8 +8,8 @@
  *   [4 bytes big-endian length][JSON payload]
  */
 
-#ifndef ENVIL_AI_IPC_CLIENT_H
-#define ENVIL_AI_IPC_CLIENT_H
+#ifndef ANVIL_AI_IPC_CLIENT_H
+#define ANVIL_AI_IPC_CLIENT_H
 
 #include <atomic>
 #include <functional>
@@ -20,7 +20,7 @@
 
 
 /**
- * Bidirectional TCP client for communicating with the Envil AI backend.
+ * Bidirectional TCP client for communicating with the Anvil AI backend.
  *
  * Runs a background thread for receiving commands from Python.
  * Provides thread-safe methods for sending context updates from the main thread.
@@ -92,4 +92,4 @@ private:
     std::function<void( const std::string&, const std::string& )> m_commandCallback;
 };
 
-#endif // ENVIL_AI_IPC_CLIENT_H
+#endif // ANVIL_AI_IPC_CLIENT_H

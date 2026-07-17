@@ -80,12 +80,24 @@ public:
         WX_PROGRESS_REPORTER_BASE::SetTitle( aTitle );
     }
 
+    /**
+     * Enable/disable draining pending events from updateUI().
+     *
+     * Draining runs YieldFor( wxEVT_CATEGORY_TIMER ), which lets queued timers/CallAfters
+     * fire while the caller is mid-operation.  For a silent AI-driven board reload that is
+     * fatal: a timer (e.g. pcbnew's cross-probe flash) fires while the board is half-swapped
+     * and dereferences freed items.  Disable it there so the reload never pumps the queue.
+     * Default is enabled, so every existing caller is unchanged.
+     */
+    void SetDrainPendingEvents( bool aEnable ) { m_drainPendingEvents = aEnable; }
+
 private:
     bool updateUI() override;
 
 private:
     wxAppProgressIndicator m_appProgressIndicator;
     int                    m_messageWidth;
+    bool                   m_drainPendingEvents = true;
 };
 
 

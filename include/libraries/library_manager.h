@@ -332,7 +332,7 @@ private:
     void loadNestedTables( LIBRARY_TABLE& aTable );
 
     /**
-     * Envil self-heal (advanced cfg "LibTableSelfHeal"): if the given global table (SYMBOL or
+     * Anvil self-heal (advanced cfg "LibTableSelfHeal"): if the given global table (SYMBOL or
      * FOOTPRINT) flattens to zero libraries (a missing/empty/broken nested template), rebuild the
      * user's global table directly from the matching installed stock directory and reload it.
      * No-op when the table already resolves at least one library, so a working install is never

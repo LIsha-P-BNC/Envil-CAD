@@ -118,9 +118,9 @@ static const wxChar SymDirAggregateCache[] = wxT( "SymDirAggregateCache" );
 static const wxChar FpDirAggregateCache[] = wxT( "FpDirAggregateCache" );
 static const wxChar LibTableSelfHeal[] = wxT( "LibTableSelfHeal" );
 static const wxChar ConfirmComponentPackage[] = wxT( "ConfirmComponentPackage" );
-static const wxChar EnvilAutoSaveRealFile[] = wxT( "EnvilAutoSaveRealFile" );
-static const wxChar EnvilPurpleFrame[] = wxT( "EnvilPurpleFrame" );
-static const wxChar EnvilUiFontPt[] = wxT( "EnvilUiFontPt" );
+static const wxChar AnvilAutoSaveRealFile[] = wxT( "AnvilAutoSaveRealFile" );
+static const wxChar AnvilPurpleFrame[] = wxT( "AnvilPurpleFrame" );
+static const wxChar AnvilUiFontPt[] = wxT( "AnvilUiFontPt" );
 static const wxChar DisambiguationTime[] = wxT( "DisambiguationTime" );
 static const wxChar PcbSelectionVisibilityRatio[] = wxT( "PcbSelectionVisibilityRatio" );
 static const wxChar FontErrorSize[] = wxT( "FontErrorSize" );
@@ -301,9 +301,9 @@ ADVANCED_CFG::ADVANCED_CFG()
     m_FpDirAggregateCache = false;    // opt-in: consolidated read cache for *.pretty footprint folders; see header
     m_LibTableSelfHeal = true;    // on: rebuild an empty/broken global sym/fp-lib-table from installed libs; see header
     m_ConfirmComponentPackage = false;   // opt-in: ask THT/SMD + library choice before placing/creating a symbol; see header
-    m_EnvilAutoSaveRealFile = false;   // opt-in: autosave writes the real .kicad_sch/.kicad_pcb (not .history) so the AI sees manual edits; see header
-    m_EnvilPurpleFrame = false;   // opt-in: vibrant-purple dark chrome on the schematic editor frame; see header
-    m_EnvilUiFontPt = 10.0;       // app-wide UI base font size (pt); 0 disables the override; see header
+    m_AnvilAutoSaveRealFile = false;   // opt-in: autosave writes the real .kicad_sch/.kicad_pcb (not .history) so the AI sees manual edits; see header
+    m_AnvilPurpleFrame = false;   // opt-in: vibrant-purple dark chrome on the schematic editor frame; see header
+    m_AnvilUiFontPt = 10.0;       // app-wide UI base font size (pt); 0 disables the override; see header
 
     m_3DRT_BevelHeight_um = 30;
     m_3DRT_BevelExtentFactor = 1.0 / 16.0;
@@ -610,16 +610,16 @@ void ADVANCED_CFG::loadSettings( wxConfigBase& aCfg )
                                                            &m_ConfirmComponentPackage,
                                                            m_ConfirmComponentPackage ) );
 
-    m_entries.push_back( std::make_unique<PARAM_CFG_BOOL>( true, AC_KEYS::EnvilAutoSaveRealFile,
-                                                           &m_EnvilAutoSaveRealFile,
-                                                           m_EnvilAutoSaveRealFile ) );
+    m_entries.push_back( std::make_unique<PARAM_CFG_BOOL>( true, AC_KEYS::AnvilAutoSaveRealFile,
+                                                           &m_AnvilAutoSaveRealFile,
+                                                           m_AnvilAutoSaveRealFile ) );
 
-    m_entries.push_back( std::make_unique<PARAM_CFG_BOOL>( true, AC_KEYS::EnvilPurpleFrame,
-                                                           &m_EnvilPurpleFrame,
-                                                           m_EnvilPurpleFrame ) );
+    m_entries.push_back( std::make_unique<PARAM_CFG_BOOL>( true, AC_KEYS::AnvilPurpleFrame,
+                                                           &m_AnvilPurpleFrame,
+                                                           m_AnvilPurpleFrame ) );
 
-    m_entries.push_back( std::make_unique<PARAM_CFG_DOUBLE>( true, AC_KEYS::EnvilUiFontPt,
-                                                             &m_EnvilUiFontPt, m_EnvilUiFontPt,
+    m_entries.push_back( std::make_unique<PARAM_CFG_DOUBLE>( true, AC_KEYS::AnvilUiFontPt,
+                                                             &m_AnvilUiFontPt, m_AnvilUiFontPt,
                                                              0.0, 32.0 ) );
 
     m_entries.push_back( std::make_unique<PARAM_CFG_DOUBLE>( true, AC_KEYS::PcbSelectionVisibilityRatio,

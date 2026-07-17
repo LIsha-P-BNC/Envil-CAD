@@ -97,14 +97,14 @@ private:
     std::vector<SCH_HIERLABEL*> importHierLabels( SCH_SHEET* aSheet );
 
     /**
-     * KiCad Next / Envil: when ADVANCED_CFG::m_ConfirmComponentPackage is enabled, ask the
+     * KiCad Next / Anvil: when ADVANCED_CFG::m_ConfirmComponentPackage is enabled, ask the
      * user for the THT/SMD preference and candidate footprint for a symbol about to be
      * placed, and apply the chosen footprint onto aLibSymbol's footprint field. Asked once
      * per distinct LIB_ID per editing session -- repeat placements of the same part reuse
      * the cached answer silently. No-op (returns immediately) when the flag is off, for
      * power symbols, or if the user cancels the placement itself before this runs.
      */
-    void envilConfirmComponentPackage( LIB_SYMBOL* aLibSymbol, PICKED_SYMBOL& aSel );
+    void anvilConfirmComponentPackage( LIB_SYMBOL* aLibSymbol, PICKED_SYMBOL& aSel );
 
     std::vector<PICKED_SYMBOL> m_symbolHistoryList;
     std::vector<PICKED_SYMBOL> m_powerHistoryList;
@@ -136,8 +136,8 @@ private:
     std::unique_ptr<STATUS_TEXT_POPUP>      m_statusPopup;
     std::unique_ptr<DIALOG_SYNC_SHEET_PINS> m_dialogSyncSheetPin;
 
-    ///< KiCad Next / Envil: LIB_ID (formatted) -> user-picked footprint, cached for this session.
-    std::map<wxString, wxString> m_envilConfirmedFootprints;
+    ///< KiCad Next / Anvil: LIB_ID (formatted) -> user-picked footprint, cached for this session.
+    std::map<wxString, wxString> m_anvilConfirmedFootprints;
 };
 
 #endif /* SCH_DRAWING_TOOLS_H */

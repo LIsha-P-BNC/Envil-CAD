@@ -75,7 +75,7 @@ private:
     bool isLibraryPathValid() const;
 
     /**
-     * Envil folder-library read accelerator (opt-in via ADVANCED_CFG::m_SymDirAggregateCache).
+     * Anvil folder-library read accelerator (opt-in via ADVANCED_CFG::m_SymDirAggregateCache).
      *
      * For a `*.kicad_symdir` folder, these collapse the per-file enumeration (one open+parse
      * per symbol file, amplified by real-time antivirus) into a single consolidated read.

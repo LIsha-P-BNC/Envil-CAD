@@ -65,8 +65,8 @@ extern "C"
 }
 #endif
 
-// Envil "Vibrant Purple & Indigo" frame theme.  Set by SetDarkModePurple() before EnableDarkMode().
-static bool g_envilPurpleDark = false;
+// Anvil "Vibrant Purple & Indigo" frame theme.  Set by SetDarkModePurple() before EnableDarkMode().
+static bool g_anvilPurpleDark = false;
 
 #if wxCHECK_VERSION( 3, 3, 0 )
 class KICAD_DARK_MODE_SETTINGS : public wxDarkModeSettings
@@ -74,9 +74,9 @@ class KICAD_DARK_MODE_SETTINGS : public wxDarkModeSettings
 public:
     wxColour GetColour( wxSystemColour index ) override
     {
-        if( g_envilPurpleDark )
+        if( g_anvilPurpleDark )
         {
-            // Envil chrome palette.  Three distinct surface levels + a visible border so adjacent
+            // Anvil chrome palette.  Three distinct surface levels + a visible border so adjacent
             // regions (lists/tree/text vs. panel faces vs. dialogs) don't blend into one dark blob:
             //   content  = deepest  (text fields, lists, tree, list/combo popups)
             //   panel    = mid      (dialog & panel faces, buttons, tool-bars, menus)
@@ -145,7 +145,7 @@ public:
 
     wxColour GetMenuColour( wxMenuColour which ) override
     {
-        if( g_envilPurpleDark )
+        if( g_anvilPurpleDark )
         {
             switch( which )
             {
@@ -164,7 +164,7 @@ public:
 
     wxPen GetBorderPen() override
     {
-        if( g_envilPurpleDark )
+        if( g_anvilPurpleDark )
             return wxPen( wxColour( 92, 80, 132 ) );   // visible group-box / static-box outline
 
         return wxDarkModeSettings::GetBorderPen();
@@ -226,7 +226,7 @@ void KIPLATFORM::APP::EnableDarkMode( bool aForce )
 
 void KIPLATFORM::APP::SetDarkModePurple( bool aOn )
 {
-    g_envilPurpleDark = aOn;
+    g_anvilPurpleDark = aOn;
 }
 
 
