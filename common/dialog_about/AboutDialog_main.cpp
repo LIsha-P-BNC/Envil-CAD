@@ -113,7 +113,7 @@ static void buildKicadAboutBanner( EDA_BASE_FRAME* aParent, ABOUT_APP_INFO& aInf
                 << wxT( "</u></b>" ); // bold & underlined font for caption
 
     description << wxT( "<p>" )
-                << _( "The Envil EDA Suite is a set of open source applications for the "
+                << _( "The Anvil EDA Suite is a set of open source applications for the "
                       "creation of electronic schematics and printed circuit boards." )
                 << wxT( "</p>" );
 
@@ -121,7 +121,7 @@ static void buildKicadAboutBanner( EDA_BASE_FRAME* aParent, ABOUT_APP_INFO& aInf
 
     /* websites */
     description << wxT( "<p><b><u>" )
-                << _( "Envil on the web" )
+                << _( "Anvil on the web" )
                 << wxT( "</u></b>" ); // bold & underlined font for caption
 
     // bullet-ed list with some http links
@@ -174,7 +174,7 @@ static void buildKicadAboutBanner( EDA_BASE_FRAME* aParent, ABOUT_APP_INFO& aInf
     license
         << wxT( "<div align='center'>" )
         << HtmlNewline( 4 )
-        << _( "The complete Envil EDA Suite is released under the" ) << HtmlNewline( 2 )
+        << _( "The complete Anvil EDA Suite is released under the" ) << HtmlNewline( 2 )
         << HtmlHyperlink( wxS( "http://www.gnu.org/licenses" ),
                           _( "GNU General Public License (GPL) version 3 or any later version" ) )
         << wxT( "</div>" );

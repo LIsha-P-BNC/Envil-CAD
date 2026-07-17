@@ -520,7 +520,7 @@ void LIBRARY_MANAGER::LoadGlobalTables( std::initializer_list<LIBRARY_TABLE_TYPE
         cleanupRemovedPCMLibraries( LIBRARY_TABLE_TYPE::DESIGN_BLOCK );
     }
 
-    // Envil: rebuild a global table that loaded zero libraries (broken/missing nested template).
+    // Anvil: rebuild a global table that loaded zero libraries (broken/missing nested template).
     auto wasLoaded = [&]( LIBRARY_TABLE_TYPE aType )
     {
         return aTablesToLoad.size() == 0

@@ -159,7 +159,7 @@ void FP_CACHE::Load()
     m_cache_dirty = false;
     m_cache_timestamp = 0;
 
-    // Envil aggregate-cache fast path (opt-in).  Reading one consolidated file instead of opening
+    // Anvil aggregate-cache fast path (opt-in).  Reading one consolidated file instead of opening
     // + parsing every *.kicad_mod is what removes the GUI-thread "Not Responding" freeze on the
     // first footprint load (and the per-open antivirus scan that amplifies it).  Falls through to
     // the per-file scan below whenever the cache is missing or its fingerprint no longer matches
@@ -271,7 +271,7 @@ bool FP_CACHE::getAggregateCachePath( wxString& aCacheFile, wxString& aCacheDir 
     wxFileName parent = fn;
     parent.RemoveLastDir();
 
-    aCacheDir  = parent.GetPathWithSep() + wxT( ".envil_fpcache" );
+    aCacheDir  = parent.GetPathWithSep() + wxT( ".anvil_fpcache" );
     aCacheFile = aCacheDir + wxFileName::GetPathSeparator() + libKey + wxT( ".fpcache" );
     return true;
 }
@@ -339,7 +339,7 @@ bool FP_CACHE::loadFromAggregateCache( long long aDirTimestamp )
         if( !readLine( line ) )
             break;
 
-        if( line.rfind( "ENVIL_FPCACHE", 0 ) == 0 )
+        if( line.rfind( "ANVIL_FPCACHE", 0 ) == 0 )
         {
             headerOk = true;
         }
@@ -476,7 +476,7 @@ void FP_CACHE::writeAggregateCache( long long aDirTimestamp )
             return;
 
         wxString header;
-        header << wxT( "ENVIL_FPCACHE\t1\n" );
+        header << wxT( "ANVIL_FPCACHE\t1\n" );
         header << wxT( "TS\t" ) << wxString::Format( wxT( "%lld" ), aDirTimestamp ) << wxT( "\n" );
         header << wxT( "N\t" ) << static_cast<int>( m_footprints.size() ) << wxT( "\n" );
 

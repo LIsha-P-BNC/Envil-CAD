@@ -10,7 +10,7 @@
 <style>
   :root {
     color-scheme: dark;
-    /* Envil "Vibrant Purple & Indigo" — matches the KiCad frame chrome. */
+    /* Anvil "Vibrant Purple & Indigo" — matches the KiCad frame chrome. */
     --bg-0:        #18142a;
     --bg-1:        #211b38;
     --bg-2:        #2a2348;
@@ -180,7 +180,7 @@
   }
 
   /* ─── Schematic summary card ─────────────────────────────────────── */
-  .envil-summary {
+  .anvil-summary {
     align-self: stretch;
     margin: 6px 0 4px;
     padding: 14px 16px;
@@ -485,7 +485,7 @@
     transition: background .12s, color .12s;
   }
   .send-btn:hover { background: var(--accent-hi); color: #0b0d12; }
-  /* Stop button — Envil purple theme, same family as the send button */
+  /* Stop button — Anvil purple theme, same family as the send button */
   .send-btn.stop-mode {
     background: var(--bg-3);
     color: var(--accent-hi);
@@ -790,13 +790,13 @@ deriveSiblingFile();
 // time (= "untitled.kicad_sch" before any file is loaded), and both the
 // "Editing X" display AND the schematic_file sent to the Python backend would
 // be stuck on that stale value.
-window.envilSetSchematic = function (newProject, newSchematic) {
+window.anvilSetSchematic = function (newProject, newSchematic) {
   if (newProject)   projectPath = newProject;
   if (newSchematic) schematic   = newSchematic;
-  // C++ calling envilSetSchematic == this panel lives in eeschema.
+  // C++ calling anvilSetSchematic == this panel lives in eeschema.
   // URL-path detection (location.pathname) is unreliable because KiCad
   // loads chat.html from the shared share/kicad/ai_chat/ folder for
-  // both editors. This setter (and envilSetPcb below) is the authoritative
+  // both editors. This setter (and anvilSetPcb below) is the authoritative
   // app-context signal.
   appCtx = "schematic";
   deriveSiblingFile();
@@ -809,14 +809,14 @@ window.envilSetSchematic = function (newProject, newSchematic) {
 };
 
 // Symmetric setter the pcbnew C++ side can call after every board open.
-// Mirrors envilSetSchematic. KiCad's pcbnew panel-launch code should
+// Mirrors anvilSetSchematic. KiCad's pcbnew panel-launch code should
 // invoke this so the chat tracks the live .kicad_pcb path the same way
 // the schematic panel tracks .kicad_sch.
-window.envilSetPcb = function (newProject, newPcb) {
+window.anvilSetPcb = function (newProject, newPcb) {
   if (newProject) projectPath = newProject;
   if (newPcb)     pcbFile     = newPcb;
-  // C++ calling envilSetPcb == this panel lives in pcbnew. See the
-  // envilSetSchematic comment above for why this setter is the
+  // C++ calling anvilSetPcb == this panel lives in pcbnew. See the
+  // anvilSetSchematic comment above for why this setter is the
   // authoritative signal (URL pathname is the same for both editors).
   appCtx = "pcb";
   deriveSiblingFile();
@@ -828,7 +828,7 @@ window.envilSetPcb = function (newProject, newPcb) {
 };
 
 let ws = null;
-let sessionId = localStorage.getItem("envil_session_id") || null;
+let sessionId = localStorage.getItem("anvil_session_id") || null;
 let currentStream = null;
 let currentBuf = "";
 // Live "Thinking" panel for the current turn (collapsible reasoning, Claude
@@ -870,7 +870,7 @@ let stickToBottom = true;
 let turnActive = false;
 
 const SVG_USER = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>';
-// AI avatar: Envil "A" logo image instead of the robot SVG
+// AI avatar: Anvil "A" logo image instead of the robot SVG
 const SVG_AI   = '<img src="anvil_logo.png" alt="A" style="width:18px;height:18px;object-fit:contain;display:block;">';
 // Proper inline-SVG copy / check icons for the per-message copy button (the old
 // unicode clipboard glyph rendered as tofu in WebView2).
@@ -1151,7 +1151,7 @@ function addError(text) {
 }
 
 // Replace any prior auto-summary card so opening a different file doesn't pile
-// stacks of them up in the conversation. Identifiable by data-envil-summary.
+// stacks of them up in the conversation. Identifiable by data-anvil-summary.
 const READINESS_BADGE = {
   ready:        { label: "Production ready",  cls: "ok",   icon: "✓" },
   minor_polish: { label: "Minor polish needed", cls: "info", icon: "•" },
@@ -1165,7 +1165,7 @@ const SEV_META = {
 };
 
 function renderSchematicSummary(m) {
-  document.querySelectorAll('[data-envil-summary]').forEach(n => n.remove());
+  document.querySelectorAll('[data-anvil-summary]').forEach(n => n.remove());
   const issues = m.issues || [];
   const circuit = (m.circuit || "").trim();
   // Render NOTHING when nothing useful to show: no detected circuit AND no
@@ -1173,8 +1173,8 @@ function renderSchematicSummary(m) {
   if (!circuit && !issues.length) return;
   hideEmpty();
   const el = document.createElement("div");
-  el.className = "envil-summary";
-  el.setAttribute("data-envil-summary", "1");
+  el.className = "anvil-summary";
+  el.setAttribute("data-anvil-summary", "1");
 
   // Group by severity → category.
   const bySev = { critical: [], high: [], medium: [] };
@@ -1252,6 +1252,8 @@ function send(obj) {
 
 function connect() {
   // Native agent lives in-process; treat as always connected.
+  // (Upstream's WebSocket connect to the Python backend is intentionally dropped
+  // here — the native ENVIL_AI_AGENT / MCP bridge replaces it.)
   setStatus("connected", "Native");
   send({ kind: "hello", project_path: projectPath,
          schematic_file: schematic, pcb_file: pcbFile, app: appCtx });
@@ -1263,7 +1265,7 @@ function scheduleReconnect() { /* native transport: no reconnect needed */ }
 function handleSrv(m) {
   if (m.session_id) {
     sessionId = m.session_id;
-    localStorage.setItem("envil_session_id", sessionId);
+    localStorage.setItem("anvil_session_id", sessionId);
   }
   switch (m.kind) {
     case "ready":   return;
@@ -1339,7 +1341,7 @@ function handleSrv(m) {
       addError(m.text || "Unknown error");
       return;
     default:
-      console.warn("[envil] unhandled", m.kind, m);
+      console.warn("[anvil] unhandled", m.kind, m);
   }
 }
 
@@ -2145,7 +2147,7 @@ function newChat() {
   sessionId = (window.crypto && crypto.randomUUID)
     ? crypto.randomUUID().replace(/-/g, "")
     : ("s" + Date.now().toString(36) + Math.random().toString(36).slice(2, 10));
-  localStorage.setItem("envil_session_id", sessionId);
+  localStorage.setItem("anvil_session_id", sessionId);
   // 3) Wipe the visible transcript but keep the empty-state welcome node.
   for (const node of Array.from(msgsEl.children)) {
     if (node !== emptyEl) node.remove();
@@ -2178,7 +2180,7 @@ function hasConversation() {
 // Cursor-style "blank on open": every time you reopen the panel it starts
 // fresh. Guarded so it never destroys work in progress: skipped while a
 // build is running, and a no-op when the panel is already blank.
-window.envilPanelOpened = function () {
+window.anvilPanelOpened = function () {
   if (thinkEl.classList.contains("active")) return;   // build in flight — keep it
   if (!hasConversation()) return;                      // already blank
   newChat();
@@ -2281,7 +2283,7 @@ window.addEventListener("paste", handlePaste);
 window.appendServerMessage = (s) => { try { handleSrv(JSON.parse(s)); } catch(e) { console.error(e); } };
 window.updateFileContext = (_t, path) => showCtxFile(path);
 
-console.log("[envil] chat.html loaded — backend=" + backendHost);
+console.log("[anvil] chat.html loaded — backend=" + backendHost);
 connect();
 </script>
 

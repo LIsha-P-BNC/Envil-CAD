@@ -106,7 +106,7 @@ FOOTPRINT_EDIT_FRAME::FOOTPRINT_EDIT_FRAME( KIWAY* aKiway, wxWindow* aParent ) :
     m_show_layer_manager_tools( true )
 {
     m_showBorderAndTitleBlock = false;   // true to show the frame references
-    m_aboutTitle = _HKI( "Envil Footprint Editor" );
+    m_aboutTitle = _HKI( "Anvil Footprint Editor" );
     m_editorSettings = nullptr;
 
     // Give an icon
@@ -382,13 +382,13 @@ bool FOOTPRINT_EDIT_FRAME::IsContentModified() const
 
 bool FOOTPRINT_EDIT_FRAME::doAutoSave()
 {
-    // KiCad Next / Envil: VSCode-style autosave to the REAL footprint library (not the
+    // KiCad Next / Anvil: VSCode-style autosave to the REAL footprint library (not the
     // .history snapshot) so the AI backend, which reads the live library file, observes
     // the user's manual footprint edits automatically.  Only writes a modified footprint
     // that lives in a named, writable library; a footprint linked to the board, an
     // unnamed footprint, or a read-only/legacy library is a silent no-op (those paths
     // would otherwise pop a Save-As / info dialog).
-    if( ADVANCED_CFG::GetCfg().m_EnvilAutoSaveRealFile )
+    if( ADVANCED_CFG::GetCfg().m_AnvilAutoSaveRealFile )
     {
         FOOTPRINT* fp = GetBoard() ? GetBoard()->GetFirstFootprint() : nullptr;
 

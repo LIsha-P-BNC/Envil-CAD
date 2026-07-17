@@ -99,11 +99,11 @@ public:
     void OnOpenFileInTextEditor( wxCommandEvent& event );
     void OnEditAdvancedCfg( wxCommandEvent& event );
 
-    /// Envil "Vibrant Purple & Indigo" theme: repaint the shell's own chrome (AUI dock area,
+    /// Anvil "Vibrant Purple & Indigo" theme: repaint the shell's own chrome (AUI dock area,
     /// editor/side tab strips, project tree, launcher, status bar) to match the frame theme.
-    /// Gated by the EnvilPurpleFrame advanced-config flag; does NOT descend into the hosted
+    /// Gated by the AnvilPurpleFrame advanced-config flag; does NOT descend into the hosted
     /// editor tabs (those keep their own theme + canvas).
-    void applyEnvilShellTheme();
+    void applyAnvilShellTheme();
 
     void OnFileHistory( wxCommandEvent& event );
     void OnClearFileHistory( wxCommandEvent& aEvent );
@@ -363,7 +363,7 @@ private:
     EDA_BASE_FRAME* getActiveDockedEditorFrame();
 
     /// Single-window shell common AI panel: push the active editor tab's document (app +
-    /// path) into the shell-owned AI panel via window.envilSetSchematic / envilSetPcb, so
+    /// path) into the shell-owned AI panel via window.anvilSetSchematic / anvilSetPcb, so
     /// the one panel always targets whatever tab is in front (the Cursor behaviour).  No-op
     /// when the panel does not exist or the active tab is neither schematic nor PCB.
     void syncAiPanelToActiveTab();

@@ -62,7 +62,7 @@ void KIPLATFORM::APP::EnableDarkMode( bool aForce )
 
 void KIPLATFORM::APP::SetDarkModePurple( bool aOn )
 {
-    // Envil purple frame theme is implemented for the MSW dark-mode palette only.
+    // Anvil purple frame theme is implemented for the MSW dark-mode palette only.
 }
 
 

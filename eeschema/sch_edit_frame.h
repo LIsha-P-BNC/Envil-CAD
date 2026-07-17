@@ -510,7 +510,7 @@ public:
     /**
      * Push the schematic netlist to the PCB ("Update PCB from Schematic" / F8).
      *
-     * @param aAutoApply when true (Envil AI/IPC path) pcbnew applies the netlist
+     * @param aAutoApply when true (Anvil AI/IPC path) pcbnew applies the netlist
      *        silently with default options — no modal dialog, no click. When false
      *        (the normal F8 menu) pcbnew shows the interactive Update-PCB dialog.
      */
@@ -1077,10 +1077,10 @@ private:
     bool TryConnectAiIpc();
     void OnAiIpcRetryTimer( wxTimerEvent& aEvent );
 
-    /// Envil "Vibrant Purple & Indigo" theme: repaint this frame's window chrome (dock panels,
+    /// Anvil "Vibrant Purple & Indigo" theme: repaint this frame's window chrome (dock panels,
     /// sashes/captions, AUI tool-bars and child controls) with the dark purple palette.  Gated
-    /// by the EnvilPurpleFrame advanced-config flag; the drawing canvas is left untouched.
-    void applyEnvilPurpleFrameTheme();
+    /// by the AnvilPurpleFrame advanced-config flag; the drawing canvas is left untouched.
+    void applyAnvilPurpleFrameTheme();
 
 private:
     // The schematic editor control class should be able to access some internal

@@ -116,13 +116,13 @@ DIALOG_SHIM::DIALOG_SHIM( wxWindow* aParent, wxWindowID id, const wxString& titl
     KIWAY_HOLDER* kiwayHolder = nullptr;
     m_initialSize = size;
 
-    // Envil: apply the app-wide UI base font size (EnvilUiFontPt) before the derived dialog builds
+    // Anvil: apply the app-wide UI base font size (AnvilUiFontPt) before the derived dialog builds
     // its controls, so every widget inherits it.  A dialog is a top-level window and does not
     // inherit its parent frame's font, so it must be set here independently of EDA_BASE_FRAME.
-    if( ADVANCED_CFG::GetCfg().m_EnvilUiFontPt > 0.0 )
+    if( ADVANCED_CFG::GetCfg().m_AnvilUiFontPt > 0.0 )
     {
         wxFont uiFont = GetFont();
-        uiFont.SetFractionalPointSize( ADVANCED_CFG::GetCfg().m_EnvilUiFontPt );
+        uiFont.SetFractionalPointSize( ADVANCED_CFG::GetCfg().m_AnvilUiFontPt );
         SetFont( uiFont );
     }
 

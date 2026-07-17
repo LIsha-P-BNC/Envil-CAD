@@ -118,7 +118,7 @@ void SCH_IO_KICAD_SEXPR_LIB_CACHE::Load()
         // Clear source file tracking for fresh load
         m_symbolSourceFiles.clear();
 
-        // Envil aggregate-cache fast path (opt-in; folder libraries only).  Reading one
+        // Anvil aggregate-cache fast path (opt-in; folder libraries only).  Reading one
         // consolidated file instead of opening + parsing every per-symbol file is what removes
         // the GUI-thread "Not Responding" freeze on load (and the per-open antivirus scan that
         // amplifies it).  Falls through to the per-file scan below whenever the cache is
@@ -248,13 +248,13 @@ bool SCH_IO_KICAD_SEXPR_LIB_CACHE::getAggregateCachePaths( wxString& aAggregateS
     // Key the cache on the folder name itself, e.g. "Device.kicad_symdir".
     const wxString libKey = fn.GetDirs().Last();
 
-    // The shared cache folder lives beside the libraries, under the parent (e.g. the Envil
+    // The shared cache folder lives beside the libraries, under the parent (e.g. the Anvil
     // library root).  Keeping it OUTSIDE the *.kicad_symdir folders means it never shows up in
     // the per-file scan and never perturbs the directory fingerprint used to validate it.
     wxFileName parent = fn;
     parent.RemoveLastDir();
 
-    aCacheDir = parent.GetPathWithSep() + wxT( ".envil_symcache" );
+    aCacheDir = parent.GetPathWithSep() + wxT( ".anvil_symcache" );
 
     const wxString base = aCacheDir + wxFileName::GetPathSeparator() + libKey;
     aAggregateSym = base + wxT( ".kicad_sym" );
@@ -294,7 +294,7 @@ bool SCH_IO_KICAD_SEXPR_LIB_CACHE::loadFromAggregateCache( long long aDirTimesta
     {
         wxString line = lines.GetNextToken();
 
-        if( line.StartsWith( wxT( "ENVIL_SYMCACHE" ) ) )
+        if( line.StartsWith( wxT( "ANVIL_SYMCACHE" ) ) )
         {
             headerOk = true;
         }
@@ -421,7 +421,7 @@ void SCH_IO_KICAD_SEXPR_LIB_CACHE::writeAggregateCache( long long aDirTimestamp 
         // Write the manifest LAST: the fingerprint only becomes visible once the symbol file is
         // complete, so a crash mid-write can never validate a half-written cache.
         wxString out;
-        out << wxT( "ENVIL_SYMCACHE\t1\n" );
+        out << wxT( "ANVIL_SYMCACHE\t1\n" );
         out << wxT( "TS\t" ) << wxString::Format( wxT( "%lld" ), aDirTimestamp ) << wxT( "\n" );
         out << wxT( "N\t" ) << static_cast<int>( m_symbols.size() ) << wxT( "\n" );
 

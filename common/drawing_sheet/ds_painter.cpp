@@ -41,7 +41,7 @@
 
 using namespace KIGFX;
 
-static const wxString productName = wxT( "Envil E.D.A." );
+static const wxString productName = wxT( "Anvil E.D.A." );
 
 DS_RENDER_SETTINGS::DS_RENDER_SETTINGS()
 {

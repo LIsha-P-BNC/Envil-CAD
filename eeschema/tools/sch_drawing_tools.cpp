@@ -68,7 +68,7 @@
 #include <dialogs/dialog_wire_bus_properties.h>
 #include <dialogs/dialog_junction_props.h>
 #include <dialogs/dialog_table_properties.h>
-#include <dialogs/dialog_envil_package_confirm.h>
+#include <dialogs/dialog_anvil_package_confirm.h>
 #include <advanced_config.h>
 #include <import_gfx/dialog_import_gfx_sch.h>
 #include <sync_sheet_pin/sheet_synchronization_agent.h>
@@ -385,7 +385,7 @@ int SCH_DRAWING_TOOLS::PlaceSymbol( const TOOL_EVENT& aEvent )
                 if( !libSymbol )
                     continue;
 
-                envilConfirmComponentPackage( libSymbol, sel );
+                anvilConfirmComponentPackage( libSymbol, sel );
 
                 // If we started with a hotkey which has a position then warp back to that.
                 // Otherwise update to the current mouse position pinned inside the autoscroll
@@ -3896,7 +3896,7 @@ void SCH_DRAWING_TOOLS::setTransitions()
 }
 
 
-void SCH_DRAWING_TOOLS::envilConfirmComponentPackage( LIB_SYMBOL* aLibSymbol, PICKED_SYMBOL& aSel )
+void SCH_DRAWING_TOOLS::anvilConfirmComponentPackage( LIB_SYMBOL* aLibSymbol, PICKED_SYMBOL& aSel )
 {
     if( !ADVANCED_CFG::GetCfg().m_ConfirmComponentPackage )
         return;
@@ -3907,22 +3907,22 @@ void SCH_DRAWING_TOOLS::envilConfirmComponentPackage( LIB_SYMBOL* aLibSymbol, PI
     wxString libIdStr = aSel.LibId.Format();
     wxString footprintToApply;
 
-    auto cacheIt = m_envilConfirmedFootprints.find( libIdStr );
+    auto cacheIt = m_anvilConfirmedFootprints.find( libIdStr );
 
-    if( cacheIt != m_envilConfirmedFootprints.end() )
+    if( cacheIt != m_anvilConfirmedFootprints.end() )
     {
         footprintToApply = cacheIt->second;
     }
     else
     {
-        DIALOG_ENVIL_PACKAGE_CONFIRM dlg( m_frame, aSel.LibId, aLibSymbol->GetName(),
+        DIALOG_ANVIL_PACKAGE_CONFIRM dlg( m_frame, aSel.LibId, aLibSymbol->GetName(),
                                           aLibSymbol->GetFPFilters(), aLibSymbol->GetFootprintProp() );
 
         if( dlg.ShowModal() != wxID_OK )
             return; // user cancelled the package/library choice; placement proceeds as-is
 
         footprintToApply = dlg.GetSelectedFootprint();
-        m_envilConfirmedFootprints[libIdStr] = footprintToApply;
+        m_anvilConfirmedFootprints[libIdStr] = footprintToApply;
     }
 
     if( footprintToApply.IsEmpty() )

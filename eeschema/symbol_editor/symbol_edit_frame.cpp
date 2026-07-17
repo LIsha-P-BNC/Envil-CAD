@@ -132,7 +132,7 @@ SYMBOL_EDIT_FRAME::SYMBOL_EDIT_FRAME( KIWAY* aKiway, wxWindow* aParent ) :
     m_libMgr = nullptr;
     m_unit = 1;
     m_bodyStyle = 1;
-    m_aboutTitle = _HKI( "Envil Symbol Editor" );
+    m_aboutTitle = _HKI( "Anvil Symbol Editor" );
 
     wxIcon icon;
     wxIconBundle icon_bundle;
@@ -1475,12 +1475,12 @@ void SYMBOL_EDIT_FRAME::storeCurrentSymbol()
 
 bool SYMBOL_EDIT_FRAME::doAutoSave()
 {
-    // KiCad Next / Envil: VSCode-style autosave to the REAL .kicad_sym library (not the
+    // KiCad Next / Anvil: VSCode-style autosave to the REAL .kicad_sym library (not the
     // .history snapshot) so the AI backend, which reads the live library file, observes
     // the user's manual symbol edits automatically.  Only writes a modified symbol that
     // lives in a writable, file-based library; a symbol pulled from the schematic or a
     // read-only library is a silent no-op (those paths would otherwise pop a dialog).
-    if( ADVANCED_CFG::GetCfg().m_EnvilAutoSaveRealFile )
+    if( ADVANCED_CFG::GetCfg().m_AnvilAutoSaveRealFile )
     {
         if( GetCurSymbol() && !IsSymbolFromSchematic() && GetScreen()
                 && GetScreen()->IsContentModified() && !Prj().IsReadOnly() )

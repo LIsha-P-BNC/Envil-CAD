@@ -92,7 +92,7 @@ public:
     int UpdatePCBFromSchematic( const TOOL_EVENT& aEvent );
 
     /**
-     * Envil: apply the schematic netlist to the board WITHOUT the modal
+     * Anvil: apply the schematic netlist to the board WITHOUT the modal
      * Update-PCB dialog (Cursor-style automatic F8). Invoked from the AI IPC
      * path via an "auto" MAIL_PCB_UPDATE payload. Uses the same default options
      * as the dialog (update footprints + fields, match by UUID, keep extras).

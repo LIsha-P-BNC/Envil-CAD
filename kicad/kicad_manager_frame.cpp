@@ -58,7 +58,7 @@
 #include <wx/timer.h>
 #include <wx/graphics.h>           // wxGraphicsContext for the title-bar AI logo mark
 #include <wx/mstream.h>            // wxMemoryInputStream to decode the embedded AI logo PNG
-#include "envil_ai_logo_png.h"     // embedded Envil "A" logo bytes for the title-bar AI icon
+#include "anvil_ai_logo_png.h"     // embedded Anvil "A" logo bytes for the title-bar AI icon
 #include <launch_ext.h>
 #include <lockfile.h>
 #include <notifications_manager.h>
@@ -153,20 +153,20 @@ namespace
 // gutter without losing the icons.  So we render the dropdown ourselves: a fully-purple popup with
 // icons, accelerators, separators and submenus, dispatching the real command through
 // wxMenu::SendEvent() so behaviour is unchanged.
-class ENVIL_POPUP_MENU : public wxPopupTransientWindow
+class ANVIL_POPUP_MENU : public wxPopupTransientWindow
 {
 public:
-    ENVIL_POPUP_MENU( wxWindow* aParent, wxMenu* aMenu, ENVIL_POPUP_MENU* aParentPopup = nullptr ) :
+    ANVIL_POPUP_MENU( wxWindow* aParent, wxMenu* aMenu, ANVIL_POPUP_MENU* aParentPopup = nullptr ) :
             wxPopupTransientWindow( aParent, wxBORDER_NONE ),
             m_menu( aMenu ),
             m_parentPopup( aParentPopup )
     {
         SetBackgroundStyle( wxBG_STYLE_PAINT );
 
-        // Dropdown rows follow the app-wide UI font size (EnvilUiFontPt) — the popups belong to
+        // Dropdown rows follow the app-wide UI font size (AnvilUiFontPt) — the popups belong to
         // the rest of the UI, not the top menu BAR (which keeps its own larger size).  Set before
         // computeLayout() so row width/height are measured at the new size.
-        const double uiPt = ADVANCED_CFG::GetCfg().m_EnvilUiFontPt;
+        const double uiPt = ADVANCED_CFG::GetCfg().m_AnvilUiFontPt;
 
         if( uiPt > 0.0 )
         {
@@ -178,9 +178,9 @@ public:
         buildRows();
         computeLayout();
 
-        Bind( wxEVT_PAINT, &ENVIL_POPUP_MENU::onPaint, this );
-        Bind( wxEVT_MOTION, &ENVIL_POPUP_MENU::onMotion, this );
-        Bind( wxEVT_LEFT_UP, &ENVIL_POPUP_MENU::onClick, this );
+        Bind( wxEVT_PAINT, &ANVIL_POPUP_MENU::onPaint, this );
+        Bind( wxEVT_MOTION, &ANVIL_POPUP_MENU::onMotion, this );
+        Bind( wxEVT_LEFT_UP, &ANVIL_POPUP_MENU::onClick, this );
         Bind( wxEVT_LEAVE_WINDOW,
               [this]( wxMouseEvent& ) { if( !m_child ) { m_hover = -1; Refresh(); } } );
     }
@@ -196,7 +196,7 @@ public:
     {
         // The framework calls this on the deepest (capturing) popup when the user clicks outside.
         // Hide + destroy the whole chain from the root down.
-        ENVIL_POPUP_MENU* root = this;
+        ANVIL_POPUP_MENU* root = this;
 
         while( root->m_parentPopup )
             root = root->m_parentPopup;
@@ -415,7 +415,7 @@ private:
         closeChild();
         m_childRow = aRow;
 
-        m_child = new ENVIL_POPUP_MENU( GetParent(), m_rows[aRow].item->GetSubMenu(), this );
+        m_child = new ANVIL_POPUP_MENU( GetParent(), m_rows[aRow].item->GetSubMenu(), this );
         wxPoint pt = ClientToScreen( wxPoint( GetClientSize().x - FromDIP( 2 ),
                                               m_rows[aRow].top ) );
         m_child->PopupAt( pt );
@@ -453,7 +453,7 @@ private:
     /// Hide this popup and every ancestor (used when a leaf item is chosen).
     void DismissChain()
     {
-        ENVIL_POPUP_MENU* root = this;
+        ANVIL_POPUP_MENU* root = this;
 
         while( root->m_parentPopup )
             root = root->m_parentPopup;
@@ -462,8 +462,8 @@ private:
     }
 
     wxMenu*           m_menu;
-    ENVIL_POPUP_MENU* m_parentPopup;
-    ENVIL_POPUP_MENU* m_child = nullptr;
+    ANVIL_POPUP_MENU* m_parentPopup;
+    ANVIL_POPUP_MENU* m_child = nullptr;
     int               m_childRow = -1;
     bool              m_dismissed = false;
     std::vector<ROW>  m_rows;
@@ -500,7 +500,7 @@ public:
                   if( m_menu )
                   {
                       // Custom fully-purple popup (native menus can't be themed on Win11).
-                      ENVIL_POPUP_MENU* popup = new ENVIL_POPUP_MENU( this, m_menu );
+                      ANVIL_POPUP_MENU* popup = new ANVIL_POPUP_MENU( this, m_menu );
                       popup->PopupAt( ClientToScreen( wxPoint( 0, GetSize().GetHeight() ) ) );
                   }
               } );
@@ -692,7 +692,7 @@ private:
 };
 
 
-// Envil AI logo mark — the purple "A" product logo (embedded PNG, see envil_ai_logo_png.h) drawn
+// Anvil AI logo mark — the purple "A" product logo (embedded PNG, see anvil_ai_logo_png.h) drawn
 // in the title bar as the AI-panel toggle, the way VS Code / Cursor put their product icon in the
 // header.  Full strength while the AI panel is open, dimmed (semi-transparent) while it is closed.
 // Decoded once and cached; scaled with high-quality interpolation so it stays crisp at any DPI.
@@ -727,7 +727,7 @@ private:
     {
         static wxImage s_img = []() -> wxImage
         {
-            wxMemoryInputStream stream( envil_ai_logo_png, envil_ai_logo_png_len );
+            wxMemoryInputStream stream( anvil_ai_logo_png, anvil_ai_logo_png_len );
             wxImage             img( stream, wxBITMAP_TYPE_PNG );
             return img;
         }();
@@ -822,7 +822,7 @@ public:
                                         []() { return false; } ),
                       0, wxEXPAND );
 
-        // AI Assistant: the Envil "AI sparkle" logo mark (vector-drawn, see TITLEBAR_AI_BUTTON)
+        // AI Assistant: the Anvil "AI sparkle" logo mark (vector-drawn, see TITLEBAR_AI_BUTTON)
         // instead of the abstract panel-region diagram.  VS Code / Cursor keep their AI toggle in
         // the title bar so the panel is one click away after you close it; this is that icon.  It
         // lights up while the AI panel is open and dims when it is closed.
@@ -966,7 +966,7 @@ private:
         return b;
     }
 
-    /// The Envil AI Assistant toggle: a vector "AI sparkle" logo mark (see TITLEBAR_AI_BUTTON) that
+    /// The Anvil AI Assistant toggle: a vector "AI sparkle" logo mark (see TITLEBAR_AI_BUTTON) that
     /// flips the AI panel (aToggle) and lights up while it is shown (aIsShown).  This is the
     /// title-bar icon you click to reopen the AI chat after closing it — the way you reopen
     /// Copilot / Cursor chat.
@@ -997,9 +997,9 @@ private:
     {
         wxColour bg, fg;
 
-        if( ADVANCED_CFG::GetCfg().m_EnvilPurpleFrame )
+        if( ADVANCED_CFG::GetCfg().m_AnvilPurpleFrame )
         {
-            // Match the rest of the Envil "Vibrant Purple & Indigo" frame.  Use an explicit
+            // Match the rest of the Anvil "Vibrant Purple & Indigo" frame.  Use an explicit
             // colour (not wxSYS_COLOUR_MENUBAR, whose public query doesn't return the dark-mode
             // purple override) so the title-bar strip is the same indigo as the panels.
             bg = wxColour( 33, 27, 56 );
@@ -1095,7 +1095,7 @@ KICAD_MANAGER_FRAME::KICAD_MANAGER_FRAME( wxWindow* parent, const wxString& titl
     const int defaultLeftWinWidth = FromDIP( 250 );
 
     m_leftWinWidth = defaultLeftWinWidth; // Default value
-    m_aboutTitle = "Envil";
+    m_aboutTitle = "Anvil";
 
     // JPC: A very ugly hack to fix an issue on Linux: if the wxbase315u_xml_gcc_custom.so is
     // used **only** in PCM, it is not found in some cases at run time.
@@ -1350,7 +1350,7 @@ KICAD_MANAGER_FRAME::KICAD_MANAGER_FRAME( wxWindow* parent, const wxString& titl
                 projPath.Replace( wxT( " " ), wxT( "%20" ) );
 
                 // No app= scope here — the shell is not an editor.  syncAiPanelToActiveTab()
-                // calls window.envilSetSchematic / envilSetPcb on tab switch, which is the
+                // calls window.anvilSetSchematic / anvilSetPcb on tab switch, which is the
                 // authoritative app-context signal chat.html honours.
                 fileUrl += wxString::Format( wxT( "?t=%ld&backend=localhost:8765&project=%s" ),
                                              (long) wxDateTime::Now().GetTicks(), projPath );
@@ -1509,9 +1509,9 @@ KICAD_MANAGER_FRAME::KICAD_MANAGER_FRAME( wxWindow* parent, const wxString& titl
     }
 
     if( ADVANCED_CFG::GetCfg().m_HideVersionFromTitle )
-        SetTitle( wxT( "Envil" ) );
+        SetTitle( wxT( "Anvil" ) );
     else
-        SetTitle( wxString( "Envil " ) + GetMajorMinorVersion() );
+        SetTitle( wxString( "Anvil " ) + GetMajorMinorVersion() );
 
     // Do not let the messages window have initial focus
     m_projectTreePane->SetFocus();
@@ -1528,9 +1528,9 @@ KICAD_MANAGER_FRAME::KICAD_MANAGER_FRAME( wxWindow* parent, const wxString& titl
 
     DragAcceptFiles( true );
 
-    // Envil "Vibrant Purple & Indigo" theme: repaint the shell's own backgrounds to match.
-    if( ADVANCED_CFG::GetCfg().m_EnvilPurpleFrame )
-        applyEnvilShellTheme();
+    // Anvil "Vibrant Purple & Indigo" theme: repaint the shell's own backgrounds to match.
+    if( ADVANCED_CFG::GetCfg().m_AnvilPurpleFrame )
+        applyAnvilShellTheme();
 
     // KiCad Next single-window shell: warm the heavy editor KIFACEs in the background so
     // the user's first click on Symbol/Footprint/Gerber/Drawing-Sheet is instant instead
@@ -1927,9 +1927,9 @@ void KICAD_MANAGER_FRAME::syncAiPanelToActiveTab()
     wxString setter;
 
     if( editor->GetFrameType() == FRAME_SCH )
-        setter = wxT( "envilSetSchematic" );
+        setter = wxT( "anvilSetSchematic" );
     else if( editor->GetFrameType() == FRAME_PCB_EDITOR )
-        setter = wxT( "envilSetPcb" );
+        setter = wxT( "anvilSetPcb" );
     else
         return;   // a non-schematic/PCB tab (Gerber, Calculator, …) — keep current context
 
@@ -1941,7 +1941,7 @@ void KICAD_MANAGER_FRAME::syncAiPanelToActiveTab()
     file.Replace( wxT( "\\" ), wxT( "/" ) );
     file.Replace( wxT( "\"" ), wxT( "\\\"" ) );
 
-    // envilSetSchematic / envilSetPcb set the panel's app context AND re-hello the backend
+    // anvilSetSchematic / anvilSetPcb set the panel's app context AND re-hello the backend
     // with the new file, so the one shell panel always acts on the front tab's document.
     wxString script = wxString::Format(
             wxT( "if (window.%s) window.%s(\"%s\", \"%s\");" ),
@@ -1983,9 +1983,9 @@ void KICAD_MANAGER_FRAME::ToggleAiChat()
 
         // Cursor-style "fresh on open": reopening the panel starts a blank chat.
         // This fires ONLY here (an explicit pane show), not in syncAiPanelToActiveTab
-        // which also runs on tab flips. chat.html's envilPanelOpened() guards itself
+        // which also runs on tab flips. chat.html's anvilPanelOpened() guards itself
         // (no-op if blank, kept if a build is in flight), so this is safe to call.
-        m_aiChatPanel->RunScriptAsync( wxT( "if (window.envilPanelOpened) window.envilPanelOpened();" ) );
+        m_aiChatPanel->RunScriptAsync( wxT( "if (window.anvilPanelOpened) window.anvilPanelOpened();" ) );
     }
     else
     {
@@ -2028,7 +2028,7 @@ void KICAD_MANAGER_FRAME::ShowAiSplitLayout()
     syncAiPanelToActiveTab();
 
     // Cursor-style "fresh on open" — see ToggleAiChat(). Only on explicit show.
-    m_aiChatPanel->RunScriptAsync( wxT( "if (window.envilPanelOpened) window.envilPanelOpened();" ) );
+    m_aiChatPanel->RunScriptAsync( wxT( "if (window.anvilPanelOpened) window.anvilPanelOpened();" ) );
 
     if( KICAD_SETTINGS* cfg = kicadSettings() )
     {
@@ -2043,10 +2043,10 @@ void KICAD_MANAGER_FRAME::ShowAiSplitLayout()
 
 namespace
 {
-// Recursively repaint a shell-owned panel subtree with the Envil chrome colours.  Safe only for
+// Recursively repaint a shell-owned panel subtree with the Anvil chrome colours.  Safe only for
 // the shell's own widgets — never call on the editor tab pages (reparented editor frames keep
 // their own theme + a drawing canvas that must stay untouched).
-void envilRecolorShellTree( wxWindow* aWindow, const wxColour& aBg, const wxColour& aFg )
+void anvilRecolorShellTree( wxWindow* aWindow, const wxColour& aBg, const wxColour& aFg )
 {
     if( !aWindow )
         return;
@@ -2055,16 +2055,16 @@ void envilRecolorShellTree( wxWindow* aWindow, const wxColour& aBg, const wxColo
     aWindow->SetForegroundColour( aFg );
 
     for( wxWindow* child : aWindow->GetChildren() )
-        envilRecolorShellTree( child, aBg, aFg );
+        anvilRecolorShellTree( child, aBg, aFg );
 
     aWindow->Refresh();
 }
 } // namespace
 
 
-void KICAD_MANAGER_FRAME::applyEnvilShellTheme()
+void KICAD_MANAGER_FRAME::applyAnvilShellTheme()
 {
-    // Envil chrome palette (matches sch_edit_frame.cpp and the MSW dark-mode palette).
+    // Anvil chrome palette (matches sch_edit_frame.cpp and the MSW dark-mode palette).
     const wxColour bgDeep  ( 24, 20, 42 );
     const wxColour bgPanel ( 33, 27, 56 );
     const wxColour accent  ( 139, 92, 246 );
@@ -2106,8 +2106,8 @@ void KICAD_MANAGER_FRAME::applyEnvilShellTheme()
     }
 
     // 3) Shell-owned side panels (project tree + launcher).  Not the editor tab pages.
-    envilRecolorShellTree( m_projectTreePane, bgPanel, text );
-    envilRecolorShellTree( m_launcher, bgPanel, text );
+    anvilRecolorShellTree( m_projectTreePane, bgPanel, text );
+    anvilRecolorShellTree( m_launcher, bgPanel, text );
 
     // 4) Status bar.
     if( wxStatusBar* sb = GetStatusBar() )
@@ -3297,9 +3297,9 @@ void KICAD_MANAGER_FRAME::ProjectChanged()
     }
 
     if( ADVANCED_CFG::GetCfg().m_HideVersionFromTitle )
-        title += wxT( " \u2014 " ) + wxString( wxS( "Envil" ) );
+        title += wxT( " \u2014 " ) + wxString( wxS( "Anvil" ) );
     else
-        title += wxT( " \u2014 " ) + wxString( wxS( "Envil " ) ) + GetMajorMinorVersion();
+        title += wxT( " \u2014 " ) + wxString( wxS( "Anvil " ) ) + GetMajorMinorVersion();
 
     SetTitle( title );
 

@@ -94,7 +94,7 @@ PGM_KICAD& PgmTop()
 
 bool PGM_KICAD::OnPgmInit()
 {
-    App().SetAppDisplayName( wxT( "Envil" ) );
+    App().SetAppDisplayName( wxT( "Anvil" ) );
 
 #if defined(DEBUG)
     wxString absoluteArgv0 = wxStandardPaths::Get().GetExecutablePath();
@@ -188,16 +188,16 @@ bool PGM_KICAD::OnPgmInit()
     GetSettingsManager().SetKiway( &Kiway );
     m_bm.Init();
 
-    // Envil "Vibrant Purple & Indigo" frame theme: tint the dark-mode chrome purple and force
+    // Anvil "Vibrant Purple & Indigo" frame theme: tint the dark-mode chrome purple and force
     // dark mode on so the native menu bar + title bar go dark too (the canvas is unaffected).
-    const bool envilPurpleFrame = ADVANCED_CFG::GetCfg().m_EnvilPurpleFrame;
+    const bool anvilPurpleFrame = ADVANCED_CFG::GetCfg().m_AnvilPurpleFrame;
 
-    if( envilPurpleFrame )
+    if( anvilPurpleFrame )
         KIPLATFORM::APP::SetDarkModePurple( true );
 
     if( const COMMON_SETTINGS* cfg = Pgm().GetCommonSettings() )
     {
-        if( envilPurpleFrame || cfg->m_Appearance.app_theme == APP_THEME::DARK )
+        if( anvilPurpleFrame || cfg->m_Appearance.app_theme == APP_THEME::DARK )
             KIPLATFORM::APP::EnableDarkMode( true );
         else if( cfg->m_Appearance.app_theme == APP_THEME::AUTO )
             KIPLATFORM::APP::EnableDarkMode( false );
@@ -247,7 +247,7 @@ bool PGM_KICAD::OnPgmInit()
 
     if( appType == KICAD_MAIN_FRAME_T )
     {
-        managerFrame = new KICAD_MANAGER_FRAME( nullptr, wxT( "Envil" ), wxDefaultPosition,
+        managerFrame = new KICAD_MANAGER_FRAME( nullptr, wxT( "Anvil" ), wxDefaultPosition,
                                                 wxWindow::FromDIP( wxSize( 775, -1 ), NULL ) );
         frame = managerFrame;
 

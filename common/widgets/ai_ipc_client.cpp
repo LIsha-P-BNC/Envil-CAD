@@ -1,5 +1,5 @@
 /*
- * This program source code file is part of Envil.
+ * This program source code file is part of Anvil.
  *
  * AI IPC Client — TCP client for Python AI backend communication.
  */

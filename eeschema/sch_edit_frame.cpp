@@ -192,7 +192,7 @@ SCH_EDIT_FRAME::SCH_EDIT_FRAME( KIWAY* aKiway, wxWindow* aParent ) :
     m_showBorderAndTitleBlock = true;   // true to show sheet references
     m_supportsAutoSave = true;
     m_syncingPcbToSchSelection = false;
-    m_aboutTitle = _HKI( "Envil Schematic Editor" );
+    m_aboutTitle = _HKI( "Anvil Schematic Editor" );
     m_show_search = false;
     // Ensure timer has an owner before binding so it generates events.
     m_crossProbeFlashTimer.SetOwner( this );
@@ -353,7 +353,7 @@ SCH_EDIT_FRAME::SCH_EDIT_FRAME( KIWAY* aKiway, wxWindow* aParent ) :
                         p.Replace( wxT( "\"" ), wxT( "\\\"" ) );
                         s.Replace( wxT( "\"" ), wxT( "\\\"" ) );
                         wxString script = wxString::Format(
-                            wxT( "if (window.envilSetSchematic) window.envilSetSchematic(\"%s\", \"%s\");" ),
+                            wxT( "if (window.anvilSetSchematic) window.anvilSetSchematic(\"%s\", \"%s\");" ),
                             p, s );
                         m_aiChatPanel->RunScriptAsync( script );
                         aEvt.Skip();
@@ -444,7 +444,7 @@ SCH_EDIT_FRAME::SCH_EDIT_FRAME( KIWAY* aKiway, wxWindow* aParent ) :
                             }
                             else if( action == wxT( "update_pcb_from_schematic" ) )
                             {
-                                // Envil Cursor-style F8: push the schematic netlist to
+                                // Anvil Cursor-style F8: push the schematic netlist to
                                 // the PCB automatically. OnUpdatePCB( true ) opens/docks
                                 // pcbnew (if needed) and applies the update silently.
                                 wxLogDebug( wxT( "AI: Update PCB from Schematic via IPC" ) );
@@ -873,31 +873,31 @@ SCH_EDIT_FRAME::SCH_EDIT_FRAME( KIWAY* aKiway, wxWindow* aParent ) :
         }
     }
 
-    // Envil "Vibrant Purple & Indigo" frame theme (opt-in; byte-identical chrome when off).
-    if( ADVANCED_CFG::GetCfg().m_EnvilPurpleFrame )
-        applyEnvilPurpleFrameTheme();
+    // Anvil "Vibrant Purple & Indigo" frame theme (opt-in; byte-identical chrome when off).
+    if( ADVANCED_CFG::GetCfg().m_AnvilPurpleFrame )
+        applyAnvilPurpleFrameTheme();
 }
 
 
 namespace
 {
-// Envil "Vibrant Purple & Indigo" chrome palette (RGB).  Kept local to the schematic editor;
+// Anvil "Vibrant Purple & Indigo" chrome palette (RGB).  Kept local to the schematic editor;
 // the canvas ("screen") is themed separately by the colour theme, not here.
-const wxColour ENVIL_BG_DEEP{ 24, 20, 42 };    // deepest indigo: dock/background fill
-const wxColour ENVIL_BG_PANEL{ 33, 27, 56 };   // dockable panels & tool-bars
-const wxColour ENVIL_CAP_ACTIVE{ 88, 52, 156 };// active pane caption (purple)
-const wxColour ENVIL_CAP_INACTIVE{ 43, 35, 70 };
-const wxColour ENVIL_ACCENT{ 139, 92, 246 };   // vibrant purple: hover / pressed / checked
-const wxColour ENVIL_BORDER{ 58, 46, 99 };
-const wxColour ENVIL_SASH{ 40, 33, 66 };
-const wxColour ENVIL_TEXT{ 255, 255, 255 };    // white
+const wxColour ANVIL_BG_DEEP{ 24, 20, 42 };    // deepest indigo: dock/background fill
+const wxColour ANVIL_BG_PANEL{ 33, 27, 56 };   // dockable panels & tool-bars
+const wxColour ANVIL_CAP_ACTIVE{ 88, 52, 156 };// active pane caption (purple)
+const wxColour ANVIL_CAP_INACTIVE{ 43, 35, 70 };
+const wxColour ANVIL_ACCENT{ 139, 92, 246 };   // vibrant purple: hover / pressed / checked
+const wxColour ANVIL_BORDER{ 58, 46, 99 };
+const wxColour ANVIL_SASH{ 40, 33, 66 };
+const wxColour ANVIL_TEXT{ 255, 255, 255 };    // white
 
 /**
- * Recursively repaint @p aWindow and its descendants with the Envil chrome colours, skipping
+ * Recursively repaint @p aWindow and its descendants with the Anvil chrome colours, skipping
  * any window in @p aExclude (and its subtree) so the drawing canvas and the AI web panel keep
  * their own rendering.
  */
-void envilRecolorTree( wxWindow* aWindow, const std::vector<wxWindow*>& aExclude )
+void anvilRecolorTree( wxWindow* aWindow, const std::vector<wxWindow*>& aExclude )
 {
     if( !aWindow )
         return;
@@ -908,30 +908,30 @@ void envilRecolorTree( wxWindow* aWindow, const std::vector<wxWindow*>& aExclude
             return;
     }
 
-    aWindow->SetBackgroundColour( ENVIL_BG_PANEL );
-    aWindow->SetForegroundColour( ENVIL_TEXT );
+    aWindow->SetBackgroundColour( ANVIL_BG_PANEL );
+    aWindow->SetForegroundColour( ANVIL_TEXT );
 
     for( wxWindow* child : aWindow->GetChildren() )
-        envilRecolorTree( child, aExclude );
+        anvilRecolorTree( child, aExclude );
 }
 } // namespace
 
 
-void SCH_EDIT_FRAME::applyEnvilPurpleFrameTheme()
+void SCH_EDIT_FRAME::applyAnvilPurpleFrameTheme()
 {
     // 1) Dockable-pane chrome (backgrounds, sashes, borders, captions) via the AUI dock art.
     if( wxAuiDockArt* dockArt = m_auimgr.GetArtProvider() )
     {
-        dockArt->SetColour( wxAUI_DOCKART_BACKGROUND_COLOUR, ENVIL_BG_DEEP );
-        dockArt->SetColour( wxAUI_DOCKART_SASH_COLOUR, ENVIL_SASH );
-        dockArt->SetColour( wxAUI_DOCKART_BORDER_COLOUR, ENVIL_BORDER );
-        dockArt->SetColour( wxAUI_DOCKART_GRIPPER_COLOUR, ENVIL_BG_PANEL );
-        dockArt->SetColour( wxAUI_DOCKART_ACTIVE_CAPTION_COLOUR, ENVIL_CAP_ACTIVE );
-        dockArt->SetColour( wxAUI_DOCKART_ACTIVE_CAPTION_GRADIENT_COLOUR, ENVIL_CAP_ACTIVE );
-        dockArt->SetColour( wxAUI_DOCKART_INACTIVE_CAPTION_COLOUR, ENVIL_CAP_INACTIVE );
-        dockArt->SetColour( wxAUI_DOCKART_INACTIVE_CAPTION_GRADIENT_COLOUR, ENVIL_CAP_INACTIVE );
-        dockArt->SetColour( wxAUI_DOCKART_ACTIVE_CAPTION_TEXT_COLOUR, ENVIL_TEXT );
-        dockArt->SetColour( wxAUI_DOCKART_INACTIVE_CAPTION_TEXT_COLOUR, ENVIL_TEXT );
+        dockArt->SetColour( wxAUI_DOCKART_BACKGROUND_COLOUR, ANVIL_BG_DEEP );
+        dockArt->SetColour( wxAUI_DOCKART_SASH_COLOUR, ANVIL_SASH );
+        dockArt->SetColour( wxAUI_DOCKART_BORDER_COLOUR, ANVIL_BORDER );
+        dockArt->SetColour( wxAUI_DOCKART_GRIPPER_COLOUR, ANVIL_BG_PANEL );
+        dockArt->SetColour( wxAUI_DOCKART_ACTIVE_CAPTION_COLOUR, ANVIL_CAP_ACTIVE );
+        dockArt->SetColour( wxAUI_DOCKART_ACTIVE_CAPTION_GRADIENT_COLOUR, ANVIL_CAP_ACTIVE );
+        dockArt->SetColour( wxAUI_DOCKART_INACTIVE_CAPTION_COLOUR, ANVIL_CAP_INACTIVE );
+        dockArt->SetColour( wxAUI_DOCKART_INACTIVE_CAPTION_GRADIENT_COLOUR, ANVIL_CAP_INACTIVE );
+        dockArt->SetColour( wxAUI_DOCKART_ACTIVE_CAPTION_TEXT_COLOUR, ANVIL_TEXT );
+        dockArt->SetColour( wxAUI_DOCKART_INACTIVE_CAPTION_TEXT_COLOUR, ANVIL_TEXT );
     }
 
     // 2) AUI tool-bars: the bar background and the hover/pressed/checked highlight.
@@ -941,9 +941,9 @@ void SCH_EDIT_FRAME::applyEnvilPurpleFrameTheme()
             continue;
 
         if( WX_AUI_TOOLBAR_ART* art = dynamic_cast<WX_AUI_TOOLBAR_ART*>( tb->GetArtProvider() ) )
-            art->EnableEnvilTheme( ENVIL_BG_PANEL, ENVIL_ACCENT );
+            art->EnableAnvilTheme( ANVIL_BG_PANEL, ANVIL_ACCENT );
 
-        tb->SetBackgroundColour( ENVIL_BG_PANEL );
+        tb->SetBackgroundColour( ANVIL_BG_PANEL );
         tb->Refresh();
     }
 
@@ -962,7 +962,7 @@ void SCH_EDIT_FRAME::applyEnvilPurpleFrameTheme()
         exclude.push_back( m_infoBar );
 
     for( wxWindow* child : GetChildren() )
-        envilRecolorTree( child, exclude );
+        anvilRecolorTree( child, exclude );
 
     Refresh();
 }
@@ -1966,7 +1966,7 @@ void SCH_EDIT_FRAME::OnUpdatePCB( bool aAutoApply )
         frame->Raise();
     }
 
-    // Envil: an empty payload keeps the normal interactive F8 (pcbnew opens the
+    // Anvil: an empty payload keeps the normal interactive F8 (pcbnew opens the
     // Update-PCB dialog). "auto" (sent only by the AI IPC path via OnUpdatePCB(true))
     // makes pcbnew apply the netlist update silently — no dialog, no click — for
     // Cursor-style end-to-end automation.
@@ -3713,12 +3713,12 @@ void SCH_EDIT_FRAME::RemoveVariant()
 
 bool SCH_EDIT_FRAME::doAutoSave()
 {
-    // KiCad Next / Envil: VSCode-style autosave to the REAL .kicad_sch (not the .history
+    // KiCad Next / Anvil: VSCode-style autosave to the REAL .kicad_sch (not the .history
     // snapshot) so the AI backend, which reads the live project file, observes the user's
     // manual edits automatically — the Cursor way.  Only writes when there is something to
     // save and the project is writable; a clean or read-only design is a no-op.  Skips the
     // local-history commit entirely (no snapshot), per the feature contract.
-    if( ADVANCED_CFG::GetCfg().m_EnvilAutoSaveRealFile )
+    if( ADVANCED_CFG::GetCfg().m_AnvilAutoSaveRealFile )
     {
         if( IsContentModified() && !Prj().IsReadOnly() )
             SaveProject();
