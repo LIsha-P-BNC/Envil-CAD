@@ -30,6 +30,15 @@
 #include <lib_symbol.h>
 #include <base_units.h>
 #include <layer_ids.h>
+#include <kiway.h>
+#include <reporter.h>
+#include <marker_base.h>
+#include <sch_marker.h>
+#include <sch_reference_list.h>
+#include <erc/erc.h>
+#include <erc/erc_item.h>
+#include <erc/erc_settings.h>
+#include <connection_graph.h>
 
 using json = nlohmann::json;
 
@@ -334,6 +343,125 @@ static json execGetSchematic( SCH_EDIT_FRAME* aFrame, const json& aInput )
 }
 
 
+/**
+ * annotate: assign reference designators to un-annotated symbols (power flags, new parts).
+ * ERC needs this — otherwise it flags "Item not annotated".
+ */
+static json execAnnotate( SCH_EDIT_FRAME* aFrame, const json& aInput )
+{
+    SCH_COMMIT commit( aFrame );
+    NULL_REPORTER reporter;
+
+    aFrame->AnnotateSymbols( &commit, ANNOTATE_ALL, SORT_BY_X_POSITION, INCREMENTAL_BY_REF,
+                             false /*recursive*/, 0 /*startNum*/, false /*resetAnnotation*/,
+                             true /*regroupUnits*/, false /*repairTimestamps*/, reporter );
+
+    commit.Push( _( "Envil AI: annotate" ) );
+    aFrame->GetCanvas()->Refresh();
+
+    return ok( "Annotated the schematic." );
+}
+
+
+/**
+ * run_erc: run the full native ERC suite on the live schematic and return every violation
+ * (severity, rule title, detail message, position) so the AI can see its own errors and fix
+ * them. This is what turns the panel into a self-correcting loop: wire -> run_erc -> fix ->
+ * run_erc -> clean.
+ */
+static json execRunErc( SCH_EDIT_FRAME* aFrame, const json& )
+{
+    SCHEMATIC* sch = &aFrame->Schematic();
+
+    sch->RecordERCExclusions();
+
+    // Clear previous ERC markers so we only report the current state.
+    SCH_SCREENS screens( sch->Root() );
+    screens.DeleteAllMarkers( MARKER_BASE::MARKER_ERC, false );
+
+    json violations = json::array();
+    int  errors = 0;
+    int  warnings = 0;
+
+    // Annotation check first (mirrors the ERC dialog) — surface un-annotated symbols.
+    int notAnnotated = aFrame->CheckAnnotate(
+            [&]( ERCE_T, const wxString& aMsg, SCH_REFERENCE*, SCH_REFERENCE* )
+            {
+                violations.push_back( { { "severity", "error" },
+                                        { "title", "Not annotated" },
+                                        { "message", std::string( aMsg.utf8_str() ) } } );
+                ++errors;
+            },
+            ANNOTATE_ALL );
+
+    (void) notAnnotated;
+
+    // Run the full ERC suite. RunTests recalculates connectivity and drops SCH_MARKERs.
+    ERC_TESTER tester( sch, false );
+    tester.RunTests( aFrame->GetCanvas()->GetView()->GetDrawingSheet(), aFrame,
+                     aFrame->Kiway().KiFACE( KIWAY::FACE_CVPCB, false ), &aFrame->Prj(), nullptr );
+
+    for( SCH_SCREEN* screen = screens.GetFirst(); screen; screen = screens.GetNext() )
+    {
+        for( SCH_ITEM* item : screen->Items().OfType( SCH_MARKER_T ) )
+        {
+            SCH_MARKER* marker = static_cast<SCH_MARKER*>( item );
+
+            if( marker->GetMarkerType() != MARKER_BASE::MARKER_ERC )
+                continue;
+
+            SEVERITY sev = marker->GetSeverity();
+
+            if( sev == RPT_SEVERITY_IGNORE || sev == RPT_SEVERITY_EXCLUSION )
+                continue;
+
+            std::shared_ptr<RC_ITEM> rc = marker->GetRCItem();
+            std::string              sevStr = "info";
+
+            if( sev == RPT_SEVERITY_ERROR )
+            {
+                sevStr = "error";
+                ++errors;
+            }
+            else if( sev == RPT_SEVERITY_WARNING )
+            {
+                sevStr = "warning";
+                ++warnings;
+            }
+
+            json v;
+            v["severity"] = sevStr;
+
+            if( rc )
+            {
+                v["title"] = std::string( rc->GetErrorText( true ).utf8_str() );
+                v["message"] = std::string( rc->GetErrorMessage( true ).utf8_str() );
+            }
+
+            v["x_mils"] = iuToMils( marker->GetPosition().x );
+            v["y_mils"] = iuToMils( marker->GetPosition().y );
+            violations.push_back( v );
+        }
+    }
+
+    aFrame->GetCanvas()->Refresh();
+
+    std::string summary = errors == 0
+            ? ( warnings == 0 ? "ERC clean — no errors or warnings."
+                              : "ERC clean of errors; " + std::to_string( warnings )
+                                        + " warning(s)." )
+            : std::to_string( errors ) + " error(s), " + std::to_string( warnings )
+                      + " warning(s).";
+
+    return { { "ok", true },
+             { "clean", errors == 0 },
+             { "error_count", errors },
+             { "warning_count", warnings },
+             { "violations", violations },
+             { "message", summary } };
+}
+
+
 std::string EnvilExecAiTool( SCH_EDIT_FRAME* aFrame, const std::string& aRequestJson )
 {
     json result;
@@ -352,6 +480,10 @@ std::string EnvilExecAiTool( SCH_EDIT_FRAME* aFrame, const std::string& aRequest
 
             if( tool == "get_schematic" )
                 result = execGetSchematic( aFrame, input );
+            else if( tool == "run_erc" )
+                result = execRunErc( aFrame, input );
+            else if( tool == "annotate" )
+                result = execAnnotate( aFrame, input );
             else if( tool == "add_component" )
                 result = execAddComponent( aFrame, input );
             else if( tool == "add_wire" )

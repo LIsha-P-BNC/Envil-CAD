@@ -35,10 +35,10 @@ using json = nlohmann::json;
 // The MCP tool names the CLI is allowed to run — our schematic tools only, so the CLI
 // can't touch the filesystem or shell. Must match tools/envil-mcp's server name + tools.
 static const char* ENVIL_MCP_ALLOWED_TOOLS =
-        "mcp__envil-cad__get_schematic mcp__envil-cad__add_component mcp__envil-cad__add_wire "
-        "mcp__envil-cad__add_label mcp__envil-cad__add_junction mcp__envil-cad__add_no_connect "
-        "mcp__envil-cad__edit_value mcp__envil-cad__move_component "
-        "mcp__envil-cad__delete_component";
+        "mcp__envil-cad__get_schematic mcp__envil-cad__run_erc mcp__envil-cad__annotate "
+        "mcp__envil-cad__add_component mcp__envil-cad__add_wire mcp__envil-cad__add_label "
+        "mcp__envil-cad__add_junction mcp__envil-cad__add_no_connect mcp__envil-cad__edit_value "
+        "mcp__envil-cad__move_component mcp__envil-cad__delete_component";
 
 
 ENVIL_AI_AGENT::ENVIL_AI_AGENT( KIWAY* aKiway, wxWindow* aParent, WEBVIEW_PANEL* aPanel ) :
@@ -202,6 +202,17 @@ std::string ENVIL_AI_AGENT::toolsJson() const
                 { { "type", "boolean" },
                   { "description", "Include pin lists (default true)." } } } },
             json::array() ) );
+
+    tools.push_back( makeTool(
+            "run_erc",
+            "Run the native Electrical Rules Check and return violations (severity, title, "
+            "message, x/y) + counts + a 'clean' flag. Use it to check your work and loop.",
+            json::object(), json::array() ) );
+
+    tools.push_back( makeTool(
+            "annotate",
+            "Assign reference designators to un-annotated symbols. Run before run_erc.",
+            json::object(), json::array() ) );
 
     tools.push_back( makeTool(
             "add_component", "Place a component symbol into the open schematic in Envil-CAD.",

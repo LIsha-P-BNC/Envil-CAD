@@ -86,6 +86,21 @@ const TOOLS = [
     },
   },
   {
+    name: "run_erc",
+    description:
+      "Run the full native Electrical Rules Check on the open schematic and return every " +
+      "violation (severity, rule title, detail message, x/y position) plus error/warning " +
+      "counts and a 'clean' flag. Use this to check your work and loop until clean.",
+    inputSchema: { type: "object", properties: {} },
+  },
+  {
+    name: "annotate",
+    description:
+      "Assign reference designators to un-annotated symbols (power flags, newly added parts). " +
+      "Run before run_erc to clear 'not annotated' errors.",
+    inputSchema: { type: "object", properties: {} },
+  },
+  {
     name: "add_component",
     description: "Place a component symbol into the schematic open in Envil-CAD.",
     inputSchema: {
