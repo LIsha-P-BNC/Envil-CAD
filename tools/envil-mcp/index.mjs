@@ -206,9 +206,12 @@ server.setRequestHandler(CallToolRequestSchema, async (req) => {
 
   try {
     const result = await callEnvil({ tool: name, input: args || {} });
+    // Return the FULL result JSON, not just result.message — read tools like
+    // get_schematic carry structured data (symbols + pin coordinates) the model
+    // needs. A message-only reply would strip that and leave it wiring blind.
     return {
       isError: result.ok === false,
-      content: [{ type: "text", text: result.message || JSON.stringify(result) }],
+      content: [{ type: "text", text: JSON.stringify(result) }],
     };
   } catch (e) {
     return { isError: true, content: [{ type: "text", text: e.message }] };

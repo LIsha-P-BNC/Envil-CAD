@@ -52,6 +52,13 @@ public:
      */
     void SetContextSuffix( const wxString& aSuffix ) { m_contextSuffix = aSuffix; }
 
+    /// The effective system prompt (user-editable file + live context). Used by the CLI
+    /// backend, which passes it via --append-system-prompt-file.
+    wxString GetSystemPrompt() const;
+
+    /// True when a Claude API key is present in the environment (API-key backend usable).
+    /// (HasApiKey above.) This mirror keeps naming parallel with the CLI check in the agent.
+
 private:
     wxString getApiKey() const;
 

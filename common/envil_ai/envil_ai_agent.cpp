@@ -13,7 +13,32 @@
 #include <envil_ai/envil_ai_tool_bridge.h>
 #include <widgets/webview_panel.h>
 
+#include <wx/filename.h>
+#include <wx/ffile.h>
+#include <wx/stdpaths.h>
+#include <wx/utils.h>          // wxGetEnv
+#include <wx/filefn.h>         // wxFileExists
+#include <settings/settings_manager.h>
+
+#ifdef _WIN32
+#ifndef WIN32_LEAN_AND_MEAN
+#define WIN32_LEAN_AND_MEAN
+#endif
+#ifndef NOMINMAX
+#define NOMINMAX
+#endif
+#include <windows.h>
+#endif
+
 using json = nlohmann::json;
+
+// The MCP tool names the CLI is allowed to run — our schematic tools only, so the CLI
+// can't touch the filesystem or shell. Must match tools/envil-mcp's server name + tools.
+static const char* ENVIL_MCP_ALLOWED_TOOLS =
+        "mcp__envil-cad__get_schematic mcp__envil-cad__add_component mcp__envil-cad__add_wire "
+        "mcp__envil-cad__add_label mcp__envil-cad__add_junction mcp__envil-cad__add_no_connect "
+        "mcp__envil-cad__edit_value mcp__envil-cad__move_component "
+        "mcp__envil-cad__delete_component";
 
 
 ENVIL_AI_AGENT::ENVIL_AI_AGENT( KIWAY* aKiway, wxWindow* aParent, WEBVIEW_PANEL* aPanel ) :
@@ -129,7 +154,15 @@ void ENVIL_AI_AGENT::onBridgeMessage( const wxString& aJson )
         m_approveAll = false;
         m_busy = true;
 
-        std::thread( [this, text]() { agentLoop( text ); } ).detach();
+        bool cli = useCliBackend();
+
+        std::thread( [this, text, cli]()
+                     {
+                         if( cli )
+                             agentLoopCli( text );
+                         else
+                             agentLoop( text );
+                     } ).detach();
     }
     // approve/reject: placement is gated by a native dialog, so the webview's own
     // approve/reject flow is not used here.
@@ -405,4 +438,290 @@ void ENVIL_AI_AGENT::agentLoop( wxString aUserText )
     }
 
     m_busy = false;
+}
+
+
+// ---------------------------------------------------------------------------------------
+// CLI (subscription) backend
+// ---------------------------------------------------------------------------------------
+
+bool ENVIL_AI_AGENT::useCliBackend() const
+{
+    wxString v;
+
+    if( wxGetEnv( wxS( "ENVIL_AI_BACKEND" ), &v ) )
+    {
+        wxString lv = v.Lower();
+
+        if( lv == wxS( "api" ) )
+            return false;
+
+        if( lv == wxS( "cli" ) )
+            return true;
+    }
+
+    return true;   // default: drive the Claude Code CLI on the user's subscription
+}
+
+
+wxString ENVIL_AI_AGENT::resolveClaudeExe() const
+{
+    wxString v;
+
+    if( wxGetEnv( wxS( "ENVIL_CLAUDE_EXE" ), &v ) && !v.IsEmpty() )
+        return v;
+
+    // npm global install layout: %APPDATA%/npm/node_modules/@anthropic-ai/claude-code/bin/claude.exe
+    wxString appdata;
+
+    if( wxGetEnv( wxS( "APPDATA" ), &appdata ) && !appdata.IsEmpty() )
+    {
+        wxFileName fn( appdata, wxS( "claude.exe" ) );
+        fn.AppendDir( wxS( "npm" ) );
+        fn.AppendDir( wxS( "node_modules" ) );
+        fn.AppendDir( wxS( "@anthropic-ai" ) );
+        fn.AppendDir( wxS( "claude-code" ) );
+        fn.AppendDir( wxS( "bin" ) );
+
+        if( fn.FileExists() )
+            return fn.GetFullPath();
+    }
+
+    return wxS( "claude" );   // last resort: rely on PATH
+}
+
+
+wxString ENVIL_AI_AGENT::writeCliMcpConfig() const
+{
+    wxString node;
+
+    if( !wxGetEnv( wxS( "ENVIL_NODE_EXE" ), &node ) || node.IsEmpty() )
+        node = wxS( "C:/Program Files/nodejs/node.exe" );
+
+    wxString script;
+
+    if( !wxGetEnv( wxS( "ENVIL_MCP_SCRIPT" ), &script ) || script.IsEmpty() )
+        script = wxS( "D:/Ki_Cad_Full/Envil-CAD/tools/envil-mcp/index.mjs" );
+
+    json cfg;
+    cfg["mcpServers"]["envil-cad"]["command"] = std::string( node.utf8_str() );
+    cfg["mcpServers"]["envil-cad"]["args"] = json::array( { std::string( script.utf8_str() ) } );
+
+    wxFileName fn( SETTINGS_MANAGER::GetUserSettingsPath(), wxS( "envil_mcp.json" ) );
+    wxFFile    f( fn.GetFullPath(), wxS( "wb" ) );
+
+    if( f.IsOpened() )
+    {
+        f.Write( wxString::FromUTF8( cfg.dump( 2 ) ), wxConvUTF8 );
+        f.Close();
+    }
+
+    return fn.GetFullPath();
+}
+
+
+void ENVIL_AI_AGENT::agentLoopCli( wxString aUserText )
+{
+    emit( { { "kind", "status" }, { "text", "Analyzing" } } );
+
+#ifdef _WIN32
+    wxString claudeExe = resolveClaudeExe();
+
+    if( claudeExe != wxS( "claude" ) && !wxFileExists( claudeExe ) )
+    {
+        emit( { { "kind", "error" },
+                { "text", "Claude CLI not found. Install it with: "
+                          "npm install -g @anthropic-ai/claude-code" } } );
+        m_busy = false;
+        return;
+    }
+
+    const wxString cfgDir = SETTINGS_MANAGER::GetUserSettingsPath();
+    wxString       mcpCfg = writeCliMcpConfig();
+
+    // System prompt + user prompt go through files so nothing needs shell escaping.
+    wxFileName sysFn( cfgDir, wxS( "envil_ai_sysprompt.tmp" ) );
+    {
+        wxFFile f( sysFn.GetFullPath(), wxS( "wb" ) );
+
+        if( f.IsOpened() )
+        {
+            f.Write( m_client.GetSystemPrompt(), wxConvUTF8 );
+            f.Close();
+        }
+    }
+
+    wxFileName promptFn( cfgDir, wxS( "envil_ai_prompt_in.tmp" ) );
+    {
+        wxFFile f( promptFn.GetFullPath(), wxS( "wb" ) );
+
+        if( f.IsOpened() )
+        {
+            f.Write( aUserText, wxConvUTF8 );
+            f.Close();
+        }
+    }
+
+    // Build the command line. Only fixed flags + our own paths/session id — no user text
+    // (that arrives on stdin), so there is nothing to escape.
+    wxString cmd;
+    cmd << wxS( "\"" ) << claudeExe << wxS( "\"" )
+        << wxS( " -p --output-format stream-json --verbose" )
+        << wxS( " --mcp-config \"" ) << mcpCfg << wxS( "\"" )
+        << wxS( " --append-system-prompt-file \"" ) << sysFn.GetFullPath() << wxS( "\"" )
+        << wxS( " --allowedTools " ) << wxString::FromUTF8( ENVIL_MCP_ALLOWED_TOOLS );
+
+    if( !m_cliSession.IsEmpty() )
+        cmd << wxS( " --resume " ) << m_cliSession;
+
+    // --- Spawn claude.exe with stdin = prompt file, stdout = pipe, no console window ---
+    SECURITY_ATTRIBUTES sa;
+    sa.nLength = sizeof( sa );
+    sa.bInheritHandle = TRUE;
+    sa.lpSecurityDescriptor = nullptr;
+
+    HANDLE hOutRd = nullptr, hOutWr = nullptr;
+
+    if( !CreatePipe( &hOutRd, &hOutWr, &sa, 0 ) )
+    {
+        emit( { { "kind", "error" }, { "text", "Could not create output pipe for Claude CLI." } } );
+        m_busy = false;
+        return;
+    }
+
+    SetHandleInformation( hOutRd, HANDLE_FLAG_INHERIT, 0 );   // parent read end stays private
+
+    HANDLE hIn = CreateFileW( promptFn.GetFullPath().wc_str(), GENERIC_READ, FILE_SHARE_READ, &sa,
+                              OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, nullptr );
+
+    STARTUPINFOW si;
+    ZeroMemory( &si, sizeof( si ) );
+    si.cb = sizeof( si );
+    si.dwFlags = STARTF_USESTDHANDLES;
+    si.hStdInput = hIn;
+    si.hStdOutput = hOutWr;
+    si.hStdError = hOutWr;
+
+    PROCESS_INFORMATION pi;
+    ZeroMemory( &pi, sizeof( pi ) );
+
+    std::wstring cmdLine( cmd.wc_str() );
+    cmdLine.push_back( L'\0' );   // CreateProcessW may modify the buffer
+
+    BOOL okSpawn = CreateProcessW( nullptr, &cmdLine[0], nullptr, nullptr, TRUE, CREATE_NO_WINDOW,
+                                   nullptr, nullptr, &si, &pi );
+
+    CloseHandle( hOutWr );   // parent doesn't write
+    if( hIn != INVALID_HANDLE_VALUE )
+        CloseHandle( hIn );
+
+    if( !okSpawn )
+    {
+        CloseHandle( hOutRd );
+        emit( { { "kind", "error" }, { "text", "Failed to launch the Claude CLI process." } } );
+        m_busy = false;
+        return;
+    }
+
+    // Read stdout, split into newline-delimited stream-json events, dispatch each.
+    std::string accum;
+    char        buf[8192];
+    DWORD       nRead = 0;
+
+    while( ReadFile( hOutRd, buf, sizeof( buf ), &nRead, nullptr ) && nRead > 0 )
+    {
+        accum.append( buf, nRead );
+
+        size_t nl;
+
+        while( ( nl = accum.find( '\n' ) ) != std::string::npos )
+        {
+            std::string line = accum.substr( 0, nl );
+            accum.erase( 0, nl + 1 );
+            handleCliEvent( line );
+        }
+    }
+
+    if( !accum.empty() )
+        handleCliEvent( accum );
+
+    WaitForSingleObject( pi.hProcess, INFINITE );
+    CloseHandle( hOutRd );
+    CloseHandle( pi.hProcess );
+    CloseHandle( pi.hThread );
+#else
+    emit( { { "kind", "error" },
+            { "text", "The CLI backend is currently Windows-only. Set ENVIL_AI_BACKEND=api "
+                      "to use an API key instead." } } );
+#endif
+
+    m_busy = false;
+}
+
+
+void ENVIL_AI_AGENT::handleCliEvent( const std::string& aLine )
+{
+    if( aLine.empty() )
+        return;
+
+    json j;
+
+    try
+    {
+        j = json::parse( aLine );
+    }
+    catch( const std::exception& )
+    {
+        return;   // non-JSON noise (shouldn't happen with stream-json)
+    }
+
+    std::string type = j.value( "type", std::string() );
+
+    if( type == "system" )
+    {
+        if( j.value( "subtype", std::string() ) == "init" && j.contains( "session_id" ) )
+            m_cliSession = wxString::FromUTF8( j["session_id"].get<std::string>() );
+    }
+    else if( type == "assistant" )
+    {
+        if( j.contains( "message" ) && j["message"].contains( "content" ) )
+        {
+            for( const json& block : j["message"]["content"] )
+            {
+                std::string bt = block.value( "type", std::string() );
+
+                if( bt == "text" )
+                {
+                    std::string t = block.value( "text", std::string() );
+
+                    if( !t.empty() )
+                        emit( { { "kind", "reply" }, { "text", t } } );
+                }
+                else if( bt == "tool_use" )
+                {
+                    // Strip the mcp__envil-cad__ prefix for a readable status line.
+                    std::string name = block.value( "name", std::string() );
+                    size_t      p = name.rfind( "__" );
+
+                    if( p != std::string::npos )
+                        name = name.substr( p + 2 );
+
+                    emit( { { "kind", "status" }, { "text", std::string( "Running " ) + name } } );
+                }
+            }
+        }
+    }
+    else if( type == "result" )
+    {
+        if( j.contains( "session_id" ) )
+            m_cliSession = wxString::FromUTF8( j["session_id"].get<std::string>() );
+
+        // The final assistant text was already emitted via "assistant" events; only surface
+        // an explicit error here.
+        if( j.value( "is_error", false ) )
+        {
+            std::string msg = j.value( "result", std::string( "Claude CLI reported an error." ) );
+            emit( { { "kind", "error" }, { "text", msg } } );
+        }
+    }
 }

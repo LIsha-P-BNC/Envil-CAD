@@ -119,6 +119,12 @@ bool ENVIL_AI_CLIENT::HasApiKey() const
 }
 
 
+wxString ENVIL_AI_CLIENT::GetSystemPrompt() const
+{
+    return wxString::FromUTF8( loadSystemPrompt() ) + m_contextSuffix;
+}
+
+
 bool ENVIL_AI_CLIENT::SendTurn( const std::string& aMessagesJson, const std::string& aToolsJson,
                                 std::string& aAssistantContentJson, std::string& aStopReason,
                                 wxString& aError )

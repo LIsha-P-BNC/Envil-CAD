@@ -45,7 +45,9 @@ public:
 
 private:
     void        onBridgeMessage( const wxString& aJson );   // UI thread
-    void        agentLoop( wxString aUserText );            // worker thread
+    void        agentLoop( wxString aUserText );            // worker thread — API-key backend
+    void        agentLoopCli( wxString aUserText );         // worker thread — subscription (CLI)
+    void        handleCliEvent( const std::string& aLine ); // parse one stream-json line
     void        emit( const nlohmann::json& aMsg );         // push to the webview
     void        runOnUiSync( std::function<void()> aFn );
     bool        approve( const wxString& aToolName, const wxString& aInputJson );
@@ -54,6 +56,15 @@ private:
     std::string toolsJson() const;
     void        refreshContext();
 
+    /// Backend selection. "cli" = drive the Claude Code CLI on the user's subscription (no
+    /// API key); "api" = call the Anthropic Messages API directly. From ENVIL_AI_BACKEND,
+    /// defaulting to CLI.
+    bool        useCliBackend() const;
+
+    /// Locate claude.exe / the MCP script / node, and (re)write the CLI's MCP config file.
+    wxString    resolveClaudeExe() const;
+    wxString    writeCliMcpConfig() const;
+
     KIWAY*          m_kiway;
     wxWindow*       m_parent;
     WEBVIEW_PANEL*  m_panel;
@@ -61,6 +72,7 @@ private:
     nlohmann::json  m_messages;
     wxString        m_projectPath;      // from chat.html's "hello"
     wxString        m_schematicFile;
+    wxString        m_cliSession;       // CLI session id for --resume (multi-turn)
     bool            m_approveAll;
     bool            m_busy;
 };
