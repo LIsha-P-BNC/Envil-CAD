@@ -204,6 +204,20 @@ const TOOLS = [
       required: ["reference"],
     },
   },
+  {
+    name: "delete_at",
+    description:
+      "Delete stray non-symbol items (wire, label, junction, no-connect) at/near a point. " +
+      "Use to clean up orphan labels or dangling wire ends that ERC flags.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        ...XY,
+        radius_mils: { type: "integer", description: "Search radius in mils (default 30)." },
+      },
+      required: ["x_mils", "y_mils"],
+    },
+  },
 ];
 
 const server = new Server(

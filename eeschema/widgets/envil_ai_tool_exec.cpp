@@ -57,6 +57,34 @@ static inline int iuToMils( int aIU )
 }
 
 
+/// Snap a point to the nearest symbol pin within tolerance, so AI-drawn wire ends land
+/// exactly on pins (KiCad only bonds a wire to a pin at an exact-coincident endpoint).
+static VECTOR2I snapToPin( SCH_EDIT_FRAME* aFrame, const VECTOR2I& aPt )
+{
+    const int  tol = schIUScale.MilsToIU( 30 );   // < half the 50-mil grid
+    long long  bestDist = (long long) tol * tol + 1;
+    VECTOR2I   best = aPt;
+
+    for( SCH_ITEM* item : aFrame->GetScreen()->Items().OfType( SCH_SYMBOL_T ) )
+    {
+        for( SCH_PIN* pin : static_cast<SCH_SYMBOL*>( item )->GetPins( &aFrame->GetCurrentSheet() ) )
+        {
+            VECTOR2I  pp = pin->GetPosition();
+            long long dx = pp.x - aPt.x, dy = pp.y - aPt.y;
+            long long d = dx * dx + dy * dy;
+
+            if( d < bestDist )
+            {
+                bestDist = d;
+                best = pp;
+            }
+        }
+    }
+
+    return best;
+}
+
+
 /// Find a placed symbol by its reference designator on the current sheet.
 static SCH_SYMBOL* findSymbol( SCH_EDIT_FRAME* aFrame, const wxString& aRef )
 {
@@ -141,7 +169,9 @@ static json execAddWire( SCH_EDIT_FRAME* aFrame, const json& aInput )
         if( !p.is_array() || p.size() < 2 )
             return fail( "Each point must be [x_mils, y_mils]." );
 
-        pts.push_back( milsPt( p[0].get<int>(), p[1].get<int>() ) );
+        // Snap each vertex to a nearby pin so wire ends bond exactly (KiCad needs the wire
+        // endpoint coincident with the pin). Harmless when no pin is near.
+        pts.push_back( snapToPin( aFrame, milsPt( p[0].get<int>(), p[1].get<int>() ) ) );
     }
 
     SCH_COMMIT commit( aFrame );
@@ -291,6 +321,74 @@ static json execDeleteComponent( SCH_EDIT_FRAME* aFrame, const json& aInput )
     commit.Push( _( "Envil AI: delete symbol" ) );
 
     return ok( "Deleted " + std::string( ref.utf8_str() ) + "." );
+}
+
+
+/**
+ * delete_at: remove stray non-symbol items (wires, labels, junctions, no-connects) at a
+ * point. Symbols have delete_component; this cleans up the connectivity artifacts the AI
+ * can otherwise never remove (orphan labels, dangling wire ends).
+ */
+static json execDeleteAt( SCH_EDIT_FRAME* aFrame, const json& aInput )
+{
+    VECTOR2I        pt = milsPt( aInput.value( "x_mils", 0 ), aInput.value( "y_mils", 0 ) );
+    const int       tol = schIUScale.MilsToIU( aInput.value( "radius_mils", 30 ) );
+    const long long tol2 = (long long) tol * tol;
+
+    auto atPt = [&]( const VECTOR2I& p )
+    {
+        long long dx = p.x - pt.x, dy = p.y - pt.y;
+        return dx * dx + dy * dy <= tol2;
+    };
+
+    std::vector<SCH_ITEM*> toDelete;
+
+    for( SCH_ITEM* item : aFrame->GetScreen()->Items() )
+    {
+        bool hit = false;
+
+        switch( item->Type() )
+        {
+        case SCH_LINE_T:
+        {
+            SCH_LINE* w = static_cast<SCH_LINE*>( item );
+
+            if( w->GetLayer() == LAYER_WIRE
+                && ( atPt( w->GetStartPoint() ) || atPt( w->GetEndPoint() ) ) )
+                hit = true;
+
+            break;
+        }
+        case SCH_JUNCTION_T:
+        case SCH_NO_CONNECT_T:
+        case SCH_LABEL_T:
+        case SCH_GLOBAL_LABEL_T:
+        case SCH_HIER_LABEL_T:
+            hit = atPt( item->GetPosition() );
+            break;
+        default:
+            break;
+        }
+
+        if( hit )
+            toDelete.push_back( item );
+    }
+
+    if( toDelete.empty() )
+        return fail( "No wire/label/junction/no-connect found at that point." );
+
+    SCH_COMMIT commit( aFrame );
+
+    for( SCH_ITEM* it : toDelete )
+    {
+        commit.Removed( it, aFrame->GetScreen() );
+        aFrame->RemoveFromScreen( it, aFrame->GetScreen() );
+    }
+
+    commit.Push( _( "Envil AI: delete items" ) );
+    aFrame->GetCanvas()->Refresh();
+
+    return ok( "Deleted " + std::to_string( toDelete.size() ) + " item(s)." );
 }
 
 
@@ -500,6 +598,8 @@ std::string EnvilExecAiTool( SCH_EDIT_FRAME* aFrame, const std::string& aRequest
                 result = execMoveComponent( aFrame, input );
             else if( tool == "delete_component" )
                 result = execDeleteComponent( aFrame, input );
+            else if( tool == "delete_at" )
+                result = execDeleteAt( aFrame, input );
             else
                 result = fail( "Unknown tool: " + tool );
 

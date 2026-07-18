@@ -38,7 +38,8 @@ static const char* ENVIL_MCP_ALLOWED_TOOLS =
         "mcp__envil-cad__get_schematic mcp__envil-cad__run_erc mcp__envil-cad__annotate "
         "mcp__envil-cad__add_component mcp__envil-cad__add_wire mcp__envil-cad__add_label "
         "mcp__envil-cad__add_junction mcp__envil-cad__add_no_connect mcp__envil-cad__edit_value "
-        "mcp__envil-cad__move_component mcp__envil-cad__delete_component";
+        "mcp__envil-cad__move_component mcp__envil-cad__delete_component "
+        "mcp__envil-cad__delete_at";
 
 
 ENVIL_AI_AGENT::ENVIL_AI_AGENT( KIWAY* aKiway, wxWindow* aParent, WEBVIEW_PANEL* aPanel ) :
@@ -276,6 +277,16 @@ std::string ENVIL_AI_AGENT::toolsJson() const
             "delete_component", "Delete a placed symbol by reference designator.",
             { { "reference", { { "type", "string" }, { "description", "e.g. R5." } } } },
             json::array( { "reference" } ) ) );
+
+    tools.push_back( makeTool(
+            "delete_at",
+            "Delete stray wire/label/junction/no-connect at/near a point. Cleans orphan "
+            "labels or dangling wire ends that ERC flags.",
+            { { "x_mils", xMils },
+              { "y_mils", yMils },
+              { "radius_mils",
+                { { "type", "integer" }, { "description", "Search radius in mils (default 30)." } } } },
+            json::array( { "x_mils", "y_mils" } ) ) );
 
     return tools.dump();
 }
