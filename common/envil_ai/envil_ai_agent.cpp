@@ -161,6 +161,16 @@ std::string ENVIL_AI_AGENT::toolsJson() const
     };
 
     tools.push_back( makeTool(
+            "get_schematic",
+            "Read the open schematic: each placed symbol with reference, value, lib_id, and "
+            "every pin's number, name, and absolute [x_mils,y_mils]. Call before wiring so "
+            "add_wire endpoints land on pins.",
+            { { "include_pins",
+                { { "type", "boolean" },
+                  { "description", "Include pin lists (default true)." } } } },
+            json::array() ) );
+
+    tools.push_back( makeTool(
             "add_component", "Place a component symbol into the open schematic in Envil-CAD.",
             { { "lib_id",
                 { { "type", "string" },

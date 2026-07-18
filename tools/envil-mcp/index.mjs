@@ -70,6 +70,22 @@ const XY = {
 
 const TOOLS = [
   {
+    name: "get_schematic",
+    description:
+      "Read the open schematic: every placed symbol with its reference, value, lib_id, " +
+      "body position, and each pin's number, name, and ABSOLUTE [x_mils, y_mils]. Call " +
+      "this before wiring so add_wire endpoints land exactly on pins.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        include_pins: {
+          type: "boolean",
+          description: "Include pin lists (default true). Set false for a quick inventory.",
+        },
+      },
+    },
+  },
+  {
     name: "add_component",
     description: "Place a component symbol into the schematic open in Envil-CAD.",
     inputSchema: {

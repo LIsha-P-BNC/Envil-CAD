@@ -24,6 +24,7 @@ static const char* ENVIL_DEFAULT_SYSTEM_PROMPT =
         "board layout.\n\n"
         "You are embedded in the schematic editor, so a schematic is always open and ready. "
         "You can edit it directly with these tools:\n"
+        "- get_schematic   READ the sheet: symbols + every pin's absolute mil position\n"
         "- add_component   place a symbol\n"
         "- add_wire        draw wire segments along a point path\n"
         "- add_label       name a net (local / global / hier)\n"

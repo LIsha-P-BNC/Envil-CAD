@@ -65,10 +65,21 @@ It calls `add_component` and the part appears on your sheet.
 
 | Tool | Does |
 |---|---|
+| `get_schematic` | **Read** the sheet: every symbol + each pin's number, name, absolute `x_mils`/`y_mils` |
 | `add_component` | Place a symbol (`lib_id`, `reference`, optional `value`, `x_mils`, `y_mils`) |
+| `add_wire` | Draw a wire path (`points`: list of `[x_mils, y_mils]`, one segment per pair) |
+| `add_label` | Name a net (`name`, `x_mils`, `y_mils`, `kind`: label/global/hier) |
+| `add_junction` | Junction dot at (`x_mils`, `y_mils`) |
+| `add_no_connect` | No-connect X at (`x_mils`, `y_mils`) |
+| `edit_value` | Change a placed symbol's value (`reference`, `new_value`) |
+| `move_component` | Move a placed symbol (`reference`, `x_mils`, `y_mils`) |
+| `delete_component` | Delete a placed symbol (`reference`) |
 
-More tools (wires, nets, ERC, export) can be added the same way: expose them here
-and handle them in Envil-CAD's `EnvilExecAiTool`.
+Wiring flow: call `get_schematic` first to read each pin's exact position, then
+route `add_wire` endpoints to those coordinates so wires land on pins.
+
+More tools (nets, ERC, export) can be added the same way: expose them here and
+handle them in Envil-CAD's `EnvilExecAiTool`.
 
 ## Troubleshooting
 

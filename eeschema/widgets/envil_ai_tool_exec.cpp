@@ -20,6 +20,7 @@
 #include <schematic.h>
 #include <sch_screen.h>
 #include <sch_symbol.h>
+#include <sch_pin.h>
 #include <sch_line.h>
 #include <sch_junction.h>
 #include <sch_no_connect.h>
@@ -37,6 +38,13 @@ using json = nlohmann::json;
 static inline VECTOR2I milsPt( int aX, int aY )
 {
     return VECTOR2I( schIUScale.MilsToIU( aX ), schIUScale.MilsToIU( aY ) );
+}
+
+
+/// internal units -> mils, for reporting positions back to the model.
+static inline int iuToMils( int aIU )
+{
+    return schIUScale.IUToMils( aIU );
 }
 
 
@@ -277,6 +285,55 @@ static json execDeleteComponent( SCH_EDIT_FRAME* aFrame, const json& aInput )
 }
 
 
+/**
+ * get_schematic: read-only dump of the open sheet so the model can see what is placed and
+ * wire pin-to-pin. Each symbol reports its reference, value, lib_id, body position, and
+ * every pin with number, name, and ABSOLUTE position in mils (transform already applied by
+ * SCH_PIN::GetPosition) — which is exactly what add_wire needs to land on a pin.
+ */
+static json execGetSchematic( SCH_EDIT_FRAME* aFrame, const json& aInput )
+{
+    bool pins = aInput.value( "include_pins", true );
+
+    json symbols = json::array();
+
+    for( SCH_ITEM* item : aFrame->GetScreen()->Items().OfType( SCH_SYMBOL_T ) )
+    {
+        SCH_SYMBOL* sym = static_cast<SCH_SYMBOL*>( item );
+
+        json s;
+        s["reference"] = std::string( sym->GetRef( &aFrame->GetCurrentSheet(), false ).utf8_str() );
+        s["value"] = std::string( sym->GetValue( true, &aFrame->GetCurrentSheet(), false ).utf8_str() );
+        s["lib_id"] = sym->GetLibId().Format().wx_str().utf8_string();
+        s["x_mils"] = iuToMils( sym->GetPosition().x );
+        s["y_mils"] = iuToMils( sym->GetPosition().y );
+
+        if( pins )
+        {
+            json pinArr = json::array();
+
+            for( SCH_PIN* pin : sym->GetPins( &aFrame->GetCurrentSheet() ) )
+            {
+                VECTOR2I pp = pin->GetPosition();
+                pinArr.push_back( { { "number", std::string( pin->GetNumber().utf8_str() ) },
+                                    { "name", std::string( pin->GetName().utf8_str() ) },
+                                    { "x_mils", iuToMils( pp.x ) },
+                                    { "y_mils", iuToMils( pp.y ) } } );
+            }
+
+            s["pins"] = pinArr;
+        }
+
+        symbols.push_back( s );
+    }
+
+    return { { "ok", true },
+             { "count", (int) symbols.size() },
+             { "symbols", symbols },
+             { "message", "Read " + std::to_string( symbols.size() ) + " symbol(s)." } };
+}
+
+
 std::string EnvilExecAiTool( SCH_EDIT_FRAME* aFrame, const std::string& aRequestJson )
 {
     json result;
@@ -293,7 +350,9 @@ std::string EnvilExecAiTool( SCH_EDIT_FRAME* aFrame, const std::string& aRequest
             std::string tool = req.value( "tool", std::string() );
             json        input = req.contains( "input" ) ? req["input"] : json::object();
 
-            if( tool == "add_component" )
+            if( tool == "get_schematic" )
+                result = execGetSchematic( aFrame, input );
+            else if( tool == "add_component" )
                 result = execAddComponent( aFrame, input );
             else if( tool == "add_wire" )
                 result = execAddWire( aFrame, input );
