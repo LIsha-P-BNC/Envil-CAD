@@ -791,6 +791,9 @@ deriveSiblingFile();
 // "Editing X" display AND the schematic_file sent to the Python backend would
 // be stuck on that stale value.
 window.anvilSetSchematic = function (newProject, newSchematic) {
+  // A genuine switch to a DIFFERENT schematic (new project / tab) must start a
+  // fresh conversation — the previous project's context must not bleed in.
+  const changed = !!schematic && !!newSchematic && newSchematic !== schematic;
   if (newProject)   projectPath = newProject;
   if (newSchematic) schematic   = newSchematic;
   // C++ calling anvilSetSchematic == this panel lives in eeschema.
@@ -801,11 +804,12 @@ window.anvilSetSchematic = function (newProject, newSchematic) {
   appCtx = "schematic";
   deriveSiblingFile();
   showCtxFile(schematic);
-  // Re-hello so the Python server's room.attach_schematic gets the new path.
-  if (ws && ws.readyState === WebSocket.OPEN) {
-    send({ kind: "hello", project_path: projectPath,
-           schematic_file: schematic, pcb_file: pcbFile, app: appCtx });
-  }
+  // On a real file change, wipe the transcript + rotate session + tell the agent
+  // to reset before re-helloing with the new path.
+  if (changed) newChat();
+  // Native transport: re-hello so the agent tracks the new schematic path.
+  send({ kind: "hello", project_path: projectPath,
+         schematic_file: schematic, pcb_file: pcbFile, app: appCtx });
 };
 
 // Symmetric setter the pcbnew C++ side can call after every board open.
@@ -813,6 +817,7 @@ window.anvilSetSchematic = function (newProject, newSchematic) {
 // invoke this so the chat tracks the live .kicad_pcb path the same way
 // the schematic panel tracks .kicad_sch.
 window.anvilSetPcb = function (newProject, newPcb) {
+  const changed = !!pcbFile && !!newPcb && newPcb !== pcbFile;
   if (newProject) projectPath = newProject;
   if (newPcb)     pcbFile     = newPcb;
   // C++ calling anvilSetPcb == this panel lives in pcbnew. See the
@@ -821,10 +826,9 @@ window.anvilSetPcb = function (newProject, newPcb) {
   appCtx = "pcb";
   deriveSiblingFile();
   showCtxFile(pcbFile || schematic);
-  if (ws && ws.readyState === WebSocket.OPEN) {
-    send({ kind: "hello", project_path: projectPath,
-           schematic_file: schematic, pcb_file: pcbFile, app: appCtx });
-  }
+  if (changed) newChat();
+  send({ kind: "hello", project_path: projectPath,
+         schematic_file: schematic, pcb_file: pcbFile, app: appCtx });
 };
 
 let ws = null;

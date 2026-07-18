@@ -123,8 +123,19 @@ void ENVIL_AI_AGENT::onBridgeMessage( const wxString& aJson )
 
     if( kind == "hello" )
     {
-        m_projectPath = wxString::FromUTF8( msg.value( "project_path", std::string() ) );
-        m_schematicFile = wxString::FromUTF8( msg.value( "schematic_file", std::string() ) );
+        wxString newProject = wxString::FromUTF8( msg.value( "project_path", std::string() ) );
+        wxString newSchematic = wxString::FromUTF8( msg.value( "schematic_file", std::string() ) );
+
+        // Switching to a different schematic/project must start fresh so the previous
+        // design's conversation doesn't carry over.
+        if( !m_schematicFile.IsEmpty() && newSchematic != m_schematicFile )
+        {
+            m_messages = json::array();
+            m_cliSession.Clear();
+        }
+
+        m_projectPath = newProject;
+        m_schematicFile = newSchematic;
         refreshContext();
         emit( { { "kind", "ready" } } );
     }
@@ -138,6 +149,7 @@ void ENVIL_AI_AGENT::onBridgeMessage( const wxString& aJson )
             return;
 
         m_messages = json::array();
+        m_cliSession.Clear();   // start a fresh CLI session on the next turn too
         emit( { { "kind", "status" }, { "text", "Conversation reset." } } );
     }
     else if( kind == "message" )
