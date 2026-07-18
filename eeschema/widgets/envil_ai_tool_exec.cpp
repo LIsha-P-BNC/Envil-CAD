@@ -11,6 +11,9 @@
 
 #include "envil_ai_tool_exec.h"
 
+#include <algorithm>
+#include <vector>
+
 #include <json_common.h>
 
 #include <wx/string.h>
@@ -174,20 +177,93 @@ static json execAddWire( SCH_EDIT_FRAME* aFrame, const json& aInput )
         pts.push_back( snapToPin( aFrame, milsPt( p[0].get<int>(), p[1].get<int>() ) ) );
     }
 
+    // Gather every pin on the sheet — used to split a segment wherever it passes over a pin,
+    // because KiCad only bonds a pin at a wire ENDPOINT, not mid-span.
+    std::vector<VECTOR2I> pinPts;
+
+    for( SCH_ITEM* item : aFrame->GetScreen()->Items().OfType( SCH_SYMBOL_T ) )
+    {
+        for( SCH_PIN* pin : static_cast<SCH_SYMBOL*>( item )->GetPins( &aFrame->GetCurrentSheet() ) )
+            pinPts.push_back( pin->GetPosition() );
+    }
+
     SCH_COMMIT commit( aFrame );
+    int        segCount = 0;
+    int        jctCount = 0;
 
     for( size_t i = 0; i + 1 < pts.size(); ++i )
     {
-        SCH_LINE* wire = new SCH_LINE( pts[i], LAYER_WIRE );
-        wire->SetEndPoint( pts[i + 1] );
+        VECTOR2I A = pts[i];
+        VECTOR2I B = pts[i + 1];
 
-        aFrame->AddToScreen( wire, aFrame->GetScreen() );
-        commit.Added( wire, aFrame->GetScreen() );
+        // Collect pins strictly interior to the A-B segment (collinear + between).
+        std::vector<VECTOR2I> mids;
+
+        for( const VECTOR2I& P : pinPts )
+        {
+            if( P == A || P == B )
+                continue;
+
+            long long abx = (long long) B.x - A.x, aby = (long long) B.y - A.y;
+            long long apx = (long long) P.x - A.x, apy = (long long) P.y - A.y;
+
+            if( abx * apy - aby * apx != 0 )   // not collinear
+                continue;
+
+            long long dot = abx * apx + aby * apy;
+            long long len2 = abx * abx + aby * aby;
+
+            if( dot <= 0 || dot >= len2 )       // not strictly between the endpoints
+                continue;
+
+            mids.push_back( P );
+        }
+
+        std::sort( mids.begin(), mids.end(),
+                   [&]( const VECTOR2I& a, const VECTOR2I& b )
+                   {
+                       long long da = (long long) ( a.x - A.x ) * ( a.x - A.x )
+                                      + (long long) ( a.y - A.y ) * ( a.y - A.y );
+                       long long db = (long long) ( b.x - A.x ) * ( b.x - A.x )
+                                      + (long long) ( b.y - A.y ) * ( b.y - A.y );
+                       return da < db;
+                   } );
+
+        // Break the segment at each interior pin so every crossed pin becomes an endpoint.
+        std::vector<VECTOR2I> bp;
+        bp.push_back( A );
+        bp.insert( bp.end(), mids.begin(), mids.end() );
+        bp.push_back( B );
+
+        for( size_t j = 0; j + 1 < bp.size(); ++j )
+        {
+            SCH_LINE* wire = new SCH_LINE( bp[j], LAYER_WIRE );
+            wire->SetEndPoint( bp[j + 1] );
+
+            aFrame->AddToScreen( wire, aFrame->GetScreen() );
+            commit.Added( wire, aFrame->GetScreen() );
+            ++segCount;
+        }
+
+        // Junction at each split pin keeps the two collinear segments from merging back
+        // (which would re-orphan the pin) and makes the tap visually explicit.
+        for( const VECTOR2I& m : mids )
+        {
+            SCH_JUNCTION* jct = new SCH_JUNCTION( m );
+            aFrame->AddToScreen( jct, aFrame->GetScreen() );
+            commit.Added( jct, aFrame->GetScreen() );
+            ++jctCount;
+        }
     }
 
     commit.Push( _( "Envil AI: add wire" ) );
 
-    return ok( "Added " + std::to_string( pts.size() - 1 ) + " wire segment(s)." );
+    std::string msg = "Added " + std::to_string( segCount ) + " wire segment(s)";
+
+    if( jctCount )
+        msg += " and " + std::to_string( jctCount ) + " junction(s) at crossed pins";
+
+    return ok( msg + "." );
 }
 
 
