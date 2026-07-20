@@ -13,6 +13,7 @@
 
 #include <algorithm>
 #include <vector>
+#include <deque>
 
 #include <json_common.h>
 
@@ -177,83 +178,53 @@ static json execAddWire( SCH_EDIT_FRAME* aFrame, const json& aInput )
         pts.push_back( snapToPin( aFrame, milsPt( p[0].get<int>(), p[1].get<int>() ) ) );
     }
 
-    // Gather every pin on the sheet — used to split a segment wherever it passes over a pin,
-    // because KiCad only bonds a pin at a wire ENDPOINT, not mid-span.
-    std::vector<VECTOR2I> pinPts;
-
-    for( SCH_ITEM* item : aFrame->GetScreen()->Items().OfType( SCH_SYMBOL_T ) )
-    {
-        for( SCH_PIN* pin : static_cast<SCH_SYMBOL*>( item )->GetPins( &aFrame->GetCurrentSheet() ) )
-            pinPts.push_back( pin->GetPosition() );
-    }
-
-    SCH_COMMIT commit( aFrame );
-    int        segCount = 0;
-    int        jctCount = 0;
+    SCH_SCREEN*            screen = aFrame->GetScreen();
+    SCH_COMMIT             commit( aFrame );
+    std::deque<EDA_ITEM*>  newWires;
+    int                    segCount = 0;
 
     for( size_t i = 0; i + 1 < pts.size(); ++i )
     {
-        VECTOR2I A = pts[i];
-        VECTOR2I B = pts[i + 1];
+        if( pts[i] == pts[i + 1] )
+            continue;
 
-        // Collect pins strictly interior to the A-B segment (collinear + between).
-        std::vector<VECTOR2I> mids;
+        SCH_LINE* wire = new SCH_LINE( pts[i], LAYER_WIRE );
+        wire->SetEndPoint( pts[i + 1] );
 
-        for( const VECTOR2I& P : pinPts )
+        aFrame->AddToScreen( wire, screen );
+        commit.Added( wire, screen );
+        newWires.push_back( wire );
+        ++segCount;
+    }
+
+    // Auto-add junctions wherever these new wires need them — the same logic KiCad's own
+    // wire tool uses (SCH_SCREEN::GetNeededJunctions). This is what bonds a stub that ENDS
+    // on a rail (a T-intersection): the junction ties the stub end to the rail it crosses,
+    // so the tap connects with a visible dot. Without this the AI's ERC loop could never
+    // converge — it would wire, ERC would still say "not connected", and it would re-wire
+    // forever.
+    int jctCount = 0;
+
+    for( const VECTOR2I& pt : screen->GetNeededJunctions( newWires ) )
+    {
+        bool exists = false;
+
+        for( SCH_ITEM* it : screen->Items().OfType( SCH_JUNCTION_T ) )
         {
-            if( P == A || P == B )
-                continue;
-
-            long long abx = (long long) B.x - A.x, aby = (long long) B.y - A.y;
-            long long apx = (long long) P.x - A.x, apy = (long long) P.y - A.y;
-
-            if( abx * apy - aby * apx != 0 )   // not collinear
-                continue;
-
-            long long dot = abx * apx + aby * apy;
-            long long len2 = abx * abx + aby * aby;
-
-            if( dot <= 0 || dot >= len2 )       // not strictly between the endpoints
-                continue;
-
-            mids.push_back( P );
+            if( it->GetPosition() == pt )
+            {
+                exists = true;
+                break;
+            }
         }
 
-        std::sort( mids.begin(), mids.end(),
-                   [&]( const VECTOR2I& a, const VECTOR2I& b )
-                   {
-                       long long da = (long long) ( a.x - A.x ) * ( a.x - A.x )
-                                      + (long long) ( a.y - A.y ) * ( a.y - A.y );
-                       long long db = (long long) ( b.x - A.x ) * ( b.x - A.x )
-                                      + (long long) ( b.y - A.y ) * ( b.y - A.y );
-                       return da < db;
-                   } );
+        if( exists )
+            continue;
 
-        // Break the segment at each interior pin so every crossed pin becomes an endpoint.
-        std::vector<VECTOR2I> bp;
-        bp.push_back( A );
-        bp.insert( bp.end(), mids.begin(), mids.end() );
-        bp.push_back( B );
-
-        for( size_t j = 0; j + 1 < bp.size(); ++j )
-        {
-            SCH_LINE* wire = new SCH_LINE( bp[j], LAYER_WIRE );
-            wire->SetEndPoint( bp[j + 1] );
-
-            aFrame->AddToScreen( wire, aFrame->GetScreen() );
-            commit.Added( wire, aFrame->GetScreen() );
-            ++segCount;
-        }
-
-        // Junction at each split pin keeps the two collinear segments from merging back
-        // (which would re-orphan the pin) and makes the tap visually explicit.
-        for( const VECTOR2I& m : mids )
-        {
-            SCH_JUNCTION* jct = new SCH_JUNCTION( m );
-            aFrame->AddToScreen( jct, aFrame->GetScreen() );
-            commit.Added( jct, aFrame->GetScreen() );
-            ++jctCount;
-        }
+        SCH_JUNCTION* jct = new SCH_JUNCTION( pt );
+        aFrame->AddToScreen( jct, screen );
+        commit.Added( jct, screen );
+        ++jctCount;
     }
 
     commit.Push( _( "Envil AI: add wire" ) );
@@ -261,7 +232,7 @@ static json execAddWire( SCH_EDIT_FRAME* aFrame, const json& aInput )
     std::string msg = "Added " + std::to_string( segCount ) + " wire segment(s)";
 
     if( jctCount )
-        msg += " and " + std::to_string( jctCount ) + " junction(s) at crossed pins";
+        msg += " and " + std::to_string( jctCount ) + " junction(s)";
 
     return ok( msg + "." );
 }
