@@ -61,6 +61,7 @@ wxDirTraverseResult PROJECT_TREE_TRAVERSER::OnFile( const wxString& aSrcFilePath
 
     if( ext == FILEEXT::LegacyProjectFileExtension
       || ext == FILEEXT::ProjectFileExtension
+      || ext == FILEEXT::AnvilProjectFileExtension
       || ext == FILEEXT::ProjectLocalSettingsFileExtension )
     {
         wxString destPath = destFile.GetPath();
@@ -97,7 +98,9 @@ wxDirTraverseResult PROJECT_TREE_TRAVERSER::OnFile( const wxString& aSrcFilePath
             projectLocalSettings.SaveAs( destFile.GetPath(), destFile.GetName() );
         }
     }
-    else if( m_frame && ( ext == FILEEXT::KiCadSchematicFileExtension
+    else if( m_frame && ( ext == FILEEXT::AnvilSchematicFileExtension
+             || ext == FILEEXT::AnvilSymbolLibFileExtension
+             || ext == FILEEXT::KiCadSchematicFileExtension
              || ext == FILEEXT::KiCadSchematicFileExtension + FILEEXT::BackupFileSuffix
              || ext == FILEEXT::LegacySchematicFileExtension
              || ext == FILEEXT::LegacySchematicFileExtension + FILEEXT::BackupFileSuffix
@@ -112,7 +115,9 @@ wxDirTraverseResult PROJECT_TREE_TRAVERSER::OnFile( const wxString& aSrcFilePath
         eeschema->SaveFileAs( m_projectDirPath, m_projectName, m_newProjectDirPath,
                               m_newProjectName, aSrcFilePath, m_errors );
     }
-    else if( m_frame && ( ext == FILEEXT::KiCadPcbFileExtension
+    else if( m_frame && ( ext == FILEEXT::AnvilPcbFileExtension
+             || ext == FILEEXT::AnvilFootprintFileExtension
+             || ext == FILEEXT::KiCadPcbFileExtension
              || ext == FILEEXT::KiCadPcbFileExtension + FILEEXT::BackupFileSuffix
              || ext == FILEEXT::LegacyPcbFileExtension
              || ext == FILEEXT::KiCadFootprintFileExtension

@@ -90,6 +90,9 @@ void KICAD_MANAGER_FRAME::UnarchiveFiles()
     {
         wxArrayString projectFiles;
         wxDir::GetAllFiles( unzipDir, &projectFiles,
+                            wxT( "*." ) + wxString::FromUTF8( FILEEXT::AnvilProjectFileExtension ),
+                            wxDIR_FILES );
+        wxDir::GetAllFiles( unzipDir, &projectFiles,
                             wxT( "*." ) + wxString::FromUTF8( FILEEXT::ProjectFileExtension ),
                             wxDIR_FILES );
 

@@ -1940,6 +1940,14 @@ void SCH_EDIT_FRAME::OnUpdatePCB( bool aAutoApply )
         wxFileName fn = Prj().GetProjectFullName();
         fn.SetExt( FILEEXT::PcbFileExtension );
 
+        {
+            wxFileName anvilFn( fn );
+            anvilFn.SetExt( FILEEXT::AnvilPcbFileExtension );
+
+            if( !fn.FileExists() && anvilFn.FileExists() )
+                fn = anvilFn;
+        }
+
         frame = Kiway().Player( FRAME_PCB_EDITOR, true );
 
         // If Kiway() cannot create the Pcbnew frame, it shows a error message, and
@@ -2105,6 +2113,14 @@ void SCH_EDIT_FRAME::OnOpenPcbnew()
     if( kicad_board.IsOk() && !Schematic().GetFileName().IsEmpty() )
     {
         kicad_board.SetExt( FILEEXT::PcbFileExtension );
+
+        {
+            wxFileName anvilFn( kicad_board );
+            anvilFn.SetExt( FILEEXT::AnvilPcbFileExtension );
+
+            if( !kicad_board.FileExists() && anvilFn.FileExists() )
+                kicad_board = anvilFn;
+        }
         wxFileName legacy_board( kicad_board );
         legacy_board.SetExt( FILEEXT::LegacyPcbFileExtension );
         wxFileName& boardfn = legacy_board;

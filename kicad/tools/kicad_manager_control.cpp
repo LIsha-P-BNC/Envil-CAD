@@ -99,10 +99,12 @@ wxFileName KICAD_MANAGER_CONTROL::newProjectDirectory( wxString* aFileName, bool
 
     // wxFileName automatically extracts an extension.  But if it isn't
     // a .pro extension, we should keep it as part of the filename
-    if( !pro.GetExt().IsEmpty() && pro.GetExt().ToStdString() != FILEEXT::ProjectFileExtension )
+    if( !pro.GetExt().IsEmpty() && pro.GetExt().ToStdString() != FILEEXT::AnvilProjectFileExtension
+            && pro.GetExt().ToStdString() != FILEEXT::ProjectFileExtension )
         pro.SetName( pro.GetName() + wxT( "." ) + pro.GetExt() );
 
-    pro.SetExt( FILEEXT::ProjectFileExtension ); // enforce extension
+    if( pro.GetExt().ToStdString() != FILEEXT::ProjectFileExtension )
+        pro.SetExt( FILEEXT::AnvilProjectFileExtension ); // enforce native (Anvil) extension
 
     if( !pro.IsAbsolute() )
         pro.MakeAbsolute();
@@ -316,10 +318,12 @@ int KICAD_MANAGER_CONTROL::NewProject( const TOOL_EVENT& aEvent )
 
     wxFileName fn( dlg.GetPath() );
 
-    if( !fn.GetExt().IsEmpty() && fn.GetExt().ToStdString() != FILEEXT::ProjectFileExtension )
+    if( !fn.GetExt().IsEmpty() && fn.GetExt().ToStdString() != FILEEXT::AnvilProjectFileExtension
+            && fn.GetExt().ToStdString() != FILEEXT::ProjectFileExtension )
         fn.SetName( fn.GetName() + wxT( "." ) + fn.GetExt() );
 
-    fn.SetExt( FILEEXT::ProjectFileExtension );
+    if( fn.GetExt().ToStdString() != FILEEXT::ProjectFileExtension )
+        fn.SetExt( FILEEXT::AnvilProjectFileExtension );
 
     if( !fn.IsAbsolute() )
         fn.MakeAbsolute();
@@ -526,7 +530,8 @@ int KICAD_MANAGER_CONTROL::openProject( const wxString& aDefaultDir )
 
     // You'd think wxFD_FILE_MUST_EXIST and the wild-cards would enforce these.  Sentry
     // indicates otherwise (at least on MSW).
-    if( !pro.Exists() || (   pro.GetExt() != FILEEXT::ProjectFileExtension
+    if( !pro.Exists() || (   pro.GetExt() != FILEEXT::AnvilProjectFileExtension
+                          && pro.GetExt() != FILEEXT::ProjectFileExtension
                           && pro.GetExt() != FILEEXT::LegacyProjectFileExtension ) )
     {
         return -1;

@@ -125,6 +125,13 @@ public:
     static const std::string VrmlFileExtension;
     static const std::string ProjectFileExtension;
     static const std::string LegacyProjectFileExtension;
+
+    // Anvil-CAD native extensions (same s-expression content; dual-accepted with kicad_*)
+    static const std::string AnvilProjectFileExtension;
+    static const std::string AnvilSchematicFileExtension;
+    static const std::string AnvilPcbFileExtension;
+    static const std::string AnvilSymbolLibFileExtension;
+    static const std::string AnvilFootprintFileExtension;
     static const std::string ProjectLocalSettingsFileExtension;
     static const std::string LegacySchematicFileExtension;
     static const std::string CadstarSchematicFileExtension;

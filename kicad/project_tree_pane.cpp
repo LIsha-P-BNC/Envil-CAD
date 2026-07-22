@@ -106,6 +106,10 @@ static const wxChar* s_allowedExtensionsToList[] =
 {
     wxT( "^.*\\.pro$" ),
     wxT( "^.*\\.kicad_pro$" ),
+    wxT( "^.*\\.anvil_pro$" ),
+    wxT( "^.*\\.anvil_sch$" ),
+    wxT( "^[^$].*\\.anvil_pcb$" ),
+    wxT( "^.*\\.anvil_sym$" ),
     wxT( "^.*\\.pdf$" ),
     wxT( "^.*\\.sch$" ),           // Legacy Eeschema files
     wxT( "^.*\\.kicad_sch$" ),     // S-expr Eeschema files
@@ -417,7 +421,8 @@ std::vector<wxString> getProjects( const wxDir& dir )
         wxFileName file( dir_filename );
 
         if( file.GetExt() == FILEEXT::LegacyProjectFileExtension
-            || file.GetExt() == FILEEXT::ProjectFileExtension )
+            || file.GetExt() == FILEEXT::ProjectFileExtension
+            || file.GetExt() == FILEEXT::AnvilProjectFileExtension )
             projects.push_back( file.GetName() );
 
         haveFile = dir.GetNext( &dir_filename );
@@ -480,6 +485,19 @@ wxTreeItemId PROJECT_TREE_PANE::addItemToProjectTree( const wxString& aName,
                 type = (TREE_FILE_TYPE) i;
                 break;
             }
+        }
+
+        // Anvil native extensions classify as their KiCad-format equivalents.
+        if( type == TREE_FILE_TYPE::UNKNOWN )
+        {
+            wxString anvilExt = wxFileName( aName ).GetExt().Lower();
+
+            if( anvilExt == FILEEXT::AnvilProjectFileExtension )
+                type = TREE_FILE_TYPE::JSON_PROJECT;
+            else if( anvilExt == FILEEXT::AnvilSchematicFileExtension )
+                type = TREE_FILE_TYPE::SEXPR_SCHEMATIC;
+            else if( anvilExt == FILEEXT::AnvilPcbFileExtension )
+                type = TREE_FILE_TYPE::SEXPR_PCB;
         }
     }
 

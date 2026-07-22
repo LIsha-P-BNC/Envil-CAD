@@ -2440,6 +2440,14 @@ int PCBNEW_JOBS_HANDLER::JobExportDrc( JOB* aJob )
             schematicPath.MakeAbsolute();
             schematicPath.SetExt( FILEEXT::KiCadSchematicFileExtension );
 
+            {
+                wxFileName anvilFn( schematicPath );
+                anvilFn.SetExt( FILEEXT::AnvilSchematicFileExtension );
+
+                if( !schematicPath.FileExists() && anvilFn.FileExists() )
+                    schematicPath = anvilFn;
+            }
+
             if( !schematicPath.Exists() )
                 schematicPath.SetExt( FILEEXT::LegacySchematicFileExtension );
 

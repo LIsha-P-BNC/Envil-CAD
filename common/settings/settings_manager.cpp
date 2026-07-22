@@ -957,8 +957,18 @@ bool SETTINGS_MANAGER::LoadProject( const wxString& aFullPath, bool aSetActive )
     // or the OS may hand us a .kicad_sch/.kicad_pcb via file association or drag-and-drop.
     wxFileName path( aFullPath );
 
-    if( path.HasName() && path.GetExt() != FILEEXT::ProjectFileExtension )
-        path.SetExt( FILEEXT::ProjectFileExtension );
+    if( path.HasName() && path.GetExt() != FILEEXT::AnvilProjectFileExtension
+            && path.GetExt() != FILEEXT::ProjectFileExtension )
+    {
+        // Prefer the Anvil project file when one exists (or when neither exists yet, e.g. a
+        // brand-new project); fall back to a sibling .kicad_pro so KiCad projects open as-is.
+        wxFileName kicadPro( path );
+        kicadPro.SetExt( FILEEXT::ProjectFileExtension );
+        path.SetExt( FILEEXT::AnvilProjectFileExtension );
+
+        if( !path.FileExists() && kicadPro.FileExists() )
+            path = kicadPro;
+    }
 
     wxString fullPath = path.GetFullPath();
 

@@ -332,7 +332,7 @@ public:
         // but to be pure, a plugin should not assume that it will always be linked
         // with the core of the Pcbnew code. (Might someday be a DLL/DSO.)  Besides,
         // file extension policy should be controlled by the plugin.
-        return IO_BASE::IO_FILE_DESC( _HKI( "KiCad printed circuit board files" ), { "kicad_pcb" } );
+        return IO_BASE::IO_FILE_DESC( _HKI( "KiCad printed circuit board files" ), { "anvil_pcb", "kicad_pcb" } );
     }
 
     const IO_BASE::IO_FILE_DESC GetLibraryFileDesc() const override

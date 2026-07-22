@@ -74,13 +74,13 @@ public:
     const IO_BASE::IO_FILE_DESC GetSchematicFileDesc() const override
     {
         return IO_BASE::IO_FILE_DESC( _HKI( "KiCad s-expression schematic files" ),
-                                      { FILEEXT::KiCadSchematicFileExtension } );
+                                      { FILEEXT::AnvilSchematicFileExtension, FILEEXT::KiCadSchematicFileExtension } );
     }
 
     const IO_BASE::IO_FILE_DESC GetLibraryDesc() const override
     {
         return IO_BASE::IO_FILE_DESC( _HKI( "KiCad symbol library files" ),
-                                      { FILEEXT::KiCadSymbolLibFileExtension } );
+                                      { FILEEXT::AnvilSymbolLibFileExtension, FILEEXT::KiCadSymbolLibFileExtension } );
     }
 
     /**

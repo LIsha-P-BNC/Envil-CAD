@@ -114,6 +114,14 @@ bool BACK_ANNOTATE::FetchNetlistFromPCB( std::string& aNetlist )
         wxFileName fn( m_frame->Prj().GetProjectFullName() );
         fn.SetExt( FILEEXT::PcbFileExtension );
 
+        {
+            wxFileName anvilFn( fn );
+            anvilFn.SetExt( FILEEXT::AnvilPcbFileExtension );
+
+            if( !fn.FileExists() && anvilFn.FileExists() )
+                fn = anvilFn;
+        }
+
         frame = m_frame->Kiway().Player( FRAME_PCB_EDITOR, true );
         frame->OpenProjectFiles( std::vector<wxString>( 1, fn.GetFullPath() ) );
     }

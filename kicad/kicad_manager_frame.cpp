@@ -1517,6 +1517,7 @@ KICAD_MANAGER_FRAME::KICAD_MANAGER_FRAME( wxWindow* parent, const wxString& titl
     m_projectTreePane->SetFocus();
 
     // Init for dropping files
+    m_acceptedExts.emplace( FILEEXT::AnvilProjectFileExtension, &KICAD_MANAGER_ACTIONS::loadProject );
     m_acceptedExts.emplace( FILEEXT::ProjectFileExtension, &KICAD_MANAGER_ACTIONS::loadProject );
     m_acceptedExts.emplace( FILEEXT::LegacyProjectFileExtension, &KICAD_MANAGER_ACTIONS::loadProject );
 
@@ -2555,7 +2556,18 @@ const wxString KICAD_MANAGER_FRAME::SchFileName()
 {
    wxFileName   fn( GetProjectFileName() );
 
-   fn.SetExt( FILEEXT::KiCadSchematicFileExtension );
+   // Prefer the Anvil-native schematic; fall back to an existing .kicad_sch.
+   fn.SetExt( FILEEXT::AnvilSchematicFileExtension );
+
+   if( !fn.FileExists() )
+   {
+       wxFileName kicadFn( fn );
+       kicadFn.SetExt( FILEEXT::KiCadSchematicFileExtension );
+
+       if( kicadFn.FileExists() )
+           return kicadFn.GetFullPath();
+   }
+
    return fn.GetFullPath();
 }
 
@@ -2573,7 +2585,18 @@ const wxString KICAD_MANAGER_FRAME::PcbFileName()
 {
    wxFileName   fn( GetProjectFileName() );
 
-   fn.SetExt( FILEEXT::PcbFileExtension );
+   // Prefer the Anvil-native board; fall back to an existing .kicad_pcb.
+   fn.SetExt( FILEEXT::AnvilPcbFileExtension );
+
+   if( !fn.FileExists() )
+   {
+       wxFileName kicadFn( fn );
+       kicadFn.SetExt( FILEEXT::PcbFileExtension );
+
+       if( kicadFn.FileExists() )
+           return kicadFn.GetFullPath();
+   }
+
    return fn.GetFullPath();
 }
 
@@ -2637,7 +2660,8 @@ void KICAD_MANAGER_FRAME::DoWithAcceptedFiles()
     {
         wxString ext = fileName.GetExt();
 
-        if( ext == FILEEXT::ProjectFileExtension || ext == FILEEXT::LegacyProjectFileExtension )
+        if( ext == FILEEXT::AnvilProjectFileExtension || ext == FILEEXT::ProjectFileExtension
+            || ext == FILEEXT::LegacyProjectFileExtension )
         {
             wxString fn = fileName.GetFullPath();
             m_toolManager->RunAction<wxString*>( *m_acceptedExts.at( fileName.GetExt() ), &fn );
@@ -3098,12 +3122,19 @@ void KICAD_MANAGER_FRAME::CreateNewProject( const wxFileName& aProjectFileName, 
     // And forces the user to create main files under the right name for the project manager
     if( aCreateStubFiles )
     {
-        wxFileName fn( aProjectFileName.GetFullPath() );
-        fn.SetExt( FILEEXT::KiCadSchematicFileExtension );
+        const bool anvilProj = aProjectFileName.GetExt() == FILEEXT::AnvilProjectFileExtension;
 
-        // If a <project>.kicad_sch file does not exist, create a "stub" file ( minimal schematic
-        // file ).
-        if( !fn.FileExists() )
+        wxFileName fn( aProjectFileName.GetFullPath() );
+        fn.SetExt( anvilProj ? FILEEXT::AnvilSchematicFileExtension
+                             : FILEEXT::KiCadSchematicFileExtension );
+
+        wxFileName altSch( fn );
+        altSch.SetExt( anvilProj ? FILEEXT::KiCadSchematicFileExtension
+                                 : FILEEXT::AnvilSchematicFileExtension );
+
+        // If no root schematic exists under either extension, create a "stub" file ( minimal
+        // schematic file ).
+        if( !fn.FileExists() && !altSch.FileExists() )
         {
             wxFFile file( fn.GetFullPath(), "wb" );
 
@@ -3133,11 +3164,13 @@ void KICAD_MANAGER_FRAME::CreateNewProject( const wxFileName& aProjectFileName, 
 
         // If a <project>.kicad_pcb or <project>.brd file does not exist,
         // create a .kicad_pcb "stub" file
-        fn.SetExt( FILEEXT::KiCadPcbFileExtension );
+        fn.SetExt( anvilProj ? FILEEXT::AnvilPcbFileExtension : FILEEXT::KiCadPcbFileExtension );
+        wxFileName altPcb( fn );
+        altPcb.SetExt( anvilProj ? FILEEXT::KiCadPcbFileExtension : FILEEXT::AnvilPcbFileExtension );
         wxFileName leg_fn( fn );
         leg_fn.SetExt( FILEEXT::LegacyPcbFileExtension );
 
-        if( !fn.FileExists() && !leg_fn.FileExists() )
+        if( !fn.FileExists() && !altPcb.FileExists() && !leg_fn.FileExists() )
         {
             wxFFile file( fn.GetFullPath(), "wb" );
 
@@ -3398,12 +3431,14 @@ void KICAD_MANAGER_FRAME::OnIdle( wxIdleEvent& aEvent )
                     wxFileName fn( file.fileName );
 
                     if( fn.GetExt() == FILEEXT::LegacySchematicFileExtension
-                        || fn.GetExt() == FILEEXT::KiCadSchematicFileExtension )
+                        || fn.GetExt() == FILEEXT::KiCadSchematicFileExtension
+                        || fn.GetExt() == FILEEXT::AnvilSchematicFileExtension )
                     {
                         GetToolManager()->RunAction( KICAD_MANAGER_ACTIONS::editSchematic );
                     }
                     else if( fn.GetExt() == FILEEXT::LegacyPcbFileExtension
-                             || fn.GetExt() == FILEEXT::KiCadPcbFileExtension )
+                             || fn.GetExt() == FILEEXT::KiCadPcbFileExtension
+                             || fn.GetExt() == FILEEXT::AnvilPcbFileExtension )
                     {
                         GetToolManager()->RunAction( KICAD_MANAGER_ACTIONS::editPCB );
                     }

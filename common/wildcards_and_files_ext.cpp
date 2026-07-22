@@ -135,6 +135,15 @@ const std::string FILEEXT::VrmlFileExtension( "wrl" );
 
 const std::string FILEEXT::ProjectFileExtension( "kicad_pro" );
 const std::string FILEEXT::LegacyProjectFileExtension( "pro" );
+
+// Anvil-CAD native extensions.  Same s-expression content as the kicad_* files —
+// only the extension differs, so KiCad projects/libraries stay directly readable
+// (dual-accept) while new work is created under the Anvil brand.
+const std::string FILEEXT::AnvilProjectFileExtension( "anvil_pro" );
+const std::string FILEEXT::AnvilSchematicFileExtension( "anvil_sch" );
+const std::string FILEEXT::AnvilPcbFileExtension( "anvil_pcb" );
+const std::string FILEEXT::AnvilSymbolLibFileExtension( "anvil_sym" );
+const std::string FILEEXT::AnvilFootprintFileExtension( "anvil_mod" );
 const std::string FILEEXT::ProjectLocalSettingsFileExtension( "kicad_prl" );
 const std::string FILEEXT::LegacySchematicFileExtension( "sch" );
 const std::string FILEEXT::CadstarSchematicFileExtension( "csa" );
@@ -240,13 +249,13 @@ wxString FILEEXT::AllFilesWildcard()
 wxString FILEEXT::KiCadSymbolLibFileWildcard()
 {
     return _( "KiCad symbol library files" )
-            + AddFileExtListToFilter( { KiCadSymbolLibFileExtension } );
+            + AddFileExtListToFilter( { AnvilSymbolLibFileExtension, KiCadSymbolLibFileExtension } );
 }
 
 
 wxString FILEEXT::ProjectFileWildcard()
 {
-    return _( "KiCad project files" ) + AddFileExtListToFilter( { ProjectFileExtension } );
+    return _( "KiCad project files" ) + AddFileExtListToFilter( { AnvilProjectFileExtension, ProjectFileExtension } );
 }
 
 
@@ -260,14 +269,14 @@ wxString FILEEXT::LegacyProjectFileWildcard()
 wxString FILEEXT::AllProjectFilesWildcard()
 {
     return _( "All KiCad project files" )
-            + AddFileExtListToFilter( { ProjectFileExtension, LegacyProjectFileExtension } );
+            + AddFileExtListToFilter( { AnvilProjectFileExtension, ProjectFileExtension, LegacyProjectFileExtension } );
 }
 
 
 wxString FILEEXT::AllSchematicFilesWildcard()
 {
     return _( "All KiCad schematic files" )
-            + AddFileExtListToFilter( { KiCadSchematicFileExtension, LegacySchematicFileExtension } );
+            + AddFileExtListToFilter( { AnvilSchematicFileExtension, KiCadSchematicFileExtension, LegacySchematicFileExtension } );
 }
 
 
@@ -281,7 +290,7 @@ wxString FILEEXT::LegacySchematicFileWildcard()
 wxString FILEEXT::KiCadSchematicFileWildcard()
 {
     return _( "KiCad s-expression schematic files" )
-            + AddFileExtListToFilter( { KiCadSchematicFileExtension } );
+            + AddFileExtListToFilter( { AnvilSchematicFileExtension, KiCadSchematicFileExtension } );
 }
 
 
@@ -356,13 +365,13 @@ wxString FILEEXT::EasyEdaProFileWildcard()
 wxString FILEEXT::PcbFileWildcard()
 {
     return _( "KiCad printed circuit board files" )
-           + AddFileExtListToFilter( { KiCadPcbFileExtension } );
+           + AddFileExtListToFilter( { AnvilPcbFileExtension, KiCadPcbFileExtension } );
 }
 
 
 wxString FILEEXT::KiCadFootprintLibFileWildcard()
 {
-    return _( "KiCad footprint files" ) + AddFileExtListToFilter( { KiCadFootprintFileExtension } );
+    return _( "KiCad footprint files" ) + AddFileExtListToFilter( { AnvilFootprintFileExtension, KiCadFootprintFileExtension } );
 }
 
 
