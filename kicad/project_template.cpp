@@ -323,6 +323,18 @@ bool PROJECT_TEMPLATE::CreateProject( wxFileName& aNewProjectPath, wxString* aEr
 
         destFile.SetName( currname );
 
+        // Anvil target: the stock templates ship kicad_* files; rename the core project
+        // trio to the Anvil extensions so a new Anvil project is born fully Anvil.
+        if( aNewProjectPath.GetExt() == FILEEXT::AnvilProjectFileExtension )
+        {
+            if( destFile.GetExt() == FILEEXT::ProjectFileExtension )
+                destFile.SetExt( FILEEXT::AnvilProjectFileExtension );
+            else if( destFile.GetExt() == FILEEXT::KiCadSchematicFileExtension )
+                destFile.SetExt( FILEEXT::AnvilSchematicFileExtension );
+            else if( destFile.GetExt() == FILEEXT::KiCadPcbFileExtension )
+                destFile.SetExt( FILEEXT::AnvilPcbFileExtension );
+        }
+
         // Replace the template path with the project path for the new project creation,
         // also renaming any subdirectories that contain the template basename.
         wxString destpath = destFile.GetPathWithSep();

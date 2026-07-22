@@ -301,6 +301,21 @@ bool SCH_EDIT_FRAME::OpenProjectFiles( const std::vector<wxString>& aFileSet, in
 
                         wxString sheetPath = sheetFileName.GetFullPath();
 
+                        // Anvil/KiCad dual-extension: if the recorded sheet file is missing,
+                        // try the sibling extension before giving up.
+                        if( !wxFileName::FileExists( sheetPath ) )
+                        {
+                            wxFileName altFn( sheetFileName );
+
+                            if( altFn.GetExt() == FILEEXT::KiCadSchematicFileExtension )
+                                altFn.SetExt( FILEEXT::AnvilSchematicFileExtension );
+                            else if( altFn.GetExt() == FILEEXT::AnvilSchematicFileExtension )
+                                altFn.SetExt( FILEEXT::KiCadSchematicFileExtension );
+
+                            if( altFn.FileExists() )
+                                sheetPath = altFn.GetFullPath();
+                        }
+
                         if( !wxFileName::FileExists( sheetPath ) )
                         {
                             wxLogWarning( wxT( "Top-level sheet file not found: %s" ), sheetPath );
