@@ -969,6 +969,18 @@ bool SETTINGS_MANAGER::LoadProject( const wxString& aFullPath, bool aSetActive )
         if( !path.FileExists() && kicadPro.FileExists() )
             path = kicadPro;
     }
+    else if( path.HasName() && path.GetExt() == FILEEXT::ProjectFileExtension
+             && !path.FileExists() )
+    {
+        // A caller named a .kicad_pro that isn't on disk; if the Anvil sibling exists,
+        // that IS the project.  Final chokepoint — covers every load path (creation,
+        // MRU, session restore, editors relaunching the manager).
+        wxFileName anvilPro( path );
+        anvilPro.SetExt( FILEEXT::AnvilProjectFileExtension );
+
+        if( anvilPro.FileExists() )
+            path = anvilPro;
+    }
 
     wxString fullPath = path.GetFullPath();
 
@@ -1195,6 +1207,21 @@ bool SETTINGS_MANAGER::SaveProject( const wxString& aFullPath, PROJECT* aProject
 
     if( path.empty() )
         path = aProject->GetProjectFullName();
+
+    // Anvil dual-extension: never write a stray .kicad_pro next to an Anvil project.
+    // If the target is .kicad_pro but the .anvil_pro sibling exists, save to the sibling.
+    {
+        wxFileName pathFn( path );
+
+        if( pathFn.GetExt() == FILEEXT::ProjectFileExtension )
+        {
+            wxFileName anvilFn( pathFn );
+            anvilFn.SetExt( FILEEXT::AnvilProjectFileExtension );
+
+            if( anvilFn.FileExists() && !pathFn.FileExists() )
+                path = anvilFn.GetFullPath();
+        }
+    }
 
     // TODO: refactor for MDI
     if( aProject->IsReadOnly() )
