@@ -253,6 +253,12 @@ wxString FILEEXT::KiCadSymbolLibFileWildcard()
 }
 
 
+wxString FILEEXT::AnvilProjectFileWildcard()
+{
+    return _( "Anvil project files" ) + AddFileExtListToFilter( { AnvilProjectFileExtension } );
+}
+
+
 wxString FILEEXT::ProjectFileWildcard()
 {
     return _( "Anvil project files" ) + AddFileExtListToFilter( { AnvilProjectFileExtension, ProjectFileExtension } );

@@ -81,7 +81,7 @@ wxFileName KICAD_MANAGER_CONTROL::newProjectDirectory( wxString* aFileName, bool
 
     wxString        default_dir = m_frame->GetMruPath();
     wxFileDialog    dlg( m_frame, _( "Create New Project" ), default_dir, default_filename,
-                         ( isRepo ? wxString( "" ) : FILEEXT::ProjectFileWildcard() ),
+                         ( isRepo ? wxString( "" ) : FILEEXT::AnvilProjectFileWildcard() ),
                          wxFD_SAVE | wxFD_OVERWRITE_PROMPT );
 
     dlg.AddShortcut( PATHS::GetDefaultUserProjectsPath() );
@@ -303,7 +303,7 @@ int KICAD_MANAGER_CONTROL::NewProject( const TOOL_EVENT& aEvent )
 
     wxString        default_dir = wxFileName( Prj().GetProjectFullName() ).GetPathWithSep();
     wxString        title = _( "New Project Folder" );
-    wxFileDialog    dlg( m_frame, title, default_dir, wxEmptyString, FILEEXT::ProjectFileWildcard(),
+    wxFileDialog    dlg( m_frame, title, default_dir, wxEmptyString, FILEEXT::AnvilProjectFileWildcard(),
                          wxFD_SAVE | wxFD_OVERWRITE_PROMPT );
 
     dlg.AddShortcut( PATHS::GetDefaultUserProjectsPath() );

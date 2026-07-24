@@ -2933,8 +2933,25 @@ void KICAD_MANAGER_FRAME::OpenJobsFile( const wxFileName& aFileName, bool aCreat
 }
 
 
-bool KICAD_MANAGER_FRAME::LoadProject( const wxFileName& aProjectFileName )
+bool KICAD_MANAGER_FRAME::LoadProject( const wxFileName& aProjectFileNameIn )
 {
+    wxFileName aProjectFileName( aProjectFileNameIn );
+
+    // Anvil dual-extension: MRU / session-restore / drag-drop may reference the sibling
+    // extension of the project file actually on disk.  Heal before validating.
+    if( !aProjectFileName.FileExists() )
+    {
+        wxFileName sibling( aProjectFileName );
+
+        if( aProjectFileName.GetExt() == FILEEXT::ProjectFileExtension )
+            sibling.SetExt( FILEEXT::AnvilProjectFileExtension );
+        else if( aProjectFileName.GetExt() == FILEEXT::AnvilProjectFileExtension )
+            sibling.SetExt( FILEEXT::ProjectFileExtension );
+
+        if( sibling.GetFullPath() != aProjectFileName.GetFullPath() && sibling.FileExists() )
+            aProjectFileName = sibling;
+    }
+
     // The project file should be valid by the time we get here or something has gone wrong.
     if( !aProjectFileName.Exists() )
         return false;

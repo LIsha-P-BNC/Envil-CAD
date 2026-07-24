@@ -241,6 +241,7 @@ public:
     static wxString FootprintAssignmentFileWildcard();
     static wxString DrawingSheetFileWildcard();
     static wxString KiCadSymbolLibFileWildcard();
+    static wxString AnvilProjectFileWildcard();
     static wxString ProjectFileWildcard();
     static wxString LegacyProjectFileWildcard();
     static wxString AllProjectFilesWildcard();
