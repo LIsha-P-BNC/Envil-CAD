@@ -248,14 +248,14 @@ wxString FILEEXT::AllFilesWildcard()
 
 wxString FILEEXT::KiCadSymbolLibFileWildcard()
 {
-    return _( "KiCad symbol library files" )
+    return _( "Anvil symbol library files" )
             + AddFileExtListToFilter( { AnvilSymbolLibFileExtension, KiCadSymbolLibFileExtension } );
 }
 
 
 wxString FILEEXT::ProjectFileWildcard()
 {
-    return _( "KiCad project files" ) + AddFileExtListToFilter( { AnvilProjectFileExtension, ProjectFileExtension } );
+    return _( "Anvil project files" ) + AddFileExtListToFilter( { AnvilProjectFileExtension, ProjectFileExtension } );
 }
 
 
@@ -268,14 +268,14 @@ wxString FILEEXT::LegacyProjectFileWildcard()
 
 wxString FILEEXT::AllProjectFilesWildcard()
 {
-    return _( "All KiCad project files" )
+    return _( "All Anvil project files" )
             + AddFileExtListToFilter( { AnvilProjectFileExtension, ProjectFileExtension, LegacyProjectFileExtension } );
 }
 
 
 wxString FILEEXT::AllSchematicFilesWildcard()
 {
-    return _( "All KiCad schematic files" )
+    return _( "All Anvil schematic files" )
             + AddFileExtListToFilter( { AnvilSchematicFileExtension, KiCadSchematicFileExtension, LegacySchematicFileExtension } );
 }
 
@@ -289,7 +289,7 @@ wxString FILEEXT::LegacySchematicFileWildcard()
 
 wxString FILEEXT::KiCadSchematicFileWildcard()
 {
-    return _( "KiCad s-expression schematic files" )
+    return _( "Anvil schematic files" )
             + AddFileExtListToFilter( { AnvilSchematicFileExtension, KiCadSchematicFileExtension } );
 }
 
@@ -364,14 +364,14 @@ wxString FILEEXT::EasyEdaProFileWildcard()
 
 wxString FILEEXT::PcbFileWildcard()
 {
-    return _( "KiCad printed circuit board files" )
+    return _( "Anvil board files" )
            + AddFileExtListToFilter( { AnvilPcbFileExtension, KiCadPcbFileExtension } );
 }
 
 
 wxString FILEEXT::KiCadFootprintLibFileWildcard()
 {
-    return _( "KiCad footprint files" ) + AddFileExtListToFilter( { AnvilFootprintFileExtension, KiCadFootprintFileExtension } );
+    return _( "Anvil footprint files" ) + AddFileExtListToFilter( { AnvilFootprintFileExtension, KiCadFootprintFileExtension } );
 }
 
 

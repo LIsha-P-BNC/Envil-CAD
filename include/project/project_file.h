@@ -154,6 +154,14 @@ public:
 protected:
     wxString getFileExt() const override;
 
+public:
+    /// Anvil dual-extension support: record which on-disk extension this project uses
+    /// (anvil_pro vs kicad_pro) so saves/locks/labels don't silently rename the project.
+    void SetProjectFileExt( const wxString& aExt ) { m_projFileExt = aExt; }
+
+protected:
+    wxString m_projFileExt;
+
     wxString getLegacyFileExt() const override;
 
     /**

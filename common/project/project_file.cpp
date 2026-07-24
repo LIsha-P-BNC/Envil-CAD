@@ -830,7 +830,7 @@ bool PROJECT_FILE::SaveAs( const wxString& aDirectory, const wxString& aFile )
 
 wxString PROJECT_FILE::getFileExt() const
 {
-    return FILEEXT::ProjectFileExtension;
+    return m_projFileExt.IsEmpty() ? wxString( FILEEXT::ProjectFileExtension ) : m_projFileExt;
 }
 
 

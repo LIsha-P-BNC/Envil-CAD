@@ -176,7 +176,7 @@ static wxFileName ensureDefaultProjectTemplate()
         if( !info.IsOpened() )
             return wxFileName();
 
-        info.Write( wxT( "<html><head><title>Default</title></head><body><h3>Default KiCad project template.</h3></body></html>" ) );
+        info.Write( wxT( "<html><head><title>Default</title></head><body><h3>Default Anvil-CAD project template.</h3></body></html>" ) );
         info.Close();
     }
 

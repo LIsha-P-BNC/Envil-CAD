@@ -144,6 +144,21 @@ void PROJECT::setProjectFullName( const wxString& aFullPathAndName )
     // Create a temporary wxFileName to normalize the path
     wxFileName candidate_path( aFullPathAndName );
 
+    // Anvil dual-extension: if the named project file doesn't exist but its sibling under
+    // the other native extension does, use the one on disk so locks/labels stay truthful.
+    if( !candidate_path.FileExists() )
+    {
+        wxFileName sibling( candidate_path );
+
+        if( candidate_path.GetExt() == FILEEXT::ProjectFileExtension )
+            sibling.SetExt( FILEEXT::AnvilProjectFileExtension );
+        else if( candidate_path.GetExt() == FILEEXT::AnvilProjectFileExtension )
+            sibling.SetExt( FILEEXT::ProjectFileExtension );
+
+        if( sibling.GetFullPath() != candidate_path.GetFullPath() && sibling.FileExists() )
+            candidate_path = sibling;
+    }
+
     // Edge transitions only.  This is what clears the project
     // data using the Clear() function.
     if( m_project_name.GetFullPath() != candidate_path.GetFullPath() )

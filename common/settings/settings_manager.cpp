@@ -1285,6 +1285,9 @@ bool SETTINGS_MANAGER::loadProjectFile( PROJECT& aProject )
 
     PROJECT_FILE* file = RegisterSettings( new PROJECT_FILE( fn ), false );
 
+    if( fullFn.GetExt() == FILEEXT::AnvilProjectFileExtension )
+        file->SetProjectFileExt( fullFn.GetExt() );
+
     m_project_files[aProject.GetProjectFullName()] = file;
 
     aProject.setProjectFile( file );
