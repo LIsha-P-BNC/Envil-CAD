@@ -136,8 +136,13 @@ void KICAD_MANAGER_FRAME::doReCreateMenuBar()
 
     //Import Sub-menu
     ACTION_MENU* importMenu = new ACTION_MENU( false, controlTool );
-    importMenu->SetTitle( _( "Import Non-KiCad Project..." ) );
+    importMenu->SetTitle( _( "Import Non-Anvil Project..." ) );
     importMenu->SetIcon( BITMAPS::import_project );
+
+    importMenu->Add( _( "KiCad Project..." ),
+                     _( "Import KiCad Schematic and PCB (*.kicad_pro)" ),
+                     ID_IMPORT_KICAD_PROJECT_FILES,
+                     BITMAPS::import_project );
 
     importMenu->Add( _( "Altium Project..." ),
                      _( "Import Altium Schematic and PCB (*.PrjPcb)" ),
@@ -367,8 +372,13 @@ void KICAD_MANAGER_FRAME::buildFileMenu( ACTION_MENU* fileMenu )
 
     //Import Sub-menu
     ACTION_MENU* importMenu = new ACTION_MENU( false, controlTool );
-    importMenu->SetTitle( _( "Import Non-KiCad Project..." ) );
+    importMenu->SetTitle( _( "Import Non-Anvil Project..." ) );
     importMenu->SetIcon( BITMAPS::import_project );
+
+    importMenu->Add( _( "KiCad Project..." ),
+                     _( "Import KiCad Schematic and PCB (*.kicad_pro)" ),
+                     ID_IMPORT_KICAD_PROJECT_FILES,
+                     BITMAPS::import_project );
 
     importMenu->Add( _( "Altium Project..." ),
                      _( "Import Altium Schematic and PCB (*.PrjPcb)" ),
