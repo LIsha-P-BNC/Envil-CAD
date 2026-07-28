@@ -188,6 +188,16 @@ public:
      */
     /// Convert a KiCad project into an Anvil project (copy, rename to .anvil_*, rewrite
     /// hierarchical sheet references, open the result).
+    /**
+     * Convert a project's kicad_pro/kicad_sch/kicad_pcb files to the Anvil extensions,
+     * rewriting quoted internal references. Used by the Import menu, the open-time
+     * conversion offer, and the non-KiCad importers (Altium etc.).
+     *
+     * @param aKeepOriginals true = leave the KiCad files in place (convert-as-copy).
+     */
+    bool ConvertProjectToAnvil( const wxFileName& aSrcPro, const wxString& aDestDir,
+                                bool aKeepOriginals, wxFileName* aDestProOut = nullptr );
+
     void OnImportKiCadProject( wxCommandEvent& event );
 
     void OnImportAltiumProjectFiles( wxCommandEvent& event );

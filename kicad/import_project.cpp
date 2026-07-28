@@ -31,6 +31,7 @@
 #include <wx/dir.h>
 #include <wx/filedlg.h>
 #include <wx/dirdlg.h>
+#include <wx/ffile.h>
 
 #include <confirm.h>
 #include <kidialog.h>
@@ -45,53 +46,16 @@
 #include <import_proj.h>
 
 
-#include <wx/dir.h>
-#include <wx/ffile.h>
-
-void KICAD_MANAGER_FRAME::OnImportKiCadProject( wxCommandEvent& event )
+bool KICAD_MANAGER_FRAME::ConvertProjectToAnvil( const wxFileName& aSrcPro,
+                                                 const wxString& aDestDir,
+                                                 bool aKeepOriginals,
+                                                 wxFileName* aDestProOut )
 {
-    // 1) Pick the source KiCad project.
-    wxString     filter = _( "KiCad project files" ) + wxString( wxT( " (*.kicad_pro)|*.kicad_pro" ) );
-    wxFileDialog inputdlg( this, _( "Import KiCad Project" ), GetMruPath(), wxEmptyString,
-                           filter, wxFD_OPEN | wxFD_FILE_MUST_EXIST );
+    const wxString srcRoot = aSrcPro.GetPathWithSep();
+    const bool     sameDir = wxFileName( aDestDir, wxEmptyString ).GetPath() == aSrcPro.GetPath();
 
-    KIPLATFORM::UI::AllowNetworkFileSystems( &inputdlg );
-
-    if( inputdlg.ShowModal() == wxID_CANCEL )
-        return;
-
-    wxFileName src( inputdlg.GetPath() );
-
-    if( !CloseProject( true ) )
-        return;
-
-    // 2) Pick the destination folder for the converted Anvil project.
-    wxDirDialog prodlg( this, _( "Anvil Project Destination" ), src.GetPath(),
-                        wxDD_DEFAULT_STYLE );
-
-    if( prodlg.ShowModal() == wxID_CANCEL )
-        return;
-
-    wxFileName dest;
-    dest.SetPath( prodlg.GetPath() );
-    dest.SetName( src.GetName() );
-    dest.SetExt( FILEEXT::AnvilProjectFileExtension );
-    dest.MakeAbsolute();
-
-    const bool inPlace = dest.GetPath() == src.GetPath();
-
-    if( !inPlace && !dest.DirExists() && !dest.Mkdir( wxS_DIR_DEFAULT, wxPATH_MKDIR_FULL ) )
-    {
-        DisplayErrorMessage( this, wxString::Format( _( "Folder '%s' could not be created." ),
-                                                     dest.GetPath() ) );
-        return;
-    }
-
-    // 3) Enumerate the source project recursively, skipping locks / backups / history / VCS.
     wxArrayString allFiles;
-    wxDir::GetAllFiles( src.GetPath(), &allFiles, wxEmptyString, wxDIR_FILES | wxDIR_DIRS );
-
-    const wxString srcRoot = src.GetPathWithSep();
+    wxDir::GetAllFiles( aSrcPro.GetPath(), &allFiles );
 
     auto extMapped = []( const wxString& aExt ) -> wxString
     {
@@ -123,38 +87,31 @@ void KICAD_MANAGER_FRAME::OnImportKiCadProject( wxCommandEvent& event )
         }
 
         wxFileName relFn( rel );
-        relFn.SetExt( extMapped( relFn.GetExt() ) );
+        wxString   mapped = extMapped( relFn.GetExt() );
+        bool       isProjectFile = mapped != relFn.GetExt();
 
-        wxFileName destFile( dest.GetPath() + wxFileName::GetPathSeparator()
-                             + relFn.GetFullPath() );
+        relFn.SetExt( mapped );
+
+        // When converting into the same folder, non-project files stay untouched.
+        if( sameDir && !isProjectFile )
+            continue;
+
+        wxFileName destFile( aDestDir + wxFileName::GetPathSeparator() + relFn.GetFullPath() );
 
         if( !destFile.DirExists() )
             destFile.Mkdir( wxS_DIR_DEFAULT, wxPATH_MKDIR_FULL );
 
-        bool renamedExt = relFn.GetFullPath() != rel;
-
-        if( inPlace )
-        {
-            if( renamedExt )
-                wxRenameFile( file, destFile.GetFullPath(), true );
-        }
-        else
-        {
+        if( destFile.GetFullPath() != file )
             wxCopyFile( file, destFile.GetFullPath(), true );
-        }
 
-        if( renamedExt )
+        if( isProjectFile )
+        {
             ++converted;
 
-        // 4) Rewrite internal references (sheet files, project meta) in the converted
-        //    s-expression / JSON text.  All references are quoted filenames, so a quoted
-        //    extension swap is safe.
-        wxString destExt = destFile.GetExt();
+            if( !aKeepOriginals && destFile.GetFullPath() != file )
+                wxRemoveFile( file );
 
-        if( destExt == FILEEXT::AnvilProjectFileExtension
-            || destExt == FILEEXT::AnvilSchematicFileExtension
-            || destExt == FILEEXT::AnvilPcbFileExtension )
-        {
+            // Rewrite quoted internal references (hierarchical sheets, board/meta links).
             wxFFile  f( destFile.GetFullPath(), wxS( "rb" ) );
             wxString text;
 
@@ -179,13 +136,51 @@ void KICAD_MANAGER_FRAME::OnImportKiCadProject( wxCommandEvent& event )
     }
 
     if( converted == 0 )
+        return false;
+
+    if( aDestProOut )
+    {
+        aDestProOut->SetPath( aDestDir );
+        aDestProOut->SetName( aSrcPro.GetName() );
+        aDestProOut->SetExt( FILEEXT::AnvilProjectFileExtension );
+        aDestProOut->MakeAbsolute();
+    }
+
+    return true;
+}
+
+
+void KICAD_MANAGER_FRAME::OnImportKiCadProject( wxCommandEvent& event )
+{
+    wxString     filter = _( "KiCad project files" ) + wxString( wxT( " (*.kicad_pro)|*.kicad_pro" ) );
+    wxFileDialog inputdlg( this, _( "Import KiCad Project" ), GetMruPath(), wxEmptyString,
+                           filter, wxFD_OPEN | wxFD_FILE_MUST_EXIST );
+
+    KIPLATFORM::UI::AllowNetworkFileSystems( &inputdlg );
+
+    if( inputdlg.ShowModal() == wxID_CANCEL )
+        return;
+
+    wxFileName src( inputdlg.GetPath() );
+
+    if( !CloseProject( true ) )
+        return;
+
+    wxDirDialog prodlg( this, _( "Anvil Project Destination" ), src.GetPath(),
+                        wxDD_DEFAULT_STYLE );
+
+    if( prodlg.ShowModal() == wxID_CANCEL )
+        return;
+
+    wxFileName anvilPro;
+
+    if( !ConvertProjectToAnvil( src, prodlg.GetPath(), true, &anvilPro ) )
     {
         DisplayErrorMessage( this, _( "No KiCad project files were found to convert." ) );
         return;
     }
 
-    // 5) Open the converted Anvil project.
-    LoadProject( dest );
+    LoadProject( anvilPro );
 }
 
 
@@ -313,6 +308,16 @@ void KICAD_MANAGER_FRAME::ImportNonKiCadProject( const wxString& aWindowTitle,
         importProj.ImportPadsFiles();
     else
         importProj.ImportFiles( aSchFileType, aPcbFileType );
+
+    // Anvil: store the imported result in the native Anvil format (rename in place --
+    // these files were just created by the importer, there are no originals to keep).
+    wxFileName anvilPro;
+
+    if( ConvertProjectToAnvil( importProj.m_TargetProj, importProj.m_TargetProj.GetPath(),
+                               false, &anvilPro ) )
+    {
+        LoadProject( anvilPro );
+    }
 
     ReCreateTreePrj();
     m_active_project = true;
