@@ -186,6 +186,10 @@ public:
     /**
      * Open dialog to import Altium project files.
      */
+    /// Convert a KiCad project into an Anvil project (copy, rename to .anvil_*, rewrite
+    /// hierarchical sheet references, open the result).
+    void OnImportKiCadProject( wxCommandEvent& event );
+
     void OnImportAltiumProjectFiles( wxCommandEvent& event );
 
     /**

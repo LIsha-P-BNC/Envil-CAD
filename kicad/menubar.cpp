@@ -128,6 +128,11 @@ void KICAD_MANAGER_FRAME::doReCreateMenuBar()
 
     fileMenu->AppendSeparator();
 
+    fileMenu->Add( _( "Import KiCad Project..." ),
+                   _( "Convert a KiCad project into an Anvil project" ),
+                   ID_IMPORT_KICAD_PROJECT,
+                   BITMAPS::import_project );
+
     //Import Sub-menu
     ACTION_MENU* importMenu = new ACTION_MENU( false, controlTool );
     importMenu->SetTitle( _( "Import Non-KiCad Project..." ) );
@@ -352,6 +357,11 @@ void KICAD_MANAGER_FRAME::buildFileMenu( ACTION_MENU* fileMenu )
     fileMenu->Add( ACTIONS::saveAs );
 
     fileMenu->AppendSeparator();
+
+    fileMenu->Add( _( "Import KiCad Project..." ),
+                   _( "Convert a KiCad project into an Anvil project" ),
+                   ID_IMPORT_KICAD_PROJECT,
+                   BITMAPS::import_project );
 
     //Import Sub-menu
     ACTION_MENU* importMenu = new ACTION_MENU( false, controlTool );
