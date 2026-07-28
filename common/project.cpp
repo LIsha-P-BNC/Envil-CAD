@@ -168,12 +168,16 @@ void PROJECT::setProjectFullName( const wxString& aFullPathAndName )
         wxLogTrace( tracePathsAndFiles, "%s: old:'%s' new:'%s'", __func__,
                     TO_UTF8( GetProjectFullName() ), TO_UTF8( aFullPathAndName ) );
 
-        m_project_name = aFullPathAndName;
+        // Use the (possibly extension-healed) candidate, not the raw argument.
+        m_project_name = candidate_path;
 
         wxASSERT( m_project_name.IsAbsolute() );
         wxString ext = m_project_name.GetExt();
 
-        if( !ext.IsEmpty() && ext != FILEEXT::ProjectFileExtension )
+        // Anvil dual-extension: .anvil_pro is a first-class project extension.  Only
+        // normalize genuinely foreign extensions to the KiCad default.
+        if( !ext.IsEmpty() && ext != FILEEXT::AnvilProjectFileExtension
+                && ext != FILEEXT::ProjectFileExtension )
         {
             wxLogDebug( wxT( "Project file has unexpected extension '%s', expected '%s'" ), ext,
                         FILEEXT::ProjectFileExtension );
