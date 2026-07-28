@@ -128,8 +128,9 @@ void KICAD_MANAGER_FRAME::doReCreateMenuBar()
 
     fileMenu->AppendSeparator();
 
-    fileMenu->Add( _( "Import KiCad Project..." ),
-                   _( "Convert a KiCad project into an Anvil project" ),
+    fileMenu->Add( _( "Import Project..." ),
+                   _( "Import a KiCad, Altium, CADSTAR, Eagle, EasyEDA, PADS or gEDA project "
+                      "and convert it to an Anvil project" ),
                    ID_IMPORT_KICAD_PROJECT,
                    BITMAPS::import_project );
 
@@ -358,8 +359,9 @@ void KICAD_MANAGER_FRAME::buildFileMenu( ACTION_MENU* fileMenu )
 
     fileMenu->AppendSeparator();
 
-    fileMenu->Add( _( "Import KiCad Project..." ),
-                   _( "Convert a KiCad project into an Anvil project" ),
+    fileMenu->Add( _( "Import Project..." ),
+                   _( "Import a KiCad, Altium, CADSTAR, Eagle, EasyEDA, PADS or gEDA project "
+                      "and convert it to an Anvil project" ),
                    ID_IMPORT_KICAD_PROJECT,
                    BITMAPS::import_project );
 

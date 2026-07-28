@@ -200,6 +200,18 @@ public:
 
     void OnImportKiCadProject( wxCommandEvent& event );
 
+    /// Altium-style unified import: one dialog, all supported formats, output = Anvil project.
+    void OnImportProject( wxCommandEvent& event );
+
+private:
+    void importKiCadProjectFile( const wxString& aInputPath );
+    void importProjectFromFile( const wxString& aInputPath,
+                                const std::vector<std::string>& aSchFileExtensions,
+                                const std::vector<std::string>& aPcbFileExtensions,
+                                int aSchFileType, int aPcbFileType );
+
+public:
+
     void OnImportAltiumProjectFiles( wxCommandEvent& event );
 
     /**

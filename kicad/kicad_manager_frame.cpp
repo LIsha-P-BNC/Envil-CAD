@@ -1056,7 +1056,7 @@ BEGIN_EVENT_TABLE( KICAD_MANAGER_FRAME, EDA_BASE_FRAME )
     EVT_MENU( ID_IMPORT_EAGLE_PROJECT, KICAD_MANAGER_FRAME::OnImportEagleFiles )
     EVT_MENU( ID_IMPORT_EASYEDA_PROJECT, KICAD_MANAGER_FRAME::OnImportEasyEdaFiles )
     EVT_MENU( ID_IMPORT_EASYEDAPRO_PROJECT, KICAD_MANAGER_FRAME::OnImportEasyEdaProFiles )
-    EVT_MENU( ID_IMPORT_KICAD_PROJECT, KICAD_MANAGER_FRAME::OnImportKiCadProject )
+    EVT_MENU( ID_IMPORT_KICAD_PROJECT, KICAD_MANAGER_FRAME::OnImportProject )
     EVT_MENU( ID_IMPORT_ALTIUM_PROJECT, KICAD_MANAGER_FRAME::OnImportAltiumProjectFiles )
     EVT_MENU( ID_IMPORT_PADS_PROJECT, KICAD_MANAGER_FRAME::OnImportPadsProjectFiles )
     EVT_MENU( ID_IMPORT_GEDA_PROJECT, KICAD_MANAGER_FRAME::OnImportGedaFiles )
@@ -2952,35 +2952,6 @@ bool KICAD_MANAGER_FRAME::LoadProject( const wxFileName& aProjectFileNameIn )
 
         if( sibling.GetFullPath() != aProjectFileName.GetFullPath() && sibling.FileExists() )
             aProjectFileName = sibling;
-    }
-
-    // Offer to convert an opened KiCad project to the native Anvil format.  The converted
-    // .anvil_* files are stored alongside; the original KiCad files are kept unchanged.
-    if( aProjectFileName.GetExt() == FILEEXT::ProjectFileExtension
-        && aProjectFileName.FileExists() )
-    {
-        wxFileName anvilSibling( aProjectFileName );
-        anvilSibling.SetExt( FILEEXT::AnvilProjectFileExtension );
-
-        if( !anvilSibling.FileExists() )
-        {
-            KIDIALOG dlg( this,
-                          _( "This is a KiCad-format project.  Convert it to the native "
-                             "Anvil format?  The converted files are stored next to the "
-                             "originals, which are kept unchanged." ),
-                          _( "Convert to Anvil Project" ), wxYES_NO | wxICON_QUESTION );
-            dlg.SetYesNoLabels( _( "Convert && Open" ), _( "Open as KiCad" ) );
-            dlg.DoNotShowCheckbox( __FILE__, __LINE__ );
-
-            if( dlg.ShowModal() == wxID_YES )
-            {
-                wxFileName anvilPro;
-
-                if( ConvertProjectToAnvil( aProjectFileName, aProjectFileName.GetPath(),
-                                           true, &anvilPro ) )
-                    aProjectFileName = anvilPro;
-            }
-        }
     }
 
     // The project file should be valid by the time we get here or something has gone wrong.

@@ -150,18 +150,9 @@ bool KICAD_MANAGER_FRAME::ConvertProjectToAnvil( const wxFileName& aSrcPro,
 }
 
 
-void KICAD_MANAGER_FRAME::OnImportKiCadProject( wxCommandEvent& event )
+void KICAD_MANAGER_FRAME::importKiCadProjectFile( const wxString& aInputPath )
 {
-    wxString     filter = _( "KiCad project files" ) + wxString( wxT( " (*.kicad_pro)|*.kicad_pro" ) );
-    wxFileDialog inputdlg( this, _( "Import KiCad Project" ), GetMruPath(), wxEmptyString,
-                           filter, wxFD_OPEN | wxFD_FILE_MUST_EXIST );
-
-    KIPLATFORM::UI::AllowNetworkFileSystems( &inputdlg );
-
-    if( inputdlg.ShowModal() == wxID_CANCEL )
-        return;
-
-    wxFileName src( inputdlg.GetPath() );
+    wxFileName src( aInputPath );
 
     if( !CloseProject( true ) )
         return;
@@ -184,13 +175,124 @@ void KICAD_MANAGER_FRAME::OnImportKiCadProject( wxCommandEvent& event )
 }
 
 
+void KICAD_MANAGER_FRAME::OnImportKiCadProject( wxCommandEvent& event )
+{
+    wxString     filter = _( "KiCad project files" ) + wxString( wxT( " (*.kicad_pro)|*.kicad_pro" ) );
+    wxFileDialog inputdlg( this, _( "Import KiCad Project" ), GetMruPath(), wxEmptyString,
+                           filter, wxFD_OPEN | wxFD_FILE_MUST_EXIST );
+
+    KIPLATFORM::UI::AllowNetworkFileSystems( &inputdlg );
+
+    if( inputdlg.ShowModal() == wxID_CANCEL )
+        return;
+
+    importKiCadProjectFile( inputdlg.GetPath() );
+}
+
+
+void KICAD_MANAGER_FRAME::OnImportProject( wxCommandEvent& event )
+{
+    // One Altium-style import wizard: pick a project of ANY supported format; the format
+    // comes from the chosen filter row (or the extension when "All supported" is active),
+    // and the result is always a native Anvil project.
+    wxString filter;
+    filter << _( "All supported projects" )
+           << wxT( "|*.kicad_pro;*.PrjPcb;*.SchDoc;*.PcbDoc;*.CSPcbDoc;*.CMPcbDoc;*.SWPcbDoc;"
+                   "*.csa;*.cpa;*.sch;*.brd;*.json;*.zip;*.epro;*.asc;*.txt;*.prj;*.pcb" )
+           << wxT( "|" ) << _( "KiCad project files" ) << wxT( " (*.kicad_pro)|*.kicad_pro" )
+           << wxT( "|" ) << FILEEXT::AltiumProjectFilesWildcard()
+           << wxT( "|" ) << FILEEXT::CadstarArchiveFilesWildcard()
+           << wxT( "|" ) << FILEEXT::EagleFilesWildcard()
+           << wxT( "|" ) << FILEEXT::EasyEdaArchiveWildcard()
+           << wxT( "|" ) << FILEEXT::EasyEdaProFileWildcard()
+           << wxT( "|" ) << FILEEXT::PADSProjectFilesWildcard()
+           << wxT( "|" ) << FILEEXT::GedaProjectFilesWildcard();
+
+    wxFileDialog dlg( this, _( "Import Project" ), GetMruPath(), wxEmptyString, filter,
+                      wxFD_OPEN | wxFD_FILE_MUST_EXIST );
+
+    KIPLATFORM::UI::AllowNetworkFileSystems( &dlg );
+
+    if( dlg.ShowModal() == wxID_CANCEL )
+        return;
+
+    wxString path = dlg.GetPath();
+    wxString ext = wxFileName( path ).GetExt().Lower();
+    int      idx = dlg.GetFilterIndex();
+
+    // Filter rows: 0=all, 1=KiCad, 2=Altium, 3=CADSTAR, 4=Eagle, 5=EasyEDA Std,
+    // 6=EasyEDA Pro, 7=PADS, 8=gEDA.  For row 0, infer the format from the extension.
+    if( idx == 0 )
+    {
+        if( ext == wxT( "kicad_pro" ) )
+            idx = 1;
+        else if( ext == wxT( "prjpcb" ) || ext == wxT( "schdoc" ) || ext == wxT( "pcbdoc" )
+                 || ext == wxT( "cspcbdoc" ) || ext == wxT( "cmpcbdoc" )
+                 || ext == wxT( "swpcbdoc" ) )
+            idx = 2;
+        else if( ext == wxT( "csa" ) || ext == wxT( "cpa" ) )
+            idx = 3;
+        else if( ext == wxT( "brd" ) || ext == wxT( "sch" ) )
+            idx = 4;
+        else if( ext == wxT( "json" ) || ext == wxT( "zip" ) )
+            idx = 5;
+        else if( ext == wxT( "epro" ) )
+            idx = 6;
+        else if( ext == wxT( "asc" ) || ext == wxT( "txt" ) )
+            idx = 7;
+        else if( ext == wxT( "prj" ) || ext == wxT( "pcb" ) )
+            idx = 8;
+        else
+        {
+            DisplayErrorMessage( this, _( "Unrecognized project format." ) );
+            return;
+        }
+    }
+
+    switch( idx )
+    {
+    case 1:
+        importKiCadProjectFile( path );
+        break;
+    case 2:
+        importProjectFromFile( path, { "SchDoc" },
+                               { "PcbDoc", "CSPcbDoc", "CMPcbDoc", "SWPcbDoc" },
+                               SCH_IO_MGR::SCH_ALTIUM, PCB_IO_MGR::ALTIUM_DESIGNER );
+        break;
+    case 3:
+        importProjectFromFile( path, { "csa" }, { "cpa" }, SCH_IO_MGR::SCH_CADSTAR_ARCHIVE,
+                               PCB_IO_MGR::CADSTAR_PCB_ARCHIVE );
+        break;
+    case 4:
+        importProjectFromFile( path, { "sch" }, { "brd" }, SCH_IO_MGR::SCH_EAGLE,
+                               PCB_IO_MGR::EAGLE );
+        break;
+    case 5:
+        importProjectFromFile( path, { "INPUT" }, { "INPUT" }, SCH_IO_MGR::SCH_EASYEDA,
+                               PCB_IO_MGR::EASYEDA );
+        break;
+    case 6:
+        importProjectFromFile( path, { "INPUT" }, { "INPUT" }, SCH_IO_MGR::SCH_EASYEDAPRO,
+                               PCB_IO_MGR::EASYEDAPRO );
+        break;
+    case 7:
+        importProjectFromFile( path, { "asc", "txt" }, { "asc", "txt" }, SCH_IO_MGR::SCH_PADS,
+                               PCB_IO_MGR::PADS );
+        break;
+    case 8:
+        importProjectFromFile( path, { "prj", "sch" }, { "pcb" }, SCH_IO_MGR::SCH_GEDA,
+                               PCB_IO_MGR::GEDA_PCB );
+        break;
+    }
+}
+
+
 void KICAD_MANAGER_FRAME::ImportNonKiCadProject( const wxString& aWindowTitle,
                                                  const wxString& aFilesWildcard,
                                                  const std::vector<std::string>& aSchFileExtensions,
                                                  const std::vector<std::string>& aPcbFileExtensions,
                                                  int aSchFileType, int aPcbFileType )
 {
-    wxString msg;
     wxString default_dir = GetMruPath();
     int      style = wxFD_OPEN | wxFD_FILE_MUST_EXIST;
 
@@ -201,7 +303,18 @@ void KICAD_MANAGER_FRAME::ImportNonKiCadProject( const wxString& aWindowTitle,
     if( inputdlg.ShowModal() == wxID_CANCEL )
         return;
 
-    wxString inputPath = inputdlg.GetPath();
+    importProjectFromFile( inputdlg.GetPath(), aSchFileExtensions, aPcbFileExtensions,
+                           aSchFileType, aPcbFileType );
+}
+
+
+void KICAD_MANAGER_FRAME::importProjectFromFile( const wxString& aInputPath,
+                                                 const std::vector<std::string>& aSchFileExtensions,
+                                                 const std::vector<std::string>& aPcbFileExtensions,
+                                                 int aSchFileType, int aPcbFileType )
+{
+    wxString msg;
+    wxString inputPath = aInputPath;
     bool     isPadsProject = ( aSchFileType == SCH_IO_MGR::SCH_PADS
                                && aPcbFileType == PCB_IO_MGR::PADS );
 
