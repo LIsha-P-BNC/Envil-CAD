@@ -349,10 +349,12 @@ bool PGM_KICAD::OnPgmInit()
         {
             wxFileName tmp = parser.GetParam( 0 );
 
-            if( tmp.GetExt() != FILEEXT::ProjectFileExtension && tmp.GetExt() != FILEEXT::LegacyProjectFileExtension )
+            if( tmp.GetExt() != FILEEXT::AnvilProjectFileExtension
+                && tmp.GetExt() != FILEEXT::ProjectFileExtension
+                && tmp.GetExt() != FILEEXT::LegacyProjectFileExtension )
             {
                 DisplayErrorMessage( nullptr, wxString::Format( _( "File '%s'\n"
-                                                                   "does not appear to be a KiCad project file." ),
+                                                                   "does not appear to be an Anvil project file." ),
                                                                 tmp.GetFullPath() ) );
             }
             else
@@ -382,7 +384,8 @@ bool PGM_KICAD::OnPgmInit()
         {
             wxFileName fn( projToLoad );
 
-            if( fn.Exists() && (   fn.GetExt() == FILEEXT::ProjectFileExtension
+            if( fn.Exists() && (   fn.GetExt() == FILEEXT::AnvilProjectFileExtension
+                                || fn.GetExt() == FILEEXT::ProjectFileExtension
                                 || fn.GetExt() == FILEEXT::LegacyProjectFileExtension ) )
             {
                 fn.MakeAbsolute();
