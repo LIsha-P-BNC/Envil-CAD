@@ -35,6 +35,21 @@
 #undef _
 #define _(s) s
 
+TOOL_ACTION KICAD_MANAGER_ACTIONS::importProject( TOOL_ACTION_ARGS()
+        .Name( "kicad.Control.importProject" )
+        .Scope( AS_GLOBAL )
+        .FriendlyName( _( "Import Project..." ) )
+        .Tooltip( _( "Import a KiCad, Altium, CADSTAR, Eagle, EasyEDA, PADS or gEDA project "
+                     "and convert it to an Anvil project" ) )
+        .Icon( BITMAPS::import_project ) );
+
+TOOL_ACTION KICAD_MANAGER_ACTIONS::importKiCadProject( TOOL_ACTION_ARGS()
+        .Name( "kicad.Control.importKiCadProject" )
+        .Scope( AS_GLOBAL )
+        .FriendlyName( _( "KiCad Project..." ) )
+        .Tooltip( _( "Import KiCad Schematic and PCB (*.kicad_pro)" ) )
+        .Icon( BITMAPS::import_project ) );
+
 TOOL_ACTION KICAD_MANAGER_ACTIONS::newProject( TOOL_ACTION_ARGS()
         .Name( "kicad.Control.newProject" )
         .Scope( AS_GLOBAL )

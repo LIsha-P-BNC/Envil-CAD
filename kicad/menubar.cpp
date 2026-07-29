@@ -128,21 +128,14 @@ void KICAD_MANAGER_FRAME::doReCreateMenuBar()
 
     fileMenu->AppendSeparator();
 
-    fileMenu->Add( _( "Import Project..." ),
-                   _( "Import a KiCad, Altium, CADSTAR, Eagle, EasyEDA, PADS or gEDA project "
-                      "and convert it to an Anvil project" ),
-                   ID_IMPORT_KICAD_PROJECT,
-                   BITMAPS::import_project );
+    fileMenu->Add( KICAD_MANAGER_ACTIONS::importProject );
 
     //Import Sub-menu
     ACTION_MENU* importMenu = new ACTION_MENU( false, controlTool );
     importMenu->SetTitle( _( "Import Non-Anvil Project..." ) );
     importMenu->SetIcon( BITMAPS::import_project );
 
-    importMenu->Add( _( "KiCad Project..." ),
-                     _( "Import KiCad Schematic and PCB (*.kicad_pro)" ),
-                     ID_IMPORT_KICAD_PROJECT_FILES,
-                     BITMAPS::import_project );
+    importMenu->Add( KICAD_MANAGER_ACTIONS::importKiCadProject );
 
     importMenu->Add( _( "Altium Project..." ),
                      _( "Import Altium Schematic and PCB (*.PrjPcb)" ),
@@ -364,21 +357,14 @@ void KICAD_MANAGER_FRAME::buildFileMenu( ACTION_MENU* fileMenu )
 
     fileMenu->AppendSeparator();
 
-    fileMenu->Add( _( "Import Project..." ),
-                   _( "Import a KiCad, Altium, CADSTAR, Eagle, EasyEDA, PADS or gEDA project "
-                      "and convert it to an Anvil project" ),
-                   ID_IMPORT_KICAD_PROJECT,
-                   BITMAPS::import_project );
+    fileMenu->Add( KICAD_MANAGER_ACTIONS::importProject );
 
     //Import Sub-menu
     ACTION_MENU* importMenu = new ACTION_MENU( false, controlTool );
     importMenu->SetTitle( _( "Import Non-Anvil Project..." ) );
     importMenu->SetIcon( BITMAPS::import_project );
 
-    importMenu->Add( _( "KiCad Project..." ),
-                     _( "Import KiCad Schematic and PCB (*.kicad_pro)" ),
-                     ID_IMPORT_KICAD_PROJECT_FILES,
-                     BITMAPS::import_project );
+    importMenu->Add( KICAD_MANAGER_ACTIONS::importKiCadProject );
 
     importMenu->Add( _( "Altium Project..." ),
                      _( "Import Altium Schematic and PCB (*.PrjPcb)" ),

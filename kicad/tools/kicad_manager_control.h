@@ -45,6 +45,8 @@ public:
     void Reset( RESET_REASON aReason ) override;
 
     int NewProject( const TOOL_EVENT& aEvent );
+    int ImportProject( const TOOL_EVENT& aEvent );
+    int ImportKiCadProject( const TOOL_EVENT& aEvent );
     int NewFromRepository( const TOOL_EVENT& aEvent );
     int NewJobsetFile( const TOOL_EVENT& aEvent );
     int OpenProject( const TOOL_EVENT& aEvent );

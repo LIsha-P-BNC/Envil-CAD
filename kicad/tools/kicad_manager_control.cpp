@@ -200,6 +200,22 @@ static wxFileName ensureDefaultProjectTemplate()
         return wxFileName();
 }
 
+int KICAD_MANAGER_CONTROL::ImportProject( const TOOL_EVENT& aEvent )
+{
+    wxCommandEvent dummy;
+    m_frame->OnImportProject( dummy );
+    return 0;
+}
+
+
+int KICAD_MANAGER_CONTROL::ImportKiCadProject( const TOOL_EVENT& aEvent )
+{
+    wxCommandEvent dummy;
+    m_frame->OnImportKiCadProject( dummy );
+    return 0;
+}
+
+
 int KICAD_MANAGER_CONTROL::NewProject( const TOOL_EVENT& aEvent )
 {
     wxFileName defaultTemplate = ensureDefaultProjectTemplate();
@@ -1056,6 +1072,8 @@ int KICAD_MANAGER_CONTROL::ShowPluginManager( const TOOL_EVENT& aEvent )
 void KICAD_MANAGER_CONTROL::setTransitions()
 {
     Go( &KICAD_MANAGER_CONTROL::NewProject,         KICAD_MANAGER_ACTIONS::newProject.MakeEvent() );
+    Go( &KICAD_MANAGER_CONTROL::ImportProject,      KICAD_MANAGER_ACTIONS::importProject.MakeEvent() );
+    Go( &KICAD_MANAGER_CONTROL::ImportKiCadProject, KICAD_MANAGER_ACTIONS::importKiCadProject.MakeEvent() );
     Go( &KICAD_MANAGER_CONTROL::NewFromRepository,  KICAD_MANAGER_ACTIONS::newFromRepository.MakeEvent() );
     Go( &KICAD_MANAGER_CONTROL::NewJobsetFile,      KICAD_MANAGER_ACTIONS::newJobsetFile.MakeEvent() );
     Go( &KICAD_MANAGER_CONTROL::OpenDemoProject,    KICAD_MANAGER_ACTIONS::openDemoProject.MakeEvent() );
