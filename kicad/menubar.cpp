@@ -137,37 +137,18 @@ void KICAD_MANAGER_FRAME::doReCreateMenuBar()
 
     importMenu->Add( KICAD_MANAGER_ACTIONS::importKiCadProject );
 
-    importMenu->Add( _( "Altium Project..." ),
-                     _( "Import Altium Schematic and PCB (*.PrjPcb)" ),
-                     ID_IMPORT_ALTIUM_PROJECT,
-                     BITMAPS::import_project );
-    importMenu->Add( _( "CADSTAR Project..." ),
-                     _( "Import CADSTAR Archive Schematic and PCB (*.csa, *.cpa)" ),
-                     ID_IMPORT_CADSTAR_ARCHIVE_PROJECT,
-                     BITMAPS::import_project );
+    importMenu->Add( KICAD_MANAGER_ACTIONS::importAltiumProject );
+    importMenu->Add( KICAD_MANAGER_ACTIONS::importCadstarProject );
 
-    importMenu->Add( _( "EAGLE Project..." ),
-                     _( "Import EAGLE CAD XML schematic and board" ),
-                     ID_IMPORT_EAGLE_PROJECT,
-                     BITMAPS::import_project );
+    importMenu->Add( KICAD_MANAGER_ACTIONS::importEagleProject );
 
-    importMenu->Add( _( "EasyEDA (JLCEDA) Std Backup..." ),
-                     _( "Import EasyEDA (JLCEDA) Standard schematic and board" ),
-                     ID_IMPORT_EASYEDA_PROJECT,
-                     BITMAPS::import_project );
+    importMenu->Add( KICAD_MANAGER_ACTIONS::importEasyEdaProject );
 
-    importMenu->Add( _( "EasyEDA (JLCEDA) Pro Project..." ),
-                     _( "Import EasyEDA (JLCEDA) Professional schematic and board" ),
-                     ID_IMPORT_EASYEDAPRO_PROJECT, BITMAPS::import_project );
+    importMenu->Add( KICAD_MANAGER_ACTIONS::importEasyEdaProProject );
 
-    importMenu->Add( _( "PADS Project..." ),
-                     _( "Import PADS Logic schematic and PADS ASCII PCB (*.asc, *.txt)" ),
-                     ID_IMPORT_PADS_PROJECT, BITMAPS::import_project );
+    importMenu->Add( KICAD_MANAGER_ACTIONS::importPadsProject );
 
-    importMenu->Add( _( "gEDA / Lepton EDA Project..." ),
-                     _( "Import gEDA or Lepton EDA schematic and PCB layout" ),
-                     ID_IMPORT_GEDA_PROJECT,
-                     BITMAPS::import_project );
+    importMenu->Add( KICAD_MANAGER_ACTIONS::importGedaProject );
 
     fileMenu->Add( importMenu );
 
@@ -366,37 +347,18 @@ void KICAD_MANAGER_FRAME::buildFileMenu( ACTION_MENU* fileMenu )
 
     importMenu->Add( KICAD_MANAGER_ACTIONS::importKiCadProject );
 
-    importMenu->Add( _( "Altium Project..." ),
-                     _( "Import Altium Schematic and PCB (*.PrjPcb)" ),
-                     ID_IMPORT_ALTIUM_PROJECT,
-                     BITMAPS::import_project );
-    importMenu->Add( _( "CADSTAR Project..." ),
-                     _( "Import CADSTAR Archive Schematic and PCB (*.csa, *.cpa)" ),
-                     ID_IMPORT_CADSTAR_ARCHIVE_PROJECT,
-                     BITMAPS::import_project );
+    importMenu->Add( KICAD_MANAGER_ACTIONS::importAltiumProject );
+    importMenu->Add( KICAD_MANAGER_ACTIONS::importCadstarProject );
 
-    importMenu->Add( _( "EAGLE Project..." ),
-                     _( "Import EAGLE CAD XML schematic and board" ),
-                     ID_IMPORT_EAGLE_PROJECT,
-                     BITMAPS::import_project );
+    importMenu->Add( KICAD_MANAGER_ACTIONS::importEagleProject );
 
-    importMenu->Add( _( "EasyEDA (JLCEDA) Std Backup..." ),
-                     _( "Import EasyEDA (JLCEDA) Standard schematic and board" ),
-                     ID_IMPORT_EASYEDA_PROJECT,
-                     BITMAPS::import_project );
+    importMenu->Add( KICAD_MANAGER_ACTIONS::importEasyEdaProject );
 
-    importMenu->Add( _( "EasyEDA (JLCEDA) Pro Project..." ),
-                     _( "Import EasyEDA (JLCEDA) Professional schematic and board" ),
-                     ID_IMPORT_EASYEDAPRO_PROJECT, BITMAPS::import_project );
+    importMenu->Add( KICAD_MANAGER_ACTIONS::importEasyEdaProProject );
 
-    importMenu->Add( _( "PADS Project..." ),
-                     _( "Import PADS Logic schematic and PADS ASCII PCB (*.asc, *.txt)" ),
-                     ID_IMPORT_PADS_PROJECT, BITMAPS::import_project );
+    importMenu->Add( KICAD_MANAGER_ACTIONS::importPadsProject );
 
-    importMenu->Add( _( "gEDA / Lepton EDA Project..." ),
-                     _( "Import gEDA or Lepton EDA schematic and PCB layout" ),
-                     ID_IMPORT_GEDA_PROJECT,
-                     BITMAPS::import_project );
+    importMenu->Add( KICAD_MANAGER_ACTIONS::importGedaProject );
 
     fileMenu->Add( importMenu );
 

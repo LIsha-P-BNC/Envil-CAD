@@ -50,6 +50,55 @@ TOOL_ACTION KICAD_MANAGER_ACTIONS::importKiCadProject( TOOL_ACTION_ARGS()
         .Tooltip( _( "Import KiCad Schematic and PCB (*.kicad_pro)" ) )
         .Icon( BITMAPS::import_project ) );
 
+TOOL_ACTION KICAD_MANAGER_ACTIONS::importAltiumProject( TOOL_ACTION_ARGS()
+        .Name( "kicad.Control.importAltiumProject" )
+        .Scope( AS_GLOBAL )
+        .FriendlyName( _( "Altium Project..." ) )
+        .Tooltip( _( "Import Altium Schematic and PCB (*.PrjPcb)" ) )
+        .Icon( BITMAPS::import_project ) );
+
+TOOL_ACTION KICAD_MANAGER_ACTIONS::importCadstarProject( TOOL_ACTION_ARGS()
+        .Name( "kicad.Control.importCadstarProject" )
+        .Scope( AS_GLOBAL )
+        .FriendlyName( _( "CADSTAR Project..." ) )
+        .Tooltip( _( "Import CADSTAR Archive Schematic and PCB (*.csa, *.cpa)" ) )
+        .Icon( BITMAPS::import_project ) );
+
+TOOL_ACTION KICAD_MANAGER_ACTIONS::importEagleProject( TOOL_ACTION_ARGS()
+        .Name( "kicad.Control.importEagleProject" )
+        .Scope( AS_GLOBAL )
+        .FriendlyName( _( "EAGLE Project..." ) )
+        .Tooltip( _( "Import EAGLE CAD XML schematic and board" ) )
+        .Icon( BITMAPS::import_project ) );
+
+TOOL_ACTION KICAD_MANAGER_ACTIONS::importEasyEdaProject( TOOL_ACTION_ARGS()
+        .Name( "kicad.Control.importEasyEdaProject" )
+        .Scope( AS_GLOBAL )
+        .FriendlyName( _( "EasyEDA (JLCEDA) Std Backup..." ) )
+        .Tooltip( _( "Import EasyEDA (JLCEDA) Standard schematic and board" ) )
+        .Icon( BITMAPS::import_project ) );
+
+TOOL_ACTION KICAD_MANAGER_ACTIONS::importEasyEdaProProject( TOOL_ACTION_ARGS()
+        .Name( "kicad.Control.importEasyEdaProProject" )
+        .Scope( AS_GLOBAL )
+        .FriendlyName( _( "EasyEDA (JLCEDA) Pro Project..." ) )
+        .Tooltip( _( "Import EasyEDA (JLCEDA) Professional schematic and board" ) )
+        .Icon( BITMAPS::import_project ) );
+
+TOOL_ACTION KICAD_MANAGER_ACTIONS::importPadsProject( TOOL_ACTION_ARGS()
+        .Name( "kicad.Control.importPadsProject" )
+        .Scope( AS_GLOBAL )
+        .FriendlyName( _( "PADS Project..." ) )
+        .Tooltip( _( "Import PADS Logic schematic and PADS ASCII PCB (*.asc, *.txt)" ) )
+        .Icon( BITMAPS::import_project ) );
+
+TOOL_ACTION KICAD_MANAGER_ACTIONS::importGedaProject( TOOL_ACTION_ARGS()
+        .Name( "kicad.Control.importGedaProject" )
+        .Scope( AS_GLOBAL )
+        .FriendlyName( _( "gEDA / Lepton EDA Project..." ) )
+        .Tooltip( _( "Import gEDA or Lepton EDA schematic and PCB layout" ) )
+        .Icon( BITMAPS::import_project ) );
+
 TOOL_ACTION KICAD_MANAGER_ACTIONS::newProject( TOOL_ACTION_ARGS()
         .Name( "kicad.Control.newProject" )
         .Scope( AS_GLOBAL )

@@ -47,6 +47,13 @@ public:
     int NewProject( const TOOL_EVENT& aEvent );
     int ImportProject( const TOOL_EVENT& aEvent );
     int ImportKiCadProject( const TOOL_EVENT& aEvent );
+    int ImportAltiumProject( const TOOL_EVENT& aEvent );
+    int ImportCadstarProject( const TOOL_EVENT& aEvent );
+    int ImportEagleProject( const TOOL_EVENT& aEvent );
+    int ImportEasyEdaProject( const TOOL_EVENT& aEvent );
+    int ImportEasyEdaProProject( const TOOL_EVENT& aEvent );
+    int ImportPadsProject( const TOOL_EVENT& aEvent );
+    int ImportGedaProject( const TOOL_EVENT& aEvent );
     int NewFromRepository( const TOOL_EVENT& aEvent );
     int NewJobsetFile( const TOOL_EVENT& aEvent );
     int OpenProject( const TOOL_EVENT& aEvent );

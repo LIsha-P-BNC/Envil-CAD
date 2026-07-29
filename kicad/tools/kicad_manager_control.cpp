@@ -216,6 +216,62 @@ int KICAD_MANAGER_CONTROL::ImportKiCadProject( const TOOL_EVENT& aEvent )
 }
 
 
+int KICAD_MANAGER_CONTROL::ImportAltiumProject( const TOOL_EVENT& aEvent )
+{
+    wxCommandEvent dummy;
+    m_frame->OnImportAltiumProjectFiles( dummy );
+    return 0;
+}
+
+
+int KICAD_MANAGER_CONTROL::ImportCadstarProject( const TOOL_EVENT& aEvent )
+{
+    wxCommandEvent dummy;
+    m_frame->OnImportCadstarArchiveFiles( dummy );
+    return 0;
+}
+
+
+int KICAD_MANAGER_CONTROL::ImportEagleProject( const TOOL_EVENT& aEvent )
+{
+    wxCommandEvent dummy;
+    m_frame->OnImportEagleFiles( dummy );
+    return 0;
+}
+
+
+int KICAD_MANAGER_CONTROL::ImportEasyEdaProject( const TOOL_EVENT& aEvent )
+{
+    wxCommandEvent dummy;
+    m_frame->OnImportEasyEdaFiles( dummy );
+    return 0;
+}
+
+
+int KICAD_MANAGER_CONTROL::ImportEasyEdaProProject( const TOOL_EVENT& aEvent )
+{
+    wxCommandEvent dummy;
+    m_frame->OnImportEasyEdaProFiles( dummy );
+    return 0;
+}
+
+
+int KICAD_MANAGER_CONTROL::ImportPadsProject( const TOOL_EVENT& aEvent )
+{
+    wxCommandEvent dummy;
+    m_frame->OnImportPadsProjectFiles( dummy );
+    return 0;
+}
+
+
+int KICAD_MANAGER_CONTROL::ImportGedaProject( const TOOL_EVENT& aEvent )
+{
+    wxCommandEvent dummy;
+    m_frame->OnImportGedaFiles( dummy );
+    return 0;
+}
+
+
 int KICAD_MANAGER_CONTROL::NewProject( const TOOL_EVENT& aEvent )
 {
     wxFileName defaultTemplate = ensureDefaultProjectTemplate();
@@ -1074,6 +1130,13 @@ void KICAD_MANAGER_CONTROL::setTransitions()
     Go( &KICAD_MANAGER_CONTROL::NewProject,         KICAD_MANAGER_ACTIONS::newProject.MakeEvent() );
     Go( &KICAD_MANAGER_CONTROL::ImportProject,      KICAD_MANAGER_ACTIONS::importProject.MakeEvent() );
     Go( &KICAD_MANAGER_CONTROL::ImportKiCadProject, KICAD_MANAGER_ACTIONS::importKiCadProject.MakeEvent() );
+    Go( &KICAD_MANAGER_CONTROL::ImportAltiumProject, KICAD_MANAGER_ACTIONS::importAltiumProject.MakeEvent() );
+    Go( &KICAD_MANAGER_CONTROL::ImportCadstarProject, KICAD_MANAGER_ACTIONS::importCadstarProject.MakeEvent() );
+    Go( &KICAD_MANAGER_CONTROL::ImportEagleProject, KICAD_MANAGER_ACTIONS::importEagleProject.MakeEvent() );
+    Go( &KICAD_MANAGER_CONTROL::ImportEasyEdaProject, KICAD_MANAGER_ACTIONS::importEasyEdaProject.MakeEvent() );
+    Go( &KICAD_MANAGER_CONTROL::ImportEasyEdaProProject, KICAD_MANAGER_ACTIONS::importEasyEdaProProject.MakeEvent() );
+    Go( &KICAD_MANAGER_CONTROL::ImportPadsProject, KICAD_MANAGER_ACTIONS::importPadsProject.MakeEvent() );
+    Go( &KICAD_MANAGER_CONTROL::ImportGedaProject, KICAD_MANAGER_ACTIONS::importGedaProject.MakeEvent() );
     Go( &KICAD_MANAGER_CONTROL::NewFromRepository,  KICAD_MANAGER_ACTIONS::newFromRepository.MakeEvent() );
     Go( &KICAD_MANAGER_CONTROL::NewJobsetFile,      KICAD_MANAGER_ACTIONS::newJobsetFile.MakeEvent() );
     Go( &KICAD_MANAGER_CONTROL::OpenDemoProject,    KICAD_MANAGER_ACTIONS::openDemoProject.MakeEvent() );

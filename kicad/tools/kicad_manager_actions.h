@@ -34,6 +34,13 @@ public:
     static TOOL_ACTION newProject;
     static TOOL_ACTION importProject;
     static TOOL_ACTION importKiCadProject;
+    static TOOL_ACTION importAltiumProject;
+    static TOOL_ACTION importCadstarProject;
+    static TOOL_ACTION importEagleProject;
+    static TOOL_ACTION importEasyEdaProject;
+    static TOOL_ACTION importEasyEdaProProject;
+    static TOOL_ACTION importPadsProject;
+    static TOOL_ACTION importGedaProject;
     static TOOL_ACTION newFromRepository;
     static TOOL_ACTION newJobsetFile;
     static TOOL_ACTION openDemoProject;
