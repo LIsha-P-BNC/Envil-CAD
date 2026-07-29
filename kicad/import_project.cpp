@@ -440,6 +440,14 @@ void KICAD_MANAGER_FRAME::importProjectFromFile( const wxString& aInputPath,
                                false, &anvilPro ) )
     {
         LoadProject( anvilPro );
+
+        // The importer's intermediate .kicad_pro survives the conversion because it is the
+        // active project while converting; it's redundant once the Anvil project is loaded.
+        wxFileName staleKicadPro( anvilPro );
+        staleKicadPro.SetExt( FILEEXT::ProjectFileExtension );
+
+        if( staleKicadPro.FileExists() )
+            wxRemoveFile( staleKicadPro.GetFullPath() );
     }
 
     ReCreateTreePrj();
