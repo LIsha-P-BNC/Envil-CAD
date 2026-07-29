@@ -279,6 +279,20 @@ void PROJECT_TREE_ITEM::Activate( PROJECT_TREE_PANE* aTreePrjFrame )
 
             bool isInHierarchy = hierarchyFiles.count( fullFileName ) > 0;
 
+            // KiCad 10.99 projects can register additional TOP-LEVEL sheets in the project
+            // file (no Sheetfile reference in the root schematic -- the Altium importer
+            // produces exactly this). Treat any schematic living in the project directory
+            // as part of the project so it navigates in the docked editor instead of
+            // opening a detached standalone window.
+            if( !isInHierarchy && !rootSchematic.IsEmpty() )
+            {
+                wxFileName fn( fullFileName );
+                wxFileName rootFn( rootSchematic );
+
+                if( fn.GetPath() == rootFn.GetPath() )
+                    isInHierarchy = true;
+            }
+
             if( isInHierarchy )
             {
                 // Open root schematic and navigate to the target sheet
