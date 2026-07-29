@@ -47,6 +47,7 @@ public:
     int NewProject( const TOOL_EVENT& aEvent );
     int ImportProject( const TOOL_EVENT& aEvent );
     int ImportKiCadProject( const TOOL_EVENT& aEvent );
+    int ImportSymbolLibrary( const TOOL_EVENT& aEvent );
     int ImportAltiumProject( const TOOL_EVENT& aEvent );
     int ImportCadstarProject( const TOOL_EVENT& aEvent );
     int ImportEagleProject( const TOOL_EVENT& aEvent );

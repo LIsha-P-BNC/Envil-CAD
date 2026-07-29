@@ -34,6 +34,7 @@ public:
     static TOOL_ACTION newProject;
     static TOOL_ACTION importProject;
     static TOOL_ACTION importKiCadProject;
+    static TOOL_ACTION importSymbolLibrary;
     static TOOL_ACTION importAltiumProject;
     static TOOL_ACTION importCadstarProject;
     static TOOL_ACTION importEagleProject;

@@ -198,6 +198,9 @@ public:
     bool ConvertProjectToAnvil( const wxFileName& aSrcPro, const wxString& aDestDir,
                                 bool aKeepOriginals, wxFileName* aDestProOut = nullptr );
 
+    /// Convert a KiCad/Altium symbol library to .anvil_sym via eeschema (KIWAY mail).
+    void ImportSymbolLibrary();
+
     void OnImportKiCadProject( wxCommandEvent& event );
 
     /// Altium-style unified import: one dialog, all supported formats, output = Anvil project.

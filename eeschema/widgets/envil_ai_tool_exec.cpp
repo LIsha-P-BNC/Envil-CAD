@@ -43,6 +43,9 @@
 #include <erc/erc_item.h>
 #include <erc/erc_settings.h>
 #include <connection_graph.h>
+#include <sch_io/sch_io.h>
+#include <sch_io/sch_io_mgr.h>
+#include <io/io_mgr.h>
 
 using json = nlohmann::json;
 
@@ -604,6 +607,65 @@ static json execRunErc( SCH_EDIT_FRAME* aFrame, const json& )
              { "warning_count", warnings },
              { "violations", violations },
              { "message", summary } };
+}
+
+
+std::string EnvilConvertSymbolLib( const std::string& aRequest )
+{
+    try
+    {
+        wxString req = wxString::FromUTF8( aRequest );
+        wxString src = req.BeforeFirst( '\n' );
+        wxString dest = req.AfterFirst( '\n' );
+
+        if( src.IsEmpty() || dest.IsEmpty() )
+            return "ERROR missing source or destination path";
+
+        wxString ext = wxFileName( src ).GetExt().Lower();
+
+        SCH_IO_MGR::SCH_FILE_T srcType;
+
+        if( ext == wxT( "schlib" ) || ext == wxT( "intlib" ) )
+            srcType = SCH_IO_MGR::SCH_ALTIUM;
+        else if( ext == wxT( "lib" ) )
+            srcType = SCH_IO_MGR::SCH_LEGACY;
+        else
+            srcType = SCH_IO_MGR::SCH_KICAD;
+
+        IO_RELEASER<SCH_IO> srcPlugin( SCH_IO_MGR::FindPlugin( srcType ) );
+        IO_RELEASER<SCH_IO> dstPlugin( SCH_IO_MGR::FindPlugin( SCH_IO_MGR::SCH_KICAD ) );
+
+        if( !srcPlugin || !dstPlugin )
+            return "ERROR no plugin for this library format";
+
+        std::vector<LIB_SYMBOL*> symbols;
+        srcPlugin->EnumerateSymbolLib( symbols, src );
+
+        if( symbols.empty() )
+            return "ERROR no symbols found in the source library";
+
+        if( !wxFileName::FileExists( dest ) )
+            dstPlugin->CreateLibrary( dest );
+
+        int count = 0;
+
+        for( LIB_SYMBOL* sym : symbols )
+        {
+            // SaveSymbol takes ownership of a flattened copy.
+            dstPlugin->SaveSymbol( dest, new LIB_SYMBOL( *sym ) );
+            ++count;
+        }
+
+        return "OK " + std::to_string( count ) + " symbols";
+    }
+    catch( const std::exception& e )
+    {
+        return std::string( "ERROR " ) + e.what();
+    }
+    catch( ... )
+    {
+        return "ERROR unknown failure reading the library";
+    }
 }
 
 

@@ -216,6 +216,13 @@ int KICAD_MANAGER_CONTROL::ImportKiCadProject( const TOOL_EVENT& aEvent )
 }
 
 
+int KICAD_MANAGER_CONTROL::ImportSymbolLibrary( const TOOL_EVENT& aEvent )
+{
+    m_frame->ImportSymbolLibrary();
+    return 0;
+}
+
+
 int KICAD_MANAGER_CONTROL::ImportAltiumProject( const TOOL_EVENT& aEvent )
 {
     wxCommandEvent dummy;
@@ -1130,6 +1137,7 @@ void KICAD_MANAGER_CONTROL::setTransitions()
     Go( &KICAD_MANAGER_CONTROL::NewProject,         KICAD_MANAGER_ACTIONS::newProject.MakeEvent() );
     Go( &KICAD_MANAGER_CONTROL::ImportProject,      KICAD_MANAGER_ACTIONS::importProject.MakeEvent() );
     Go( &KICAD_MANAGER_CONTROL::ImportKiCadProject, KICAD_MANAGER_ACTIONS::importKiCadProject.MakeEvent() );
+    Go( &KICAD_MANAGER_CONTROL::ImportSymbolLibrary, KICAD_MANAGER_ACTIONS::importSymbolLibrary.MakeEvent() );
     Go( &KICAD_MANAGER_CONTROL::ImportAltiumProject, KICAD_MANAGER_ACTIONS::importAltiumProject.MakeEvent() );
     Go( &KICAD_MANAGER_CONTROL::ImportCadstarProject, KICAD_MANAGER_ACTIONS::importCadstarProject.MakeEvent() );
     Go( &KICAD_MANAGER_CONTROL::ImportEagleProject, KICAD_MANAGER_ACTIONS::importEagleProject.MakeEvent() );

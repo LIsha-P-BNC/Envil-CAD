@@ -846,6 +846,10 @@ void SCH_EDIT_FRAME::KiwayMailIn( KIWAY_MAIL_EVENT& mail )
 
     switch( mail.Command() )
     {
+    case MAIL_ENVIL_CONVERT_SYMLIB:
+        payload = EnvilConvertSymbolLib( payload );
+        break;
+
     case MAIL_ENVIL_AI_TOOL:
         // Request/response mail: the AI agent (which may live in the shell, outside this
         // KIFACE) sends a tool call as JSON and reads the result back out of the payload.

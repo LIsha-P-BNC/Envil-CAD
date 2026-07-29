@@ -50,6 +50,14 @@ TOOL_ACTION KICAD_MANAGER_ACTIONS::importKiCadProject( TOOL_ACTION_ARGS()
         .Tooltip( _( "Import KiCad Schematic and PCB (*.kicad_pro)" ) )
         .Icon( BITMAPS::import_project ) );
 
+TOOL_ACTION KICAD_MANAGER_ACTIONS::importSymbolLibrary( TOOL_ACTION_ARGS()
+        .Name( "kicad.Control.importSymbolLibrary" )
+        .Scope( AS_GLOBAL )
+        .FriendlyName( _( "Symbol Library..." ) )
+        .Tooltip( _( "Convert a KiCad or Altium symbol library (*.kicad_sym, *.lib, "
+                     "*.SchLib, *.IntLib) to an Anvil library (*.anvil_sym)" ) )
+        .Icon( BITMAPS::import_project ) );
+
 TOOL_ACTION KICAD_MANAGER_ACTIONS::importAltiumProject( TOOL_ACTION_ARGS()
         .Name( "kicad.Control.importAltiumProject" )
         .Scope( AS_GLOBAL )

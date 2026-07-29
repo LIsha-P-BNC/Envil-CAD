@@ -73,7 +73,14 @@ enum MAIL_T
      * In:  {"tool":"add_component","input":{ ... }}
      * Out: {"ok":true|false,"message":"..."}
      */
-    MAIL_ENVIL_AI_TOOL
+    MAIL_ENVIL_AI_TOOL,
+
+    /**
+     * Anvil: convert a symbol library to the native .anvil_sym format (SHELL->SCH).
+     * Request/response like MAIL_ENVIL_AI_TOOL: payload in is "srcPath\ndestPath",
+     * the handler overwrites it with "OK <n> symbols" or "ERROR <message>".
+     */
+    MAIL_ENVIL_CONVERT_SYMLIB
 };
 
 #endif  // MAIL_TYPE_H_

@@ -177,6 +177,64 @@ void KICAD_MANAGER_FRAME::importKiCadProjectFile( const wxString& aInputPath )
 }
 
 
+void KICAD_MANAGER_FRAME::ImportSymbolLibrary()
+{
+    wxString filter;
+    filter << _( "All supported symbol libraries" )
+           << wxT( "|*.kicad_sym;*.anvil_sym;*.lib;*.SchLib;*.IntLib" )
+           << wxT( "|" ) << _( "KiCad symbol libraries" ) << wxT( " (*.kicad_sym)|*.kicad_sym" )
+           << wxT( "|" ) << _( "Altium symbol libraries" )
+           << wxT( " (*.SchLib;*.IntLib)|*.SchLib;*.IntLib" )
+           << wxT( "|" ) << _( "Legacy symbol libraries" ) << wxT( " (*.lib)|*.lib" );
+
+    wxFileDialog srcDlg( this, _( "Import Symbol Library" ), GetMruPath(), wxEmptyString,
+                         filter, wxFD_OPEN | wxFD_FILE_MUST_EXIST );
+
+    if( srcDlg.ShowModal() == wxID_CANCEL )
+        return;
+
+    wxFileName src( srcDlg.GetPath() );
+    wxFileName destDefault( src );
+    destDefault.SetExt( FILEEXT::AnvilSymbolLibFileExtension );
+
+    wxFileDialog destDlg( this, _( "Save Anvil Symbol Library" ), src.GetPath(),
+                          destDefault.GetFullName(),
+                          _( "Anvil symbol library files" )
+                                  + wxString( wxT( " (*.anvil_sym)|*.anvil_sym" ) ),
+                          wxFD_SAVE | wxFD_OVERWRITE_PROMPT );
+
+    if( destDlg.ShowModal() == wxID_CANCEL )
+        return;
+
+    // The conversion runs inside eeschema, where the symbol IO plugins live.
+    // Launch the schematic frame if it isn't open yet.
+    if( !Kiway().Player( FRAME_SCH, true ) )
+    {
+        DisplayErrorMessage( this, _( "Could not start the schematic editor to run the "
+                                      "library conversion." ) );
+        return;
+    }
+
+    std::string payload = std::string( src.GetFullPath().utf8_str() ) + "\n"
+                          + std::string( destDlg.GetPath().utf8_str() );
+
+    Kiway().ExpressMail( FRAME_SCH, MAIL_ENVIL_CONVERT_SYMLIB, payload, this );
+
+    wxString result = wxString::FromUTF8( payload );
+
+    if( result.StartsWith( wxT( "OK" ) ) )
+    {
+        DisplayInfoMessage( this, wxString::Format( _( "Library converted: %s" ),
+                                                    result.Mid( 3 ) ) );
+    }
+    else
+    {
+        DisplayErrorMessage( this, wxString::Format( _( "Library conversion failed: %s" ),
+                                                     result ) );
+    }
+}
+
+
 void KICAD_MANAGER_FRAME::OnImportKiCadProject( wxCommandEvent& event )
 {
     wxString     filter = _( "KiCad project files" ) + wxString( wxT( " (*.kicad_pro)|*.kicad_pro" ) );
