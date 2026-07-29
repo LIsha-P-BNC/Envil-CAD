@@ -44,6 +44,8 @@
 
 #include "kicad_manager_frame.h"
 #include <import_proj.h>
+#include <tool/actions.h>
+#include <tool/tool_manager.h>
 
 
 bool KICAD_MANAGER_FRAME::ConvertProjectToAnvil( const wxFileName& aSrcPro,
@@ -421,6 +423,14 @@ void KICAD_MANAGER_FRAME::importProjectFromFile( const wxString& aInputPath,
         importProj.ImportPadsFiles();
     else
         importProj.ImportFiles( aSchFileType, aPcbFileType );
+
+    // Save the freshly imported (still-unsaved) schematic and board to disk first, so the
+    // conversion below picks them up and the destination ends as a clean all-Anvil project.
+    if( KIWAY_PLAYER* sch = Kiway().Player( FRAME_SCH, false ) )
+        sch->GetToolManager()->RunAction( ACTIONS::save );
+
+    if( KIWAY_PLAYER* pcb = Kiway().Player( FRAME_PCB_EDITOR, false ) )
+        pcb->GetToolManager()->RunAction( ACTIONS::save );
 
     // Anvil: store the imported result in the native Anvil format (rename in place --
     // these files were just created by the importer, there are no originals to keep).
