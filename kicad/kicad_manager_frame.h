@@ -199,7 +199,14 @@ public:
                                 bool aKeepOriginals, wxFileName* aDestProOut = nullptr );
 
     /// Convert a KiCad/Altium symbol library to .anvil_sym via eeschema (KIWAY mail).
+    /// After an import, offer to review/clean the design with Anvil AI. Pre-fills the AI
+    /// panel's composer (never auto-sends, so the user decides when a turn starts).
+    void OfferAiImportCleanup( const wxString& aWhat );
+
     void ImportSymbolLibrary();
+
+    /// Convert a footprint library to an Anvil footprint library via pcbnew (KIWAY mail).
+    void ImportFootprintLibrary();
 
     void OnImportKiCadProject( wxCommandEvent& event );
 

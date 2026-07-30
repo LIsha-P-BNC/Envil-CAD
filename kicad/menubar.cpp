@@ -137,6 +137,7 @@ void KICAD_MANAGER_FRAME::doReCreateMenuBar()
 
     importMenu->Add( KICAD_MANAGER_ACTIONS::importKiCadProject );
     importMenu->Add( KICAD_MANAGER_ACTIONS::importSymbolLibrary );
+    importMenu->Add( KICAD_MANAGER_ACTIONS::importFootprintLibrary );
 
     importMenu->Add( KICAD_MANAGER_ACTIONS::importAltiumProject );
     importMenu->Add( KICAD_MANAGER_ACTIONS::importCadstarProject );
@@ -348,6 +349,7 @@ void KICAD_MANAGER_FRAME::buildFileMenu( ACTION_MENU* fileMenu )
 
     importMenu->Add( KICAD_MANAGER_ACTIONS::importKiCadProject );
     importMenu->Add( KICAD_MANAGER_ACTIONS::importSymbolLibrary );
+    importMenu->Add( KICAD_MANAGER_ACTIONS::importFootprintLibrary );
 
     importMenu->Add( KICAD_MANAGER_ACTIONS::importAltiumProject );
     importMenu->Add( KICAD_MANAGER_ACTIONS::importCadstarProject );

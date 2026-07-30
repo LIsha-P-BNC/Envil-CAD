@@ -80,7 +80,14 @@ enum MAIL_T
      * Request/response like MAIL_ENVIL_AI_TOOL: payload in is "srcPath\ndestPath",
      * the handler overwrites it with "OK <n> symbols" or "ERROR <message>".
      */
-    MAIL_ENVIL_CONVERT_SYMLIB
+    MAIL_ENVIL_CONVERT_SYMLIB,
+
+    /**
+     * Anvil: convert a footprint library to the native format (SHELL->PCB).
+     * Request/response: payload in is "srcPath\ndestDir", replaced with
+     * "OK <n> footprints" or "ERROR <message>".
+     */
+    MAIL_ENVIL_CONVERT_FPLIB
 };
 
 #endif  // MAIL_TYPE_H_

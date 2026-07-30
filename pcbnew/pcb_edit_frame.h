@@ -79,6 +79,16 @@ namespace PCB { struct IFACE; }     // KIFACE is in pcbnew.cpp
  *
  * See also class PCB_BASE_FRAME(): Basic class for Pcbnew and GerbView.
  */
+/**
+ * Convert a footprint library (Altium .PcbLib/.IntLib, Eagle .lbr, KiCad .pretty dir) into a
+ * native Anvil footprint library directory. Runs in pcbnew, where the PCB IO plugins live.
+ *
+ * @param aRequest "srcPath\ndestDir"
+ * @return "OK <n> footprints" or "ERROR <message>".
+ */
+std::string EnvilConvertFootprintLib( const std::string& aRequest );
+
+
 class PCB_EDIT_FRAME : public PCB_BASE_EDIT_FRAME
 {
 public:

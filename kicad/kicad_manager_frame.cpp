@@ -48,6 +48,7 @@
 #include <gestfich.h>
 #include <kiplatform/app.h>
 #include <kidialog.h>
+#include <json_common.h>
 #include <kiplatform/environment.h>
 #include <kiplatform/ui.h>
 #include <kiplatform/policy.h>
@@ -3392,6 +3393,41 @@ void KICAD_MANAGER_FRAME::SaveSettings( APP_SETTINGS_BASE* aCfg )
 
     if( !m_isClosing )
         settings->m_OpenProjects = GetSettingsManager()->GetOpenProjects();
+}
+
+
+void KICAD_MANAGER_FRAME::OfferAiImportCleanup( const wxString& aWhat )
+{
+    if( !m_aiChatPanel )
+        return;
+
+    KIDIALOG dlg( this,
+                  wxString::Format( _( "%s imported.  Imported designs often need small fixes "
+                                       "(missing power flags, unconnected pins, layout "
+                                       "leftovers).  Review it with Anvil AI?" ), aWhat ),
+                  _( "Import Complete" ), wxYES_NO | wxICON_INFORMATION );
+    dlg.SetYesNoLabels( _( "Review with Anvil AI" ), _( "Not now" ) );
+    dlg.DoNotShowCheckbox( __FILE__, __LINE__ );
+
+    if( dlg.ShowModal() != wxID_YES )
+        return;
+
+    if( !AiChatPanelShown() )
+        ToggleAiChat();
+
+    const wxString prompt =
+            _( "This design was just imported from another EDA tool. Run ERC, then fix what it "
+               "reports - add power flags for undriven rails, wire or no-connect unconnected "
+               "pins, and delete stray wires/labels. Loop until ERC is clean, then summarise "
+               "what you changed." );
+
+    wxString script = wxS( "if(window.anvilSuggestPrompt)window.anvilSuggestPrompt(" )
+                      + wxString::FromUTF8( nlohmann::json(
+                                std::string( prompt.utf8_str() ) ).dump() )
+                      + wxS( ");" );
+
+    WEBVIEW_PANEL* panel = m_aiChatPanel;
+    panel->CallAfter( [panel, script]() { panel->RunScriptAsync( script ); } );
 }
 
 

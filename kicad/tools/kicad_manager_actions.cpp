@@ -50,6 +50,14 @@ TOOL_ACTION KICAD_MANAGER_ACTIONS::importKiCadProject( TOOL_ACTION_ARGS()
         .Tooltip( _( "Import KiCad Schematic and PCB (*.kicad_pro)" ) )
         .Icon( BITMAPS::import_project ) );
 
+TOOL_ACTION KICAD_MANAGER_ACTIONS::importFootprintLibrary( TOOL_ACTION_ARGS()
+        .Name( "kicad.Control.importFootprintLibrary" )
+        .Scope( AS_GLOBAL )
+        .FriendlyName( _( "Footprint Library..." ) )
+        .Tooltip( _( "Convert an Altium (*.PcbLib), Eagle (*.lbr) or KiCad footprint library "
+                     "to an Anvil footprint library" ) )
+        .Icon( BITMAPS::import_project ) );
+
 TOOL_ACTION KICAD_MANAGER_ACTIONS::importSymbolLibrary( TOOL_ACTION_ARGS()
         .Name( "kicad.Control.importSymbolLibrary" )
         .Scope( AS_GLOBAL )

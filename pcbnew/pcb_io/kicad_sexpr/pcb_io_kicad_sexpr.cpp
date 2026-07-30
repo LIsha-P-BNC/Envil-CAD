@@ -185,18 +185,34 @@ void FP_CACHE::Load()
         THROW_IO_ERROR( msg );
     }
 
-    wxString fullName;
-    wxString fileSpec = wxT( "*." ) + wxString( FILEEXT::KiCadFootprintFileExtension );
+    // Anvil dual-extension: a footprint library may hold .anvil_mod (native) and/or
+    // .kicad_mod files, so collect both before parsing.
+    wxArrayString fpFiles;
+
+    for( const std::string& ext : { FILEEXT::AnvilFootprintFileExtension,
+                                    FILEEXT::KiCadFootprintFileExtension } )
+    {
+        wxString name;
+        wxString spec = wxT( "*." ) + wxString( ext );
+
+        if( dir.GetFirst( &name, spec ) )
+        {
+            do
+            {
+                fpFiles.Add( name );
+            } while( dir.GetNext( &name ) );
+        }
+    }
 
     // wxFileName construction is egregiously slow.  Construct it once and just swap out
     // the filename thereafter.
     WX_FILENAME fn( m_lib_raw_path, wxT( "dummyName" ) );
 
-    if( dir.GetFirst( &fullName, fileSpec ) )
+    if( !fpFiles.IsEmpty() )
     {
         wxString cacheError;
 
-        do
+        for( const wxString& fullName : fpFiles )
         {
             fn.SetFullName( fullName );
 
@@ -235,7 +251,7 @@ void FP_CACHE::Load()
                                                 fn.GetFullPath() );
                 cacheError += ioe.What();
             }
-        } while( dir.GetNext( &fullName ) );
+        }
 
         m_cache_timestamp = GetTimestamp( m_lib_raw_path );
 
@@ -584,9 +600,14 @@ bool FP_CACHE::IsModified()
 
 long long FP_CACHE::GetTimestamp( const wxString& aLibPath )
 {
-    wxString fileSpec = wxT( "*." ) + wxString( FILEEXT::KiCadFootprintFileExtension );
+    // Combine both native extensions so a change to either invalidates the cache.
+    long long ts = KIPLATFORM::IO::TimestampDir(
+            aLibPath, wxT( "*." ) + wxString( FILEEXT::KiCadFootprintFileExtension ) );
 
-    return KIPLATFORM::IO::TimestampDir( aLibPath, fileSpec );
+    ts += KIPLATFORM::IO::TimestampDir(
+            aLibPath, wxT( "*." ) + wxString( FILEEXT::AnvilFootprintFileExtension ) );
+
+    return ts;
 }
 
 
@@ -3595,7 +3616,13 @@ bool PCB_IO_KICAD_SEXPR::FootprintExists( const wxString& aLibraryPath,
     // case-insensitive filesystem) handled "for free".
     // Warning: footprint names frequently contain a point. So be careful when initializing
     // wxFileName, and use a CTOR with extension specified
-    wxFileName footprintFile( aLibraryPath, aFootprintName, FILEEXT::KiCadFootprintFileExtension );
+    wxFileName footprintFile( aLibraryPath, aFootprintName,
+                              FILEEXT::AnvilFootprintFileExtension );
+
+    if( footprintFile.Exists() )
+        return true;
+
+    footprintFile.SetExt( FILEEXT::KiCadFootprintFileExtension );
 
     return footprintFile.Exists();
 }
@@ -3667,7 +3694,8 @@ void PCB_IO_KICAD_SEXPR::FootprintSave( const wxString& aLibraryPath, const FOOT
     {
         wxFileName asFile( aLibraryPath );
 
-        if( asFile.GetExt() == FILEEXT::KiCadFootprintFileExtension )
+        if( asFile.GetExt() == FILEEXT::KiCadFootprintFileExtension
+            || asFile.GetExt() == FILEEXT::AnvilFootprintFileExtension )
         {
             saveSingleFile = true;
             libPath = asFile.GetPath();
@@ -3707,7 +3735,15 @@ void PCB_IO_KICAD_SEXPR::FootprintSave( const wxString& aLibraryPath, const FOOT
     ReplaceIllegalFileNameChars( fpName, '_' );
 
     // Quietly overwrite footprint and delete footprint file from path for any by same name.
-    wxFileName fn( libPath, fpName, FILEEXT::KiCadFootprintFileExtension );
+    wxFileName fn( libPath, fpName, FILEEXT::AnvilFootprintFileExtension );
+
+    {
+        // Keep an existing .kicad_mod in place rather than leaving two files for one footprint.
+        wxFileName legacyFn( libPath, fpName, FILEEXT::KiCadFootprintFileExtension );
+
+        if( !fn.FileExists() && legacyFn.FileExists() )
+            fn = legacyFn;
+    }
 
     // Write through symlinks, don't replace them
     WX_FILENAME::ResolvePossibleSymlinks( fn );
@@ -3850,7 +3886,8 @@ bool PCB_IO_KICAD_SEXPR::DeleteLibrary( const wxString& aLibraryPath,
         {
             tmp = files[i];
 
-            if( tmp.GetExt() != FILEEXT::KiCadFootprintFileExtension )
+            if( tmp.GetExt() != FILEEXT::KiCadFootprintFileExtension
+                && tmp.GetExt() != FILEEXT::AnvilFootprintFileExtension )
             {
                 THROW_IO_ERROR( wxString::Format( _( "Unexpected file '%s' found in library "
                                                      "path '%s'." ),

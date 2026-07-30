@@ -44,6 +44,9 @@
 #include <eda_dde.h>
 #include <kiface_base.h>
 #include <kiway_mail.h>
+#include <pcb_io/pcb_io.h>
+#include <pcb_io/pcb_io_mgr.h>
+#include <io/io_mgr.h>
 #include <string_utils.h>
 #include <netlist_reader/pcb_netlist.h>
 #include <netlist_reader/board_netlist_updater.h>
@@ -532,6 +535,10 @@ void PCB_EDIT_FRAME::KiwayMailIn( KIWAY_MAIL_EVENT& mail )
 
     switch( mail.Command() )
     {
+    case MAIL_ENVIL_CONVERT_FPLIB:
+        payload = EnvilConvertFootprintLib( payload );
+        break;
+
     case MAIL_PCB_GET_NETLIST:
     {
         NETLIST          netlist;
@@ -770,3 +777,66 @@ void PCB_EDIT_FRAME::KiwayMailIn( KIWAY_MAIL_EVENT& mail )
     }
 }
 
+
+std::string EnvilConvertFootprintLib( const std::string& aRequest )
+{
+    try
+    {
+        wxString req = wxString::FromUTF8( aRequest );
+        wxString src = req.BeforeFirst( '\n' );
+        wxString dest = req.AfterFirst( '\n' );
+
+        if( src.IsEmpty() || dest.IsEmpty() )
+            return "ERROR missing source or destination path";
+
+        wxString ext = wxFileName( src ).GetExt().Lower();
+
+        PCB_IO_MGR::PCB_FILE_T srcType;
+
+        if( ext == wxT( "pcblib" ) || ext == wxT( "intlib" ) )
+            srcType = PCB_IO_MGR::ALTIUM_DESIGNER;
+        else if( ext == wxT( "lbr" ) )
+            srcType = PCB_IO_MGR::EAGLE;
+        else if( ext == wxT( "mod" ) )
+            srcType = PCB_IO_MGR::LEGACY;
+        else
+            srcType = PCB_IO_MGR::KICAD_SEXP;
+
+        IO_RELEASER<PCB_IO> srcPlugin( PCB_IO_MGR::FindPlugin( srcType ) );
+        IO_RELEASER<PCB_IO> dstPlugin( PCB_IO_MGR::FindPlugin( PCB_IO_MGR::KICAD_SEXP ) );
+
+        if( !srcPlugin || !dstPlugin )
+            return "ERROR no plugin for this library format";
+
+        wxArrayString names;
+        srcPlugin->FootprintEnumerate( names, src, true );
+
+        if( names.IsEmpty() )
+            return "ERROR no footprints found in the source library";
+
+        if( !wxDirExists( dest ) && !wxFileName::Mkdir( dest, wxS_DIR_DEFAULT, wxPATH_MKDIR_FULL ) )
+            return "ERROR could not create the destination library folder";
+
+        int count = 0;
+
+        for( const wxString& name : names )
+        {
+            if( FOOTPRINT* fp = srcPlugin->FootprintLoad( src, name ) )
+            {
+                dstPlugin->FootprintSave( dest, fp );
+                delete fp;
+                ++count;
+            }
+        }
+
+        return "OK " + std::to_string( count ) + " footprints";
+    }
+    catch( const std::exception& e )
+    {
+        return std::string( "ERROR " ) + e.what();
+    }
+    catch( ... )
+    {
+        return "ERROR unknown failure reading the library";
+    }
+}

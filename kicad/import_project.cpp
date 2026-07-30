@@ -177,6 +177,65 @@ void KICAD_MANAGER_FRAME::importKiCadProjectFile( const wxString& aInputPath )
 }
 
 
+void KICAD_MANAGER_FRAME::ImportFootprintLibrary()
+{
+    wxString filter;
+    filter << _( "Altium footprint libraries" ) << wxT( " (*.PcbLib)|*.PcbLib;*.IntLib" )
+           << wxT( "|" ) << _( "Eagle footprint libraries" ) << wxT( " (*.lbr)|*.lbr" )
+           << wxT( "|" ) << _( "Legacy footprint libraries" ) << wxT( " (*.mod)|*.mod" );
+
+    wxFileDialog srcDlg( this, _( "Import Footprint Library" ), GetMruPath(), wxEmptyString,
+                         filter, wxFD_OPEN | wxFD_FILE_MUST_EXIST );
+
+    if( srcDlg.ShowModal() == wxID_CANCEL )
+        return;
+
+    wxFileName src( srcDlg.GetPath() );
+
+    // KiCad-format footprint libraries are directories, so the destination is one too.
+    wxDirDialog destDlg( this, _( "Anvil Footprint Library Folder (.pretty)" ), src.GetPath(),
+                         wxDD_DEFAULT_STYLE );
+
+    if( destDlg.ShowModal() == wxID_CANCEL )
+        return;
+
+    wxFileName destDir( destDlg.GetPath(), wxEmptyString );
+
+    // Land inside a <name>.pretty folder, the layout the footprint library table expects.
+    if( destDir.GetDirCount() == 0
+        || !destDir.GetDirs().Last().EndsWith( FILEEXT::KiCadFootprintLibPathExtension ) )
+    {
+        destDir.AppendDir( src.GetName() + wxT( "." )
+                           + FILEEXT::KiCadFootprintLibPathExtension );
+    }
+
+    if( !Kiway().Player( FRAME_PCB_EDITOR, true ) )
+    {
+        DisplayErrorMessage( this, _( "Could not start the PCB editor to run the library "
+                                      "conversion." ) );
+        return;
+    }
+
+    std::string payload = std::string( src.GetFullPath().utf8_str() ) + "\n"
+                          + std::string( destDir.GetPath().utf8_str() );
+
+    Kiway().ExpressMail( FRAME_PCB_EDITOR, MAIL_ENVIL_CONVERT_FPLIB, payload, this );
+
+    wxString result = wxString::FromUTF8( payload );
+
+    if( result.StartsWith( wxT( "OK" ) ) )
+    {
+        DisplayInfoMessage( this, wxString::Format( _( "Footprint library converted: %s\n\n%s" ),
+                                                    result.Mid( 3 ), destDir.GetPath() ) );
+    }
+    else
+    {
+        DisplayErrorMessage( this, wxString::Format( _( "Footprint library conversion failed: "
+                                                        "%s" ), result ) );
+    }
+}
+
+
 void KICAD_MANAGER_FRAME::ImportSymbolLibrary()
 {
     wxString filter;
@@ -498,6 +557,8 @@ void KICAD_MANAGER_FRAME::importProjectFromFile( const wxString& aInputPath,
                                false, &anvilPro ) )
     {
         LoadProject( anvilPro );
+
+        OfferAiImportCleanup( _( "Project" ) );
 
         // The importer's intermediate .kicad_pro survives the conversion because it is the
         // active project while converting; it's redundant once the Anvil project is loaded.

@@ -2285,6 +2285,16 @@ async function handlePaste(e) {
 window.addEventListener("paste", handlePaste);
 
 window.appendServerMessage = (s) => { try { handleSrv(JSON.parse(s)); } catch(e) { console.error(e); } };
+
+// Host-side prompt suggestion: pre-fill the composer (does NOT auto-send, so the user
+// stays in control of when a turn starts). Used after an import to offer a cleanup pass.
+window.anvilSuggestPrompt = function (text) {
+  if (!inputEl || !text) return;
+  inputEl.value = text;
+  autosize();
+  inputEl.focus();
+  if (emptyEl) emptyEl.style.display = "none";
+};
 window.updateFileContext = (_t, path) => showCtxFile(path);
 
 console.log("[anvil] chat.html loaded — backend=" + backendHost);
