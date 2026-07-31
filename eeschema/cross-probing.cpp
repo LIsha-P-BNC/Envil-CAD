@@ -28,6 +28,8 @@
 #include <kiface_base.h>
 #include <kiway.h>
 #include <kiway_mail.h>
+#include <reporter.h>
+#include <sch_commit.h>
 #include <map>
 #include <set>
 #include <lib_symbol.h>
@@ -1207,6 +1209,18 @@ std::string SCH_EDIT_FRAME::captureEmbeddedSymbols()
 {
     try
     {
+        // ---- 0. annotate: importers leave power symbols (and often parts) as #PWR? / R? ----
+        {
+            SCH_COMMIT    commit( this );
+            NULL_REPORTER reporter;
+
+            AnnotateSymbols( &commit, ANNOTATE_ALL, SORT_BY_X_POSITION, INCREMENTAL_BY_REF,
+                             false /*recursive*/, 0 /*startNum*/, false /*resetAnnotation*/,
+                             true /*regroupUnits*/, true /*repairTimestamps*/, reporter );
+
+            commit.Push( _( "Anvil: annotate imported design" ) );
+        }
+
         // ---- 1. collect the symbols embedded in every sheet, and the nicknames used ----
         std::map<wxString, LIB_SYMBOL*> symbols;
         std::set<wxString>              nicknames;

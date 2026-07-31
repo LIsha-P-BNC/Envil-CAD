@@ -541,6 +541,16 @@ void KICAD_MANAGER_FRAME::importProjectFromFile( const wxString& aInputPath,
     else
         importProj.ImportFiles( aSchFileType, aPcbFileType );
 
+    // Post-import tidy, while the editors still hold the freshly imported design: annotate
+    // (importers leave power symbols as #PWR?) and capture the sheets' embedded symbols into
+    // a project-local Anvil library, registering the foreign lib nicknames against it.
+    // MUST happen before LoadProject() below, which closes these editors.
+    if( Kiway().Player( FRAME_SCH, false ) )
+    {
+        std::string tidy;
+        Kiway().ExpressMail( FRAME_SCH, MAIL_ENVIL_CAPTURE_SYMBOLS, tidy, this );
+    }
+
     // Save the freshly imported (still-unsaved) schematic and board to disk first, so the
     // conversion below picks them up and the destination ends as a clean all-Anvil project.
     if( KIWAY_PLAYER* sch = Kiway().Player( FRAME_SCH, false ) )
@@ -557,16 +567,6 @@ void KICAD_MANAGER_FRAME::importProjectFromFile( const wxString& aInputPath,
                                false, &anvilPro ) )
     {
         LoadProject( anvilPro );
-
-        // Imported designs carry symbols embedded in the sheets whose lib_id nicknames point
-        // at the source tool's libraries (absent from any table).  Capture them into a
-        // project-local .anvil_sym and register the nicknames so the design is self-contained
-        // and its symbols are editable.
-        if( Kiway().Player( FRAME_SCH, false ) )
-        {
-            std::string capture;
-            Kiway().ExpressMail( FRAME_SCH, MAIL_ENVIL_CAPTURE_SYMBOLS, capture, this );
-        }
 
         OfferAiImportCleanup( _( "Project" ) );
 
