@@ -558,6 +558,16 @@ void KICAD_MANAGER_FRAME::importProjectFromFile( const wxString& aInputPath,
     {
         LoadProject( anvilPro );
 
+        // Imported designs carry symbols embedded in the sheets whose lib_id nicknames point
+        // at the source tool's libraries (absent from any table).  Capture them into a
+        // project-local .anvil_sym and register the nicknames so the design is self-contained
+        // and its symbols are editable.
+        if( Kiway().Player( FRAME_SCH, false ) )
+        {
+            std::string capture;
+            Kiway().ExpressMail( FRAME_SCH, MAIL_ENVIL_CAPTURE_SYMBOLS, capture, this );
+        }
+
         OfferAiImportCleanup( _( "Project" ) );
 
         // The importer's intermediate .kicad_pro survives the conversion because it is the

@@ -28,6 +28,12 @@
 #include <kiface_base.h>
 #include <kiway.h>
 #include <kiway_mail.h>
+#include <map>
+#include <set>
+#include <lib_symbol.h>
+#include <io/io_mgr.h>
+#include <sch_io/sch_io_mgr.h>
+#include <sch_io/sch_io.h>
 #include <eda_dde.h>
 #include <connection_graph.h>
 #include <sch_sheet.h>
@@ -846,6 +852,10 @@ void SCH_EDIT_FRAME::KiwayMailIn( KIWAY_MAIL_EVENT& mail )
 
     switch( mail.Command() )
     {
+    case MAIL_ENVIL_CAPTURE_SYMBOLS:
+        payload = captureEmbeddedSymbols();
+        break;
+
     case MAIL_ENVIL_CONVERT_SYMLIB:
         payload = EnvilConvertSymbolLib( payload );
         break;
@@ -1189,5 +1199,118 @@ void SCH_EDIT_FRAME::KiwayMailIn( KIWAY_MAIL_EVENT& mail )
 
     default:;
 
+    }
+}
+
+
+std::string SCH_EDIT_FRAME::captureEmbeddedSymbols()
+{
+    try
+    {
+        // ---- 1. collect the symbols embedded in every sheet, and the nicknames used ----
+        std::map<wxString, LIB_SYMBOL*> symbols;
+        std::set<wxString>              nicknames;
+
+        for( const SCH_SHEET_PATH& sheet : Schematic().Hierarchy() )
+        {
+            SCH_SCREEN* screen = sheet.LastScreen();
+
+            if( !screen )
+                continue;
+
+            for( const auto& [name, libSymbol] : screen->GetLibSymbols() )
+            {
+                if( libSymbol && !symbols.count( name ) )
+                    symbols[name] = libSymbol;
+            }
+
+            for( SCH_ITEM* item : screen->Items().OfType( SCH_SYMBOL_T ) )
+            {
+                wxString nick = static_cast<SCH_SYMBOL*>( item )->GetLibId().GetLibNickname();
+
+                if( !nick.IsEmpty() )
+                    nicknames.insert( nick );
+            }
+        }
+
+        if( symbols.empty() )
+            return "ERROR this schematic has no embedded symbols to capture";
+
+        // ---- 2. write them to <project>.anvil_sym ----
+        wxFileName libFn( Prj().GetProjectPath(), Prj().GetProjectName(),
+                          FILEEXT::AnvilSymbolLibFileExtension );
+
+        IO_RELEASER<SCH_IO> plugin( SCH_IO_MGR::FindPlugin( SCH_IO_MGR::SCH_KICAD ) );
+
+        if( !plugin )
+            return "ERROR no symbol library plugin available";
+
+        if( !libFn.FileExists() )
+            plugin->CreateLibrary( libFn.GetFullPath() );
+
+        int count = 0;
+
+        for( const auto& [name, libSymbol] : symbols )
+        {
+            plugin->SaveSymbol( libFn.GetFullPath(), new LIB_SYMBOL( *libSymbol ) );
+            ++count;
+        }
+
+        // ---- 3. point every referenced nickname at that library ----
+        LIBRARY_MANAGER&              manager = Pgm().GetLibraryManager();
+        SYMBOL_LIBRARY_ADAPTER*       adapter = PROJECT_SCH::SymbolLibAdapter( &Prj() );
+        std::optional<LIBRARY_TABLE*> optTable = manager.Table( LIBRARY_TABLE_TYPE::SYMBOL,
+                                                                LIBRARY_TABLE_SCOPE::PROJECT );
+
+        if( !optTable.has_value() )
+            return "ERROR could not open the project symbol library table";
+
+        LIBRARY_TABLE*        table = optTable.value();
+        std::vector<wxString> toLoad;
+        const wxString        uri = wxS( "${KIPRJMOD}/" ) + libFn.GetFullName();
+
+        for( const wxString& nick : nicknames )
+        {
+            if( table->HasRow( nick ) )
+                continue;
+
+            LIBRARY_TABLE_ROW& row = table->InsertRow();
+            row.SetNickname( nick );
+            row.SetURI( uri );
+            row.SetType( SCH_IO_MGR::ShowType( SCH_IO_MGR::SCH_KICAD ) );
+            toLoad.emplace_back( nick );
+        }
+
+        if( !toLoad.empty() )
+        {
+            bool saved = true;
+
+            table->Save().map_error(
+                    [&]( const LIBRARY_ERROR& aError )
+                    {
+                        wxLogError( wxT( "Error saving project library table:\n\n" )
+                                    + aError.message );
+                        saved = false;
+                    } );
+
+            if( !saved )
+                return "ERROR could not save the project symbol library table";
+
+            manager.AbortAsyncLoads();
+            manager.LoadProjectTables( { LIBRARY_TABLE_TYPE::SYMBOL } );
+
+            for( const wxString& nick : toLoad )
+                adapter->LoadOne( nick );
+        }
+
+        return "OK " + std::to_string( count ) + " symbols";
+    }
+    catch( const std::exception& e )
+    {
+        return std::string( "ERROR " ) + e.what();
+    }
+    catch( ... )
+    {
+        return "ERROR unknown failure capturing symbols";
     }
 }

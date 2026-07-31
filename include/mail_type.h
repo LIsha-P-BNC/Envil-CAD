@@ -87,7 +87,17 @@ enum MAIL_T
      * Request/response: payload in is "srcPath\ndestDir", replaced with
      * "OK <n> footprints" or "ERROR <message>".
      */
-    MAIL_ENVIL_CONVERT_FPLIB
+    MAIL_ENVIL_CONVERT_FPLIB,
+
+    /**
+     * Anvil: capture the symbols embedded in the open schematic into a project-local
+     * .anvil_sym library and register every referenced library nickname against it
+     * (SHELL->SCH). Imported designs carry embedded symbols whose lib_id nicknames point
+     * at the foreign tool's libraries, which exist in no table -- this makes them real,
+     * editable Anvil libraries instead. Request/response: payload replaced with
+     * "OK <n> symbols" or "ERROR <message>".
+     */
+    MAIL_ENVIL_CAPTURE_SYMBOLS
 };
 
 #endif  // MAIL_TYPE_H_

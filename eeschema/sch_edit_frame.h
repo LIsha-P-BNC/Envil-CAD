@@ -224,6 +224,14 @@ public:
     void KiwayMailIn( KIWAY_MAIL_EVENT& aEvent ) override;
 
     /**
+     * Anvil: write the schematic's embedded symbols to a project-local .anvil_sym library
+     * and add a project symbol-library-table row for every nickname the sheets reference,
+     * so imported designs stop reporting missing libraries and their symbols become
+     * editable.  Returns "OK <n> symbols" or "ERROR <message>".
+     */
+    std::string captureEmbeddedSymbols();
+
+    /**
      * Refresh the display of any operating points.  Called after a .op simulation completes.
      */
     void RefreshOperatingPointDisplay();
