@@ -39,7 +39,7 @@ static const char* ENVIL_MCP_ALLOWED_TOOLS =
         "mcp__envil-cad__add_component mcp__envil-cad__add_wire mcp__envil-cad__add_label "
         "mcp__envil-cad__add_junction mcp__envil-cad__add_no_connect mcp__envil-cad__edit_value "
         "mcp__envil-cad__move_component mcp__envil-cad__delete_component "
-        "mcp__envil-cad__delete_at";
+        "mcp__envil-cad__delete_at mcp__envil-cad__snap_to_grid";
 
 
 ENVIL_AI_AGENT::ENVIL_AI_AGENT( KIWAY* aKiway, wxWindow* aParent, WEBVIEW_PANEL* aPanel ) :
@@ -221,6 +221,16 @@ std::string ENVIL_AI_AGENT::toolsJson() const
             "Run the native Electrical Rules Check and return violations (severity, title, "
             "message, x/y) + counts + a 'clean' flag. Use it to check your work and loop.",
             json::object(), json::array() ) );
+
+    tools.push_back( makeTool(
+            "snap_to_grid",
+            "Bring off-grid symbol pins and wire ends onto the connection grid (default 50 "
+            "mils), moving attached wire ends with their pins so connections survive. Use when "
+            "ERC reports 'off connection grid' (common after an import).",
+            { { "grid_mils",
+                { { "type", "integer" },
+                  { "description", "Connection grid in mils (default 50)." } } } },
+            json::array() ) );
 
     tools.push_back( makeTool(
             "annotate",

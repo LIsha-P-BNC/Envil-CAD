@@ -94,6 +94,20 @@ const TOOLS = [
     inputSchema: { type: "object", properties: {} },
   },
   {
+    name: "snap_to_grid",
+    description:
+      "Bring off-grid symbol pins and wire ends onto the connection grid (default 50 mils). " +
+      "Symbols are moved by the delta their own pins need, and wire ends attached to those " +
+      "pins move with them, so existing connections are preserved. Use when ERC reports " +
+      "'symbol pin or wire end off connection grid' (common after importing from Altium).",
+    inputSchema: {
+      type: "object",
+      properties: {
+        grid_mils: { type: "integer", description: "Connection grid in mils (default 50)." },
+      },
+    },
+  },
+  {
     name: "annotate",
     description:
       "Assign reference designators to un-annotated symbols (power flags, newly added parts). " +

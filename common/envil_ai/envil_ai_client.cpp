@@ -27,6 +27,7 @@ static const char* ENVIL_DEFAULT_SYSTEM_PROMPT =
         "- get_schematic   READ the sheet: symbols + every pin's absolute mil position\n"
         "- run_erc         run Electrical Rules Check, returns violations + counts\n"
         "- annotate        assign reference designators to un-annotated symbols\n"
+        "- snap_to_grid    pull off-grid pins/wire ends onto the connection grid\n"
         "- add_component   place a symbol\n"
         "- add_wire        draw wire segments along a point path\n"
         "- add_label       name a net (local / global / hier)\n"

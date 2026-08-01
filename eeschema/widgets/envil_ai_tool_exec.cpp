@@ -14,6 +14,8 @@
 #include <algorithm>
 #include <vector>
 #include <deque>
+#include <set>
+#include <utility>
 
 #include <json_common.h>
 
@@ -442,6 +444,158 @@ static json execDeleteAt( SCH_EDIT_FRAME* aFrame, const json& aInput )
 }
 
 
+
+/**
+ * snap_to_grid: bring off-grid symbol pins and wire ends onto the connection grid.
+ *
+ * Imported designs (Altium in particular) land on a foreign grid, so pins can sit off the
+ * 50-mil connection grid and silently fail to bond to on-grid wires -- a defect that looks
+ * fine on screen. Snapping is done PER SYMBOL and carries attached wiring with it:
+ *
+ *   - the delta is computed from the symbol's own pins (not its origin), because a symbol
+ *     can sit on-grid while its pin offsets are off-grid;
+ *   - the symbol is moved by that delta, and every wire endpoint coincident with one of its
+ *     pins is moved by the same delta, so existing connections are preserved rather than
+ *     broken;
+ *   - free wire ends (not on any pin) are then snapped on their own.
+ */
+static json execSnapToGrid( SCH_EDIT_FRAME* aFrame, const json& aInput )
+{
+    const int grid = schIUScale.MilsToIU( aInput.value( "grid_mils", 50 ) );
+
+    if( grid <= 0 )
+        return fail( "grid_mils must be positive." );
+
+    auto snap = [grid]( int v ) -> int
+    {
+        return KiROUND( (double) v / grid ) * grid;
+    };
+
+    SCH_SCREEN* screen = aFrame->GetScreen();
+    SCH_COMMIT  commit( aFrame );
+    int         movedSymbols = 0;
+    int         movedWireEnds = 0;
+
+    // --- symbols: snap by pin position, dragging coincident wire ends along ---
+    std::vector<SCH_SYMBOL*> symbols;
+
+    for( SCH_ITEM* item : screen->Items().OfType( SCH_SYMBOL_T ) )
+        symbols.push_back( static_cast<SCH_SYMBOL*>( item ) );
+
+    for( SCH_SYMBOL* sym : symbols )
+    {
+        std::vector<SCH_PIN*> pins = sym->GetPins( &aFrame->GetCurrentSheet() );
+
+        if( pins.empty() )
+            continue;
+
+        VECTOR2I p0 = pins[0]->GetPosition();
+        VECTOR2I delta( snap( p0.x ) - p0.x, snap( p0.y ) - p0.y );
+
+        if( delta.x == 0 && delta.y == 0 )
+            continue;
+
+        // Record where the pins are BEFORE the move so we can find the wires on them.
+        std::vector<VECTOR2I> pinPts;
+
+        for( SCH_PIN* pin : pins )
+            pinPts.push_back( pin->GetPosition() );
+
+        commit.Modify( sym, screen );
+        sym->Move( delta );
+        ++movedSymbols;
+
+        for( SCH_ITEM* item : screen->Items().OfType( SCH_LINE_T ) )
+        {
+            SCH_LINE* wire = static_cast<SCH_LINE*>( item );
+
+            if( wire->GetLayer() != LAYER_WIRE )
+                continue;
+
+            bool startHit = false;
+            bool endHit = false;
+
+            for( const VECTOR2I& pp : pinPts )
+            {
+                startHit = startHit || ( wire->GetStartPoint() == pp );
+                endHit = endHit || ( wire->GetEndPoint() == pp );
+            }
+
+            if( !startHit && !endHit )
+                continue;
+
+            commit.Modify( wire, screen );
+
+            if( startHit )
+            {
+                wire->SetStartPoint( wire->GetStartPoint() + delta );
+                ++movedWireEnds;
+            }
+
+            if( endHit )
+            {
+                wire->SetEndPoint( wire->GetEndPoint() + delta );
+                ++movedWireEnds;
+            }
+        }
+    }
+
+    // --- free wire ends: snap any endpoint that isn't sitting on a pin ---
+    std::set<std::pair<int, int>> pinPositions;
+
+    for( SCH_ITEM* item : screen->Items().OfType( SCH_SYMBOL_T ) )
+    {
+        for( SCH_PIN* pin : static_cast<SCH_SYMBOL*>( item )->GetPins( &aFrame->GetCurrentSheet() ) )
+        {
+            VECTOR2I pp = pin->GetPosition();
+            pinPositions.insert( { pp.x, pp.y } );
+        }
+    }
+
+    for( SCH_ITEM* item : screen->Items().OfType( SCH_LINE_T ) )
+    {
+        SCH_LINE* wire = static_cast<SCH_LINE*>( item );
+
+        if( wire->GetLayer() != LAYER_WIRE )
+            continue;
+
+        VECTOR2I s = wire->GetStartPoint();
+        VECTOR2I e = wire->GetEndPoint();
+        VECTOR2I ns( snap( s.x ), snap( s.y ) );
+        VECTOR2I ne( snap( e.x ), snap( e.y ) );
+
+        bool fixS = ( ns != s ) && !pinPositions.count( { s.x, s.y } );
+        bool fixE = ( ne != e ) && !pinPositions.count( { e.x, e.y } );
+
+        if( !fixS && !fixE )
+            continue;
+
+        commit.Modify( wire, screen );
+
+        if( fixS )
+        {
+            wire->SetStartPoint( ns );
+            ++movedWireEnds;
+        }
+
+        if( fixE )
+        {
+            wire->SetEndPoint( ne );
+            ++movedWireEnds;
+        }
+    }
+
+    if( movedSymbols == 0 && movedWireEnds == 0 )
+        return ok( "Everything is already on the connection grid." );
+
+    commit.Push( _( "Anvil: snap to grid" ) );
+    aFrame->GetCanvas()->Refresh();
+
+    return ok( "Snapped " + std::to_string( movedSymbols ) + " symbol(s) and "
+               + std::to_string( movedWireEnds ) + " wire end(s) to the grid." );
+}
+
+
 /**
  * get_schematic: read-only dump of the open sheet so the model can see what is placed and
  * wire pin-to-pin. Each symbol reports its reference, value, lib_id, body position, and
@@ -689,6 +843,8 @@ std::string EnvilExecAiTool( SCH_EDIT_FRAME* aFrame, const std::string& aRequest
                 result = execGetSchematic( aFrame, input );
             else if( tool == "run_erc" )
                 result = execRunErc( aFrame, input );
+            else if( tool == "snap_to_grid" )
+                result = execSnapToGrid( aFrame, input );
             else if( tool == "annotate" )
                 result = execAnnotate( aFrame, input );
             else if( tool == "add_component" )
