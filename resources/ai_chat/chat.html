@@ -660,7 +660,7 @@
     </div>
     <div class="brand-text">
       <div class="name">Anvil AI</div>
-      <div class="sub">KiCad schematic assistant</div>
+      <div class="sub">Schematic &amp; PCB assistant</div>
     </div>
   </div>
   <div class="header-right">
@@ -687,13 +687,19 @@
         <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
       </svg>
     </div>
-    <h2>How can I help with your schematic?</h2>
-    <p>Describe a circuit to add, ask for a review, or attach an image / PDF datasheet to extract from.</p>
-    <div class="examples">
+    <h2 id="emptyTitle">How can I help with your schematic?</h2>
+    <p id="emptyBlurb">Describe a circuit to add, ask for a review, or attach an image / PDF datasheet to extract from.</p>
+    <div class="examples" id="emptyChipsSch">
       <span class="ex-chip" data-msg="Add a 100nF decoupling capacitor near U1 VCC">Add decoupling cap</span>
       <span class="ex-chip" data-msg="Review this design and give me a scored report of the real issues in this file">Review design</span>
       <span class="ex-chip" data-msg="Add a 10k pull-up on RESET to 3V3">RESET pull-up</span>
       <span class="ex-chip" data-msg="Design a 5V to 3.3V LDO regulator">5V → 3V3 LDO</span>
+    </div>
+    <div class="examples" id="emptyChipsPcb" style="display:none">
+      <span class="ex-chip" data-msg="Run DRC and fix everything you can, then tell me what is left and why">Run DRC &amp; fix</span>
+      <span class="ex-chip" data-msg="Review this board layout and give me a scored report of the real issues">Review layout</span>
+      <span class="ex-chip" data-msg="Route the remaining unrouted nets">Route the rest</span>
+      <span class="ex-chip" data-msg="Capture the board's footprints into the project library">Fix footprint libs</span>
     </div>
   </div>
 </div>
@@ -774,12 +780,17 @@ if (appCtx === "sch" || appCtx === "eeschema") appCtx = "schematic";
 // Derive the sibling file when only one path is known — KiCad projects
 // keep matching basenames for .kicad_sch and .kicad_pcb. This is the
 // same convention ship_design.py uses on the backend.
+// Guess the other document's path from this one. Anvil projects use .anvil_sch/.anvil_pcb
+// and KiCad ones .kicad_sch/.kicad_pcb, so the sibling has to keep the family it came from --
+// matching only the kicad_* pair left an Anvil board showing the schematic's own path.
 function deriveSiblingFile() {
   if (schematic && !pcbFile) {
-    pcbFile = schematic.replace(/\.kicad_sch$/i, ".kicad_pcb");
+    pcbFile = schematic.replace(/\.anvil_sch$/i, ".anvil_pcb")
+                       .replace(/\.kicad_sch$/i, ".kicad_pcb");
   }
   if (pcbFile && !schematic) {
-    schematic = pcbFile.replace(/\.kicad_pcb$/i, ".kicad_sch");
+    schematic = pcbFile.replace(/\.anvil_pcb$/i, ".anvil_sch")
+                       .replace(/\.kicad_pcb$/i, ".kicad_sch");
   }
 }
 deriveSiblingFile();
@@ -883,7 +894,25 @@ const SVG_CHECK = '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" s
 
 function setStatus(state, text) { dotEl.className = "dot " + state; stxtEl.textContent = text; }
 
+// The panel is loaded from the same chat.html in both editors, so the empty state has to
+// follow appCtx rather than the markup's schematic-flavoured default -- offering "Add
+// decoupling cap" on a finished board reads as if the AI can't see what it's looking at.
+function applyCtxFlavour() {
+  const pcb = appCtx === "pcb";
+  const title = $("emptyTitle"), blurb = $("emptyBlurb");
+  const sch = $("emptyChipsSch"), brd = $("emptyChipsPcb");
+
+  if (title) title.textContent = pcb ? "How can I help with your board?"
+                                     : "How can I help with your schematic?";
+  if (blurb) blurb.textContent = pcb
+      ? "Ask for a DRC pass, a layout review, or routing — or attach an image / PDF to work from."
+      : "Describe a circuit to add, ask for a review, or attach an image / PDF datasheet to extract from.";
+  if (sch) sch.style.display = pcb ? "none" : "";
+  if (brd) brd.style.display = pcb ? "" : "none";
+}
+
 function showCtxFile(path) {
+  applyCtxFlavour();
   if (!path) { ctxBar.classList.remove("active"); return; }
   ctxFile.textContent = path.split(/[\\/]/).pop();
   // Project name = the folder the design lives in (or the .kicad_pro stem).

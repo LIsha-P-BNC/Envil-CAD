@@ -229,7 +229,14 @@ bool AskSaveBoardFileName( PCB_EDIT_FRAME* aParent, wxString* aFileName, bool* a
     wxString   wildcard = FILEEXT::PcbFileWildcard();
     wxFileName  fn = *aFileName;
 
-    fn.SetExt( FILEEXT::KiCadPcbFileExtension );
+    // Default to the Anvil format, and never rewrite a board that already has a native
+    // extension -- offering a .kicad_pcb name for an open .anvil_pcb invites the user to
+    // save a duplicate board next to the real one.
+    if( fn.GetExt().Lower() != FILEEXT::AnvilPcbFileExtension
+        && fn.GetExt().Lower() != FILEEXT::KiCadPcbFileExtension )
+    {
+        fn.SetExt( FILEEXT::AnvilPcbFileExtension );
+    }
 
     wxFileDialog dlg( aParent, _( "Save Board File As" ), fn.GetPath(), fn.GetFullName(), wildcard,
                       wxFD_SAVE | wxFD_OVERWRITE_PROMPT );
@@ -940,7 +947,23 @@ bool PCB_EDIT_FRAME::OpenProjectFiles( const std::vector<wxString>& aFileSet, in
 
             fn.SetPath( Prj().GetProjectPath() );
             fn.SetName( Prj().GetProjectName() );
-            fn.SetExt( FILEEXT::KiCadPcbFileExtension );
+
+            // Keep the extension of the board we actually opened. Forcing .kicad_pcb here
+            // renamed an Anvil board out from under itself: the frame then pointed at a file
+            // that doesn't exist on disk, so the tab read "[Unsaved]" and a save would have
+            // written a second board beside the .anvil_pcb instead of updating it. A foreign
+            // board (Altium, Eagle, ...) still gets the native name -- it has none of its own.
+            wxString loadedExt = wxFileName( fullFileName ).GetExt().Lower();
+
+            if( loadedExt == FILEEXT::AnvilPcbFileExtension
+                || loadedExt == FILEEXT::KiCadPcbFileExtension )
+            {
+                fn.SetExt( loadedExt );
+            }
+            else
+            {
+                fn.SetExt( FILEEXT::KiCadPcbFileExtension );
+            }
 
             fname = fn.GetFullPath();
 
