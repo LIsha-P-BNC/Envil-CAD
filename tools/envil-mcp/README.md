@@ -98,6 +98,8 @@ are not restricted to the 50-mil connection grid.
 | `add_track` | Route copper along `points`, on a `layer` and `net`, optional `width_mils` |
 | `add_via` | Add a through via at (`x_mils`, `y_mils`) on a `net` |
 | `delete_track_at` | Rip up the tracks/vias that end near a point |
+| `set_text_variable` | Define a project text variable (`name`, `value`) — clears "Unresolved text variable" |
+| `capture_footprints` | Harvest the board's footprints into a project library and register it — clears "Footprint not found in libraries" |
 
 Layout flow: `get_board` for real coordinates → `move_footprint` / `add_track` →
 `run_drc` → fix the violations → `run_drc` again until clean.

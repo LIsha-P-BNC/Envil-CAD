@@ -367,6 +367,34 @@ const TOOLS = [
       required: ["x_mils", "y_mils"],
     },
   },
+  {
+    name: "set_text_variable",
+    description:
+      "Define a project text variable such as REVISION, ISSUE_DATE or COMPANY. Use it when " +
+      "run_drc reports 'Unresolved text variable': the sheet border or title block references " +
+      "a ${VARIABLE} the project never defines. Define it rather than deleting the text. " +
+      "get_board lists the ones already set.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        name: {
+          type: "string",
+          description: "Variable name, with or without the ${} wrapper.",
+        },
+        value: { type: "string", description: "Value to give it." },
+      },
+      required: ["name", "value"],
+    },
+  },
+  {
+    name: "capture_footprints",
+    description:
+      "Harvest the board's footprints into a project-local library and register it, so " +
+      "footprints that name libraries this installation doesn't have resolve again. Use it " +
+      "when run_drc reports 'Footprint not found in libraries' — common on a board imported " +
+      "from Altium or OrCAD.",
+    inputSchema: { type: "object", properties: {} },
+  },
 ];
 
 const server = new Server(

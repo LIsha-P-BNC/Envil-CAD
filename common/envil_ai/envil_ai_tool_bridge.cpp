@@ -59,7 +59,7 @@ bool EnvilIsBoardTool( const std::string& aToolName )
 {
     static const std::set<std::string> boardTools = {
         "get_board", "run_drc", "add_footprint", "move_footprint", "add_track", "add_via",
-        "delete_track_at"
+        "delete_track_at", "set_text_variable", "capture_footprints"
     };
 
     return boardTools.count( aToolName ) > 0;

@@ -187,6 +187,13 @@ static json execGetBoard( PCB_EDIT_FRAME* aFrame, const json& aInput )
             nets.push_back( u8( net->GetNetname() ) );
     }
 
+    // What the sheet border / title block can already resolve; anything they reference beyond
+    // this comes back from run_drc as "Unresolved text variable".
+    json textVars = json::object();
+
+    for( const auto& [name, value] : aFrame->Prj().GetTextVars() )
+        textVars[u8( name )] = u8( value );
+
     BOX2I bbox = board->GetBoardEdgesBoundingBox();
 
     json extents;
@@ -212,6 +219,7 @@ static json execGetBoard( PCB_EDIT_FRAME* aFrame, const json& aInput )
              { "via_count", viaCount },
              { "copper_layers", layers },
              { "nets", nets },
+             { "text_variables", textVars },
              { "board_extents", extents },
              { "footprints", footprints },
              { "message", "Read " + std::to_string( footprints.size() ) + " footprint(s), "
@@ -280,6 +288,11 @@ static json execRunDrc( PCB_EDIT_FRAME* aFrame, const json& aInput )
         {
             v["title"] = u8( rc->GetErrorText( true ) );
             v["message"] = u8( rc->GetErrorMessage( true ) );
+
+            // Name the offending item. Without it a violation like "Unresolved text variable"
+            // says what is wrong but not which item to go fix.
+            if( EDA_ITEM* item = aFrame->ResolveItem( rc->GetMainItemID(), true ) )
+                v["item"] = u8( item->GetItemDescription( aFrame, true ) );
         }
 
         v["x_mils"] = pcbIuToMils( marker->GetPos().x );
@@ -523,6 +536,57 @@ static json execAddVia( PCB_EDIT_FRAME* aFrame, const json& aInput )
 }
 
 
+/**
+ * set_text_variable: define a project text variable, e.g. REVISION or ISSUE_DATE.
+ *
+ * An imported board's sheet border and title block reference ${VARIABLES} the project never
+ * defines, which DRC reports as "Unresolved text variable" errors. Deleting that text would be
+ * the wrong fix; defining the variable is the right one.
+ */
+static json execSetTextVariable( PCB_EDIT_FRAME* aFrame, const json& aInput )
+{
+    wxString name = wxString::FromUTF8( aInput.value( "name", std::string() ) );
+
+    if( name.IsEmpty() )
+        return fail( "set_text_variable needs a 'name'." );
+
+    // Accept either NAME or ${NAME} -- the model reads the latter off the sheet.
+    if( name.StartsWith( wxS( "${" ) ) && name.EndsWith( wxS( "}" ) ) )
+        name = name.Mid( 2, name.Length() - 3 );
+
+    PROJECT& prj = aFrame->Prj();
+    prj.GetTextVars()[name] = wxString::FromUTF8( aInput.value( "value", std::string() ) );
+    prj.IncrementTextVarsTicker();
+
+    aFrame->GetBoard()->SynchronizeProperties();
+    aFrame->OnModify();
+    aFrame->GetCanvas()->Refresh();
+
+    return ok( "Set ${" + u8( name ) + "}." );
+}
+
+
+/**
+ * capture_footprints: harvest the board's footprints into a project-local library.
+ *
+ * Runs the same capture the importer does, so a board imported before that existed -- or one
+ * whose footprints name libraries this installation doesn't have -- can be fixed in place
+ * instead of re-imported. Clears "footprint not found in libraries" warnings.
+ */
+static json execCaptureFootprints( PCB_EDIT_FRAME* aFrame )
+{
+    std::string result = EnvilCaptureBoardFootprints( aFrame );
+
+    if( result.rfind( "OK ", 0 ) == 0 )
+    {
+        return ok( "Captured the board's footprints into the project library and registered it: "
+                   + result.substr( 3 ) + "." );
+    }
+
+    return fail( result.rfind( "ERROR ", 0 ) == 0 ? result.substr( 6 ) : result );
+}
+
+
 /// delete_track_at: remove the tracks/vias that end near a point -- the board's delete_at.
 static json execDeleteTrackAt( PCB_EDIT_FRAME* aFrame, const json& aInput )
 {
@@ -746,6 +810,10 @@ std::string EnvilExecPcbTool( PCB_EDIT_FRAME* aFrame, const std::string& aReques
                 result = execAddVia( aFrame, input );
             else if( tool == "delete_track_at" )
                 result = execDeleteTrackAt( aFrame, input );
+            else if( tool == "set_text_variable" )
+                result = execSetTextVariable( aFrame, input );
+            else if( tool == "capture_footprints" )
+                result = execCaptureFootprints( aFrame );
             else
                 result = fail( "Unknown board tool: " + tool );
         }

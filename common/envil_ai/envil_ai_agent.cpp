@@ -42,7 +42,8 @@ static const char* ENVIL_MCP_ALLOWED_TOOLS =
         "mcp__envil-cad__delete_at mcp__envil-cad__snap_to_grid "
         "mcp__envil-cad__get_board mcp__envil-cad__run_drc mcp__envil-cad__add_footprint "
         "mcp__envil-cad__move_footprint mcp__envil-cad__add_track mcp__envil-cad__add_via "
-        "mcp__envil-cad__delete_track_at";
+        "mcp__envil-cad__delete_track_at mcp__envil-cad__set_text_variable "
+        "mcp__envil-cad__capture_footprints";
 
 
 ENVIL_AI_AGENT::ENVIL_AI_AGENT( KIWAY* aKiway, wxWindow* aParent, WEBVIEW_PANEL* aPanel ) :
@@ -408,6 +409,26 @@ std::string ENVIL_AI_AGENT::toolsJson() const
               { "radius_mils",
                 { { "type", "integer" }, { "description", "Search radius in mils (default 20)." } } } },
             json::array( { "x_mils", "y_mils" } ) ) );
+
+    tools.push_back( makeTool(
+            "set_text_variable",
+            "Define a project text variable such as REVISION, ISSUE_DATE or COMPANY. Use it "
+            "when run_drc reports 'Unresolved text variable': the sheet border or title block "
+            "references a ${VARIABLE} the project never defines. Define it rather than deleting "
+            "the text. get_board lists the ones already set.",
+            { { "name",
+                { { "type", "string" },
+                  { "description", "Variable name, with or without the ${} wrapper." } } },
+              { "value", { { "type", "string" }, { "description", "Value to give it." } } } },
+            json::array( { "name", "value" } ) ) );
+
+    tools.push_back( makeTool(
+            "capture_footprints",
+            "Harvest the board's footprints into a project-local library and register it, so "
+            "footprints that name libraries this installation doesn't have resolve again. Use "
+            "it when run_drc reports 'Footprint not found in libraries' — common on a board "
+            "imported from Altium or OrCAD.",
+            json::object(), json::array() ) );
 
     return tools.dump();
 }
