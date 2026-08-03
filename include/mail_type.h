@@ -97,7 +97,28 @@ enum MAIL_T
      * editable Anvil libraries instead. Request/response: payload replaced with
      * "OK <n> symbols" or "ERROR <message>".
      */
-    MAIL_ENVIL_CAPTURE_SYMBOLS
+    MAIL_ENVIL_CAPTURE_SYMBOLS,
+
+    /**
+     * Envil AI: run one AI tool call against the board (SHELL/AI->PCB).
+     * The board-side twin of MAIL_ENVIL_AI_TOOL, with the same request/response payload
+     * contract, so layout work reaches PCB_EDIT_FRAME by the same route schematic work
+     * reaches SCH_EDIT_FRAME.
+     *
+     * In:  {"tool":"add_track","input":{ ... }}
+     * Out: {"ok":true|false,"message":"..."}
+     */
+    MAIL_ENVIL_PCB_TOOL,
+
+    /**
+     * Anvil: capture the open board's footprints into a project-local .pretty library and
+     * register every referenced library nickname against it (SHELL->PCB). The footprint
+     * counterpart of MAIL_ENVIL_CAPTURE_SYMBOLS: imported boards carry footprints whose
+     * fpid nicknames name the foreign tool's libraries (or nothing at all), which resolve
+     * nowhere -- this gives them a real, editable Anvil library. Request/response: payload
+     * replaced with "OK <n> footprints" or "ERROR <message>".
+     */
+    MAIL_ENVIL_CAPTURE_FOOTPRINTS
 };
 
 #endif  // MAIL_TYPE_H_

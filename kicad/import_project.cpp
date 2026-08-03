@@ -551,6 +551,14 @@ void KICAD_MANAGER_FRAME::importProjectFromFile( const wxString& aInputPath,
         Kiway().ExpressMail( FRAME_SCH, MAIL_ENVIL_CAPTURE_SYMBOLS, tidy, this );
     }
 
+    // Same for the board: the imported footprints name libraries that exist in no table (or
+    // nothing at all), so harvest them into a project-local .pretty and register it.
+    if( Kiway().Player( FRAME_PCB_EDITOR, false ) )
+    {
+        std::string tidy;
+        Kiway().ExpressMail( FRAME_PCB_EDITOR, MAIL_ENVIL_CAPTURE_FOOTPRINTS, tidy, this );
+    }
+
     // Save the freshly imported (still-unsaved) schematic and board to disk first, so the
     // conversion below picks them up and the destination ends as a clean all-Anvil project.
     if( KIWAY_PLAYER* sch = Kiway().Player( FRAME_SCH, false ) )

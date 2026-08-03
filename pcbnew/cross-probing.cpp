@@ -65,6 +65,7 @@
 #include <widgets/kistatusbar.h>
 #include <project_pcb.h>
 #include <footprint_library_adapter.h>
+#include <widgets/envil_pcb_tool_exec.h>
 #include <wx/log.h>
 
 /* Execute a remote command sent via a socket on port KICAD_PCB_PORT_SERVICE_NUMBER
@@ -537,6 +538,14 @@ void PCB_EDIT_FRAME::KiwayMailIn( KIWAY_MAIL_EVENT& mail )
     {
     case MAIL_ENVIL_CONVERT_FPLIB:
         payload = EnvilConvertFootprintLib( payload );
+        break;
+
+    case MAIL_ENVIL_PCB_TOOL:
+        payload = EnvilExecPcbTool( this, payload );
+        break;
+
+    case MAIL_ENVIL_CAPTURE_FOOTPRINTS:
+        payload = EnvilCaptureBoardFootprints( this );
         break;
 
     case MAIL_PCB_GET_NETLIST:

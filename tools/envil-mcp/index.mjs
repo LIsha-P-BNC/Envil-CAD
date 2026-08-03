@@ -4,11 +4,12 @@
  * Code, Cursor, ...) to a running Envil-CAD instance.
  *
  * The user's own client provides the model (their subscription); this process just exposes
- * Envil-CAD's schematic tools over MCP and forwards each call to the app's loopback tool
- * socket (ENVIL_AI_TOOL_SERVER, default 127.0.0.1:5571). Envil-CAD executes the call in the
- * open schematic through exactly the same path as its in-app AI panel.
+ * Envil-CAD's schematic and board tools over MCP and forwards each call to the app's loopback
+ * tool socket (ENVIL_AI_TOOL_SERVER, default 127.0.0.1:5571). Envil-CAD routes each call to
+ * the schematic or the board editor by tool name, through exactly the same path as its
+ * in-app AI panel.
  *
- * No API key involved. Envil-CAD must be running with a schematic open.
+ * No API key involved. Envil-CAD must be running with the relevant document open.
  */
 
 import net from "node:net";
@@ -228,6 +229,140 @@ const TOOLS = [
       properties: {
         ...XY,
         radius_mils: { type: "integer", description: "Search radius in mils (default 30)." },
+      },
+      required: ["x_mils", "y_mils"],
+    },
+  },
+
+  // ---- board tools; Envil-CAD routes these to the PCB editor by name ----
+  {
+    name: "get_board",
+    description:
+      "Read the open board: every footprint with its reference, value, fpid, layer, rotation " +
+      "and [x_mils, y_mils], plus the board extents, copper layer names and net names. Call " +
+      "this before moving or routing anything so you work from real coordinates.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        include_pads: {
+          type: "boolean",
+          description: "Include each footprint's pads with their nets and positions (default false).",
+        },
+      },
+    },
+  },
+  {
+    name: "run_drc",
+    description:
+      "Run the full native Design Rules Check on the open board and return every violation " +
+      "(severity, rule title, detail message, x/y) plus error/warning counts and a 'clean' " +
+      "flag. The board's equivalent of run_erc: use it to check your layout and loop.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        refill_zones: { type: "boolean", description: "Refill zones first (default false)." },
+        test_footprints: {
+          type: "boolean",
+          description: "Also run schematic-parity tests (default false).",
+        },
+      },
+    },
+  },
+  {
+    name: "add_footprint",
+    description:
+      "Place a footprint from the configured libraries onto the board. The board's " +
+      "add_component.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        fpid: {
+          type: "string",
+          description:
+            "Footprint library id 'Library:Footprint', e.g. 'Resistor_SMD:R_0603_1608Metric'.",
+        },
+        reference: { type: "string", description: "Reference designator, e.g. R1." },
+        value: { type: "string", description: "Optional value, e.g. '10k'." },
+        x_mils: { type: "integer", description: "X position in mils." },
+        y_mils: { type: "integer", description: "Y position in mils." },
+        rotation_deg: { type: "number", description: "Orientation in degrees." },
+        layer: {
+          type: "string",
+          description: "'F.Cu' (default) or 'B.Cu' to place it on the back.",
+        },
+      },
+      required: ["fpid"],
+    },
+  },
+  {
+    name: "move_footprint",
+    description: "Move, rotate and/or flip a placed footprint on the board.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        reference: { type: "string", description: "Reference designator, e.g. U1." },
+        x_mils: { type: "integer", description: "X position in mils." },
+        y_mils: { type: "integer", description: "Y position in mils." },
+        rotation_deg: { type: "number", description: "Absolute orientation in degrees." },
+        flip: { type: "boolean", description: "Flip to the other side of the board." },
+      },
+      required: ["reference"],
+    },
+  },
+  {
+    name: "add_track",
+    description:
+      "Route copper along a point path. Each consecutive pair of points becomes one track " +
+      "segment. Give the net name so the track belongs to that net, and prefer 45-degree or " +
+      "right-angle paths.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        points: {
+          type: "array",
+          description: "Ordered [x_mils, y_mils] pairs, at least two.",
+          items: { type: "array", items: { type: "integer" }, minItems: 2, maxItems: 2 },
+          minItems: 2,
+        },
+        layer: {
+          type: "string",
+          description: "Copper layer name, e.g. 'F.Cu' (default) or 'B.Cu'.",
+        },
+        net: { type: "string", description: "Net name, e.g. 'GND' or '+3V3'." },
+        width_mils: {
+          type: "integer",
+          description: "Track width in mils (default: the board's current track width).",
+        },
+      },
+      required: ["points"],
+    },
+  },
+  {
+    name: "add_via",
+    description: "Add a through via, e.g. to change layer mid-route.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        x_mils: { type: "integer", description: "X position in mils." },
+        y_mils: { type: "integer", description: "Y position in mils." },
+        net: { type: "string", description: "Net name." },
+        diameter_mils: { type: "integer", description: "Via pad diameter in mils." },
+        drill_mils: { type: "integer", description: "Via drill diameter in mils." },
+      },
+      required: ["x_mils", "y_mils"],
+    },
+  },
+  {
+    name: "delete_track_at",
+    description:
+      "Delete the tracks/vias that end at or near a point. The board's delete_at, for " +
+      "ripping up a bad route.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        x_mils: { type: "integer", description: "X position in mils." },
+        y_mils: { type: "integer", description: "Y position in mils." },
+        radius_mils: { type: "integer", description: "Search radius in mils (default 20)." },
       },
       required: ["x_mils", "y_mils"],
     },

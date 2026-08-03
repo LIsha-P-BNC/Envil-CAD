@@ -39,7 +39,10 @@ static const char* ENVIL_MCP_ALLOWED_TOOLS =
         "mcp__envil-cad__add_component mcp__envil-cad__add_wire mcp__envil-cad__add_label "
         "mcp__envil-cad__add_junction mcp__envil-cad__add_no_connect mcp__envil-cad__edit_value "
         "mcp__envil-cad__move_component mcp__envil-cad__delete_component "
-        "mcp__envil-cad__delete_at mcp__envil-cad__snap_to_grid";
+        "mcp__envil-cad__delete_at mcp__envil-cad__snap_to_grid "
+        "mcp__envil-cad__get_board mcp__envil-cad__run_drc mcp__envil-cad__add_footprint "
+        "mcp__envil-cad__move_footprint mcp__envil-cad__add_track mcp__envil-cad__add_via "
+        "mcp__envil-cad__delete_track_at";
 
 
 ENVIL_AI_AGENT::ENVIL_AI_AGENT( KIWAY* aKiway, wxWindow* aParent, WEBVIEW_PANEL* aPanel ) :
@@ -310,6 +313,102 @@ std::string ENVIL_AI_AGENT::toolsJson() const
                 { { "type", "integer" }, { "description", "Search radius in mils (default 30)." } } } },
             json::array( { "x_mils", "y_mils" } ) ) );
 
+    // ---- board tools: same request shape, routed to the PCB editor by EnvilSendTool ----
+    const json xBoard = { { "type", "integer" }, { "description", "X position in mils." } };
+    const json yBoard = { { "type", "integer" }, { "description", "Y position in mils." } };
+
+    tools.push_back( makeTool(
+            "get_board",
+            "Read the open board: every footprint with reference, value, fpid, layer, rotation "
+            "and [x_mils,y_mils], plus board extents, copper layers and net names. Call before "
+            "moving or routing anything so you work from real coordinates.",
+            { { "include_pads",
+                { { "type", "boolean" },
+                  { "description", "Include each footprint's pads with their nets and "
+                                   "positions (default false)." } } } },
+            json::array() ) );
+
+    tools.push_back( makeTool(
+            "run_drc",
+            "Run the native Design Rules Check and return violations (severity, title, message, "
+            "x/y) + counts + a 'clean' flag. The board's equivalent of run_erc: use it to check "
+            "your layout and loop until it is clean.",
+            { { "refill_zones",
+                { { "type", "boolean" }, { "description", "Refill zones first (default false)." } } },
+              { "test_footprints",
+                { { "type", "boolean" },
+                  { "description", "Also run schematic-parity tests (default false)." } } } },
+            json::array() ) );
+
+    tools.push_back( makeTool(
+            "add_footprint",
+            "Place a footprint from the configured libraries onto the board. The board's "
+            "add_component.",
+            { { "fpid",
+                { { "type", "string" },
+                  { "description", "Footprint library id 'Library:Footprint', e.g. "
+                                   "'Resistor_SMD:R_0603_1608Metric'." } } },
+              { "reference", { { "type", "string" }, { "description", "e.g. R1." } } },
+              { "value", { { "type", "string" }, { "description", "Optional value." } } },
+              { "x_mils", xBoard },
+              { "y_mils", yBoard },
+              { "rotation_deg", { { "type", "number" }, { "description", "Orientation in degrees." } } },
+              { "layer",
+                { { "type", "string" },
+                  { "description", "'F.Cu' (default) or 'B.Cu' to place on the back." } } } },
+            json::array( { "fpid" } ) ) );
+
+    tools.push_back( makeTool(
+            "move_footprint", "Move, rotate and/or flip a placed footprint.",
+            { { "reference", { { "type", "string" }, { "description", "e.g. U1." } } },
+              { "x_mils", xBoard },
+              { "y_mils", yBoard },
+              { "rotation_deg",
+                { { "type", "number" }, { "description", "Absolute orientation in degrees." } } },
+              { "flip",
+                { { "type", "boolean" },
+                  { "description", "Flip to the other side of the board." } } } },
+            json::array( { "reference" } ) ) );
+
+    tools.push_back( makeTool(
+            "add_track",
+            "Route copper along a point path; each consecutive pair becomes one segment. Give "
+            "the net so the track belongs to it, and prefer 45-degree or right-angle paths.",
+            { { "points",
+                { { "type", "array" },
+                  { "description", "Ordered [x_mils, y_mils] pairs, at least two." },
+                  { "items",
+                    { { "type", "array" }, { "items", { { "type", "integer" } } } } } } },
+              { "layer",
+                { { "type", "string" },
+                  { "description", "Copper layer name, e.g. 'F.Cu' (default) or 'B.Cu'." } } },
+              { "net",
+                { { "type", "string" }, { "description", "Net name, e.g. 'GND' or '+3V3'." } } },
+              { "width_mils",
+                { { "type", "integer" },
+                  { "description", "Track width in mils (default: the board's current width)." } } } },
+            json::array( { "points" } ) ) );
+
+    tools.push_back( makeTool(
+            "add_via", "Add a through via, e.g. to change layer mid-route.",
+            { { "x_mils", xBoard },
+              { "y_mils", yBoard },
+              { "net", { { "type", "string" }, { "description", "Net name." } } },
+              { "diameter_mils",
+                { { "type", "integer" }, { "description", "Pad diameter in mils." } } },
+              { "drill_mils", { { "type", "integer" }, { "description", "Drill in mils." } } } },
+            json::array( { "x_mils", "y_mils" } ) ) );
+
+    tools.push_back( makeTool(
+            "delete_track_at",
+            "Delete the tracks/vias that end at or near a point. The board's delete_at, for "
+            "ripping up a bad route.",
+            { { "x_mils", xBoard },
+              { "y_mils", yBoard },
+              { "radius_mils",
+                { { "type", "integer" }, { "description", "Search radius in mils (default 20)." } } } },
+            json::array( { "x_mils", "y_mils" } ) ) );
+
     return tools.dump();
 }
 
@@ -364,7 +463,7 @@ std::string ENVIL_AI_AGENT::execTool( const wxString& aToolName, const std::stri
             req["tool"] = std::string( aToolName.utf8_str() );
             req["input"] = json::parse( aInputJson );
 
-            std::string resultJson = EnvilSendSchematicTool( m_kiway, m_parent, req.dump() );
+            std::string resultJson = EnvilSendTool( m_kiway, m_parent, req.dump() );
 
             json result = json::parse( resultJson );
             isError = !result.value( "ok", false );

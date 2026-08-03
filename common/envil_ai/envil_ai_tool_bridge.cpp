@@ -8,6 +8,9 @@
 #include <kiway_mail.h>
 #include <mail_type.h>
 #include <frame_type.h>
+#include <json_common.h>
+
+#include <set>
 
 
 std::string EnvilSendSchematicTool( KIWAY* aKiway, wxWindow* aSource,
@@ -30,4 +33,54 @@ std::string EnvilSendSchematicTool( KIWAY* aKiway, wxWindow* aSource,
     }
 
     return payload;
+}
+
+
+std::string EnvilSendBoardTool( KIWAY* aKiway, wxWindow* aSource, const std::string& aRequestJson )
+{
+    std::string payload = aRequestJson;
+
+    if( !aKiway )
+        return R"({"ok":false,"message":"No KIWAY available."})";
+
+    KIWAY_MAIL_EVENT mail( FRAME_PCB_EDITOR, MAIL_ENVIL_PCB_TOOL, payload, aSource );
+
+    if( !aKiway->ProcessEvent( mail ) )
+    {
+        return R"({"ok":false,"message":"No board editor is open. Open the PCB Editor and )"
+               R"(try again."})";
+    }
+
+    return payload;
+}
+
+
+bool EnvilIsBoardTool( const std::string& aToolName )
+{
+    static const std::set<std::string> boardTools = {
+        "get_board", "run_drc", "add_footprint", "move_footprint", "add_track", "add_via",
+        "delete_track_at"
+    };
+
+    return boardTools.count( aToolName ) > 0;
+}
+
+
+std::string EnvilSendTool( KIWAY* aKiway, wxWindow* aSource, const std::string& aRequestJson )
+{
+    std::string toolName;
+
+    try
+    {
+        toolName = nlohmann::json::parse( aRequestJson ).value( "tool", std::string() );
+    }
+    catch( const std::exception& )
+    {
+        return R"({"ok":false,"message":"Tool request was not valid JSON."})";
+    }
+
+    if( EnvilIsBoardTool( toolName ) )
+        return EnvilSendBoardTool( aKiway, aSource, aRequestJson );
+
+    return EnvilSendSchematicTool( aKiway, aSource, aRequestJson );
 }
