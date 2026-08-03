@@ -94,15 +94,57 @@ static VECTOR2I snapToPin( SCH_EDIT_FRAME* aFrame, const VECTOR2I& aPt )
 }
 
 
-/// Find a placed symbol by its reference designator on the current sheet.
-static SCH_SYMBOL* findSymbol( SCH_EDIT_FRAME* aFrame, const wxString& aRef )
+/**
+ * Every distinct screen in the hierarchy, paired with a sheet path that reaches it.
+ *
+ * The tools below work across the WHOLE hierarchy, not just the sheet that happens to be
+ * open: ERC reports the entire design, so a reference the AI is told to fix may well live
+ * on another page.  (A screen reached by several paths -- a re-used sub-sheet -- is only
+ * returned once, so we never edit the same items twice.)
+ */
+static std::vector<std::pair<SCH_SHEET_PATH, SCH_SCREEN*>> allSheets( SCH_EDIT_FRAME* aFrame )
 {
-    for( SCH_ITEM* item : aFrame->GetScreen()->Items().OfType( SCH_SYMBOL_T ) )
-    {
-        SCH_SYMBOL* sym = static_cast<SCH_SYMBOL*>( item );
+    std::vector<std::pair<SCH_SHEET_PATH, SCH_SCREEN*>> out;
+    std::set<SCH_SCREEN*>                               seen;
 
-        if( sym->GetRef( &aFrame->GetCurrentSheet(), false ).IsSameAs( aRef, false ) )
-            return sym;
+    for( const SCH_SHEET_PATH& sheet : aFrame->Schematic().Hierarchy() )
+    {
+        SCH_SCREEN* screen = sheet.LastScreen();
+
+        if( screen && seen.insert( screen ).second )
+            out.emplace_back( sheet, screen );
+    }
+
+    if( out.empty() && aFrame->GetScreen() )
+        out.emplace_back( aFrame->GetCurrentSheet(), aFrame->GetScreen() );
+
+    return out;
+}
+
+
+/// Find a placed symbol by reference anywhere in the hierarchy, reporting the screen and
+/// sheet path it lives on (needed to commit edits against the right screen).
+static SCH_SYMBOL* findSymbol( SCH_EDIT_FRAME* aFrame, const wxString& aRef,
+                               SCH_SCREEN** aScreenOut = nullptr,
+                               SCH_SHEET_PATH* aPathOut = nullptr )
+{
+    for( const auto& [path, screen] : allSheets( aFrame ) )
+    {
+        for( SCH_ITEM* item : screen->Items().OfType( SCH_SYMBOL_T ) )
+        {
+            SCH_SYMBOL* sym = static_cast<SCH_SYMBOL*>( item );
+
+            if( sym->GetRef( &path, false ).IsSameAs( aRef, false ) )
+            {
+                if( aScreenOut )
+                    *aScreenOut = screen;
+
+                if( aPathOut )
+                    *aPathOut = path;
+
+                return sym;
+            }
+        }
     }
 
     return nullptr;
@@ -313,13 +355,14 @@ static json execEditValue( SCH_EDIT_FRAME* aFrame, const json& aInput )
     if( ref.IsEmpty() )
         return fail( "edit_value needs a 'reference'." );
 
-    SCH_SYMBOL* sym = findSymbol( aFrame, ref );
+    SCH_SCREEN* screen = nullptr;
+    SCH_SYMBOL* sym = findSymbol( aFrame, ref, &screen );
 
     if( !sym )
         return fail( "No symbol with reference " + std::string( ref.utf8_str() ) + "." );
 
     SCH_COMMIT commit( aFrame );
-    commit.Modify( sym, aFrame->GetScreen() );
+    commit.Modify( sym, screen );
     sym->SetValueFieldText( val );
     commit.Push( _( "Envil AI: edit value" ) );
 
@@ -337,7 +380,8 @@ static json execMoveComponent( SCH_EDIT_FRAME* aFrame, const json& aInput )
     if( ref.IsEmpty() )
         return fail( "move_component needs a 'reference'." );
 
-    SCH_SYMBOL* sym = findSymbol( aFrame, ref );
+    SCH_SCREEN* screen = nullptr;
+    SCH_SYMBOL* sym = findSymbol( aFrame, ref, &screen );
 
     if( !sym )
         return fail( "No symbol with reference " + std::string( ref.utf8_str() ) + "." );
@@ -345,7 +389,7 @@ static json execMoveComponent( SCH_EDIT_FRAME* aFrame, const json& aInput )
     VECTOR2I pos = milsPt( aInput.value( "x_mils", 0 ), aInput.value( "y_mils", 0 ) );
 
     SCH_COMMIT commit( aFrame );
-    commit.Modify( sym, aFrame->GetScreen() );
+    commit.Modify( sym, screen );
     sym->SetPosition( pos );
     commit.Push( _( "Envil AI: move symbol" ) );
 
@@ -362,14 +406,15 @@ static json execDeleteComponent( SCH_EDIT_FRAME* aFrame, const json& aInput )
     if( ref.IsEmpty() )
         return fail( "delete_component needs a 'reference'." );
 
-    SCH_SYMBOL* sym = findSymbol( aFrame, ref );
+    SCH_SCREEN* screen = nullptr;
+    SCH_SYMBOL* sym = findSymbol( aFrame, ref, &screen );
 
     if( !sym )
         return fail( "No symbol with reference " + std::string( ref.utf8_str() ) + "." );
 
     SCH_COMMIT commit( aFrame );
-    commit.Removed( sym, aFrame->GetScreen() );
-    aFrame->RemoveFromScreen( sym, aFrame->GetScreen() );
+    commit.Removed( sym, screen );
+    aFrame->RemoveFromScreen( sym, screen );
     commit.Push( _( "Envil AI: delete symbol" ) );
 
     return ok( "Deleted " + std::string( ref.utf8_str() ) + "." );
@@ -471,11 +516,13 @@ static json execSnapToGrid( SCH_EDIT_FRAME* aFrame, const json& aInput )
         return KiROUND( (double) v / grid ) * grid;
     };
 
-    SCH_SCREEN* screen = aFrame->GetScreen();
-    SCH_COMMIT  commit( aFrame );
-    int         movedSymbols = 0;
-    int         movedWireEnds = 0;
+    SCH_COMMIT commit( aFrame );
+    int        movedSymbols = 0;
+    int        movedWireEnds = 0;
 
+    // Snap every sheet, not just the open one -- ERC's off-grid reports span the hierarchy.
+    for( const auto& [path, screen] : allSheets( aFrame ) )
+    {
     // --- symbols: snap by pin position, dragging coincident wire ends along ---
     std::vector<SCH_SYMBOL*> symbols;
 
@@ -484,7 +531,7 @@ static json execSnapToGrid( SCH_EDIT_FRAME* aFrame, const json& aInput )
 
     for( SCH_SYMBOL* sym : symbols )
     {
-        std::vector<SCH_PIN*> pins = sym->GetPins( &aFrame->GetCurrentSheet() );
+        std::vector<SCH_PIN*> pins = sym->GetPins( &path );
 
         if( pins.empty() )
             continue;
@@ -545,7 +592,7 @@ static json execSnapToGrid( SCH_EDIT_FRAME* aFrame, const json& aInput )
 
     for( SCH_ITEM* item : screen->Items().OfType( SCH_SYMBOL_T ) )
     {
-        for( SCH_PIN* pin : static_cast<SCH_SYMBOL*>( item )->GetPins( &aFrame->GetCurrentSheet() ) )
+        for( SCH_PIN* pin : static_cast<SCH_SYMBOL*>( item )->GetPins( &path ) )
         {
             VECTOR2I pp = pin->GetPosition();
             pinPositions.insert( { pp.x, pp.y } );
@@ -584,6 +631,7 @@ static json execSnapToGrid( SCH_EDIT_FRAME* aFrame, const json& aInput )
             ++movedWireEnds;
         }
     }
+    }   // end hierarchy loop
 
     if( movedSymbols == 0 && movedWireEnds == 0 )
         return ok( "Everything is already on the connection grid." );
@@ -608,34 +656,42 @@ static json execGetSchematic( SCH_EDIT_FRAME* aFrame, const json& aInput )
 
     json symbols = json::array();
 
-    for( SCH_ITEM* item : aFrame->GetScreen()->Items().OfType( SCH_SYMBOL_T ) )
+    // Report the WHOLE hierarchy: ERC covers every sheet, so a symbol the model is asked to
+    // fix may live on a page other than the one currently open.
+    for( const auto& [path, screen] : allSheets( aFrame ) )
     {
-        SCH_SYMBOL* sym = static_cast<SCH_SYMBOL*>( item );
+        const wxString sheetName = path.Last() ? path.Last()->GetName() : wxString( wxS( "/" ) );
 
-        json s;
-        s["reference"] = std::string( sym->GetRef( &aFrame->GetCurrentSheet(), false ).utf8_str() );
-        s["value"] = std::string( sym->GetValue( true, &aFrame->GetCurrentSheet(), false ).utf8_str() );
-        s["lib_id"] = sym->GetLibId().Format().wx_str().utf8_string();
-        s["x_mils"] = iuToMils( sym->GetPosition().x );
-        s["y_mils"] = iuToMils( sym->GetPosition().y );
-
-        if( pins )
+        for( SCH_ITEM* item : screen->Items().OfType( SCH_SYMBOL_T ) )
         {
-            json pinArr = json::array();
+            SCH_SYMBOL* sym = static_cast<SCH_SYMBOL*>( item );
 
-            for( SCH_PIN* pin : sym->GetPins( &aFrame->GetCurrentSheet() ) )
+            json s;
+            s["reference"] = std::string( sym->GetRef( &path, false ).utf8_str() );
+            s["value"] = std::string( sym->GetValue( true, &path, false ).utf8_str() );
+            s["lib_id"] = sym->GetLibId().Format().wx_str().utf8_string();
+            s["sheet"] = std::string( sheetName.utf8_str() );
+            s["x_mils"] = iuToMils( sym->GetPosition().x );
+            s["y_mils"] = iuToMils( sym->GetPosition().y );
+
+            if( pins )
             {
-                VECTOR2I pp = pin->GetPosition();
-                pinArr.push_back( { { "number", std::string( pin->GetNumber().utf8_str() ) },
-                                    { "name", std::string( pin->GetName().utf8_str() ) },
-                                    { "x_mils", iuToMils( pp.x ) },
-                                    { "y_mils", iuToMils( pp.y ) } } );
+                json pinArr = json::array();
+
+                for( SCH_PIN* pin : sym->GetPins( &path ) )
+                {
+                    VECTOR2I pp = pin->GetPosition();
+                    pinArr.push_back( { { "number", std::string( pin->GetNumber().utf8_str() ) },
+                                        { "name", std::string( pin->GetName().utf8_str() ) },
+                                        { "x_mils", iuToMils( pp.x ) },
+                                        { "y_mils", iuToMils( pp.y ) } } );
+                }
+
+                s["pins"] = pinArr;
             }
 
-            s["pins"] = pinArr;
+            symbols.push_back( s );
         }
-
-        symbols.push_back( s );
     }
 
     return { { "ok", true },
