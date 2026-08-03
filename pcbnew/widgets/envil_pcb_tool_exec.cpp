@@ -761,6 +761,15 @@ std::string EnvilCaptureBoardFootprints( PCB_EDIT_FRAME* aFrame )
             }
 
             commit.Push( _( "Anvil: link footprints to the project library" ) );
+
+            // Persist it. The library and the lib-table are written straight to disk above, so
+            // leaving this half in memory makes the capture only look like it worked: the
+            // warnings clear until the board is reloaded, then the untagged footprints come
+            // back. Either all three land or the operation isn't finished.
+            const wxString boardFile = aFrame->GetBoard()->GetFileName();
+
+            if( !boardFile.IsEmpty() && wxFileName( boardFile ).FileExists() )
+                aFrame->SavePcbFile( boardFile );
         }
 
         return "OK " + std::to_string( count ) + " footprints";
