@@ -453,6 +453,12 @@ private:
     /// on every event.  See onShellPaneFocus()/onEditorAreaFocus().
     bool                  m_shellMenuShowsEditor = false;
 
+    /// Re-entrancy guard for syncShellMenuToActiveTab().  Rebuilding the title-bar menu
+    /// destroys the buttons and the menus behind them, and the resulting focus changes fire
+    /// wxEVT_CHILD_FOCUS -- which calls straight back in and frees those same menus a second
+    /// time.  See syncShellMenuToActiveTab().
+    bool                  m_syncingShellMenu = false;
+
     /// Docked editors as (player window-id, host page) pairs.  Window-id (not pointer)
     /// so a destroyed player is detected via FindWindowById without a dangling deref.
     std::vector<std::pair<int, wxWindow*>> m_dockedEditors;

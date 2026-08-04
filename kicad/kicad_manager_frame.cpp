@@ -1854,9 +1854,25 @@ void KICAD_MANAGER_FRAME::syncShellMenuToActiveTab( bool aForcePM )
         return;
     }
 
+    // Rebuilding the bar destroys the title-bar buttons and deletes the menus they point at,
+    // then calls m_auimgr.Update(); both move focus, which fires wxEVT_CHILD_FOCUS and lands
+    // back here through onEditorAreaFocus()/onShellPaneFocus(). That nested pass ran
+    // TITLEBAR_PANEL::SetMenus() again and deleted the half-torn-down menus a second time --
+    // a double free that surfaced as an access violation on a tab switch (the freed
+    // ACTION_MENU's vtable lives in the editor's KIFACE, so the crash was reported against
+    // _eeschema.dll / _pcbnew.dll rather than here).
+    if( m_syncingShellMenu )
+        return;
+
+    m_syncingShellMenu = true;
+
     // aForcePM: the caller is on the Project Manager (a non-editor pane has focus, or the last
     // tab just closed), so show the PM menu even though an editor tab may still be selected.
     EDA_BASE_FRAME* editor = aForcePM ? nullptr : getActiveDockedEditorFrame();
+
+    // Set the state BEFORE rebuilding, not after: the focus handlers read it to decide whether
+    // a rebuild is needed, so leaving it stale for the duration invites the re-entry above.
+    m_shellMenuShowsEditor = ( editor != nullptr );
 
     if( editor )
     {
@@ -1865,15 +1881,15 @@ void KICAD_MANAGER_FRAME::syncShellMenuToActiveTab( bool aForcePM )
         // tool manager, so clicks reach the editor.
         buildCommonMenuBarFrom( editor );
         buildTitleBarMenuButtons();
-        m_shellMenuShowsEditor = true;
     }
     else
     {
         // Project Manager context (no editor tab, or forced): restore the manager's own menu.
         // The manager's doReCreateMenuBar() already refreshes the title-bar buttons on this path.
         doReCreateMenuBar();
-        m_shellMenuShowsEditor = false;
     }
+
+    m_syncingShellMenu = false;
 #endif
 }
 
@@ -3599,7 +3615,14 @@ void KICAD_MANAGER_FRAME::buildTitleBarMenuButtons()
     // The menus now live in the custom title bar; drop the (now-empty) native menu bar
     // so Windows does not also render a native menu row beneath the caption.
     if( bar )
+    {
+        // SetMenuBar() only detaches, it does not free, and buildCommonMenuBarFrom()'s
+        // `delete oldMenuBar` then sees nullptr -- so without this the emptied bar leaked
+        // once per tab switch. Its menus already belong to the title bar, so this frees
+        // only the now-empty shell.
         SetMenuBar( nullptr );
+        delete bar;
+    }
 
     if( m_auimgr.GetManagedWindow() )
         m_auimgr.Update();
