@@ -1552,26 +1552,11 @@ bool SCH_EDIT_FRAME::importFile( const wxString& aFileName, int aFileType,
                 DS_DATA_MODEL& drawingSheet = DS_DATA_MODEL::GetTheInstance();
                 drawingSheet.SetEmptyLayout();
 
-                // ...and write that empty sheet to disk. The name is stored in the project and
-                // re-resolved on the next load, where LoadDrawingSheet() quietly calls
-                // SetDefaultLayout() for any file it cannot find. Naming a file that was never
-                // created meant the blanking held for the import session only: reopen the
-                // project and KiCad's own frame and title block came back, stacked on top of
-                // the title block the imported design draws itself.
-                wxFileName wksFn( Prj().GetProjectPath(), wxT( "empty.kicad_wks" ) );
-
-                if( !wksFn.FileExists() )
-                {
-                    wxFFile wksFile( wksFn.GetFullPath(), wxT( "wb" ) );
-
-                    if( wksFile.IsOpened() )
-                    {
-                        wksFile.Write( DS_DATA_MODEL::EmptyLayout(), wxConvUTF8 );
-                        wksFile.Close();
-                    }
-                }
-
-                BASE_SCREEN::m_DrawingSheetFileName = wksFn.GetFullName();
+                // This name is a marker, not a path -- no such file is created. It is saved to
+                // the project and LoadDrawingSheet() recognises it on the next open, so the
+                // suppression survives a reload without leaving a stray sheet file in the
+                // project folder.
+                BASE_SCREEN::m_DrawingSheetFileName = DS_DATA_MODEL::EmptySheetName();
 
                 newfilename.SetPath( Prj().GetProjectPath() );
                 newfilename.SetName( Prj().GetProjectName() );

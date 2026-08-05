@@ -980,6 +980,16 @@ bool DS_DATA_MODEL::LoadDrawingSheet( const wxString& aFullFileName, wxString* a
 
         if( !wxFileExists( aFullFileName ) )
         {
+            // EmptySheetName() is a marker, not a path: importers store it for a design that
+            // already draws its own frame and title block. Treating it as a missing file and
+            // falling back to the default sheet is what put KiCad's title block on top of the
+            // imported one, and it did so silently -- the import looked right until reload.
+            if( wxFileName( aFullFileName ).GetFullName() == EmptySheetName() )
+            {
+                SetEmptyLayout();
+                return true;
+            }
+
             if( aMsg )
                 *aMsg = _( "File not found." );
 

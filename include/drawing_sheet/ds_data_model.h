@@ -133,6 +133,17 @@ public:
     void SetEmptyLayout();
 
     /**
+     * The drawing-sheet name that means "this design draws its own title block, so draw no
+     * sheet at all" rather than naming a file to load.
+     *
+     * Importers of foreign designs record this: an Altium sheet carries its own frame and
+     * title block as ordinary graphics, so drawing KiCad's on top gives two overlapping
+     * title blocks. No file of this name is ever created -- LoadDrawingSheet() recognises it
+     * and empties the layout instead of falling back to the default sheet.
+     */
+    static const wxChar* EmptySheetName() { return wxT( "empty.kicad_wks" ); }
+
+    /**
      * Return a string containing the empty layout shape.
      */
     static wxString EmptyLayout();
