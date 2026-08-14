@@ -273,8 +273,10 @@ bool EDA_DRAW_FRAME::LockFile( const wxString& aFileName )
     {
         // If we cannot acquire the lock but we appear to be the one who locked it, check to see if
         // there is another KiCad instance running.  If there is not, then we can override the lock.
-        // This could happen if KiCad crashed or was interrupted.
-        if( !Pgm().SingleInstance()->IsAnotherRunning() )
+        // This could happen if KiCad crashed or was interrupted.  Must be the LIVE check: the
+        // startup snapshot stays true forever once a second instance was seen, leaving every
+        // stale lock to pop the "already open" dialog (see IsAnotherInstanceRunningLive()).
+        if( !Pgm().IsAnotherInstanceRunningLive() )
             m_file_checker->OverrideLock();
     }
 
