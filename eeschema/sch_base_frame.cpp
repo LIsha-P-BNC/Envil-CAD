@@ -744,7 +744,7 @@ wxString SCH_BASE_FRAME::SelectLibrary( const wxString& aDialogTitle, const wxSt
             FILEDLG_HOOK_NEW_LIBRARY tableChooser( useGlobalTable );
 
             if( !LibraryFileBrowser( _( "Create New Library" ), false, fn, FILEEXT::KiCadSymbolLibFileWildcard(),
-                                     FILEEXT::KiCadSymbolLibFileExtension, false, &tableChooser ) )
+                                     FILEEXT::AnvilSymbolLibFileExtension, false, &tableChooser ) )
             {
                 break;
             }

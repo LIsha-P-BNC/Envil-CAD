@@ -28,6 +28,7 @@
 #include <tools/pl_selection_tool.h>
 #include <wx/choice.h>
 
+#include <advanced_config.h>
 #include "pl_editor_id.h"
 #include "pl_editor_frame.h"
 #include <toolbars_pl_editor.h>
@@ -45,6 +46,25 @@ std::optional<TOOLBAR_CONFIGURATION> PL_EDITOR_TOOLBAR_SETTINGS::DefaultToolbarC
         return std::nullopt;
 
     case TOOLBAR_LOC::LEFT:
+        // Modern (classic-Altium) preset: the left edge hosts the drawing tools; the grid /
+        // units toggles it replaces surface in the View menu (modern layout).
+        if( ADVANCED_CFG::GetCfg().m_ModernToolbarLayout )
+        {
+            config.AppendAction( ACTIONS::selectionTool );
+
+            config.AppendSeparator()
+                  .AppendAction( PL_ACTIONS::drawLine )
+                  .AppendAction( PL_ACTIONS::drawRectangle )
+                  .AppendAction( PL_ACTIONS::placeText )
+                  .AppendAction( PL_ACTIONS::placeImage )
+                  .AppendAction( PL_ACTIONS::appendImportedDrawingSheet );
+
+            config.AppendSeparator()
+                  .AppendAction( ACTIONS::deleteTool );
+
+            break;
+        }
+
         config.AppendAction( ACTIONS::toggleGrid )
               .WithContextMenu(
                       []( TOOL_MANAGER* aToolMgr )
@@ -61,6 +81,10 @@ std::optional<TOOLBAR_CONFIGURATION> PL_EDITOR_TOOLBAR_SETTINGS::DefaultToolbarC
         break;
 
     case TOOLBAR_LOC::RIGHT:
+        // Modern (classic-Altium) preset: no right toolbar — the drawing tools live on the left.
+        if( ADVANCED_CFG::GetCfg().m_ModernToolbarLayout )
+            return std::nullopt;
+
         config.AppendAction( ACTIONS::selectionTool );
 
         config.AppendSeparator()
@@ -85,6 +109,15 @@ std::optional<TOOLBAR_CONFIGURATION> PL_EDITOR_TOOLBAR_SETTINGS::DefaultToolbarC
         config.AppendSeparator()
               .AppendAction( ACTIONS::undo )
               .AppendAction( ACTIONS::redo );
+
+        // Classic-Altium Standard row: the clipboard icons sit next to undo/redo.
+        if( ADVANCED_CFG::GetCfg().m_ModernToolbarLayout )
+        {
+            config.AppendSeparator()
+                  .AppendAction( ACTIONS::cut )
+                  .AppendAction( ACTIONS::copy )
+                  .AppendAction( ACTIONS::paste );
+        }
 
         config.AppendSeparator()
               .AppendAction( ACTIONS::zoomRedraw )

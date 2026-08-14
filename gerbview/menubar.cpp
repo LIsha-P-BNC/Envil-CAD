@@ -41,7 +41,7 @@
 void GERBVIEW_FRAME::doReCreateMenuBar()
 {
     // KiCad Next: build the shared common menu bar instead of the legacy one when enabled.
-    if( ADVANCED_CFG::GetCfg().m_UnifiedMenuBar )
+    if( UseUnifiedMenuBar() )
     {
         buildCommonMenuBar();
         return;
@@ -374,6 +374,14 @@ void GERBVIEW_FRAME::buildFileMenu( ACTION_MENU* fileMenu )
 }
 
 
+void GERBVIEW_FRAME::buildPanelsMenu( ACTION_MENU* aMenu )
+{
+    // So the shell's status-bar Panels button lists the Gerber Layers Manager, like every
+    // other editor's dockable panels.
+    aMenu->Add( GERBVIEW_ACTIONS::toggleLayerManager, ACTION_MENU::CHECK );
+}
+
+
 void GERBVIEW_FRAME::buildViewMenu( ACTION_MENU* viewMenu )
 {
     GERBVIEW_SELECTION_TOOL* selTool = m_toolManager->GetTool<GERBVIEW_SELECTION_TOOL>();
@@ -422,6 +430,25 @@ void GERBVIEW_FRAME::buildViewMenu( ACTION_MENU* viewMenu )
 
 void GERBVIEW_FRAME::buildToolsMenu( ACTION_MENU* toolsMenu )
 {
+    if( UseModernMenuLayout() )
+    {
+        // Altium-style: the D-code / source listings live in Reports; Tools keeps the working
+        // tools with the Preferences items folded into the tail.
+        GERBVIEW_SELECTION_TOOL* selTool = m_toolManager->GetTool<GERBVIEW_SELECTION_TOOL>();
+
+        toolsMenu->Add( ACTIONS::measureTool );
+
+        toolsMenu->AppendSeparator();
+        toolsMenu->Add( GERBVIEW_ACTIONS::clearLayer );
+
+        toolsMenu->AppendSeparator();
+        toolsMenu->Add( ACTIONS::openPreferences );
+
+        toolsMenu->AppendSeparator();
+        AddMenuLanguageList( toolsMenu, selTool );
+        return;
+    }
+
     toolsMenu->Add( GERBVIEW_ACTIONS::showDCodes );
     toolsMenu->Add( GERBVIEW_ACTIONS::showSource );
 
@@ -432,8 +459,19 @@ void GERBVIEW_FRAME::buildToolsMenu( ACTION_MENU* toolsMenu )
 }
 
 
+void GERBVIEW_FRAME::buildReportsMenu( ACTION_MENU* reportsMenu )
+{
+    reportsMenu->Add( GERBVIEW_ACTIONS::showDCodes );
+    reportsMenu->Add( GERBVIEW_ACTIONS::showSource );
+}
+
+
 void GERBVIEW_FRAME::buildPreferencesMenu( ACTION_MENU* preferencesMenu )
 {
+    // Modern layout: these items live in the tail of Tools instead of a top-level menu.
+    if( UseModernMenuLayout() )
+        return;
+
     GERBVIEW_SELECTION_TOOL* selTool = m_toolManager->GetTool<GERBVIEW_SELECTION_TOOL>();
 
     preferencesMenu->Add( ACTIONS::openPreferences );

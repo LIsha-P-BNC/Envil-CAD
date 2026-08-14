@@ -48,6 +48,7 @@ KISTATUSBAR::KISTATUSBAR( int aNumberFields, wxWindow* parent, wxWindowID id, ST
         m_backgroundStopButton( nullptr ),
         m_notificationsButton( nullptr ),
         m_warningButton( nullptr ),
+        m_panelsButton( nullptr ),
         m_normalFieldsCount( aNumberFields ),
         m_styleFlags( aFlags )
 {
@@ -63,6 +64,7 @@ KISTATUSBAR::KISTATUSBAR( int aNumberFields, wxWindow* parent, wxWindowID id, ST
     bool showNotification = ( m_styleFlags & NOTIFICATION_ICON );
     bool showCancel = ( m_styleFlags & CANCEL_BUTTON );
     bool showWarning = ( m_styleFlags & WARNING_ICON );
+    bool showPanels = ( m_styleFlags & PANELS_BUTTON );
 
     if( showCancel )
         extraFields++;
@@ -71,6 +73,9 @@ KISTATUSBAR::KISTATUSBAR( int aNumberFields, wxWindow* parent, wxWindowID id, ST
         extraFields++;
 
     if( showNotification )
+        extraFields++;
+
+    if( showPanels )
         extraFields++;
 
     SetFieldsCount( aNumberFields + extraFields );
@@ -129,6 +134,19 @@ KISTATUSBAR::KISTATUSBAR( int aNumberFields, wxWindow* parent, wxWindowID id, ST
         m_warningButton->Hide();
 
         m_warningButton->Bind( wxEVT_BUTTON, &KISTATUSBAR::onLoadWarningsIconClick, this );
+    }
+
+    if( showPanels )
+    {
+        // Altium-style Panels button: the owning frame binds the click and shows the active
+        // editor's panels menu; this widget only hosts the button.
+        m_panelsButton = new BITMAP_BUTTON( this, wxID_ANY, wxNullBitmap, wxDefaultPosition,
+                                            wxDefaultSize, wxBU_EXACTFIT );
+
+        m_panelsButton->SetPadding( 0 );
+        m_panelsButton->SetBitmap( KiBitmapBundle( BITMAPS::list_nets ) );
+        m_panelsButton->SetBitmapCentered( true );
+        m_panelsButton->SetToolTip( _( "Panels" ) );
     }
 
     Bind( wxEVT_SIZE, &KISTATUSBAR::onSize, this );
@@ -246,6 +264,17 @@ void KISTATUSBAR::layoutControls()
         m_warningButton->SetPosition( { x, y } );
         m_warningButton->SetSize( buttonSize.GetWidth() + 6, h );
     }
+
+    if( m_panelsButton )
+    {
+        GetFieldRect( m_normalFieldsCount + *fieldIndex( FIELD::PANELS ), r );
+        x = r.GetLeft();
+        y = r.GetTop();
+        h = r.GetHeight();
+        buttonSize = m_panelsButton->GetEffectiveMinSize();
+        m_panelsButton->SetPosition( { x, y } );
+        m_panelsButton->SetSize( buttonSize.GetWidth() + 6, h );
+    }
 }
 
 
@@ -342,6 +371,12 @@ void KISTATUSBAR::updateAuxFieldWidths()
     {
         m_fieldWidths[m_normalFieldsCount + *idx] =
                 m_notificationsButton && m_notificationsButton->IsShown() ? 20 : 0;
+    }
+
+    if( std::optional<int> idx = fieldIndex( FIELD::PANELS ) )
+    {
+        m_fieldWidths[m_normalFieldsCount + *idx] =
+                m_panelsButton && m_panelsButton->IsShown() ? 20 : 0;
     }
 
     SetStatusWidths( static_cast<int>( m_fieldWidths.size() ), m_fieldWidths.data() );
@@ -577,6 +612,26 @@ std::optional<int> KISTATUSBAR::fieldIndex( FIELD aField ) const
                 offset++;
 
             if( m_styleFlags & WARNING_ICON )
+                offset++;
+
+            return offset;
+        }
+
+        break;
+    }
+    case FIELD::PANELS:
+    {
+        if( m_styleFlags & PANELS_BUTTON )
+        {
+            int offset = 2;
+
+            if( m_styleFlags & CANCEL_BUTTON )
+                offset++;
+
+            if( m_styleFlags & WARNING_ICON )
+                offset++;
+
+            if( m_styleFlags & NOTIFICATION_ICON )
                 offset++;
 
             return offset;

@@ -97,14 +97,21 @@ wxFileName KICAD_MANAGER_CONTROL::newProjectDirectory( wxString* aFileName, bool
 
     wxFileName pro( dlg.GetPath() );
 
-    // wxFileName automatically extracts an extension.  But if it isn't
-    // a .pro extension, we should keep it as part of the filename
-    if( !pro.GetExt().IsEmpty() && pro.GetExt().ToStdString() != FILEEXT::AnvilProjectFileExtension
-            && pro.GetExt().ToStdString() != FILEEXT::ProjectFileExtension )
-        pro.SetName( pro.GetName() + wxT( "." ) + pro.GetExt() );
+    if( FILEEXT::IsForeignFamilyExt( pro.GetExt() ) )
+    {
+        // We never create kicad_* projects: a typed foreign extension is simply replaced.
+        pro.SetExt( FILEEXT::AnvilProjectFileExtension );
+    }
+    else
+    {
+        // wxFileName automatically extracts an extension.  But if it isn't the native
+        // extension, we should keep it as part of the filename
+        if( !pro.GetExt().IsEmpty()
+                && pro.GetExt().ToStdString() != FILEEXT::AnvilProjectFileExtension )
+            pro.SetName( pro.GetName() + wxT( "." ) + pro.GetExt() );
 
-    if( pro.GetExt().ToStdString() != FILEEXT::ProjectFileExtension )
         pro.SetExt( FILEEXT::AnvilProjectFileExtension ); // enforce native (Anvil) extension
+    }
 
     if( !pro.IsAbsolute() )
         pro.MakeAbsolute();
@@ -404,12 +411,19 @@ int KICAD_MANAGER_CONTROL::NewProject( const TOOL_EVENT& aEvent )
 
     wxFileName fn( dlg.GetPath() );
 
-    if( !fn.GetExt().IsEmpty() && fn.GetExt().ToStdString() != FILEEXT::AnvilProjectFileExtension
-            && fn.GetExt().ToStdString() != FILEEXT::ProjectFileExtension )
-        fn.SetName( fn.GetName() + wxT( "." ) + fn.GetExt() );
-
-    if( fn.GetExt().ToStdString() != FILEEXT::ProjectFileExtension )
+    if( FILEEXT::IsForeignFamilyExt( fn.GetExt() ) )
+    {
+        // We never create kicad_* projects: a typed foreign extension is simply replaced.
         fn.SetExt( FILEEXT::AnvilProjectFileExtension );
+    }
+    else
+    {
+        if( !fn.GetExt().IsEmpty()
+                && fn.GetExt().ToStdString() != FILEEXT::AnvilProjectFileExtension )
+            fn.SetName( fn.GetName() + wxT( "." ) + fn.GetExt() );
+
+        fn.SetExt( FILEEXT::AnvilProjectFileExtension );
+    }
 
     if( !fn.IsAbsolute() )
         fn.MakeAbsolute();
@@ -593,11 +607,11 @@ int KICAD_MANAGER_CONTROL::NewJobsetFile( const TOOL_EVENT& aEvent )
 
 
 
-int KICAD_MANAGER_CONTROL::openProject( const wxString& aDefaultDir )
+int KICAD_MANAGER_CONTROL::openProject( const wxString& aDefaultDir, const wxString& aWildcard )
 {
-    wxString wildcard = FILEEXT::AllProjectFilesWildcard()
-                        + "|" + FILEEXT::ProjectFileWildcard()
-                        + "|" + FILEEXT::LegacyProjectFileWildcard();
+    // Native projects only; a foreign path typed in anyway still reaches LoadProject,
+    // which routes it to the import offer.
+    wxString wildcard = aWildcard.IsEmpty() ? FILEEXT::AnvilProjectFileWildcard() : aWildcard;
 
     wxFileDialog dlg( m_frame, _( "Open Existing Project" ), aDefaultDir, wxEmptyString, wildcard,
                       wxFD_OPEN | wxFD_FILE_MUST_EXIST );
@@ -631,7 +645,14 @@ int KICAD_MANAGER_CONTROL::openProject( const wxString& aDefaultDir )
 
 int KICAD_MANAGER_CONTROL::OpenDemoProject( const TOOL_EVENT& aEvent )
 {
-    return openProject( PATHS::GetStockDemosPath() );
+    // Stock demos still ship as .kicad_pro.  Like the import wizard, the demo picker is a
+    // sanctioned place to list them — a selected demo flows through LoadProject, which
+    // offers import & convert instead of opening it natively.
+    wxString demoWildcard = _( "Demo projects" )
+                            + AddFileExtListToFilter( { FILEEXT::AnvilProjectFileExtension,
+                                                        FILEEXT::ProjectFileExtension } );
+
+    return openProject( PATHS::GetStockDemosPath(), demoWildcard );
 }
 
 

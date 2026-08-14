@@ -65,6 +65,7 @@ public:
         NOTIFICATION_ICON = 0x01,
         CANCEL_BUTTON     = 0x02,
         WARNING_ICON      = 0x04,
+        PANELS_BUTTON     = 0x08,   ///< Altium-style "Panels" button at the right edge (opt-in)
     };
 
     static constexpr auto DEFAULT_STYLE =
@@ -119,6 +120,12 @@ public:
     void ClearLoadWarningMessages();
 
     /**
+     * The Altium-style "Panels" button (PANELS_BUTTON style flag), or nullptr.  The owning
+     * frame binds its wxEVT_BUTTON and pops the active editor's panels menu above it.
+     */
+    BITMAP_BUTTON* GetPanelsButton() const { return m_panelsButton; }
+
+    /**
      * Add warning/error messages thread-safely.
      * Can be called from any thread. UI update is deferred to main thread.
      */
@@ -145,7 +152,8 @@ private:
         BGJOB_GAUGE,
         BGJOB_CANCEL,
         WARNING,
-        NOTIFICATION
+        NOTIFICATION,
+        PANELS
     };
 
     std::optional<int> fieldIndex( FIELD aField ) const;
@@ -156,6 +164,7 @@ private:
     wxStaticText*  m_backgroundTxt;
     BITMAP_BUTTON* m_notificationsButton;
     BITMAP_BUTTON* m_warningButton;
+    BITMAP_BUTTON* m_panelsButton;
     mutable std::mutex m_loadWarningMutex;  ///< Protects m_loadWarningMessages
     std::vector<LOAD_MESSAGE> m_loadWarningMessages;
     int            m_normalFieldsCount;

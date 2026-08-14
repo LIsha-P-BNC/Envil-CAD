@@ -40,6 +40,7 @@
 #include <io/pads/pads_unit_converter.h>
 #include <io/pads/pads_common.h>
 
+#include <wildcards_and_files_ext.h>
 #include <netinfo.h>
 #include <wx/log.h>
 #include <wx/file.h>
@@ -2327,7 +2328,7 @@ void PCB_IO_PADS::loadGraphicLines()
 void PCB_IO_PADS::generateDrcRules( const wxString& aFileName )
 {
     wxFileName fn( aFileName );
-    fn.SetExt( wxT( "kicad_dru" ) );
+    fn.SetExt( FILEEXT::DesignRulesFileExtension );
 
     wxString customRules = wxT( "(version 1)\n" );
 

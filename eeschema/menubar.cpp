@@ -43,7 +43,7 @@
 void SCH_EDIT_FRAME::doReCreateMenuBar()
 {
     // KiCad Next: build the shared common menu bar instead of the legacy one when enabled.
-    if( ADVANCED_CFG::GetCfg().m_UnifiedMenuBar )
+    if( UseUnifiedMenuBar() )
     {
         buildCommonMenuBar();
         return;
@@ -183,30 +183,10 @@ void SCH_EDIT_FRAME::doReCreateMenuBar()
     //
     ACTION_MENU* viewMenu = new ACTION_MENU( false, selTool );
 
-    // Show / Hide Panels submenu
+    // Show / Hide Panels submenu (content shared with the shell's Panels button).
     ACTION_MENU* showHidePanels = new ACTION_MENU( false, selTool );
     showHidePanels->SetTitle( _( "Panels" ) );
-
-    showHidePanels->Add( ACTIONS::showProperties,    ACTION_MENU::CHECK );
-    showHidePanels->Add( ACTIONS::showSearch,        ACTION_MENU::CHECK );
-    showHidePanels->Add( SCH_ACTIONS::showHierarchy, ACTION_MENU::CHECK );
-
-    if( ADVANCED_CFG::GetCfg().m_IncrementalConnectivity )
-        showHidePanels->Add( SCH_ACTIONS::showNetNavigator, ACTION_MENU::CHECK );
-
-    // In the shell's common-AI mode the shell owns the only AI panel, so drop the per-editor
-    // AI toggle from the View menu (kept when CommonAiPanel is off).
-    if( !( ADVANCED_CFG::GetCfg().m_SingleWindowShell
-           && ADVANCED_CFG::GetCfg().m_CommonAiPanel ) )
-        showHidePanels->Add( SCH_ACTIONS::showAiChat );
-    showHidePanels->Add( SCH_ACTIONS::showDesignBlockPanel, ACTION_MENU::CHECK, _( "Design Blocks" ) );
-    wxMenuItem* remoteSymbolItem = showHidePanels->Add( SCH_ACTIONS::showRemoteSymbolPanel, ACTION_MENU::CHECK, _( "Remote Symbols" ) );
-
-    if( m_remoteSymbolPane && !m_remoteSymbolPane->HasDataSources() )
-    {
-        remoteSymbolItem->Enable( false );
-        remoteSymbolItem->SetHelp( _( "Search signed-in remote symbol providers and download verified libraries." ) );
-    }
+    buildPanelsMenu( showHidePanels );
 
     viewMenu->Add( showHidePanels );
 
@@ -229,7 +209,39 @@ void SCH_EDIT_FRAME::doReCreateMenuBar()
     viewMenu->Add( SCH_ACTIONS::navigatePrevious );
     viewMenu->Add( SCH_ACTIONS::navigateNext );
 
+    // Modern toolbar preset: the left toolbar is gone, so its display toggles surface here.
+    if( ADVANCED_CFG::GetCfg().m_ModernToolbarLayout )
+    {
+        viewMenu->AppendSeparator();
+        viewMenu->Add( ACTIONS::toggleGrid,          ACTION_MENU::CHECK );
+        viewMenu->Add( ACTIONS::toggleGridOverrides, ACTION_MENU::CHECK );
 
+        ACTION_MENU* unitsSubMenu = new ACTION_MENU( false, selTool );
+        unitsSubMenu->SetTitle( _( "&Units" ) );
+        unitsSubMenu->Add( ACTIONS::inchesUnits,      ACTION_MENU::CHECK );
+        unitsSubMenu->Add( ACTIONS::milsUnits,        ACTION_MENU::CHECK );
+        unitsSubMenu->Add( ACTIONS::millimetersUnits, ACTION_MENU::CHECK );
+        viewMenu->Add( unitsSubMenu );
+
+        ACTION_MENU* crosshairSubMenu = new ACTION_MENU( false, selTool );
+        crosshairSubMenu->SetTitle( _( "&Crosshair Mode" ) );
+        crosshairSubMenu->Add( ACTIONS::cursorSmallCrosshairs, ACTION_MENU::CHECK );
+        crosshairSubMenu->Add( ACTIONS::cursorFullCrosshairs,  ACTION_MENU::CHECK );
+        crosshairSubMenu->Add( ACTIONS::cursor45Crosshairs,    ACTION_MENU::CHECK );
+        viewMenu->Add( crosshairSubMenu );
+
+        ACTION_MENU* lineModeSubMenu = new ACTION_MENU( false, selTool );
+        lineModeSubMenu->SetTitle( _( "&Line Mode" ) );
+        lineModeSubMenu->Add( SCH_ACTIONS::lineModeFree, ACTION_MENU::CHECK );
+        lineModeSubMenu->Add( SCH_ACTIONS::lineMode90,   ACTION_MENU::CHECK );
+        lineModeSubMenu->Add( SCH_ACTIONS::lineMode45,   ACTION_MENU::CHECK );
+        viewMenu->Add( lineModeSubMenu );
+
+        viewMenu->Add( SCH_ACTIONS::toggleAnnotateAuto, ACTION_MENU::CHECK );
+
+        if( ADVANCED_CFG::GetCfg().m_DrawBoundingBoxes )
+            viewMenu->Add( ACTIONS::toggleBoundingBoxes, ACTION_MENU::CHECK );
+    }
 
     viewMenu->AppendSeparator();
     viewMenu->Add( SCH_ACTIONS::toggleHiddenPins,      ACTION_MENU::CHECK );
@@ -389,6 +401,34 @@ TOOL_INTERACTIVE* SCH_EDIT_FRAME::getCurrentMenuTool()
 }
 
 
+void SCH_EDIT_FRAME::buildPanelsMenu( ACTION_MENU* aMenu )
+{
+    aMenu->Add( ACTIONS::showProperties,    ACTION_MENU::CHECK );
+    aMenu->Add( ACTIONS::showSearch,        ACTION_MENU::CHECK );
+    aMenu->Add( SCH_ACTIONS::showHierarchy, ACTION_MENU::CHECK );
+
+    if( ADVANCED_CFG::GetCfg().m_IncrementalConnectivity )
+        aMenu->Add( SCH_ACTIONS::showNetNavigator, ACTION_MENU::CHECK );
+
+    // In the shell's common-AI mode the shell owns the only AI panel, so drop the per-editor
+    // AI toggle (kept when CommonAiPanel is off).
+    if( !( ADVANCED_CFG::GetCfg().m_SingleWindowShell
+           && ADVANCED_CFG::GetCfg().m_CommonAiPanel ) )
+        aMenu->Add( SCH_ACTIONS::showAiChat );
+
+    aMenu->Add( SCH_ACTIONS::showDesignBlockPanel, ACTION_MENU::CHECK, _( "Design Blocks" ) );
+
+    wxMenuItem* remoteSymbolItem =
+            aMenu->Add( SCH_ACTIONS::showRemoteSymbolPanel, ACTION_MENU::CHECK, _( "Remote Symbols" ) );
+
+    if( m_remoteSymbolPane && !m_remoteSymbolPane->HasDataSources() )
+    {
+        remoteSymbolItem->Enable( false );
+        remoteSymbolItem->SetHelp( _( "Search signed-in remote symbol providers and download verified libraries." ) );
+    }
+}
+
+
 void SCH_EDIT_FRAME::buildFileMenu( ACTION_MENU* fileMenu )
 {
     SCH_SELECTION_TOOL* selTool = m_toolManager->GetTool<SCH_SELECTION_TOOL>();
@@ -461,8 +501,12 @@ void SCH_EDIT_FRAME::buildFileMenu( ACTION_MENU* fileMenu )
     submenuExport->Add( SCH_ACTIONS::exportSymbolsToLibrary, ACTION_MENU::NORMAL, _( "Symbols..." ) );
     fileMenu->Add( submenuExport );
 
-    fileMenu->AppendSeparator();
-    fileMenu->Add( SCH_ACTIONS::schematicSetup );
+    // Modern layout: Schematic Setup lives in the Design menu instead.
+    if( !UseModernMenuLayout() )
+    {
+        fileMenu->AppendSeparator();
+        fileMenu->Add( SCH_ACTIONS::schematicSetup );
+    }
 
     fileMenu->AppendSeparator();
     fileMenu->Add( ACTIONS::pageSettings );
@@ -519,30 +563,10 @@ void SCH_EDIT_FRAME::buildViewMenu( ACTION_MENU* viewMenu )
 {
     SCH_SELECTION_TOOL* selTool = m_toolManager->GetTool<SCH_SELECTION_TOOL>();
 
-    // Show / Hide Panels submenu
+    // Show / Hide Panels submenu (content shared with the shell's Panels button).
     ACTION_MENU* showHidePanels = new ACTION_MENU( false, selTool );
     showHidePanels->SetTitle( _( "Panels" ) );
-
-    showHidePanels->Add( ACTIONS::showProperties,    ACTION_MENU::CHECK );
-    showHidePanels->Add( ACTIONS::showSearch,        ACTION_MENU::CHECK );
-    showHidePanels->Add( SCH_ACTIONS::showHierarchy, ACTION_MENU::CHECK );
-
-    if( ADVANCED_CFG::GetCfg().m_IncrementalConnectivity )
-        showHidePanels->Add( SCH_ACTIONS::showNetNavigator, ACTION_MENU::CHECK );
-
-    // In the shell's common-AI mode the shell owns the only AI panel, so drop the per-editor
-    // AI toggle from the View menu (kept when CommonAiPanel is off).
-    if( !( ADVANCED_CFG::GetCfg().m_SingleWindowShell
-           && ADVANCED_CFG::GetCfg().m_CommonAiPanel ) )
-        showHidePanels->Add( SCH_ACTIONS::showAiChat );
-    showHidePanels->Add( SCH_ACTIONS::showDesignBlockPanel, ACTION_MENU::CHECK, _( "Design Blocks" ) );
-    wxMenuItem* remoteSymbolItem = showHidePanels->Add( SCH_ACTIONS::showRemoteSymbolPanel, ACTION_MENU::CHECK, _( "Remote Symbols" ) );
-
-    if( m_remoteSymbolPane && !m_remoteSymbolPane->HasDataSources() )
-    {
-        remoteSymbolItem->Enable( false );
-        remoteSymbolItem->SetHelp( _( "Search signed-in remote symbol providers and download verified libraries." ) );
-    }
+    buildPanelsMenu( showHidePanels );
 
     viewMenu->Add( showHidePanels );
 
@@ -565,7 +589,39 @@ void SCH_EDIT_FRAME::buildViewMenu( ACTION_MENU* viewMenu )
     viewMenu->Add( SCH_ACTIONS::navigatePrevious );
     viewMenu->Add( SCH_ACTIONS::navigateNext );
 
+    // Modern toolbar preset: the left toolbar is gone, so its display toggles surface here.
+    if( ADVANCED_CFG::GetCfg().m_ModernToolbarLayout )
+    {
+        viewMenu->AppendSeparator();
+        viewMenu->Add( ACTIONS::toggleGrid,          ACTION_MENU::CHECK );
+        viewMenu->Add( ACTIONS::toggleGridOverrides, ACTION_MENU::CHECK );
 
+        ACTION_MENU* unitsSubMenu = new ACTION_MENU( false, selTool );
+        unitsSubMenu->SetTitle( _( "&Units" ) );
+        unitsSubMenu->Add( ACTIONS::inchesUnits,      ACTION_MENU::CHECK );
+        unitsSubMenu->Add( ACTIONS::milsUnits,        ACTION_MENU::CHECK );
+        unitsSubMenu->Add( ACTIONS::millimetersUnits, ACTION_MENU::CHECK );
+        viewMenu->Add( unitsSubMenu );
+
+        ACTION_MENU* crosshairSubMenu = new ACTION_MENU( false, selTool );
+        crosshairSubMenu->SetTitle( _( "&Crosshair Mode" ) );
+        crosshairSubMenu->Add( ACTIONS::cursorSmallCrosshairs, ACTION_MENU::CHECK );
+        crosshairSubMenu->Add( ACTIONS::cursorFullCrosshairs,  ACTION_MENU::CHECK );
+        crosshairSubMenu->Add( ACTIONS::cursor45Crosshairs,    ACTION_MENU::CHECK );
+        viewMenu->Add( crosshairSubMenu );
+
+        ACTION_MENU* lineModeSubMenu = new ACTION_MENU( false, selTool );
+        lineModeSubMenu->SetTitle( _( "&Line Mode" ) );
+        lineModeSubMenu->Add( SCH_ACTIONS::lineModeFree, ACTION_MENU::CHECK );
+        lineModeSubMenu->Add( SCH_ACTIONS::lineMode90,   ACTION_MENU::CHECK );
+        lineModeSubMenu->Add( SCH_ACTIONS::lineMode45,   ACTION_MENU::CHECK );
+        viewMenu->Add( lineModeSubMenu );
+
+        viewMenu->Add( SCH_ACTIONS::toggleAnnotateAuto, ACTION_MENU::CHECK );
+
+        if( ADVANCED_CFG::GetCfg().m_DrawBoundingBoxes )
+            viewMenu->Add( ACTIONS::toggleBoundingBoxes, ACTION_MENU::CHECK );
+    }
 
     viewMenu->AppendSeparator();
     viewMenu->Add( SCH_ACTIONS::toggleHiddenPins,      ACTION_MENU::CHECK );
@@ -621,6 +677,11 @@ void SCH_EDIT_FRAME::buildPlaceMenu( ACTION_MENU* placeMenu )
 
 void SCH_EDIT_FRAME::buildInspectMenu( ACTION_MENU* inspectMenu )
 {
+    // Modern layout: ERC, the simulator and the bus syntax help move to Tools and the library
+    // diff to Reports, so the classic Inspect menu is dropped entirely.
+    if( UseModernMenuLayout() )
+        return;
+
     inspectMenu->Add( SCH_ACTIONS::showBusSyntaxHelp );
 
     inspectMenu->AppendSeparator();
@@ -640,6 +701,54 @@ void SCH_EDIT_FRAME::buildInspectMenu( ACTION_MENU* inspectMenu )
 void SCH_EDIT_FRAME::buildToolsMenu( ACTION_MENU* toolsMenu )
 {
     SCH_SELECTION_TOOL* selTool = m_toolManager->GetTool<SCH_SELECTION_TOOL>();
+
+    if( UseModernMenuLayout() )
+    {
+        // Altium-style Tools: checkers and utilities.  Cross-editor navigation lives in
+        // Project, design-data operations in Design, generated listings in Reports, and the
+        // Preferences items are folded into the tail here until the title-bar gear hosts them.
+        toolsMenu->Add( SCH_ACTIONS::runERC );
+        toolsMenu->Add( ACTIONS::prevMarker );
+        toolsMenu->Add( ACTIONS::nextMarker );
+        toolsMenu->Add( ACTIONS::excludeMarker );
+
+        toolsMenu->AppendSeparator();
+        toolsMenu->Add( SCH_ACTIONS::annotate );
+        toolsMenu->Add( SCH_ACTIONS::incrementAnnotations );
+        toolsMenu->Add( SCH_ACTIONS::assignFootprints );
+
+        toolsMenu->AppendSeparator();
+        toolsMenu->Add( SCH_ACTIONS::showSimulator );
+        toolsMenu->Add( SCH_ACTIONS::showBusSyntaxHelp );
+
+        toolsMenu->AppendSeparator();
+        toolsMenu->Add( ACTIONS::showSymbolEditor );
+        toolsMenu->Add( SCH_ACTIONS::updateSymbols );
+        toolsMenu->Add( SCH_ACTIONS::rescueSymbols );
+        toolsMenu->Add( SCH_ACTIONS::remapSymbols );
+
+        toolsMenu->AppendSeparator();
+        toolsMenu->Add( SCH_ACTIONS::editSymbolFields );
+        toolsMenu->Add( SCH_ACTIONS::editSymbolLibraryLinks );
+
+        toolsMenu->AppendSeparator();
+        toolsMenu->Add( ACTIONS::showCalculatorTools );
+
+#ifdef KICAD_IPC_API
+        toolsMenu->AppendSeparator();
+        toolsMenu->Add( ACTIONS::pluginsReload );
+#endif
+
+        toolsMenu->AppendSeparator();
+        toolsMenu->Add( ACTIONS::configurePaths );
+        toolsMenu->Add( ACTIONS::showSymbolLibTable );
+        toolsMenu->Add( ACTIONS::showDesignBlockLibTable );
+        toolsMenu->Add( ACTIONS::openPreferences );
+
+        toolsMenu->AppendSeparator();
+        AddMenuLanguageList( toolsMenu, selTool );
+        return;
+    }
 
     toolsMenu->Add( ACTIONS::updatePcbFromSchematic )->Enable( !Kiface().IsSingle() );
     toolsMenu->Add( SCH_ACTIONS::showPcbNew );
@@ -689,6 +798,10 @@ void SCH_EDIT_FRAME::buildToolsMenu( ACTION_MENU* toolsMenu )
 
 void SCH_EDIT_FRAME::buildPreferencesMenu( ACTION_MENU* prefsMenu )
 {
+    // Modern layout: these items live in the tail of Tools instead of a top-level menu.
+    if( UseModernMenuLayout() )
+        return;
+
     SCH_SELECTION_TOOL* selTool = m_toolManager->GetTool<SCH_SELECTION_TOOL>();
 
     prefsMenu->Add( ACTIONS::configurePaths );
@@ -698,4 +811,50 @@ void SCH_EDIT_FRAME::buildPreferencesMenu( ACTION_MENU* prefsMenu )
 
     prefsMenu->AppendSeparator();
     AddMenuLanguageList( prefsMenu, selTool );
+}
+
+
+void SCH_EDIT_FRAME::buildProjectMenu( ACTION_MENU* projectMenu )
+{
+    SCH_SELECTION_TOOL* selTool = m_toolManager->GetTool<SCH_SELECTION_TOOL>();
+
+    projectMenu->Add( SCH_ACTIONS::showPcbNew );
+
+    if( !Kiface().IsSingle() )
+        projectMenu->Add( ACTIONS::showProjectManager );
+
+    // Altium runs schematic checking from Project → Compile/Validate; ERC also stays under
+    // Tools next to its marker navigation — both habits work, nothing is lost.
+    projectMenu->AppendSeparator();
+    projectMenu->Add( SCH_ACTIONS::runERC, ACTION_MENU::NORMAL, _( "Validate Project (ERC)" ) );
+
+    projectMenu->AppendSeparator();
+
+    ACTION_MENU* submenuVariants = new ACTION_MENU( false, selTool );
+    submenuVariants->SetTitle( _( "Variants" ) );
+    submenuVariants->Add( SCH_ACTIONS::addVariant );
+    submenuVariants->Add( SCH_ACTIONS::removeVariant );
+    projectMenu->Add( submenuVariants );
+}
+
+
+void SCH_EDIT_FRAME::buildDesignMenu( ACTION_MENU* designMenu )
+{
+    // Annotation and footprint assignment live under Tools (matching Altium's Tools →
+    // Annotation / Footprint Manager); Design keeps the design-data operations.
+    designMenu->Add( SCH_ACTIONS::schematicSetup );
+
+    designMenu->AppendSeparator();
+    designMenu->Add( ACTIONS::updatePcbFromSchematic )->Enable( !Kiface().IsSingle() );
+    designMenu->Add( ACTIONS::updateSchematicFromPcb )->Enable( !Kiface().IsSingle() );
+}
+
+
+void SCH_EDIT_FRAME::buildReportsMenu( ACTION_MENU* reportsMenu )
+{
+    reportsMenu->Add( SCH_ACTIONS::generateBOM );
+    reportsMenu->Add( SCH_ACTIONS::generateBOMLegacy );
+
+    reportsMenu->AppendSeparator();
+    reportsMenu->Add( SCH_ACTIONS::diffSymbol );
 }

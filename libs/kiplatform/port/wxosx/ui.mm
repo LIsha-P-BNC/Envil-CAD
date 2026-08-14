@@ -260,3 +260,9 @@ void KIPLATFORM::UI::AllowNetworkFileSystems( wxDialog* aDialog )
 {
     // Not needed on macOS - file dialogs show network filesystems by default
 }
+
+
+void KIPLATFORM::UI::AddDropShadow( wxWindow* aWindow )
+{
+    // macOS already draws shadows under popup/menu windows.
+}

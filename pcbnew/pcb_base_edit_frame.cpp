@@ -289,7 +289,10 @@ wxString PCB_BASE_EDIT_FRAME::GetDesignRulesPath()
 
     wxFileName fn = GetBoard()->GetFileName();
     fn.SetExt( FILEEXT::DesignRulesFileExtension );
-    return Prj().AbsolutePath( fn.GetFullName() );
+
+    // Projects written before the anvil_dru rename still carry a .kicad_dru on disk;
+    // keep reading it until something rewrites the rules under the native name.
+    return FILEEXT::HealToExistingFamilySibling( Prj().AbsolutePath( fn.GetFullName() ) );
 }
 
 

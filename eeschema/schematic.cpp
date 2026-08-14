@@ -2034,7 +2034,7 @@ void SCHEMATIC::CreateDefaultScreens()
 
     const_cast<KIID&>( rootSheet->m_Uuid ) = rootScreen->GetUuid();
     rootSheet->SetScreen( rootScreen );
-    rootScreen->SetFileName( "untitled.kicad_sch" ); // Set default filename to avoid conflicts
+    rootScreen->SetFileName( "untitled.anvil_sch" ); // Set default filename to avoid conflicts
     rootScreen->SetPageNumber( wxT( "1" ) );
 
     // Don't leave root page number empty

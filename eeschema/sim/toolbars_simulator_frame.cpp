@@ -79,6 +79,13 @@ std::optional<TOOLBAR_CONFIGURATION> SIMULATOR_TOOLBAR_SETTINGS::DefaultToolbarC
 
 void SIMULATOR_FRAME::doReCreateMenuBar()
 {
+    // KiCad Next: build the shared common menu bar instead of the legacy one when enabled.
+    if( UseUnifiedMenuBar() )
+    {
+        buildCommonMenuBar();
+        return;
+    }
+
     COMMON_CONTROL* tool = m_toolManager->GetTool<COMMON_CONTROL>();
     EDA_BASE_FRAME* base_frame = dynamic_cast<EDA_BASE_FRAME*>( this );
 
@@ -179,4 +186,106 @@ void SIMULATOR_FRAME::doReCreateMenuBar()
 
     base_frame->SetMenuBar( menuBar );
     delete oldMenuBar;
+}
+
+
+//================================ KiCad Next unified menu bar ================================
+// The following hooks reproduce the menus built above, but populate a menu supplied by the
+// shared EDA_BASE_FRAME::buildCommonMenuBar() orchestrator.  The unified assembler has no
+// "Simulation" top-level slot, so its items live under Tools there (the legacy path above
+// keeps the classic Simulation menu — nothing is lost either way).
+
+TOOL_INTERACTIVE* SIMULATOR_FRAME::getCurrentMenuTool()
+{
+    return m_toolManager->GetTool<COMMON_CONTROL>();
+}
+
+
+void SIMULATOR_FRAME::buildFileMenu( ACTION_MENU* fileMenu )
+{
+    fileMenu->Add( SCH_ACTIONS::newAnalysisTab );
+
+    fileMenu->AppendSeparator();
+    fileMenu->Add( SCH_ACTIONS::openWorkbook );
+    fileMenu->Add( SCH_ACTIONS::saveWorkbook );
+    fileMenu->Add( SCH_ACTIONS::saveWorkbookAs );
+
+    fileMenu->AppendSeparator();
+    fileMenu->Add( SCH_ACTIONS::exportPlotAsPNG );
+    fileMenu->Add( SCH_ACTIONS::exportPlotAsCSV );
+
+    fileMenu->AppendSeparator();
+    fileMenu->Add( SCH_ACTIONS::exportPlotToClipboard );
+    fileMenu->Add( SCH_ACTIONS::exportPlotToSchematic );
+
+    fileMenu->AppendSeparator();
+    fileMenu->AddClose( _( "Simulator" ) );
+}
+
+
+void SIMULATOR_FRAME::buildViewMenu( ACTION_MENU* viewMenu )
+{
+    viewMenu->Add( SCH_ACTIONS::toggleSimSidePanel, ACTION_MENU::CHECK );
+    viewMenu->Add( SCH_ACTIONS::toggleSimConsole,   ACTION_MENU::CHECK );
+
+    viewMenu->AppendSeparator();
+    viewMenu->Add( ACTIONS::zoomUndo );
+    viewMenu->Add( ACTIONS::zoomRedo );
+
+    viewMenu->AppendSeparator();
+    viewMenu->Add( ACTIONS::zoomInCenter );
+    viewMenu->Add( ACTIONS::zoomOutCenter );
+    viewMenu->Add( ACTIONS::zoomInHorizontally );
+    viewMenu->Add( ACTIONS::zoomOutHorizontally );
+    viewMenu->Add( ACTIONS::zoomInVertically );
+    viewMenu->Add( ACTIONS::zoomOutVertically );
+    viewMenu->Add( ACTIONS::zoomFitScreen );
+
+    viewMenu->AppendSeparator();
+    viewMenu->Add( ACTIONS::toggleGrid,                ACTION_MENU::CHECK );
+    viewMenu->Add( SCH_ACTIONS::toggleLegend,          ACTION_MENU::CHECK );
+    viewMenu->Add( SCH_ACTIONS::toggleDottedSecondary, ACTION_MENU::CHECK );
+    viewMenu->Add( SCH_ACTIONS::toggleDarkModePlots,   ACTION_MENU::CHECK );
+}
+
+
+void SIMULATOR_FRAME::buildToolsMenu( ACTION_MENU* toolsMenu )
+{
+    COMMON_CONTROL* tool = m_toolManager->GetTool<COMMON_CONTROL>();
+
+    toolsMenu->Add( SCH_ACTIONS::newAnalysisTab );
+    toolsMenu->Add( SCH_ACTIONS::simAnalysisProperties );
+    toolsMenu->Add( SCH_ACTIONS::runSimulation );
+
+    toolsMenu->AppendSeparator();
+    toolsMenu->Add( SCH_ACTIONS::simProbe );
+    toolsMenu->Add( SCH_ACTIONS::simTune );
+
+    toolsMenu->AppendSeparator();
+    toolsMenu->Add( SCH_ACTIONS::editUserDefinedSignals );
+    toolsMenu->Add( SCH_ACTIONS::showNetlist );
+
+    if( UseModernMenuLayout() )
+    {
+        toolsMenu->AppendSeparator();
+        toolsMenu->Add( ACTIONS::openPreferences );
+
+        toolsMenu->AppendSeparator();
+        AddMenuLanguageList( toolsMenu, tool );
+    }
+}
+
+
+void SIMULATOR_FRAME::buildPreferencesMenu( ACTION_MENU* prefsMenu )
+{
+    // Modern layout: these items live in the tail of Tools instead of a top-level menu.
+    if( UseModernMenuLayout() )
+        return;
+
+    COMMON_CONTROL* tool = m_toolManager->GetTool<COMMON_CONTROL>();
+
+    prefsMenu->Add( ACTIONS::openPreferences );
+
+    prefsMenu->AppendSeparator();
+    AddMenuLanguageList( prefsMenu, tool );
 }

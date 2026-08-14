@@ -92,7 +92,7 @@ public:
     bool InShowPlayer() const { return m_inShowPlayer; }
 
 private:
-    int openProject( const wxString& aDefaultDir );
+    int openProject( const wxString& aDefaultDir, const wxString& aWildcard = wxEmptyString );
 
     wxFileName newProjectDirectory( wxString* aFileName = nullptr, bool isRepo = false );
 

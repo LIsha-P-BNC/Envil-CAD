@@ -231,6 +231,22 @@ bool PROJECT_ARCHIVER::Archive( const wxString& aSrcDir, const wxString& aDestFi
         extensions.emplace( FILEEXT::GencadFileExtension );
     }
 
+    // Archives are robustness, not UI: for every family extension also accept its sibling
+    // spelling (anvil_* <-> kicad_*) so half-converted projects archive completely.
+    {
+        std::set<wxString> siblings;
+
+        for( const wxString& ext : extensions )
+        {
+            wxString sibling = FILEEXT::FamilySiblingExt( ext );
+
+            if( !sibling.IsEmpty() )
+                siblings.emplace( sibling );
+        }
+
+        extensions.insert( siblings.begin(), siblings.end() );
+    }
+
     // Gerber files (g?, g??, .gm12 (from protel export)).
     wxRegEx gerberFiles( FILEEXT::GerberFileExtensionsRegex );
     wxASSERT( gerberFiles.IsValid() );

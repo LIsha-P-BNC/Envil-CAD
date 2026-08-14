@@ -984,7 +984,10 @@ bool DS_DATA_MODEL::LoadDrawingSheet( const wxString& aFullFileName, wxString* a
             // already draws its own frame and title block. Treating it as a missing file and
             // falling back to the default sheet is what put KiCad's title block on top of the
             // imported one, and it did so silently -- the import looked right until reload.
-            if( wxFileName( aFullFileName ).GetFullName() == EmptySheetName() )
+            // Both marker spellings are honoured: older projects carry the kicad_wks one.
+            wxString markerName = wxFileName( aFullFileName ).GetFullName();
+
+            if( markerName == EmptySheetName() || markerName == LegacyEmptySheetName() )
             {
                 SetEmptyLayout();
                 return true;

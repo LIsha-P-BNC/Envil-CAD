@@ -60,6 +60,7 @@ Load() TODO's
 #include <wx/txtstrm.h>
 #include <wx/window.h>
 
+#include <wildcards_and_files_ext.h>
 #include <convert_basic_shapes_to_polygon.h>
 #include <font/fontconfig.h>
 #include <geometry/geometry_utils.h>
@@ -420,7 +421,7 @@ BOARD* PCB_IO_EAGLE::LoadBoard( const wxString& aFileName, BOARD* aAppendToMe,
         m_board->m_LegacyNetclassesLoaded = true;
         m_board->m_LegacyDesignSettingsLoaded = true;
 
-        fn.SetExt( wxT( "kicad_dru" ) );
+        fn.SetExt( FILEEXT::DesignRulesFileExtension );
         wxFile rulesFile( fn.GetFullPath(), wxFile::write );
         rulesFile.Write( m_customRules );
 

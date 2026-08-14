@@ -39,6 +39,13 @@ void EDA_3D_VIEWER_FRAME::doReCreateMenuBar()
 {
     wxLogTrace( m_logTrace, wxT( "EDA_3D_VIEWER_FRAME::CreateMenuBar" ) );
 
+    // KiCad Next: build the shared common menu bar instead of the legacy one when enabled.
+    if( UseUnifiedMenuBar() )
+    {
+        buildCommonMenuBar();
+        return;
+    }
+
     COMMON_CONTROL* tool    = m_toolManager->GetTool<COMMON_CONTROL>();
     wxMenuBar*      oldMenuBar = GetMenuBar();
     WX_MENUBAR*     menuBar = new WX_MENUBAR();
@@ -147,4 +154,127 @@ void EDA_3D_VIEWER_FRAME::doReCreateMenuBar()
 
     SetMenuBar( menuBar );
     delete oldMenuBar;
+}
+
+
+//================================ KiCad Next unified menu bar ================================
+// The following hooks reproduce the menus built above, but populate a menu supplied by the
+// shared EDA_BASE_FRAME::buildCommonMenuBar() orchestrator.  They are used only when the
+// unified path is enabled; otherwise the legacy doReCreateMenuBar() above runs.
+
+TOOL_INTERACTIVE* EDA_3D_VIEWER_FRAME::getCurrentMenuTool()
+{
+    return m_toolManager->GetTool<COMMON_CONTROL>();
+}
+
+
+void EDA_3D_VIEWER_FRAME::buildFileMenu( ACTION_MENU* fileMenu )
+{
+    fileMenu->Add( EDA_3D_ACTIONS::exportImage );
+
+    fileMenu->AppendSeparator();
+    fileMenu->AddClose( _( "3D Viewer" ) );
+}
+
+
+void EDA_3D_VIEWER_FRAME::buildEditMenu( ACTION_MENU* editMenu )
+{
+    editMenu->Add( EDA_3D_ACTIONS::copyToClipboard );
+}
+
+
+void EDA_3D_VIEWER_FRAME::buildViewMenu( ACTION_MENU* viewMenu )
+{
+    COMMON_CONTROL* tool = m_toolManager->GetTool<COMMON_CONTROL>();
+
+    viewMenu->Add( ACTIONS::zoomInCenter );
+    viewMenu->Add( ACTIONS::zoomOutCenter );
+    viewMenu->Add( ACTIONS::zoomFitScreen );
+    viewMenu->Add( ACTIONS::zoomRedraw );
+
+    ACTION_MENU* gridSubmenu = new ACTION_MENU( false, tool );
+    gridSubmenu->SetTitle( _( "3D Grid" ) );
+    gridSubmenu->SetIcon( BITMAPS::grid );
+    gridSubmenu->Add( EDA_3D_ACTIONS::noGrid,        ACTION_MENU::CHECK );
+    gridSubmenu->Add( EDA_3D_ACTIONS::show10mmGrid,  ACTION_MENU::CHECK );
+    gridSubmenu->Add( EDA_3D_ACTIONS::show5mmGrid,   ACTION_MENU::CHECK );
+    gridSubmenu->Add( EDA_3D_ACTIONS::show2_5mmGrid, ACTION_MENU::CHECK );
+    gridSubmenu->Add( EDA_3D_ACTIONS::show1mmGrid,   ACTION_MENU::CHECK );
+
+    viewMenu->AppendSeparator();
+    viewMenu->Add( gridSubmenu );
+
+    viewMenu->AppendSeparator();
+    viewMenu->Add( EDA_3D_ACTIONS::viewTop );
+    viewMenu->Add( EDA_3D_ACTIONS::viewBottom );
+    viewMenu->Add( EDA_3D_ACTIONS::viewRight );
+    viewMenu->Add( EDA_3D_ACTIONS::viewLeft );
+    viewMenu->Add( EDA_3D_ACTIONS::viewFront );
+    viewMenu->Add( EDA_3D_ACTIONS::viewBack );
+
+    ACTION_MENU* rotateSubmenu = new ACTION_MENU( false, tool );
+    rotateSubmenu->SetTitle( _( "Rotate Board" ) );
+    rotateSubmenu->SetIcon( BITMAPS::rotate_cw );
+    rotateSubmenu->Add( EDA_3D_ACTIONS::rotateXCW );
+    rotateSubmenu->Add( EDA_3D_ACTIONS::rotateXCCW );
+    rotateSubmenu->AppendSeparator();
+    rotateSubmenu->Add( EDA_3D_ACTIONS::rotateYCW );
+    rotateSubmenu->Add( EDA_3D_ACTIONS::rotateYCCW );
+    rotateSubmenu->AppendSeparator();
+    rotateSubmenu->Add( EDA_3D_ACTIONS::rotateZCW );
+    rotateSubmenu->Add( EDA_3D_ACTIONS::rotateZCCW );
+
+    ACTION_MENU* moveSubmenu = new ACTION_MENU( false, tool );
+    moveSubmenu->SetTitle( _( "Move Board" ) );
+    moveSubmenu->SetIcon( BITMAPS::move );
+    moveSubmenu->Add( EDA_3D_ACTIONS::moveLeft );
+    moveSubmenu->Add( EDA_3D_ACTIONS::moveRight );
+    moveSubmenu->Add( EDA_3D_ACTIONS::moveUp );
+    moveSubmenu->Add( EDA_3D_ACTIONS::moveDown );
+
+    viewMenu->AppendSeparator();
+    viewMenu->Add( rotateSubmenu );
+    viewMenu->Add( EDA_3D_ACTIONS::flipView );
+    viewMenu->Add( moveSubmenu );
+
+    viewMenu->AppendSeparator();
+    viewMenu->Add( EDA_3D_ACTIONS::showLayersManager, ACTION_MENU::CHECK );
+}
+
+
+void EDA_3D_VIEWER_FRAME::buildToolsMenu( ACTION_MENU* toolsMenu )
+{
+    // The classic 3D viewer has no Tools menu; the modern (Altium-style) layout gains one
+    // holding the render toggle plus the Preferences items folded in from the dropped
+    // Preferences menu.  (The action symbol is genuinely spelled "toggleRaytacing" upstream.)
+    if( !UseModernMenuLayout() )
+        return;
+
+    COMMON_CONTROL* tool = m_toolManager->GetTool<COMMON_CONTROL>();
+
+    toolsMenu->Add( EDA_3D_ACTIONS::toggleRaytacing, ACTION_MENU::CHECK );
+
+    toolsMenu->AppendSeparator();
+    toolsMenu->Add( _( "Reset to Default Settings" ), ID_MENU3D_RESET_DEFAULTS, BITMAPS::tools );
+    toolsMenu->Add( ACTIONS::openPreferences );
+
+    toolsMenu->AppendSeparator();
+    AddMenuLanguageList( toolsMenu, tool );
+}
+
+
+void EDA_3D_VIEWER_FRAME::buildPreferencesMenu( ACTION_MENU* prefsMenu )
+{
+    // Modern layout: these items live in the tail of Tools instead of a top-level menu.
+    if( UseModernMenuLayout() )
+        return;
+
+    COMMON_CONTROL* tool = m_toolManager->GetTool<COMMON_CONTROL>();
+
+    prefsMenu->Add( EDA_3D_ACTIONS::toggleRaytacing, ACTION_MENU::CHECK );
+    prefsMenu->Add( ACTIONS::openPreferences );
+    prefsMenu->Add( _( "Reset to Default Settings" ), ID_MENU3D_RESET_DEFAULTS, BITMAPS::tools );
+
+    prefsMenu->AppendSeparator();
+    AddMenuLanguageList( prefsMenu, tool );
 }

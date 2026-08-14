@@ -22,7 +22,10 @@
 #include <wx/dc.h>
 #include <wx/pen.h>
 
-wxColour FOOTPRINT_CHOICE::m_grey( 0x808080 );
+// Mirrors ANVIL::DIM (kiplatform/anvil_theme.h).  Kept as a literal rather than copied from the
+// palette because this is a static-storage member: copying ANVIL::DIM here would depend on the
+// palette globals being constructed first, which is not guaranteed across translation units.
+wxColour FOOTPRINT_CHOICE::m_grey( 150, 160, 150 );   // NEMI dim (== ANVIL::DIM)
 
 
 FOOTPRINT_CHOICE::FOOTPRINT_CHOICE( wxWindow* aParent, int aId ) :

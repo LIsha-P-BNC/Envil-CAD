@@ -196,7 +196,7 @@ void PCB_CALCULATOR_FRAME::loadPages()
 void PCB_CALCULATOR_FRAME::doReCreateMenuBar()
 {
     // KiCad Next: build the shared common menu bar instead of the legacy one when enabled.
-    if( ADVANCED_CFG::GetCfg().m_UnifiedMenuBar )
+    if( UseUnifiedMenuBar() )
     {
         buildCommonMenuBar();
         return;

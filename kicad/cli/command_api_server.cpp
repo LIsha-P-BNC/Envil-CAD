@@ -52,7 +52,7 @@ CLI::API_SERVER_COMMAND::API_SERVER_COMMAND() :
     m_argParser.add_argument( ARG_PATH )
             .default_value( std::string() )
             .nargs( argparse::nargs_pattern::optional )
-            .help( UTF8STDSTR( _( "Optional path to a .kicad_pro, .kicad_pcb, or .kicad_sch file to pre-load" ) ) )
+            .help( UTF8STDSTR( _( "Optional path to a .anvil_pro, .anvil_pcb, or .anvil_sch file to pre-load" ) ) )
             .metavar( "PROJECT_OR_FILE" );
 
     m_argParser.add_argument( ARG_SOCKET )
@@ -150,8 +150,10 @@ int CLI::API_SERVER_COMMAND::doPerform( KIWAY& aKiway )
         // we won't dispatch correctly.  We could instead try both handlers until one
         // succeeds, like we do with other API calls.
 
-        projectPath.SetExt( FILEEXT::ProjectFileExtension );
+        projectPath.SetExt( FILEEXT::AnvilProjectFileExtension );
         projectPath.MakeAbsolute();
+        projectPath =
+                wxFileName( FILEEXT::HealToExistingFamilySibling( projectPath.GetFullPath() ) );
 
         closeCurrentDocument();
 
@@ -187,13 +189,16 @@ int CLI::API_SERVER_COMMAND::doPerform( KIWAY& aKiway )
         if( openDocumentType == types::DOCTYPE_PCB )
         {
             wxFileName boardPath( openProjectPath );
-            boardPath.SetExt( FILEEXT::KiCadPcbFileExtension );
+            boardPath.SetExt( FILEEXT::AnvilPcbFileExtension );
+            boardPath =
+                    wxFileName( FILEEXT::HealToExistingFamilySibling( boardPath.GetFullPath() ) );
             doc->set_board_filename( boardPath.GetFullName().ToStdString() );
         }
         else if( openDocumentType == types::DOCTYPE_SCHEMATIC )
         {
             wxFileName schPath( openProjectPath );
-            schPath.SetExt( FILEEXT::KiCadSchematicFileExtension );
+            schPath.SetExt( FILEEXT::AnvilSchematicFileExtension );
+            schPath = wxFileName( FILEEXT::HealToExistingFamilySibling( schPath.GetFullPath() ) );
             doc->set_schematic_filename( schPath.GetFullName().ToStdString() );
         }
 
@@ -295,10 +300,19 @@ int CLI::API_SERVER_COMMAND::doPerform( KIWAY& aKiway )
         wxFileName preloadFile( preloadPath );
         types::DocumentType preloadType = types::DOCTYPE_PROJECT;
 
-        if( preloadFile.GetExt() == FILEEXT::KiCadSchematicFileExtension )
+        // Accept both family spellings of a schematic/board argument.
+        wxString preloadExt = preloadFile.GetExt();
+
+        if( preloadExt.IsSameAs( FILEEXT::AnvilSchematicFileExtension, false )
+                || preloadExt.IsSameAs( FILEEXT::KiCadSchematicFileExtension, false ) )
+        {
             preloadType = types::DOCTYPE_SCHEMATIC;
-        else if( preloadFile.GetExt() == FILEEXT::KiCadPcbFileExtension )
+        }
+        else if( preloadExt.IsSameAs( FILEEXT::AnvilPcbFileExtension, false )
+                 || preloadExt.IsSameAs( FILEEXT::KiCadPcbFileExtension, false ) )
+        {
             preloadType = types::DOCTYPE_PCB;
+        }
 
         commands::OpenDocument request;
         request.set_type( preloadType );

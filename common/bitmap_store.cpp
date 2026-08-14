@@ -18,6 +18,7 @@
  */
 
 #include <wx/bitmap.h>
+#include <wx/image.h>
 #include <wx/filename.h>
 #include <wx/log.h>
 #include <wx/mstream.h>
@@ -105,6 +106,10 @@ size_t std::hash<std::pair<BITMAPS, int>>::operator()( const std::pair<BITMAPS, 
 BITMAP_STORE::BITMAP_STORE() :
     m_theme( BITMAP_INFO::THEME::LIGHT )
 {
+    // Anvil: read the emerald-icon flag once at startup (bundles are cached downstream, so this
+    // is restart-to-apply).
+    m_anvilIcons = ADVANCED_CFG::GetCfg().m_AnvilEmeraldIcons;
+
     wxFileName path( PATHS::GetStockDataPath() + wxT( "/resources" ), IMAGE_ARCHIVE );
 
     wxLogTrace( traceBitmaps, "Loading bitmaps from " + path.GetFullPath() );
@@ -321,7 +326,54 @@ wxImage BITMAP_STORE::getImage( BITMAPS aBitmapId, int aHeight )
     wxMemoryInputStream is( data, count );
     wxImage             image( is, wxBITMAP_TYPE_PNG );
 
+    if( m_anvilIcons )
+        recolorToAnvilTheme( image );
+
     return image;
+}
+
+
+void BITMAP_STORE::recolorToAnvilTheme( wxImage& aImage ) const
+{
+    // Hue-selective remap: shift KiCad-blue pixels to the NEMI emerald hue, keeping their
+    // saturation and value so anti-aliased edges move cleanly and semantic colours (red = delete,
+    // layer colours, warnings) and greys are left untouched.  wx HSV values are fractions [0,1].
+    //   KiCad primary blue #1A81C4 -> hue ~0.567;  NEMI Signal Emerald #10A37E -> hue ~0.458.
+    constexpr double BLUE_HUE_LO = 0.528;   // ~190 deg
+    constexpr double BLUE_HUE_HI = 0.611;   // ~220 deg
+    constexpr double EMERALD_HUE = 0.458;   // ~165 deg (#10A37E)
+    constexpr double MIN_SAT     = 0.25;    // skip greys / near-neutral detail pixels
+
+    if( !aImage.IsOk() )
+        return;
+
+    unsigned char* rgb = aImage.GetData();
+
+    if( !rgb )
+        return;
+
+    const bool           hasAlpha = aImage.HasAlpha();
+    const unsigned char* alpha    = hasAlpha ? aImage.GetAlpha() : nullptr;
+    const int            npix     = aImage.GetWidth() * aImage.GetHeight();
+
+    for( int i = 0; i < npix; ++i )
+    {
+        if( alpha && alpha[i] == 0 )        // fully transparent -- nothing to recolour
+            continue;
+
+        unsigned char* p = rgb + i * 3;
+
+        wxImage::HSVValue hsv = wxImage::RGBtoHSV( wxImage::RGBValue( p[0], p[1], p[2] ) );
+
+        if( hsv.saturation >= MIN_SAT && hsv.hue >= BLUE_HUE_LO && hsv.hue <= BLUE_HUE_HI )
+        {
+            hsv.hue = EMERALD_HUE;          // shift hue only; keep saturation + value
+            wxImage::RGBValue out = wxImage::HSVtoRGB( hsv );
+            p[0] = out.red;
+            p[1] = out.green;
+            p[2] = out.blue;
+        }
+    }
 }
 
 

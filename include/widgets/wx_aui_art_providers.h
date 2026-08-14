@@ -26,11 +26,7 @@
 class WX_AUI_TOOLBAR_ART : public wxAuiDefaultToolBarArt
 {
 public:
-    WX_AUI_TOOLBAR_ART() :
-            wxAuiDefaultToolBarArt()
-    {
-        saturateHighlightColor();
-    }
+    WX_AUI_TOOLBAR_ART();
 
     virtual ~WX_AUI_TOOLBAR_ART() = default;
 
@@ -89,9 +85,7 @@ public:
 class WX_AUI_TAB_ART : public wxAuiGenericTabArt
 {
 public:
-    WX_AUI_TAB_ART() :
-            wxAuiGenericTabArt()
-    {}
+    WX_AUI_TAB_ART();
 
     wxAuiTabArt* Clone() override
     {

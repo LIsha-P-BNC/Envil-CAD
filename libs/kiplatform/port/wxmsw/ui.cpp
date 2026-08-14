@@ -217,3 +217,24 @@ void KIPLATFORM::UI::AllowNetworkFileSystems( wxDialog* aDialog )
 {
     // Not needed on Windows - file dialogs show network filesystems by default
 }
+
+
+void KIPLATFORM::UI::AddDropShadow( wxWindow* aWindow )
+{
+    if( !aWindow )
+        return;
+
+    HWND hwnd = static_cast<HWND>( aWindow->GetHWND() );
+
+    if( !hwnd )
+        return;
+
+    // Give the borderless NEMI popup the same soft drop shadow the OS gives native menus, so
+    // it reads as floating above the window instead of painted flat onto it.  CS_DROPSHADOW is
+    // a window-class style: setting it affects windows created from this popup's class, which
+    // is exactly what we want (every NEMI popup of this class gets the shadow).
+    ULONG_PTR style = ::GetClassLongPtr( hwnd, GCL_STYLE );
+
+    if( !( style & CS_DROPSHADOW ) )
+        ::SetClassLongPtr( hwnd, GCL_STYLE, style | CS_DROPSHADOW );
+}

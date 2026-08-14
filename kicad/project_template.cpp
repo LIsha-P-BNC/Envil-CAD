@@ -300,7 +300,11 @@ bool PROJECT_TEMPLATE::CreateProject( wxFileName& aNewProjectPath, wxString* aEr
         // Replace the template filename with the project filename for the new project creation
         wxString currname = destFile.GetName();
 
-        if( destFile.GetExt() == FILEEXT::DrawingSheetFileExtension )
+        bool isDrawingSheet = destFile.GetExt() == FILEEXT::DrawingSheetFileExtension
+                              || FILEEXT::FamilySiblingExt( destFile.GetExt() )
+                                         == FILEEXT::DrawingSheetFileExtension;
+
+        if( isDrawingSheet )
         {
             // Don't rename drawing sheet definitions; they're often shared
         }
@@ -323,16 +327,13 @@ bool PROJECT_TEMPLATE::CreateProject( wxFileName& aNewProjectPath, wxString* aEr
 
         destFile.SetName( currname );
 
-        // Anvil target: the stock templates ship kicad_* files; rename the core project
-        // trio to the Anvil extensions so a new Anvil project is born fully Anvil.
-        if( aNewProjectPath.GetExt() == FILEEXT::AnvilProjectFileExtension )
+        // Anvil target: the stock templates ship kicad_* files; map every foreign family
+        // extension to its Anvil sibling so a new Anvil project is born fully Anvil.
+        // Drawing sheets are exempt (shared files, referenced by literal path).
+        if( aNewProjectPath.GetExt() == FILEEXT::AnvilProjectFileExtension && !isDrawingSheet
+                && FILEEXT::IsForeignFamilyExt( destFile.GetExt() ) )
         {
-            if( destFile.GetExt() == FILEEXT::ProjectFileExtension )
-                destFile.SetExt( FILEEXT::AnvilProjectFileExtension );
-            else if( destFile.GetExt() == FILEEXT::KiCadSchematicFileExtension )
-                destFile.SetExt( FILEEXT::AnvilSchematicFileExtension );
-            else if( destFile.GetExt() == FILEEXT::KiCadPcbFileExtension )
-                destFile.SetExt( FILEEXT::AnvilPcbFileExtension );
+            destFile.SetExt( FILEEXT::FamilySiblingExt( destFile.GetExt() ) );
         }
 
         // Replace the template path with the project path for the new project creation,

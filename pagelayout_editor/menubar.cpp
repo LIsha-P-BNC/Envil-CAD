@@ -41,7 +41,7 @@
 void PL_EDITOR_FRAME::doReCreateMenuBar()
 {
     // KiCad Next: build the shared common menu bar instead of the legacy one when enabled.
-    if( ADVANCED_CFG::GetCfg().m_UnifiedMenuBar )
+    if( UseUnifiedMenuBar() )
     {
         buildCommonMenuBar();
         return;
@@ -237,6 +237,14 @@ void PL_EDITOR_FRAME::buildEditMenu( ACTION_MENU* editMenu )
 }
 
 
+void PL_EDITOR_FRAME::buildPanelsMenu( ACTION_MENU* aMenu )
+{
+    // So the shell's status-bar Panels button lists the Properties (Inspector) panel, like
+    // every other editor's dockable panels.
+    aMenu->Add( PL_ACTIONS::showInspector, ACTION_MENU::CHECK );
+}
+
+
 void PL_EDITOR_FRAME::buildViewMenu( ACTION_MENU* viewMenu )
 {
     viewMenu->Add( ACTIONS::zoomInCenter );
@@ -247,6 +255,25 @@ void PL_EDITOR_FRAME::buildViewMenu( ACTION_MENU* viewMenu )
 
     viewMenu->AppendSeparator();
     viewMenu->Add( PL_ACTIONS::previewSettings );
+
+    // Modern layout: the Inspector is a panel, so it lives here, and the left toolbar's
+    // display toggles surface here as well.
+    if( UseModernMenuLayout() )
+    {
+        viewMenu->Add( PL_ACTIONS::showInspector );
+
+        PL_SELECTION_TOOL* selTool = m_toolManager->GetTool<PL_SELECTION_TOOL>();
+
+        viewMenu->AppendSeparator();
+        viewMenu->Add( ACTIONS::toggleGrid, ACTION_MENU::CHECK );
+
+        ACTION_MENU* unitsSubMenu = new ACTION_MENU( false, selTool );
+        unitsSubMenu->SetTitle( _( "&Units" ) );
+        unitsSubMenu->Add( ACTIONS::millimetersUnits, ACTION_MENU::CHECK );
+        unitsSubMenu->Add( ACTIONS::inchesUnits,      ACTION_MENU::CHECK );
+        unitsSubMenu->Add( ACTIONS::milsUnits,        ACTION_MENU::CHECK );
+        viewMenu->Add( unitsSubMenu );
+    }
 
 #ifdef __APPLE__
     // Add a separator only on macOS because the OS adds menu items to the view menu after ours
@@ -269,12 +296,36 @@ void PL_EDITOR_FRAME::buildPlaceMenu( ACTION_MENU* placeMenu )
 
 void PL_EDITOR_FRAME::buildInspectMenu( ACTION_MENU* inspectorMenu )
 {
+    // Modern layout: the Inspector lives in the View menu (it is a panel).
+    if( UseModernMenuLayout() )
+        return;
+
     inspectorMenu->Add( PL_ACTIONS::showInspector );
+}
+
+
+void PL_EDITOR_FRAME::buildToolsMenu( ACTION_MENU* toolsMenu )
+{
+    // The classic Drawing Sheet Editor has no Tools menu; the modern (Altium-style) layout
+    // gains one holding the Preferences items folded in from the dropped Preferences menu.
+    if( !UseModernMenuLayout() )
+        return;
+
+    PL_SELECTION_TOOL* selTool = m_toolManager->GetTool<PL_SELECTION_TOOL>();
+
+    toolsMenu->Add( ACTIONS::openPreferences );
+
+    toolsMenu->AppendSeparator();
+    AddMenuLanguageList( toolsMenu, selTool );
 }
 
 
 void PL_EDITOR_FRAME::buildPreferencesMenu( ACTION_MENU* preferencesMenu )
 {
+    // Modern layout: these items live in the tail of Tools instead of a top-level menu.
+    if( UseModernMenuLayout() )
+        return;
+
     PL_SELECTION_TOOL* selTool = m_toolManager->GetTool<PL_SELECTION_TOOL>();
 
     preferencesMenu->Add( ACTIONS::openPreferences );

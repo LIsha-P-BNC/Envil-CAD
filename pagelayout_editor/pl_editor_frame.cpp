@@ -131,6 +131,9 @@ PL_EDITOR_FRAME::PL_EDITOR_FRAME( KIWAY* aKiway, wxWindow* aParent ) :
     LoadSettings( config() );
 
     m_acceptedExts.emplace( FILEEXT::DrawingSheetFileExtension, nullptr );
+    // Read-old: sheets written before the anvil_wks rename still drag-drop fine.
+    m_acceptedExts.emplace( FILEEXT::FamilySiblingExt( FILEEXT::DrawingSheetFileExtension ),
+                            nullptr );
     DragAcceptFiles( true );
 
     VECTOR2I pageSizeIU = GetPageLayout().GetPageSettings().GetSizeIU( drawSheetIUScale.IU_PER_MILS );

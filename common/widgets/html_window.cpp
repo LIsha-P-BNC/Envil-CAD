@@ -27,12 +27,28 @@
 #include <wx/log.h>
 #include <wx/settings.h>
 #include <widgets/html_window.h>
+#include <advanced_config.h>
 
 
 HTML_WINDOW::HTML_WINDOW( wxWindow* aParent, wxWindowID aId, const wxPoint& aPos,
                           const wxSize& aSize, long aStyle, const wxString& aName ) :
         wxHtmlWindow( aParent, aId, aPos, aSize, aStyle, aName )
 {
+    // NEMI brand: render HTML (reports, help, message boxes) in the app-wide UI font instead
+    // of wxHtmlWindow's OS-default font table.  Normal text = the UI face (Space Grotesk),
+    // <tt>/<code> = the mono face (IBM Plex Mono), sized to AnvilUiFontPt.  A plain SetFont()
+    // does NOT rebuild the HTML parser's font table, so SetStandardFonts() is required.
+    {
+        const ADVANCED_CFG& acfg = ADVANCED_CFG::GetCfg();
+        int      htmlPt   = ( acfg.m_AnvilUiFontPt > 0.0 )
+                                    ? static_cast<int>( acfg.m_AnvilUiFontPt + 0.5 )
+                                    : GetFont().GetPointSize();
+        wxString normFace = acfg.m_AnvilUiFontFace;    // empty -> wx keeps its default face
+        wxString fixedFace = acfg.m_AnvilMonoFontFace;
+
+        SetStandardFonts( htmlPt, normFace, fixedFace );
+    }
+
     Bind( wxEVT_SYS_COLOUR_CHANGED,
           wxSysColourChangedEventHandler( HTML_WINDOW::onThemeChanged ), this );
 

@@ -39,7 +39,7 @@
 void FOOTPRINT_EDIT_FRAME::doReCreateMenuBar()
 {
     // KiCad Next: build the shared common menu bar instead of the legacy one when enabled.
-    if( ADVANCED_CFG::GetCfg().m_UnifiedMenuBar )
+    if( UseUnifiedMenuBar() )
     {
         buildCommonMenuBar();
         return;
@@ -139,9 +139,7 @@ void FOOTPRINT_EDIT_FRAME::doReCreateMenuBar()
 
     ACTION_MENU* showHidePanels = new ACTION_MENU( false, selTool );
     showHidePanels->SetTitle( _( "Panels" ) );
-    showHidePanels->Add( ACTIONS::showProperties,        ACTION_MENU::CHECK );
-    showHidePanels->Add( ACTIONS::showLibraryTree,       ACTION_MENU::CHECK );
-    showHidePanels->Add( PCB_ACTIONS::showLayersManager, ACTION_MENU::CHECK );
+    buildPanelsMenu( showHidePanels );
     viewMenu->Add( showHidePanels );
     viewMenu->AppendSeparator();
 
@@ -154,6 +152,38 @@ void FOOTPRINT_EDIT_FRAME::doReCreateMenuBar()
     viewMenu->Add( ACTIONS::zoomFitScreen );
     viewMenu->Add( ACTIONS::zoomTool );
     viewMenu->Add( ACTIONS::zoomRedraw );
+
+    // Modern toolbar preset: the left toolbar is gone, so its display toggles surface here.
+    // (Pad / graphics / text display and high contrast already live in the Drawing Mode and
+    // Contrast Mode entries of this menu.)
+    if( ADVANCED_CFG::GetCfg().m_ModernToolbarLayout )
+    {
+        viewMenu->AppendSeparator();
+        viewMenu->Add( ACTIONS::toggleGrid,            ACTION_MENU::CHECK );
+        viewMenu->Add( ACTIONS::toggleGridOverrides,   ACTION_MENU::CHECK );
+        viewMenu->Add( PCB_ACTIONS::togglePolarCoords, ACTION_MENU::CHECK );
+
+        ACTION_MENU* unitsSubMenu = new ACTION_MENU( false, selTool );
+        unitsSubMenu->SetTitle( _( "&Units" ) );
+        unitsSubMenu->Add( ACTIONS::millimetersUnits, ACTION_MENU::CHECK );
+        unitsSubMenu->Add( ACTIONS::inchesUnits,      ACTION_MENU::CHECK );
+        unitsSubMenu->Add( ACTIONS::milsUnits,        ACTION_MENU::CHECK );
+        viewMenu->Add( unitsSubMenu );
+
+        ACTION_MENU* crosshairSubMenu = new ACTION_MENU( false, selTool );
+        crosshairSubMenu->SetTitle( _( "&Crosshair Mode" ) );
+        crosshairSubMenu->Add( ACTIONS::cursorSmallCrosshairs, ACTION_MENU::CHECK );
+        crosshairSubMenu->Add( ACTIONS::cursorFullCrosshairs,  ACTION_MENU::CHECK );
+        crosshairSubMenu->Add( ACTIONS::cursor45Crosshairs,    ACTION_MENU::CHECK );
+        viewMenu->Add( crosshairSubMenu );
+
+        ACTION_MENU* lineModeSubMenu = new ACTION_MENU( false, selTool );
+        lineModeSubMenu->SetTitle( _( "&Line Mode" ) );
+        lineModeSubMenu->Add( PCB_ACTIONS::lineModeFree, ACTION_MENU::CHECK );
+        lineModeSubMenu->Add( PCB_ACTIONS::lineMode90,   ACTION_MENU::CHECK );
+        lineModeSubMenu->Add( PCB_ACTIONS::lineMode45,   ACTION_MENU::CHECK );
+        viewMenu->Add( lineModeSubMenu );
+    }
 
     viewMenu->AppendSeparator();
     // Drawing Mode Submenu
@@ -277,6 +307,14 @@ TOOL_INTERACTIVE* FOOTPRINT_EDIT_FRAME::getCurrentMenuTool()
 }
 
 
+void FOOTPRINT_EDIT_FRAME::buildPanelsMenu( ACTION_MENU* aMenu )
+{
+    aMenu->Add( ACTIONS::showProperties,        ACTION_MENU::CHECK );
+    aMenu->Add( ACTIONS::showLibraryTree,       ACTION_MENU::CHECK );
+    aMenu->Add( PCB_ACTIONS::showLayersManager, ACTION_MENU::CHECK );
+}
+
+
 void FOOTPRINT_EDIT_FRAME::buildFileMenu( ACTION_MENU* fileMenu )
 {
     PCB_SELECTION_TOOL* selTool = m_toolManager->GetTool<PCB_SELECTION_TOOL>();
@@ -367,9 +405,7 @@ void FOOTPRINT_EDIT_FRAME::buildViewMenu( ACTION_MENU* viewMenu )
 
     ACTION_MENU* showHidePanels = new ACTION_MENU( false, selTool );
     showHidePanels->SetTitle( _( "Panels" ) );
-    showHidePanels->Add( ACTIONS::showProperties,        ACTION_MENU::CHECK );
-    showHidePanels->Add( ACTIONS::showLibraryTree,       ACTION_MENU::CHECK );
-    showHidePanels->Add( PCB_ACTIONS::showLayersManager, ACTION_MENU::CHECK );
+    buildPanelsMenu( showHidePanels );
     viewMenu->Add( showHidePanels );
     viewMenu->AppendSeparator();
 
@@ -382,6 +418,38 @@ void FOOTPRINT_EDIT_FRAME::buildViewMenu( ACTION_MENU* viewMenu )
     viewMenu->Add( ACTIONS::zoomFitScreen );
     viewMenu->Add( ACTIONS::zoomTool );
     viewMenu->Add( ACTIONS::zoomRedraw );
+
+    // Modern toolbar preset: the left toolbar is gone, so its display toggles surface here.
+    // (Pad / graphics / text display and high contrast already live in the Drawing Mode and
+    // Contrast Mode entries of this menu.)
+    if( ADVANCED_CFG::GetCfg().m_ModernToolbarLayout )
+    {
+        viewMenu->AppendSeparator();
+        viewMenu->Add( ACTIONS::toggleGrid,            ACTION_MENU::CHECK );
+        viewMenu->Add( ACTIONS::toggleGridOverrides,   ACTION_MENU::CHECK );
+        viewMenu->Add( PCB_ACTIONS::togglePolarCoords, ACTION_MENU::CHECK );
+
+        ACTION_MENU* unitsSubMenu = new ACTION_MENU( false, selTool );
+        unitsSubMenu->SetTitle( _( "&Units" ) );
+        unitsSubMenu->Add( ACTIONS::millimetersUnits, ACTION_MENU::CHECK );
+        unitsSubMenu->Add( ACTIONS::inchesUnits,      ACTION_MENU::CHECK );
+        unitsSubMenu->Add( ACTIONS::milsUnits,        ACTION_MENU::CHECK );
+        viewMenu->Add( unitsSubMenu );
+
+        ACTION_MENU* crosshairSubMenu = new ACTION_MENU( false, selTool );
+        crosshairSubMenu->SetTitle( _( "&Crosshair Mode" ) );
+        crosshairSubMenu->Add( ACTIONS::cursorSmallCrosshairs, ACTION_MENU::CHECK );
+        crosshairSubMenu->Add( ACTIONS::cursorFullCrosshairs,  ACTION_MENU::CHECK );
+        crosshairSubMenu->Add( ACTIONS::cursor45Crosshairs,    ACTION_MENU::CHECK );
+        viewMenu->Add( crosshairSubMenu );
+
+        ACTION_MENU* lineModeSubMenu = new ACTION_MENU( false, selTool );
+        lineModeSubMenu->SetTitle( _( "&Line Mode" ) );
+        lineModeSubMenu->Add( PCB_ACTIONS::lineModeFree, ACTION_MENU::CHECK );
+        lineModeSubMenu->Add( PCB_ACTIONS::lineMode90,   ACTION_MENU::CHECK );
+        lineModeSubMenu->Add( PCB_ACTIONS::lineMode45,   ACTION_MENU::CHECK );
+        viewMenu->Add( lineModeSubMenu );
+    }
 
     viewMenu->AppendSeparator();
     // Drawing Mode Submenu
@@ -444,6 +512,11 @@ void FOOTPRINT_EDIT_FRAME::buildPlaceMenu( ACTION_MENU* placeMenu )
 
 void FOOTPRINT_EDIT_FRAME::buildInspectMenu( ACTION_MENU* inspectMenu )
 {
+    // Modern layout: the footprint checker moves to Tools and the datasheet / measure tool
+    // to Reports, so the classic Inspect menu is dropped entirely.
+    if( UseModernMenuLayout() )
+        return;
+
     inspectMenu->Add( ACTIONS::measureTool );
 
     inspectMenu->AppendSeparator();
@@ -456,6 +529,32 @@ void FOOTPRINT_EDIT_FRAME::buildInspectMenu( ACTION_MENU* inspectMenu )
 
 void FOOTPRINT_EDIT_FRAME::buildToolsMenu( ACTION_MENU* toolsMenu )
 {
+    if( UseModernMenuLayout() )
+    {
+        // Altium-style Tools: checker, board exchange and cleanup, with the Preferences
+        // items folded into the tail until the title-bar gear hosts them.
+        PCB_SELECTION_TOOL* selTool = m_toolManager->GetTool<PCB_SELECTION_TOOL>();
+
+        toolsMenu->Add( PCB_ACTIONS::checkFootprint );
+
+        toolsMenu->AppendSeparator();
+        toolsMenu->Add( PCB_ACTIONS::loadFpFromBoard );
+        toolsMenu->Add( PCB_ACTIONS::saveFpToBoard );
+
+        toolsMenu->AppendSeparator();
+        toolsMenu->Add( PCB_ACTIONS::cleanupGraphics );
+        toolsMenu->Add( PCB_ACTIONS::repairFootprint );
+
+        toolsMenu->AppendSeparator();
+        toolsMenu->Add( ACTIONS::configurePaths );
+        toolsMenu->Add( ACTIONS::showFootprintLibTable );
+        toolsMenu->Add( ACTIONS::openPreferences );
+
+        toolsMenu->AppendSeparator();
+        AddMenuLanguageList( toolsMenu, selTool );
+        return;
+    }
+
     toolsMenu->Add( PCB_ACTIONS::loadFpFromBoard );
     toolsMenu->Add( PCB_ACTIONS::saveFpToBoard );
 
@@ -465,8 +564,21 @@ void FOOTPRINT_EDIT_FRAME::buildToolsMenu( ACTION_MENU* toolsMenu )
 }
 
 
+void FOOTPRINT_EDIT_FRAME::buildReportsMenu( ACTION_MENU* reportsMenu )
+{
+    reportsMenu->Add( PCB_ACTIONS::showDatasheet );
+
+    reportsMenu->AppendSeparator();
+    reportsMenu->Add( ACTIONS::measureTool );
+}
+
+
 void FOOTPRINT_EDIT_FRAME::buildPreferencesMenu( ACTION_MENU* prefsMenu )
 {
+    // Modern layout: these items live in the tail of Tools instead of a top-level menu.
+    if( UseModernMenuLayout() )
+        return;
+
     PCB_SELECTION_TOOL* selTool = m_toolManager->GetTool<PCB_SELECTION_TOOL>();
 
     prefsMenu->Add( ACTIONS::configurePaths );

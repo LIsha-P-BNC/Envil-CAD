@@ -1091,7 +1091,7 @@ void SYMBOL_EDIT_FRAME::ExportSymbol()
     wxFileName fn;
 
     fn.SetName( symbol->GetName().Lower() );
-    fn.SetExt( FILEEXT::KiCadSymbolLibFileExtension );
+    fn.SetExt( FILEEXT::AnvilSymbolLibFileExtension );
 
     wxFileDialog dlg( this, _( "Export Symbol" ), m_mruPath, fn.GetFullName(),
                       FILEEXT::KiCadSymbolLibFileWildcard(), wxFD_SAVE );
@@ -1556,7 +1556,7 @@ bool SYMBOL_EDIT_FRAME::saveLibrary( const wxString& aLibrary, bool aNewFile )
             default_path = search->LastVisitedPath();
 
         fn.SetName( aLibrary );
-        fn.SetExt( FILEEXT::KiCadSymbolLibFileExtension );
+        fn.SetExt( FILEEXT::AnvilSymbolLibFileExtension );
 
         wxString wildcards = FILEEXT::KiCadSymbolLibFileWildcard();
 
@@ -1575,8 +1575,8 @@ bool SYMBOL_EDIT_FRAME::saveLibrary( const wxString& aLibrary, bool aNewFile )
 
         prj.SetRString( PROJECT::SCH_LIB_PATH, fn.GetPath() );
 
-        if( fn.GetExt().IsEmpty() )
-            fn.SetExt( FILEEXT::KiCadSymbolLibFileExtension );
+        if( fn.GetExt().IsEmpty() || FILEEXT::IsForeignFamilyExt( fn.GetExt() ) )
+            fn.SetExt( FILEEXT::AnvilSymbolLibFileExtension );
 
         type = saveAsHook.GetOption();
     }

@@ -228,6 +228,18 @@ namespace KIPLATFORM
          * @param aDialog is the file dialog to configure
          */
         void AllowNetworkFileSystems( wxDialog* aDialog );
+
+        /**
+         * Give a borderless popup window the soft drop shadow the OS gives native menus, so a
+         * flat custom popup (dropdown / flyout) reads as floating above the window instead of
+         * painted onto it.
+         *
+         * On Windows this enables the CS_DROPSHADOW window-class style.  On GTK and macOS the
+         * window manager already shadows popups, so this is a NOP.
+         *
+         * @param aWindow is the (already-created) popup window to shadow
+         */
+        void AddDropShadow( wxWindow* aWindow );
     }
 }
 

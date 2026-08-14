@@ -25,6 +25,7 @@
 
 #include <dialogs/dialog_bom_cfg_lexer.h>
 #include <eda_draw_frame.h>
+#include <advanced_config.h>
 #include <eeschema_settings.h>
 #include <layer_ids.h>
 #include <symbol_editor_settings.h>
@@ -104,6 +105,10 @@ const wxAuiPaneInfo& defaultPropertiesPaneInfo( wxWindow* aWindow )
             .FloatingPosition( aWindow->FromDIP( wxPoint( 50, 200 ) ) )
             .Show( true );
 
+    // Altium arrangement: Properties docks on the right (classic KiCad = left).
+    if( ADVANCED_CFG::GetCfg().m_ModernMenuLayout )
+        paneInfo.Right();
+
     return paneInfo;
 }
 
@@ -124,6 +129,10 @@ const wxAuiPaneInfo& defaultSchSelectionFilterPaneInfo( wxWindow* aWindow )
             .MinSize( aWindow->FromDIP( wxSize( 180, -1 ) ) )
             .BestSize( aWindow->FromDIP( wxSize( 180, -1 ) ) )
             .Show( true );
+
+    // Altium arrangement: the Selection Filter docks on the right, alongside Properties.
+    if( ADVANCED_CFG::GetCfg().m_ModernMenuLayout )
+        paneInfo.Right();
 
     return paneInfo;
 }

@@ -225,6 +225,34 @@ public:
      */
 
     /**
+     * \defgroup ext_family Anvil/KiCad extension-family helpers
+     *
+     * "Foreign family" = kicad_* extensions; "native family" = anvil_* extensions.
+     * All comparisons are case-insensitive. These are the single source of truth for
+     * kicad_X <-> anvil_X mapping — do not hand-roll per-extension conversions.
+     * @{
+     */
+
+    static bool IsForeignFamilyExt( const wxString& aExt );
+    static bool IsNativeFamilyExt( const wxString& aExt );
+
+    /// kicad_X <-> anvil_X prefix swap; empty string when aExt belongs to neither family.
+    static wxString FamilySiblingExt( const wxString& aExt );
+
+    /// Map a bare legacy extension (pro, sch, brd, lib, mod) to its native anvil_* successor;
+    /// empty string when aExt is not a known legacy extension.
+    static wxString LegacyToNativeExt( const wxString& aExt );
+
+    /// If aFullPath's file is missing but its family-sibling file exists, return the sibling
+    /// path.  If both exist and aFullPath is foreign, prefer the native sibling.  Otherwise
+    /// return aFullPath unchanged.
+    static wxString HealToExistingFamilySibling( const wxString& aFullPath );
+
+    /**
+     * @}
+     */
+
+    /**
      * \defgroup file_wildcards File Wildcard Definitions
      *
      * @note Please do not changes these.  If a different file wildcard is needed, create a new

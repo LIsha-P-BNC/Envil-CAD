@@ -559,9 +559,37 @@ public:
      *
      * Setting name: "UnifiedMenuBar"
      * Valid values: 0 or 1
-     * Default value: 0
+     * Default value: 1 (ships ON; set 0 in kicad_advanced to opt out)
      */
     bool m_UnifiedMenuBar;
+
+    /**
+     * KiCad Next: regroup the unified menu bar into the Altium-style top-level set
+     * (File / Edit / View / Project / Place / Design / Route / Reports / Tools / Window,
+     * with the Preferences items folded into the tail of Tools until the title-bar gear
+     * button hosts them).  Implies the unified menu-bar path even when "UnifiedMenuBar"
+     * is 0.  Every menu item still fires the stock action; only its top-level grouping
+     * changes, so the classic KiCad grouping returns unchanged when this is 0.
+     *
+     * Setting name: "ModernMenuLayout"
+     * Valid values: 0 or 1
+     * Default value: 1 (ships ON; set 0 in kicad_advanced to opt out)
+     */
+    bool m_ModernMenuLayout;
+
+    /**
+     * KiCad Next: Altium-style ("Active Bar") toolbar preset.  The left and right editor
+     * toolbars are dropped; the drawing / routing tools fold into grouped palette buttons at
+     * the end of the top toolbar, and the display toggles they carried surface in the View
+     * menu when ModernMenuLayout is also set.  Independent of ModernMenuLayout so either can
+     * be trialled alone.  When 0 the classic three-sided toolbar frame is used.  Only the
+     * built-in defaults change: user-customised toolbars (Preferences > Toolbars) always win.
+     *
+     * Setting name: "ModernToolbarLayout"
+     * Valid values: 0 or 1
+     * Default value: 1 (ships ON; set 0 in kicad_advanced to opt out)
+     */
+    bool m_ModernToolbarLayout;
 
     /**
      * KiCad Next: open the auxiliary tools (Gerber Viewer, Image Converter, PCB
@@ -574,7 +602,7 @@ public:
      *
      * Setting name: "SingleWindowShell"
      * Valid values: 0 or 1
-     * Default value: 0
+     * Default value: 1 (ships ON; set 0 in kicad_advanced to opt out)
      */
     bool m_SingleWindowShell;
 
@@ -600,7 +628,7 @@ public:
      *
      * Setting name: "UnifiedStatusBar"
      * Valid values: 0 or 1
-     * Default value: 0
+     * Default value: 1 (ships ON; set 0 in kicad_advanced to opt out)
      */
     bool m_UnifiedStatusBar;
 
@@ -1143,6 +1171,19 @@ public:
     bool m_AnvilPurpleFrame;
 
     /**
+     * KiCad Next: recolor the toolbar/menu icon set from KiCad blue to the NEMI emerald hue at
+     * load time (a hue-selective remap in BITMAP_STORE::getImage), so Anvil has its own icon
+     * identity.  Semantic colours (red = delete/DRC, layer colours, warnings) are preserved.
+     * Additive/reversible: set 0 to fall back to the stock KiCad blue icons.  Applied at startup
+     * (already-built bitmap bundles are cached), so this is a restart-to-apply flag.
+     *
+     * Setting name: "AnvilEmeraldIcons"
+     * Valid values: 0 or 1
+     * Default value: 1 (ships ON)
+     */
+    bool m_AnvilEmeraldIcons;
+
+    /**
      * KiCad Next / Anvil: base point size for the application UI font (menus' dropdowns, side
      * panels, project tree, status bars, dialogs — every wx control that derives its font from
      * the window font).  Applied once on each EDA_BASE_FRAME and DIALOG_SHIM at construction;
@@ -1160,6 +1201,15 @@ public:
      * Default value: 10.0
      */
     double m_AnvilUiFontPt;
+
+    /**
+     * NEMI brand UI font families applied app-wide alongside m_AnvilUiFontPt.
+     * m_AnvilUiFontFace   - proportional UI face (default "Space Grotesk")
+     * m_AnvilMonoFontFace - monospaced UI face (default "IBM Plex Mono")
+     * An empty string leaves the inherited OS face untouched.
+     */
+    wxString m_AnvilUiFontFace;
+    wxString m_AnvilMonoFontFace;
 
     /**
      * KiCad Next / Anvil: consolidated read cache for *.pretty footprint folder libraries — the
@@ -1257,6 +1307,21 @@ public:
      * Default value: 0
      */
     bool m_AnvilAutoSaveRealFile;
+
+    /**
+     * NEMI brand: point size of the single-window shell's top title-bar menu buttons.  The menu
+     * bar is deliberately a bit larger than the app-wide UI size (m_AnvilUiFontPt) so it reads as
+     * the primary navigation; this makes that size a knob instead of a hardcoded literal.  The
+     * face still comes from m_AnvilUiFontFace.
+     *
+     * Declared LAST in the struct on purpose: see the ABI note above — appending keeps every
+     * existing member's offset stable.
+     *
+     * Setting name: "AnvilMenuFontPt"
+     * Valid values: a point size, e.g. 11.0.  0 (or less) falls back to m_AnvilUiFontPt.
+     * Default value: 11.0
+     */
+    double m_AnvilMenuFontPt;
     ///@}
 
 private:

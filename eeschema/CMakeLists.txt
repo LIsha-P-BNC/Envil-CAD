@@ -587,7 +587,7 @@ add_executable( eeschema WIN32 MACOSX_BUNDLE
     )
 
 set_source_files_properties( ${CMAKE_SOURCE_DIR}/common/single_top.cpp PROPERTIES
-    COMPILE_DEFINITIONS "TOP_FRAME=FRAME_SCH;PGM_DATA_FILE_EXT=\"kicad_sch\";BUILD_KIWAY_DLL"
+    COMPILE_DEFINITIONS "TOP_FRAME=FRAME_SCH;PGM_DATA_FILE_EXT=\"anvil_sch\";BUILD_KIWAY_DLL"
     )
 
 target_link_libraries( eeschema

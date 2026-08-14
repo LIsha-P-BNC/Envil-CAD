@@ -44,7 +44,11 @@ public:
 
     const IO_BASE::IO_FILE_DESC GetLibraryDesc() const override
     {
-        return IO_BASE::IO_FILE_DESC( _HKI( "KiCad HTTP library files" ), { FILEEXT::HTTPLibraryFileExtension } );
+        // Dual-read: existing library-table rows may still point at .kicad_httplib files.
+        return IO_BASE::IO_FILE_DESC(
+                _HKI( "Anvil HTTP library files" ),
+                { FILEEXT::HTTPLibraryFileExtension,
+                  FILEEXT::FamilySiblingExt( FILEEXT::HTTPLibraryFileExtension ).ToStdString() } );
     }
 
     int GetModifyHash() const override { return 0; }

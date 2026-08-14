@@ -830,7 +830,10 @@ bool PROJECT_FILE::SaveAs( const wxString& aDirectory, const wxString& aFile )
 
 wxString PROJECT_FILE::getFileExt() const
 {
-    return m_projFileExt.IsEmpty() ? wxString( FILEEXT::ProjectFileExtension ) : m_projFileExt;
+    // The recorded on-disk extension, defaulting to the native one — a project with no
+    // recorded extension (fresh creation) must be born .anvil_pro.
+    return m_projFileExt.IsEmpty() ? wxString( FILEEXT::AnvilProjectFileExtension )
+                                   : m_projFileExt;
 }
 
 

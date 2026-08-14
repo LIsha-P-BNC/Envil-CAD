@@ -1208,7 +1208,7 @@ bool SCH_EDIT_FRAME::SaveProject( bool aSaveAs )
         }
 
         if( savePath.HasExt() )
-            savePath.SetExt( FILEEXT::KiCadSchematicFileExtension );
+            savePath.SetExt( FILEEXT::AnvilSchematicFileExtension );
         else
             savePath.SetName( wxEmptyString );
 
@@ -1229,7 +1229,25 @@ bool SCH_EDIT_FRAME::SaveProject( bool aSaveAs )
         if( dlg.ShowModal() == wxID_CANCEL )
             return false;
 
-        newFileName = EnsureFileExtension( dlg.GetPath(), FILEEXT::KiCadSchematicFileExtension );
+        // We never write kicad_* files: a typed foreign/legacy schematic extension is
+        // replaced outright; any other trailing text is kept as part of the name and the
+        // native extension appended (EnsureFileExtension semantics).
+        {
+            wxFileName chosenFn( dlg.GetPath() );
+            wxString   chosenExt = chosenFn.GetExt();
+
+            if( FILEEXT::IsForeignFamilyExt( chosenExt )
+                    || chosenExt.IsSameAs( FILEEXT::LegacySchematicFileExtension, false ) )
+            {
+                chosenFn.SetExt( FILEEXT::AnvilSchematicFileExtension );
+                newFileName = chosenFn.GetFullPath();
+            }
+            else
+            {
+                newFileName = EnsureFileExtension( dlg.GetPath(),
+                                                   FILEEXT::AnvilSchematicFileExtension );
+            }
+        }
 
         if( ( !newFileName.DirExists() && !newFileName.Mkdir() ) ||
             !newFileName.IsDirWritable() )
@@ -1312,10 +1330,12 @@ bool SCH_EDIT_FRAME::SaveProject( bool aSaveAs )
         if( tmpFn.FileExists() && !tmpFn.IsFileWritable() )
             lockedFiles.Add( tmpFn.GetFullPath() );
 
-        if( tmpFn.GetExt() == FILEEXT::KiCadSchematicFileExtension )
+        // Native anvil_sch names save in place; everything else (legacy or kicad_sch) is
+        // normalized to anvil_sch below, so warn about the file it will land on.
+        if( tmpFn.GetExt().IsSameAs( FILEEXT::AnvilSchematicFileExtension, false ) )
             continue;
 
-        tmpFn.SetExt( FILEEXT::KiCadSchematicFileExtension );
+        tmpFn.SetExt( FILEEXT::AnvilSchematicFileExtension );
 
         if( tmpFn.FileExists() )
             overwrittenFiles.Add( tmpFn.GetFullPath() );
@@ -1371,13 +1391,16 @@ bool SCH_EDIT_FRAME::SaveProject( bool aSaveAs )
 
         wxCHECK2( screen, continue );
 
-        // Convert legacy schematics file name extensions for the new format.
+        // Normalize legacy/foreign schematic file name extensions to the native format.
+        // An already-native anvil_sch file must pass through untouched — renaming it here
+        // is the schematic twin of the board bug fixed in a1efbe8dd8 (an open project
+        // silently converting itself back to kicad_sch on every save).
         wxFileName tmpFn = filenameMap[screen];
 
-        if( tmpFn.IsOk() && tmpFn.GetExt() != FILEEXT::KiCadSchematicFileExtension )
+        if( tmpFn.IsOk() && !tmpFn.GetExt().IsSameAs( FILEEXT::AnvilSchematicFileExtension, false ) )
         {
             updateFileHistory = true;
-            tmpFn.SetExt( FILEEXT::KiCadSchematicFileExtension );
+            tmpFn.SetExt( FILEEXT::AnvilSchematicFileExtension );
 
             for( EDA_ITEM* item : screen->Items().OfType( SCH_SHEET_T ) )
             {
@@ -1385,10 +1408,11 @@ bool SCH_EDIT_FRAME::SaveProject( bool aSaveAs )
                 wxFileName sheetFileName = sheet->GetFileName();
 
                 if( !sheetFileName.IsOk()
-                    || sheetFileName.GetExt() == FILEEXT::KiCadSchematicFileExtension )
+                    || sheetFileName.GetExt().IsSameAs( FILEEXT::AnvilSchematicFileExtension,
+                                                        false ) )
                     continue;
 
-                sheetFileName.SetExt( FILEEXT::KiCadSchematicFileExtension );
+                sheetFileName.SetExt( FILEEXT::AnvilSchematicFileExtension );
                 sheet->SetFileName( sheetFileName.GetFullPath() );
                 UpdateItem( sheet );
             }
@@ -1560,7 +1584,7 @@ bool SCH_EDIT_FRAME::importFile( const wxString& aFileName, int aFileType,
 
                 newfilename.SetPath( Prj().GetProjectPath() );
                 newfilename.SetName( Prj().GetProjectName() );
-                newfilename.SetExt( FILEEXT::KiCadSchematicFileExtension );
+                newfilename.SetExt( FILEEXT::AnvilSchematicFileExtension );
 
                 SetScreen( Schematic().RootScreen() );
 

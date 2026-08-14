@@ -28,6 +28,9 @@
  * @brief routines for importing a non-KiCad project
  */
 
+#include <regex>
+#include <set>
+
 #include <wx/dir.h>
 #include <wx/filedlg.h>
 #include <wx/dirdlg.h>
@@ -59,16 +62,128 @@ bool KICAD_MANAGER_FRAME::ConvertProjectToAnvil( const wxFileName& aSrcPro,
     wxArrayString allFiles;
     wxDir::GetAllFiles( aSrcPro.GetPath(), &allFiles );
 
+    auto normalizeRel = []( wxString aPath ) -> wxString
+    {
+        aPath.Replace( wxT( "\\" ), wxT( "/" ) );
+        return aPath.Lower();
+    };
+
+    // Any kicad_X extension maps to its anvil_X sibling; everything else keeps its name.
     auto extMapped = []( const wxString& aExt ) -> wxString
     {
-        if( aExt == FILEEXT::ProjectFileExtension )
-            return FILEEXT::AnvilProjectFileExtension;
-        if( aExt == FILEEXT::KiCadSchematicFileExtension )
-            return FILEEXT::AnvilSchematicFileExtension;
-        if( aExt == FILEEXT::KiCadPcbFileExtension )
-            return FILEEXT::AnvilPcbFileExtension;
+        if( FILEEXT::IsForeignFamilyExt( aExt ) )
+            return FILEEXT::FamilySiblingExt( aExt );
 
         return aExt;
+    };
+
+    auto isLibTable = []( const wxString& aName ) -> bool
+    {
+        return aName == FILEEXT::SymbolLibraryTableFileName
+               || aName == FILEEXT::FootprintLibraryTableFileName
+               || aName == FILEEXT::DesignBlockLibraryTableFileName;
+    };
+
+    // Pass 1: collect the project-relative paths this conversion renames.  Reference
+    // rewriting below is limited to exactly this set, so references to files outside the
+    // project (shared drawing sheets, external libraries) are never touched.
+    std::set<wxString> renamedRel;
+
+    for( const wxString& file : allFiles )
+    {
+        wxString rel = file;
+
+        if( !rel.StartsWith( srcRoot, &rel ) )
+            continue;
+
+        if( FILEEXT::IsForeignFamilyExt( wxFileName( rel ).GetExt() ) )
+            renamedRel.insert( normalizeRel( rel ) );
+    }
+
+    // The historical spelling of the empty-drawing-sheet marker: it names no file on disk,
+    // but stored projects carry it as a literal, so it converts along with the files.
+    const wxString legacySentinel = wxT( "empty.kicad_wks" );
+
+    auto rewriteRefs = [&]( wxString& aText, const wxString& aRefDirAbs ) -> int
+    {
+        std::string utf8 = aText.utf8_string();
+
+        static const std::regex refRe( "\"([^\"]*\\.[Kk][Ii][Cc][Aa][Dd]_[A-Za-z0-9]+)\"" );
+
+        std::string out;
+        out.reserve( utf8.size() );
+
+        auto   it = std::sregex_iterator( utf8.begin(), utf8.end(), refRe );
+        auto   end = std::sregex_iterator();
+        size_t last = 0;
+        int    hits = 0;
+
+        for( ; it != end; ++it )
+        {
+            const std::smatch& m = *it;
+            std::string        ref = m[1].str();
+            wxString           p = wxString::FromUTF8( ref.c_str() );
+            bool               rewrite = false;
+
+            if( p == legacySentinel )
+            {
+                rewrite = true;
+            }
+            else if( p.StartsWith( wxT( "${KIPRJMOD}" ) ) )
+            {
+                // Project-local variable refs (library table rows, sheet links) resolve
+                // inside the project and must follow the renamed files.
+                wxString rest = p.Mid( 11 );
+
+                while( rest.StartsWith( wxT( "/" ) ) || rest.StartsWith( wxT( "\\" ) ) )
+                    rest = rest.Mid( 1 );
+
+                rewrite = renamedRel.count( normalizeRel( rest ) ) > 0;
+            }
+            else if( p.Contains( wxT( "${" ) ) )
+            {
+                // Any other environment ref points outside the project: not renamed here.
+                rewrite = false;
+            }
+            else
+            {
+                wxFileName refFn( p );
+
+                if( !refFn.IsAbsolute() )
+                    refFn.MakeAbsolute( aRefDirAbs );
+
+                wxString relToRoot = refFn.GetFullPath();
+
+                if( relToRoot.StartsWith( srcRoot, &relToRoot ) )
+                    rewrite = renamedRel.count( normalizeRel( relToRoot ) ) > 0;
+            }
+
+            out.append( utf8, last, m.position( 0 ) - last );
+
+            if( rewrite )
+            {
+                size_t dot = ref.rfind( '.' );      // start of ".kicad_X" (X has no dots)
+
+                out.push_back( '"' );
+                out.append( ref.substr( 0, dot ) + ".anvil_" + ref.substr( dot + 7 ) );
+                out.push_back( '"' );
+                ++hits;
+            }
+            else
+            {
+                out.append( m.str( 0 ) );
+            }
+
+            last = m.position( 0 ) + m.length( 0 );
+        }
+
+        if( hits > 0 )
+        {
+            out.append( utf8, last, std::string::npos );
+            aText = wxString::FromUTF8( out.c_str(), out.size() );
+        }
+
+        return hits;
     };
 
     int converted = 0;
@@ -90,12 +205,14 @@ bool KICAD_MANAGER_FRAME::ConvertProjectToAnvil( const wxFileName& aSrcPro,
 
         wxFileName relFn( rel );
         wxString   mapped = extMapped( relFn.GetExt() );
-        bool       isProjectFile = mapped != relFn.GetExt();
+        bool       isConverted = mapped != relFn.GetExt();
+        bool       needsRewrite = isConverted || isLibTable( relFn.GetFullName() );
 
         relFn.SetExt( mapped );
 
-        // When converting into the same folder, non-project files stay untouched.
-        if( sameDir && !isProjectFile )
+        // When converting into the same folder, files that neither rename nor carry
+        // rewritable references stay untouched.
+        if( sameDir && !needsRewrite )
             continue;
 
         wxFileName destFile( aDestDir + wxFileName::GetPathSeparator() + relFn.GetFullPath() );
@@ -106,14 +223,18 @@ bool KICAD_MANAGER_FRAME::ConvertProjectToAnvil( const wxFileName& aSrcPro,
         if( destFile.GetFullPath() != file )
             wxCopyFile( file, destFile.GetFullPath(), true );
 
-        if( isProjectFile )
+        if( isConverted )
         {
             ++converted;
 
             if( !aKeepOriginals && destFile.GetFullPath() != file )
                 wxRemoveFile( file );
+        }
 
-            // Rewrite quoted internal references (hierarchical sheets, board/meta links).
+        if( needsRewrite )
+        {
+            // Rewrite quoted references (hierarchical sheets, board/meta links, project-
+            // local library table rows) that point at files this conversion renamed.
             wxFFile  f( destFile.GetFullPath(), wxS( "rb" ) );
             wxString text;
 
@@ -121,12 +242,7 @@ bool KICAD_MANAGER_FRAME::ConvertProjectToAnvil( const wxFileName& aSrcPro,
             {
                 f.Close();
 
-                int hits = 0;
-                hits += text.Replace( wxT( ".kicad_sch\"" ), wxT( ".anvil_sch\"" ) );
-                hits += text.Replace( wxT( ".kicad_pcb\"" ), wxT( ".anvil_pcb\"" ) );
-                hits += text.Replace( wxT( ".kicad_pro\"" ), wxT( ".anvil_pro\"" ) );
-
-                if( hits > 0 )
+                if( rewriteRefs( text, wxFileName( file ).GetPath() ) > 0 )
                 {
                     wxFFile out( destFile.GetFullPath(), wxS( "wb" ) );
 
@@ -174,6 +290,37 @@ void KICAD_MANAGER_FRAME::importKiCadProjectFile( const wxString& aInputPath )
     }
 
     LoadProject( anvilPro );
+}
+
+
+bool KICAD_MANAGER_FRAME::OfferImportForeignProject( const wxFileName& aProjectFile )
+{
+    wxString msg = wxString::Format( _( "'%s' is a KiCad project.\n\n"
+                                        "AnvilCAD uses its own project format.  Import and "
+                                        "convert it to an AnvilCAD project?" ),
+                                     aProjectFile.GetFullName() );
+
+    KIDIALOG dlg( this, msg, _( "Import KiCad Project" ),
+                  wxYES_NO | wxICON_QUESTION | wxCENTER );
+    dlg.SetYesNoLabels( _( "Import && Convert" ), _( "Cancel" ) );
+
+    if( dlg.ShowModal() != wxID_YES )
+        return false;
+
+    if( aProjectFile.GetExt().IsSameAs( FILEEXT::LegacyProjectFileExtension, false ) )
+    {
+        // A legacy .pro project is a genuinely different on-disk format (INI settings,
+        // legacy sch/brd payloads), so it goes through the real format importers rather
+        // than the rename-based converter.
+        importProjectFromFile( aProjectFile.GetFullPath(),
+                               { FILEEXT::LegacySchematicFileExtension },
+                               { FILEEXT::LegacyPcbFileExtension },
+                               SCH_IO_MGR::SCH_LEGACY, PCB_IO_MGR::LEGACY );
+        return true;
+    }
+
+    importKiCadProjectFile( aProjectFile.GetFullPath() );
+    return true;
 }
 
 
@@ -462,7 +609,7 @@ void KICAD_MANAGER_FRAME::importProjectFromFile( const wxString& aInputPath,
     {
         // Don't use wxFileDialog here.  On GTK builds, the default path is returned unless a
         // file is actually selected.
-        wxDirDialog prodlg( this, _( "KiCad Project Destination" ),
+        wxDirDialog prodlg( this, _( "Anvil Project Destination" ),
                             importProj.m_InputFile.GetPath(), wxDD_DEFAULT_STYLE );
 
         if( prodlg.ShowModal() == wxID_CANCEL )

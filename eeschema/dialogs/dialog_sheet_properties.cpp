@@ -267,7 +267,7 @@ bool DIALOG_SHEET_PROPERTIES::TransferDataFromWindow()
 
     // Ensure the filename extension is OK.  (In normal use will be caught by grid validators,
     // but unedited data from existing files can be bad.)
-    sheetFileName = EnsureFileExtension( sheetFileName, FILEEXT::KiCadSchematicFileExtension );
+    sheetFileName = EnsureFileExtension( sheetFileName, FILEEXT::AnvilSchematicFileExtension );
 
     // Ensure sheetFileName is legal
     if( !IsFullFileNameValid( sheetFileName ) )
@@ -300,7 +300,7 @@ bool DIALOG_SHEET_PROPERTIES::TransferDataFromWindow()
         if( currentScreen->GetFileName().IsEmpty() )
         {
             clearFileName = true;
-            currentScreen->SetFileName( m_frame->Prj().AbsolutePath( wxT( "noname.kicad_sch" ) ) );
+            currentScreen->SetFileName( m_frame->Prj().AbsolutePath( wxT( "noname.anvil_sch" ) ) );
         }
 
         wxFileName tmp( fn );

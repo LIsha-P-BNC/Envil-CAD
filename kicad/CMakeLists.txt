@@ -252,6 +252,31 @@ if( KICAD_WIN32_INSTALL_PDBS )
     install(FILES $<TARGET_PDB_FILE:kicad> DESTINATION ${KICAD_BIN})
 endif()
 
+if( WIN32 AND KICAD_IPC_API )
+    # Bundle a complete Python runtime next to the exe so the IPC API plugin manager
+    # can build per-plugin virtualenvs. Without a real python.exe/pythonw.exe + stdlib
+    # (applocal only deploys python3xx.dll), PYTHON_MANAGER cannot create any venv and
+    # every IPC-API plugin silently fails. FindKicadFile("pythonw.exe") resolves to
+    # <bin>/pythonw.exe, which pgm_base.cpp auto-selects as the default interpreter and
+    # which api_plugin_manager.cpp uses to strip PYTHONHOME/PYTHONPATH from child venvs.
+    # This is the Windows counterpart to the APPLE Python.framework bundling below.
+    get_filename_component( PYTHON_RUNTIME_DIR "${PYTHON_EXECUTABLE}" DIRECTORY )
+
+    if( EXISTS "${PYTHON_RUNTIME_DIR}/pythonw.exe" )
+        install( DIRECTORY "${PYTHON_RUNTIME_DIR}/"
+                 DESTINATION "${KICAD_BIN}"
+                 COMPONENT binary
+                 PATTERN "__pycache__" EXCLUDE
+                 PATTERN "*.pdb"       EXCLUDE
+                 PATTERN "*_d.dll"     EXCLUDE
+                 PATTERN "*_d.exe"     EXCLUDE )
+    else()
+        message( WARNING
+            "KICAD_IPC_API is ON but no pythonw.exe found next to PYTHON_EXECUTABLE "
+            "(${PYTHON_RUNTIME_DIR}); IPC-API plugins will have no bundled interpreter." )
+    endif()
+endif()
+
 if( APPLE )
     # "install( CODE ... )" will launch its own CMake, so no variables from
     # this CMake instance are accessible... use helper to transfer

@@ -199,11 +199,25 @@ EDA_BASE_FRAME::EDA_BASE_FRAME( wxWindow* aParent, FRAME_T aFrameType, const wxS
     // and project tree all inherit it.  The KIUI font helpers derive from the window font, so they
     // follow automatically.  The drawing canvas uses the GAL font stack and is left untouched, and
     // the single-window shell's top title-bar menu sets its own absolute size (so it is excluded).
-    if( ADVANCED_CFG::GetCfg().m_AnvilUiFontPt > 0.0 )
     {
-        wxFont uiFont = GetFont();
-        uiFont.SetFractionalPointSize( ADVANCED_CFG::GetCfg().m_AnvilUiFontPt );
-        SetFont( uiFont );
+        const ADVANCED_CFG& acfg = ADVANCED_CFG::GetCfg();
+        wxFont uiFont  = GetFont();
+        bool   changed = false;
+
+        if( acfg.m_AnvilUiFontPt > 0.0 )
+        {
+            uiFont.SetFractionalPointSize( acfg.m_AnvilUiFontPt );
+            changed = true;
+        }
+
+        if( !acfg.m_AnvilUiFontFace.IsEmpty() )
+        {
+            uiFont.SetFaceName( acfg.m_AnvilUiFontFace );
+            changed = true;
+        }
+
+        if( changed )
+            SetFont( uiFont );
     }
 
     commonInit( aFrameType );
@@ -1262,6 +1276,18 @@ void EDA_BASE_FRAME::RestoreAuiLayout()
         if( panes.Item( i ).IsToolbar() )
             panes.Item( i ).Show( true );
     }
+
+    // Self-heal a stale saved perspective (from an older layout / previous version) that can
+    // re-dock the horizontal Standard toolbar ("TopMainToolbar") into a side column — it then
+    // renders vertically and stacks on top of the left tool column (the "toolbar not in Altium
+    // style" symptom).  That toolbar is always meant to sit on the top row, so force it back
+    // there for every editor.  This generalizes the guard the symbol editor already applied and
+    // keeps the Altium layout (Standard on top, tools on the left) correct regardless of any
+    // stale per-editor perspective.  A later m_auimgr.Update() (during frame init) applies it.
+    wxAuiPaneInfo& topMainToolbar = m_auimgr.GetPane( wxS( "TopMainToolbar" ) );
+
+    if( topMainToolbar.IsOk() )
+        topMainToolbar.Top().Layer( 6 ).Position( 0 );
 }
 
 

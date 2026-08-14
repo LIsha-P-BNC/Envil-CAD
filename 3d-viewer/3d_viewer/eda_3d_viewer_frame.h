@@ -170,6 +170,14 @@ private:
 
     void doReCreateMenuBar() override;
 
+    // KiCad Next unified menu bar (see EDA_BASE_FRAME::buildCommonMenuBar()).
+    TOOL_INTERACTIVE* getCurrentMenuTool() override;
+    void buildFileMenu( ACTION_MENU* aMenu ) override;
+    void buildEditMenu( ACTION_MENU* aMenu ) override;
+    void buildViewMenu( ACTION_MENU* aMenu ) override;
+    void buildToolsMenu( ACTION_MENU* aMenu ) override;
+    void buildPreferencesMenu( ACTION_MENU* aMenu ) override;
+
     /**
      * @brief RenderEngineChanged - Update toolbar icon and call canvas RenderEngineChanged
      */

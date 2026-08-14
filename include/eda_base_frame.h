@@ -673,6 +673,33 @@ public:
      */
     virtual bool CanAcceptApiCommands() { return IsEnabled(); }
 
+    /**
+     * KiCad Next: true when any unified menu-bar path is active (the "UnifiedMenuBar"
+     * advanced flag, or implied by "ModernMenuLayout").
+     */
+    static bool UseUnifiedMenuBar();
+
+    /**
+     * KiCad Next: true when the unified menu bar uses the Altium-style top-level grouping
+     * (File / Edit / View / Project / Place / Design / Route / Reports / Tools / Window).
+     */
+    static bool UseModernMenuLayout();
+
+    /**
+     * KiCad Next: activation hook used by the unified Window menu.  Multi-window mode uses
+     * the default (Show + Raise); the single-window shell replaces it so that choosing a
+     * window entry selects the matching editor tab instead of raising a floating frame.
+     */
+    static void SetWindowMenuActivator( std::function<void( EDA_BASE_FRAME* )> aActivator );
+    static void ActivateWindowMenuTarget( EDA_BASE_FRAME* aFrame );
+
+    /**
+     * KiCad Next: fill @p aMenu with this frame's dockable-panel toggle actions (the content
+     * of its View → Panels submenu).  Shared by the View menu and the shell's status-bar
+     * Panels button.  Default: this frame has no panels.
+     */
+    virtual void buildPanelsMenu( ACTION_MENU* aMenu ) {}
+
 protected:
     /// Default style flags used for wxAUI toolbars.
     static constexpr int KICAD_AUI_TB_STYLE = wxAUI_TB_DEFAULT_STYLE | wxAUI_TB_PLAIN_BACKGROUND;
@@ -699,6 +726,17 @@ protected:
     virtual void buildInspectMenu( ACTION_MENU* aMenu )     {}
     virtual void buildToolsMenu( ACTION_MENU* aMenu )       {}
     virtual void buildPreferencesMenu( ACTION_MENU* aMenu ) {}
+
+    /**
+     * KiCad Next: extra hooks used only by the Altium-style layout (ModernMenuLayout).
+     * Project = project-scope navigation (other editors, variants), Design = design-data
+     * operations (setup, rules, annotation, cross-editor sync), Reports = generated
+     * outputs and diagnostics (BOM, statistics, library diffs).  The classic layout
+     * never queries them; an empty body means "this frame has no such menu".
+     */
+    virtual void buildProjectMenu( ACTION_MENU* aMenu )     {}
+    virtual void buildDesignMenu( ACTION_MENU* aMenu )      {}
+    virtual void buildReportsMenu( ACTION_MENU* aMenu )     {}
 
     virtual void configureToolbars();
 

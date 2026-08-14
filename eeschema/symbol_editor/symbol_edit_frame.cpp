@@ -1159,7 +1159,7 @@ wxString SYMBOL_EDIT_FRAME::AddLibraryFile( bool aCreateNew )
 
     if( !LibraryFileBrowser( aCreateNew ? _( "New Symbol Library" ) : _( "Add Symbol Library" ),
                              !aCreateNew, fn, FILEEXT::KiCadSymbolLibFileWildcard(),
-                             FILEEXT::KiCadSymbolLibFileExtension, false,
+                             FILEEXT::AnvilSymbolLibFileExtension, false,
                              Pgm().GetSettingsManager().IsProjectOpenNotDummy() ? &tableChooser : nullptr ) )
     {
         return wxEmptyString;

@@ -9,6 +9,7 @@
                 <key>CFBundleTypeExtensions</key>
                     <array>
                         <string>sch</string>
+                        <string>anvil_sch</string>
                         <string>kicad_sch</string>
                     </array>
                 <key>CFBundleTypeIconFile</key>     <string>eeschema_doc.icns</string>

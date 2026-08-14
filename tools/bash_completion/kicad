@@ -13,15 +13,15 @@ __kicad_relevant_files ()
             return
             ;;
         pcb | pcbnew)
-            _filedir '@(kicad_pcb)'
+            _filedir '@(anvil_pcb|kicad_pcb)'
             return
             ;;
         sch | eeschema)
-            _filedir '@(kicad_sch)'
+            _filedir '@(anvil_sch|kicad_sch)'
             return
             ;;
         pro | kicad)
-            _filedir '@(kicad_pro)'
+            _filedir '@(anvil_pro|kicad_pro)'
             return
             ;;
     esac

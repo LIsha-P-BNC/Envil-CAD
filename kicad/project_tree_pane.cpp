@@ -115,9 +115,9 @@ static const wxChar* s_allowedExtensionsToList[] =
     wxT( "^.*\\.kicad_sch$" ),     // S-expr Eeschema files
     wxT( "^[^$].*\\.brd$" ),       // Legacy Pcbnew files
     wxT( "^[^$].*\\.kicad_pcb$" ), // S format Pcbnew board files
-    wxT( "^[^$].*\\.kicad_dru$" ), // Design rule files
-    wxT( "^[^$].*\\.kicad_wks$" ), // S format kicad drawing sheet files
-    wxT( "^[^$].*\\.kicad_mod$" ), // S format kicad footprint files, currently not listed
+    wxT( "^[^$].*\\.(kicad|anvil)_dru$" ), // Design rule files (both family spellings)
+    wxT( "^[^$].*\\.(kicad|anvil)_wks$" ), // Drawing sheet files (both family spellings)
+    wxT( "^[^$].*\\.(kicad|anvil)_mod$" ), // Footprint files, currently not listed
     wxT( "^.*\\.net$" ),           // pcbnew netlist file
     wxT( "^.*\\.cir$" ),           // Spice netlist file
     wxT( "^.*\\.lib$" ),           // Legacy schematic library file
@@ -145,7 +145,7 @@ static const wxChar* s_allowedExtensionsToList[] =
     wxT( "^.*\\.svg$" ),           // SVG print/plot files
     wxT( "^.*\\.ps$" ),            // PostScript plot files
     wxT( "^.*\\.zip$" ),           // Zip archive files
-    wxT( "^.*\\.kicad_jobset" ),   // KiCad jobs file
+    wxT( "^.*\\.(kicad|anvil)_jobset" ),   // Jobs file (both family spellings)
     nullptr                        // end of list
 };
 

@@ -261,6 +261,26 @@ void SPLIT_BUTTON::OnPaint( wxPaintEvent& WXUNUSED( aEvent ) )
             };
 #endif
 
+    // Emerald (dark-theme) push-part painter — matches BITMAP_BUTTON / STD_BITMAP_BUTTON so the
+    // split button's hover / press is the theme accent, not the native grey.
+    auto drawEmeraldPart =
+            [&]( const wxRect& aRect, int aState )
+            {
+                wxColour face      = wxSystemSettings::GetColour( wxSYS_COLOUR_BTNFACE );
+                wxColour highlight = wxSystemSettings::GetColour( wxSYS_COLOUR_HIGHLIGHT );
+                wxColour edge      = wxSystemSettings::GetColour( wxSYS_COLOUR_ACTIVEBORDER );
+                wxColour fill      = face;
+
+                if( aState == wxCONTROL_PRESSED )
+                    fill = highlight.ChangeLightness( 20 );
+                else if( aState == wxCONTROL_CURRENT )
+                    fill = highlight.ChangeLightness( 40 );
+
+                dc.SetBrush( wxBrush( fill ) );
+                dc.SetPen( wxPen( ( aState != 0 ) ? highlight : edge ) );
+                dc.DrawRoundedRectangle( aRect, FromDIP( 3 ) );
+            };
+
     // Draw first part of button
     wxRect r1;
     r1.x      = 0;
@@ -277,7 +297,10 @@ void SPLIT_BUTTON::OnPaint( wxPaintEvent& WXUNUSED( aEvent ) )
     r1.width += 2;
 #endif
 
-    wxRendererNative::Get().DrawPushButton( this, dc, r1, m_stateButton );
+    if( KIPLATFORM::UI::IsDarkTheme() )
+        drawEmeraldPart( r1, m_stateButton );
+    else
+        wxRendererNative::Get().DrawPushButton( this, dc, r1, m_stateButton );
 #endif
 
     SetForegroundColour( m_bIsEnable ? wxSystemSettings::GetColour( wxSYS_COLOUR_BTNTEXT )
@@ -320,7 +343,11 @@ void SPLIT_BUTTON::OnPaint( wxPaintEvent& WXUNUSED( aEvent ) )
     drawBackground( r2 );
 #else
     r2.x -= 2;
-    wxRendererNative::Get().DrawPushButton( this, dc, r2, m_stateMenu );
+
+    if( KIPLATFORM::UI::IsDarkTheme() )
+        drawEmeraldPart( r2, m_stateMenu );
+    else
+        wxRendererNative::Get().DrawPushButton( this, dc, r2, m_stateMenu );
 #endif
 
     wxRendererNative::Get().DrawDropArrow( this, dc, r2, m_stateMenu );

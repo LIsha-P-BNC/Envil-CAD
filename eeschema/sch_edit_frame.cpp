@@ -51,6 +51,7 @@
 #include <kiface_base.h>
 #include <kiplatform/app.h>
 #include <kiplatform/ui.h>
+#include <kiplatform/anvil_theme.h>
 #include <kiway.h>
 #include <symbol_edit_frame.h>
 #include <symbol_viewer_frame.h>
@@ -881,16 +882,18 @@ SCH_EDIT_FRAME::SCH_EDIT_FRAME( KIWAY* aKiway, wxWindow* aParent ) :
 
 namespace
 {
-// Anvil "Vibrant Purple & Indigo" chrome palette (RGB).  Kept local to the schematic editor;
-// the canvas ("screen") is themed separately by the colour theme, not here.
-const wxColour ANVIL_BG_DEEP{ 24, 20, 42 };    // deepest indigo: dock/background fill
-const wxColour ANVIL_BG_PANEL{ 33, 27, 56 };   // dockable panels & tool-bars
-const wxColour ANVIL_CAP_ACTIVE{ 88, 52, 156 };// active pane caption (purple)
-const wxColour ANVIL_CAP_INACTIVE{ 43, 35, 70 };
-const wxColour ANVIL_ACCENT{ 139, 92, 246 };   // vibrant purple: hover / pressed / checked
-const wxColour ANVIL_BORDER{ 58, 46, 99 };
-const wxColour ANVIL_SASH{ 40, 33, 66 };
-const wxColour ANVIL_TEXT{ 255, 255, 255 };    // white
+// Anvil chrome palette — sourced from the single palette header (kiplatform/anvil_theme.h)
+// instead of local literals.  Kept as named aliases so the theme code below is unchanged; the
+// canvas ("screen") is themed separately by the colour theme, not here.  (References only bind
+// the address of the ANVIL:: globals, so there is no static-init-order dependency.)
+const wxColour& ANVIL_BG_DEEP      = ANVIL::CONTENT;       // NEMI Black Ground: dock/background fill
+const wxColour& ANVIL_BG_PANEL     = ANVIL::PANEL;         // NEMI Warm Graphite: dockable panels & tool-bars
+const wxColour& ANVIL_CAP_ACTIVE   = ANVIL::CAP_ACTIVE;    // NEMI Deep Emerald: active pane caption
+const wxColour& ANVIL_CAP_INACTIVE = ANVIL::CAP_INACTIVE;
+const wxColour& ANVIL_ACCENT       = ANVIL::ACCENT;        // NEMI Signal Emerald: hover / pressed / checked
+const wxColour& ANVIL_BORDER       = ANVIL::BORDER;
+const wxColour& ANVIL_SASH         = ANVIL::SASH;
+const wxColour& ANVIL_TEXT         = ANVIL::BONE;          // NEMI Bone
 
 /**
  * Recursively repaint @p aWindow and its descendants with the Anvil chrome colours, skipping
@@ -1938,15 +1941,11 @@ void SCH_EDIT_FRAME::OnUpdatePCB( bool aAutoApply )
     if( !frame )
     {
         wxFileName fn = Prj().GetProjectFullName();
-        fn.SetExt( FILEEXT::PcbFileExtension );
 
-        {
-            wxFileName anvilFn( fn );
-            anvilFn.SetExt( FILEEXT::AnvilPcbFileExtension );
-
-            if( !fn.FileExists() && anvilFn.FileExists() )
-                fn = anvilFn;
-        }
+        // Default to the native board name — a board created from here must be born
+        // .anvil_pcb — but fall back to an existing foreign sibling on disk.
+        fn.SetExt( FILEEXT::AnvilPcbFileExtension );
+        fn = wxFileName( FILEEXT::HealToExistingFamilySibling( fn.GetFullPath() ) );
 
         frame = Kiway().Player( FRAME_PCB_EDITOR, true );
 
@@ -2038,7 +2037,7 @@ void SCH_EDIT_FRAME::NewProject()
     if( dlg.ShowModal() != wxID_CANCEL )
     {
         // Enforce the extension, wxFileDialog is inept.
-        wxFileName create_me = EnsureFileExtension( dlg.GetPath(), FILEEXT::KiCadSchematicFileExtension );
+        wxFileName create_me = EnsureFileExtension( dlg.GetPath(), FILEEXT::AnvilSchematicFileExtension );
 
         if( create_me.FileExists() )
         {
@@ -2064,9 +2063,7 @@ void SCH_EDIT_FRAME::LoadProject()
         return;
 
     wxString pro_dir = m_mruPath;
-    wxString wildcards = FILEEXT::AllSchematicFilesWildcard()
-                            + wxS( "|" ) + FILEEXT::KiCadSchematicFileWildcard()
-                            + wxS( "|" ) + FILEEXT::LegacySchematicFileWildcard();
+    wxString wildcards = FILEEXT::AllSchematicFilesWildcard();
 
     wxFileDialog dlg( this, _( "Open Schematic" ), pro_dir, wxEmptyString, wildcards,
                       wxFD_OPEN | wxFD_FILE_MUST_EXIST );
@@ -2112,15 +2109,9 @@ void SCH_EDIT_FRAME::OnOpenPcbnew()
 
     if( kicad_board.IsOk() && !Schematic().GetFileName().IsEmpty() )
     {
-        kicad_board.SetExt( FILEEXT::PcbFileExtension );
-
-        {
-            wxFileName anvilFn( kicad_board );
-            anvilFn.SetExt( FILEEXT::AnvilPcbFileExtension );
-
-            if( !kicad_board.FileExists() && anvilFn.FileExists() )
-                kicad_board = anvilFn;
-        }
+        // Default to the native board name; fall back to an existing foreign sibling.
+        kicad_board.SetExt( FILEEXT::AnvilPcbFileExtension );
+        kicad_board = wxFileName( FILEEXT::HealToExistingFamilySibling( kicad_board.GetFullPath() ) );
         wxFileName legacy_board( kicad_board );
         legacy_board.SetExt( FILEEXT::LegacyPcbFileExtension );
         wxFileName& boardfn = legacy_board;

@@ -37,7 +37,7 @@
 void SYMBOL_EDIT_FRAME::doReCreateMenuBar()
 {
     // KiCad Next: build the shared common menu bar instead of the legacy one when enabled.
-    if( ADVANCED_CFG::GetCfg().m_UnifiedMenuBar )
+    if( UseUnifiedMenuBar() )
     {
         buildCommonMenuBar();
         return;
@@ -130,8 +130,7 @@ void SYMBOL_EDIT_FRAME::doReCreateMenuBar()
 
     ACTION_MENU* showHidePanels = new ACTION_MENU( false, selTool );
     showHidePanels->SetTitle( _( "Panels" ) );
-    showHidePanels->Add( ACTIONS::showProperties,  ACTION_MENU::CHECK );
-    showHidePanels->Add( ACTIONS::showLibraryTree, ACTION_MENU::CHECK );
+    buildPanelsMenu( showHidePanels );
     viewMenu->Add( showHidePanels );
     viewMenu->AppendSeparator();
 
@@ -143,6 +142,30 @@ void SYMBOL_EDIT_FRAME::doReCreateMenuBar()
     viewMenu->Add( ACTIONS::zoomFitScreen );
     viewMenu->Add( ACTIONS::zoomTool );
     viewMenu->Add( ACTIONS::zoomRedraw );
+
+    // Modern toolbar preset: the left toolbar is gone, so its display toggles surface here.
+    if( ADVANCED_CFG::GetCfg().m_ModernToolbarLayout )
+    {
+        viewMenu->AppendSeparator();
+        viewMenu->Add( ACTIONS::toggleGrid,          ACTION_MENU::CHECK );
+        viewMenu->Add( ACTIONS::toggleGridOverrides, ACTION_MENU::CHECK );
+
+        ACTION_MENU* unitsSubMenu = new ACTION_MENU( false, selTool );
+        unitsSubMenu->SetTitle( _( "&Units" ) );
+        unitsSubMenu->Add( ACTIONS::millimetersUnits, ACTION_MENU::CHECK );
+        unitsSubMenu->Add( ACTIONS::inchesUnits,      ACTION_MENU::CHECK );
+        unitsSubMenu->Add( ACTIONS::milsUnits,        ACTION_MENU::CHECK );
+        viewMenu->Add( unitsSubMenu );
+
+        ACTION_MENU* crosshairSubMenu = new ACTION_MENU( false, selTool );
+        crosshairSubMenu->SetTitle( _( "&Crosshair Mode" ) );
+        crosshairSubMenu->Add( ACTIONS::cursorSmallCrosshairs, ACTION_MENU::CHECK );
+        crosshairSubMenu->Add( ACTIONS::cursorFullCrosshairs,  ACTION_MENU::CHECK );
+        crosshairSubMenu->Add( ACTIONS::cursor45Crosshairs,    ACTION_MENU::CHECK );
+        viewMenu->Add( crosshairSubMenu );
+
+        viewMenu->Add( SCH_ACTIONS::showElectricalTypes, ACTION_MENU::CHECK );
+    }
 
     viewMenu->AppendSeparator();
     viewMenu->Add( SCH_ACTIONS::showHiddenPins,    ACTION_MENU::CHECK );
@@ -210,6 +233,13 @@ void SYMBOL_EDIT_FRAME::doReCreateMenuBar()
 TOOL_INTERACTIVE* SYMBOL_EDIT_FRAME::getCurrentMenuTool()
 {
     return m_toolManager->GetTool<SCH_SELECTION_TOOL>();
+}
+
+
+void SYMBOL_EDIT_FRAME::buildPanelsMenu( ACTION_MENU* aMenu )
+{
+    aMenu->Add( ACTIONS::showProperties,  ACTION_MENU::CHECK );
+    aMenu->Add( ACTIONS::showLibraryTree, ACTION_MENU::CHECK );
 }
 
 
@@ -294,8 +324,7 @@ void SYMBOL_EDIT_FRAME::buildViewMenu( ACTION_MENU* viewMenu )
 
     ACTION_MENU* showHidePanels = new ACTION_MENU( false, selTool );
     showHidePanels->SetTitle( _( "Panels" ) );
-    showHidePanels->Add( ACTIONS::showProperties,  ACTION_MENU::CHECK );
-    showHidePanels->Add( ACTIONS::showLibraryTree, ACTION_MENU::CHECK );
+    buildPanelsMenu( showHidePanels );
     viewMenu->Add( showHidePanels );
     viewMenu->AppendSeparator();
 
@@ -307,6 +336,30 @@ void SYMBOL_EDIT_FRAME::buildViewMenu( ACTION_MENU* viewMenu )
     viewMenu->Add( ACTIONS::zoomFitScreen );
     viewMenu->Add( ACTIONS::zoomTool );
     viewMenu->Add( ACTIONS::zoomRedraw );
+
+    // Modern toolbar preset: the left toolbar is gone, so its display toggles surface here.
+    if( ADVANCED_CFG::GetCfg().m_ModernToolbarLayout )
+    {
+        viewMenu->AppendSeparator();
+        viewMenu->Add( ACTIONS::toggleGrid,          ACTION_MENU::CHECK );
+        viewMenu->Add( ACTIONS::toggleGridOverrides, ACTION_MENU::CHECK );
+
+        ACTION_MENU* unitsSubMenu = new ACTION_MENU( false, selTool );
+        unitsSubMenu->SetTitle( _( "&Units" ) );
+        unitsSubMenu->Add( ACTIONS::millimetersUnits, ACTION_MENU::CHECK );
+        unitsSubMenu->Add( ACTIONS::inchesUnits,      ACTION_MENU::CHECK );
+        unitsSubMenu->Add( ACTIONS::milsUnits,        ACTION_MENU::CHECK );
+        viewMenu->Add( unitsSubMenu );
+
+        ACTION_MENU* crosshairSubMenu = new ACTION_MENU( false, selTool );
+        crosshairSubMenu->SetTitle( _( "&Crosshair Mode" ) );
+        crosshairSubMenu->Add( ACTIONS::cursorSmallCrosshairs, ACTION_MENU::CHECK );
+        crosshairSubMenu->Add( ACTIONS::cursorFullCrosshairs,  ACTION_MENU::CHECK );
+        crosshairSubMenu->Add( ACTIONS::cursor45Crosshairs,    ACTION_MENU::CHECK );
+        viewMenu->Add( crosshairSubMenu );
+
+        viewMenu->Add( SCH_ACTIONS::showElectricalTypes, ACTION_MENU::CHECK );
+    }
 
     viewMenu->AppendSeparator();
     viewMenu->Add( SCH_ACTIONS::showHiddenPins,    ACTION_MENU::CHECK );
@@ -331,6 +384,11 @@ void SYMBOL_EDIT_FRAME::buildPlaceMenu( ACTION_MENU* placeMenu )
 
 void SYMBOL_EDIT_FRAME::buildInspectMenu( ACTION_MENU* inspectMenu )
 {
+    // Modern layout: the symbol checker moves to Tools and the datasheet to Reports, so the
+    // classic Inspect menu is dropped entirely.
+    if( UseModernMenuLayout() )
+        return;
+
     inspectMenu->Add( ACTIONS::showDatasheet );
 
     inspectMenu->AppendSeparator();
@@ -338,8 +396,40 @@ void SYMBOL_EDIT_FRAME::buildInspectMenu( ACTION_MENU* inspectMenu )
 }
 
 
+void SYMBOL_EDIT_FRAME::buildToolsMenu( ACTION_MENU* toolsMenu )
+{
+    // The classic symbol editor has no Tools menu; the modern layout gains one for the
+    // checker, with the Preferences items folded into the tail until the title-bar gear
+    // hosts them.
+    if( !UseModernMenuLayout() )
+        return;
+
+    SCH_SELECTION_TOOL* selTool = m_toolManager->GetTool<SCH_SELECTION_TOOL>();
+
+    toolsMenu->Add( SCH_ACTIONS::checkSymbol );
+
+    toolsMenu->AppendSeparator();
+    toolsMenu->Add( ACTIONS::configurePaths );
+    toolsMenu->Add( ACTIONS::showSymbolLibTable );
+    toolsMenu->Add( ACTIONS::openPreferences );
+
+    toolsMenu->AppendSeparator();
+    AddMenuLanguageList( toolsMenu, selTool );
+}
+
+
+void SYMBOL_EDIT_FRAME::buildReportsMenu( ACTION_MENU* reportsMenu )
+{
+    reportsMenu->Add( ACTIONS::showDatasheet );
+}
+
+
 void SYMBOL_EDIT_FRAME::buildPreferencesMenu( ACTION_MENU* prefsMenu )
 {
+    // Modern layout: these items live in the tail of Tools instead of a top-level menu.
+    if( UseModernMenuLayout() )
+        return;
+
     SCH_SELECTION_TOOL* selTool = m_toolManager->GetTool<SCH_SELECTION_TOOL>();
 
     prefsMenu->Add( ACTIONS::configurePaths );

@@ -34,6 +34,14 @@
 #include <wx/stdpaths.h>
 #include <wx/msgdlg.h>
 #include <wx/cmdline.h>
+#include <wx/ipc.h>
+#ifndef __WXMSW__
+#include <wx/socket.h>   // non-Windows IPC rides TCP; used for the pre-connect timeout probe
+#endif
+#include <wx/snglinst.h>
+
+#include <functional>
+#include <memory>
 
 #include <env_vars.h>
 #include <file_history.h>
@@ -90,6 +98,146 @@ PGM_KICAD& PgmTop()
 {
     return program;
 }
+
+
+#if wxUSE_IPC
+// ---------------------------------------------------------------------------------------------
+// Single-window shell: hand a file from a *second* launch to the ALREADY-running Anvil so it
+// opens as a tab, instead of cold-starting another heavyweight process/window (the real cause
+// of the "new window every time / slow" behaviour).  VS Code / Cursor style.
+//
+// Transport is wxWidgets IPC (DDE on Windows) — no extra dependency, and self-contained to this
+// binary.  The channel name is derived from the running app name (not a hard-coded product
+// string) so it cannot collide with other KiCad-family executables and needs no config.
+// ---------------------------------------------------------------------------------------------
+
+static const wxString ANVIL_IPC_TOPIC = wxS( "open" );
+
+#ifdef __WXMSW__
+static wxString anvilInstanceService()
+{
+    // Windows transport is DDE, whose service is a free-form name.  Both the launching (client)
+    // and running (server) instance are the same executable, so wxApp::GetAppName() (the exe
+    // basename, e.g. "anvilcad") is identical in both and needs no hard-coded product string.
+    return wxTheApp->GetAppName() + wxS( "-open-ipc" );
+}
+#else
+static wxString anvilInstanceService()
+{
+    // Non-Windows wxIPC rides TCP, whose service must be a numeric port.  Derive a stable port
+    // from the app name (the same input the DDE path keys off) so distinct KiCad-family
+    // executables get distinct ports with no hard-coded product string or config.  FNV-1a, folded
+    // into the IANA dynamic/private range (49152-65535).  Server bind and client connect both call
+    // this, so they always agree on the port.
+    wxUint32 h = 2166136261u;
+
+    for( wxUniChar c : wxTheApp->GetAppName() )
+        h = ( h ^ ( c.GetValue() & 0xFFu ) ) * 16777619u;
+
+    return wxString::Format( wxS( "%u" ), 49152u + ( h % 16384u ) );
+}
+#endif
+
+// Set on the first (server) instance; invoked when a later launch forwards a path.  Empty
+// payload means "just raise the window".
+static std::function<void( const wxString& )> g_onForwardedOpen;
+
+class ANVIL_IPC_CONNECTION : public wxConnection
+{
+public:
+    bool OnExec( const wxString& WXUNUSED( aTopic ), const wxString& aData ) override
+    {
+        if( g_onForwardedOpen )
+            g_onForwardedOpen( aData );
+
+        return true;
+    }
+};
+
+class ANVIL_IPC_SERVER : public wxServer
+{
+public:
+    wxConnectionBase* OnAcceptConnection( const wxString& aTopic ) override
+    {
+        return aTopic == ANVIL_IPC_TOPIC ? new ANVIL_IPC_CONNECTION : nullptr;
+    }
+};
+
+class ANVIL_IPC_CLIENT : public wxClient
+{
+public:
+    wxConnectionBase* OnMakeConnection() override { return new ANVIL_IPC_CONNECTION; }
+};
+
+static std::unique_ptr<ANVIL_IPC_SERVER> g_instanceServer;
+
+// Become the single-window IPC listener if no instance currently is.  Called at startup and
+// again whenever a shell window is activated: if the instance that owned the listener is closed,
+// the next activated window re-registers the service, so Explorer opens keep docking into a
+// running window instead of silently cold-starting from then on (self-healing listener election).
+static void anvilEnsureInstanceListener()
+{
+    if( g_instanceServer )
+        return;   // this instance already hosts the listener
+
+    auto server = std::make_unique<ANVIL_IPC_SERVER>();
+
+    if( server->Create( anvilInstanceService() ) )
+        g_instanceServer = std::move( server );
+    // else: another instance owns the service — remain a non-listener for now.
+}
+
+// Hand @a aPayload (an absolute file path, or empty to just raise) to a running Anvil instance.
+// Returns true if a running instance accepted it, false if none could be reached (caller then
+// opens its own window, so behaviour is unchanged when nothing is listening).
+static bool anvilForwardToRunningInstance( const wxString& aPayload )
+{
+    wxLogNull         suppressConnectErrors;   // no popup when there is nothing to connect to
+
+#ifndef __WXMSW__
+    // Non-Windows wxServer/wxClient become wxTCPServer/wxTCPClient.  On Windows this whole block
+    // is absent: DDE fails fast on a dead service, so MakeConnection() below is already safe.  On
+    // TCP a dead-but-bound listener can otherwise block MakeConnection() indefinitely, so probe
+    // the port with an explicit timeout first.  No answer within the timeout is treated exactly
+    // like "no instance running": return false so the caller opens its own window (behaviour
+    // identical to a failed connect).
+    //
+    // Caveat: this catches an unreachable/refused port.  A stale listener that accepts the TCP
+    // connection but never completes the IPC handshake would still stall MakeConnection(); fully
+    // covering that needs an on-target (Linux/macOS) test to size a handshake timeout, which
+    // can't be exercised on the Windows build.
+    {
+        long port = 0;
+        anvilInstanceService().ToLong( &port );
+
+        wxIPV4address addr;
+        addr.Hostname( wxS( "localhost" ) );
+        addr.Service( static_cast<unsigned short>( port ) );
+
+        wxSocketClient probe;
+        probe.SetTimeout( 2 );                       // seconds; expiry => safe fallback
+
+        if( !probe.Connect( addr, true /* wait */ ) )
+            return false;
+
+        probe.Close();
+    }
+#endif
+
+    ANVIL_IPC_CLIENT  client;
+
+    wxConnectionBase* conn = client.MakeConnection( wxS( "localhost" ), anvilInstanceService(),
+                                                    ANVIL_IPC_TOPIC );
+
+    if( !conn )
+        return false;
+
+    bool ok = conn->Execute( aPayload );
+    conn->Disconnect();
+
+    return ok;
+}
+#endif // wxUSE_IPC
 
 
 bool PGM_KICAD::OnPgmInit()
@@ -181,6 +329,30 @@ bool PGM_KICAD::OnPgmInit()
 
     if( !InitPgm( false ) )
         return false;
+
+#if wxUSE_IPC
+    // Single-window shell: if another Anvil is already running, hand our file(s) to it and
+    // exit — so opening a file from Explorer (or any second launch) reuses the one window
+    // instead of cold-starting a second heavyweight process.  Additive & safe: with no running
+    // instance, or if the handoff fails, we fall through and start normally.  Only the project
+    // manager shell participates; an explicit "--frame ..." standalone editor, or "-n/--new",
+    // is left to open its own window on purpose.
+    if( appType == KICAD_MAIN_FRAME_T && !parser.FoundSwitch( "new" )
+        && SingleInstance()->IsAnotherRunning() )
+    {
+        wxString payload;   // absolute path of the first file arg; empty => just raise the window
+
+        if( parser.GetParamCount() > 0 )
+        {
+            wxFileName argFn( parser.GetParam( 0 ) );
+            argFn.MakeAbsolute();
+            payload = argFn.GetFullPath();
+        }
+
+        if( anvilForwardToRunningInstance( payload ) )
+            return false;   // handed off; APP_KICAD::OnInit() runs OnPgmExit() for cleanup
+    }
+#endif
 
 
     m_bm.InitSettings( new KICAD_SETTINGS );
@@ -345,6 +517,8 @@ bool PGM_KICAD::OnPgmInit()
     }
     else if( managerFrame )
     {
+        bool deferredEditorFile = false;   // a non-project file arg opened via OpenAnvilFile below
+
         if( parser.GetParamCount() > 0 )
         {
             wxFileName tmp = parser.GetParam( 0 );
@@ -353,9 +527,16 @@ bool PGM_KICAD::OnPgmInit()
                 && tmp.GetExt() != FILEEXT::ProjectFileExtension
                 && tmp.GetExt() != FILEEXT::LegacyProjectFileExtension )
             {
-                DisplayErrorMessage( nullptr, wxString::Format( _( "File '%s'\n"
-                                                                   "does not appear to be an Anvil project file." ),
-                                                                tmp.GetFullPath() ) );
+                // Not a project file (e.g. a .anvil_sch / .anvil_pcb opened from Explorer):
+                // open it inside this shell as an editor tab once the window is visible, rather
+                // than rejecting it.  OpenAnvilFile() classifies it and loads its own project.
+                tmp.MakeAbsolute();
+                wxString editorFile = tmp.GetFullPath();
+                deferredEditorFile  = true;
+                managerFrame->CallAfter( [managerFrame, editorFile]()
+                                         {
+                                             managerFrame->OpenAnvilFile( editorFile );
+                                         } );
             }
             else
             {
@@ -363,8 +544,12 @@ bool PGM_KICAD::OnPgmInit()
             }
         }
 
-        // If no file was given as an argument, check that there was a file open.
-        if( projToLoad.IsEmpty() && settings->m_OpenProjects.size() && !parser.FoundSwitch( "new" ) )
+        // If no project was given as an argument, re-open the last one — but not when we are
+        // about to open a specific editor file (deferredEditorFile): OpenAnvilFile() will load
+        // that file's own project, so auto-loading the previous project first would just flash
+        // the wrong project and then switch.
+        if( projToLoad.IsEmpty() && !deferredEditorFile && settings->m_OpenProjects.size()
+            && !parser.FoundSwitch( "new" ) )
         {
             wxString last_pro = settings->m_OpenProjects.front();
             settings->m_OpenProjects.erase( settings->m_OpenProjects.begin() );
@@ -391,7 +576,22 @@ bool PGM_KICAD::OnPgmInit()
                 fn.MakeAbsolute();
 
                 if( appType == KICAD_MAIN_FRAME_T )
-                    loaded = managerFrame->LoadProject( fn );
+                {
+                    if( fn.GetExt() == FILEEXT::AnvilProjectFileExtension )
+                    {
+                        loaded = managerFrame->LoadProject( fn );
+                    }
+                    else
+                    {
+                        // A foreign (KiCad/legacy) argument routes to a modal import offer
+                        // inside LoadProject; we're still before frame->Show(), so defer it
+                        // until the frame is visible.
+                        managerFrame->CallAfter( [managerFrame, fn]()
+                                                 {
+                                                     managerFrame->LoadProject( fn );
+                                                 } );
+                    }
+                }
             }
         }
 
@@ -401,6 +601,40 @@ bool PGM_KICAD::OnPgmInit()
 
     frame->Show( true );
     frame->Raise();
+
+#if wxUSE_IPC
+    // First (and only) instance: start the local IPC listener so later launches can hand us a
+    // file to open as a tab (see anvilForwardToRunningInstance()).  Only the manager shell hosts
+    // tabs, so only it listens.
+    if( managerFrame )
+    {
+        g_onForwardedOpen =
+                [managerFrame]( const wxString& aPath )
+                {
+                    // We are inside an IPC (DDE) callback here — marshal onto the GUI event loop
+                    // (correct on Windows DDE, and stays correct if the transport ever becomes
+                    // wxTCPServer, whose callbacks are not guaranteed on the main thread).
+                    managerFrame->CallAfter( [managerFrame, aPath]()
+                                             {
+                                                 managerFrame->HandleForwardedOpen( aPath );
+                                             } );
+                };
+
+        // Try to become the listener now, and re-try on activation so listener ownership
+        // self-heals if the instance that currently owns it is closed (see
+        // anvilEnsureInstanceListener).
+        anvilEnsureInstanceListener();
+
+        managerFrame->Bind( wxEVT_ACTIVATE,
+                            []( wxActivateEvent& evt )
+                            {
+                                if( evt.GetActive() )
+                                    anvilEnsureInstanceListener();
+
+                                evt.Skip();
+                            } );
+    }
+#endif
 
 #ifdef KICAD_IPC_API
     m_api_server->SetReadyToReply();
@@ -418,6 +652,13 @@ int PGM_KICAD::OnPgmRun()
 
 void PGM_KICAD::OnPgmExit()
 {
+#if wxUSE_IPC
+    // Stop the single-window IPC listener before teardown so no forwarded-open callback fires
+    // into a half-destroyed frame.
+    g_onForwardedOpen = nullptr;
+    g_instanceServer.reset();
+#endif
+
     // Abort and wait on any background jobs
     GetKiCadThreadPool().purge();
     GetKiCadThreadPool().wait();

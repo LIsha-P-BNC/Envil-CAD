@@ -67,6 +67,50 @@ std::optional<TOOLBAR_CONFIGURATION> SCH_EDIT_TOOLBAR_SETTINGS::DefaultToolbarCo
         return std::nullopt;
 
     case TOOLBAR_LOC::LEFT:
+        // Modern (classic-Altium) preset: the left edge hosts the Wiring toolbar — the
+        // schematic drawing tools, in Place-menu order.  The display toggles it replaces
+        // surface in the View menu (modern layout) and the Preferences dialog.
+        if( ADVANCED_CFG::GetCfg().m_ModernToolbarLayout )
+        {
+            config.AppendGroup( TOOLBAR_GROUP_CONFIG( _( "Selection modes" ) )
+                                .AddAction( ACTIONS::selectSetRect )
+                                .AddAction( ACTIONS::selectSetLasso ) )
+                  .AppendAction( SCH_ACTIONS::highlightNetTool );
+
+            config.AppendSeparator()
+                  .AppendAction( SCH_ACTIONS::placeSymbol )
+                  .AppendAction( SCH_ACTIONS::placePower )
+                  .AppendAction( SCH_ACTIONS::drawWire )
+                  .AppendAction( SCH_ACTIONS::drawBus )
+                  .AppendAction( SCH_ACTIONS::placeBusWireEntry )
+                  .AppendAction( SCH_ACTIONS::placeJunction )
+                  .AppendAction( SCH_ACTIONS::placeNoConnect );
+
+            config.AppendSeparator()
+                  .AppendAction( SCH_ACTIONS::placeLabel )
+                  .AppendAction( SCH_ACTIONS::placeGlobalLabel )
+                  .AppendAction( SCH_ACTIONS::placeClassLabel )
+                  .AppendAction( SCH_ACTIONS::placeHierLabel )
+                  .AppendAction( SCH_ACTIONS::drawSheet )
+                  .AppendAction( SCH_ACTIONS::placeSheetPin )
+                  .AppendAction( SCH_ACTIONS::drawRuleArea );
+
+            config.AppendSeparator()
+                  .AppendGroup( TOOLBAR_GROUP_CONFIG( _( "Text and graphics" ) )
+                                .AddAction( SCH_ACTIONS::placeSchematicText )
+                                .AddAction( SCH_ACTIONS::drawTextBox )
+                                .AddAction( SCH_ACTIONS::drawTable )
+                                .AddAction( SCH_ACTIONS::drawRectangle )
+                                .AddAction( SCH_ACTIONS::drawCircle )
+                                .AddAction( SCH_ACTIONS::drawArc )
+                                .AddAction( SCH_ACTIONS::drawBezier )
+                                .AddAction( SCH_ACTIONS::drawLines )
+                                .AddAction( SCH_ACTIONS::placeImage ) )
+                  .AppendAction( ACTIONS::deleteTool );
+
+            break;
+        }
+
         config.AppendAction( ACTIONS::toggleGrid )
               .WithContextMenu(
                       []( TOOL_MANAGER* aToolMgr )
@@ -115,6 +159,11 @@ std::optional<TOOLBAR_CONFIGURATION> SCH_EDIT_TOOLBAR_SETTINGS::DefaultToolbarCo
         break;
 
     case TOOLBAR_LOC::RIGHT:
+        // Modern (Altium-style) preset: no right toolbar.  The drawing tools fold into the
+        // grouped "Active Bar" tail of the top toolbar below.
+        if( ADVANCED_CFG::GetCfg().m_ModernToolbarLayout )
+            return std::nullopt;
+
         config.AppendGroup( TOOLBAR_GROUP_CONFIG( _( "Selection modes" ) )
                             .AddAction( ACTIONS::selectSetRect )
                             .AddAction( ACTIONS::selectSetLasso ) )
@@ -153,40 +202,79 @@ std::optional<TOOLBAR_CONFIGURATION> SCH_EDIT_TOOLBAR_SETTINGS::DefaultToolbarCo
         break;
 
     case TOOLBAR_LOC::TOP_MAIN:
-        if( Kiface().IsSingle() )   // not when under a project mgr
+        if( ADVANCED_CFG::GetCfg().m_ModernToolbarLayout )
         {
-            config.AppendAction( ACTIONS::doNew );
-            config.AppendAction( ACTIONS::open );
+            // Classic-Altium "Standard toolbar" head: file | undo/redo | clipboard | zoom.
+            if( Kiface().IsSingle() )   // not when under a project mgr
+            {
+                config.AppendAction( ACTIONS::doNew );
+                config.AppendAction( ACTIONS::open );
+            }
+
+            config.AppendAction( ACTIONS::save );
+
+            config.AppendSeparator()
+                  .AppendAction( ACTIONS::undo )
+                  .AppendAction( ACTIONS::redo );
+
+            config.AppendSeparator()
+                  .AppendAction( ACTIONS::cut )
+                  .AppendAction( ACTIONS::copy )
+                  .AppendAction( ACTIONS::paste );
+
+            config.AppendSeparator()
+                  .AppendAction( ACTIONS::zoomInCenter )
+                  .AppendAction( ACTIONS::zoomOutCenter )
+                  .AppendAction( ACTIONS::zoomFitScreen )
+                  .AppendAction( ACTIONS::zoomFitObjects );
+
+            config.AppendSeparator()
+                  .AppendAction( ACTIONS::find )
+                  .AppendAction( ACTIONS::findAndReplace );
+
+            config.AppendSeparator()
+                  .AppendAction( SCH_ACTIONS::schematicSetup )
+                  .AppendAction( ACTIONS::pageSettings )
+                  .AppendAction( ACTIONS::print )
+                  .AppendAction( ACTIONS::plot );
         }
+        else
+        {
+            if( Kiface().IsSingle() )   // not when under a project mgr
+            {
+                config.AppendAction( ACTIONS::doNew );
+                config.AppendAction( ACTIONS::open );
+            }
 
-        config.AppendAction( ACTIONS::save );
+            config.AppendAction( ACTIONS::save );
 
-        config.AppendSeparator()
-              .AppendAction( SCH_ACTIONS::schematicSetup );
+            config.AppendSeparator()
+                  .AppendAction( SCH_ACTIONS::schematicSetup );
 
-        config.AppendSeparator()
-              .AppendAction( ACTIONS::pageSettings )
-              .AppendAction( ACTIONS::print )
-              .AppendAction( ACTIONS::plot );
+            config.AppendSeparator()
+                  .AppendAction( ACTIONS::pageSettings )
+                  .AppendAction( ACTIONS::print )
+                  .AppendAction( ACTIONS::plot );
 
-        config.AppendSeparator()
-              .AppendAction( ACTIONS::paste );
+            config.AppendSeparator()
+                  .AppendAction( ACTIONS::paste );
 
-        config.AppendSeparator()
-              .AppendAction( ACTIONS::undo )
-              .AppendAction( ACTIONS::redo );
+            config.AppendSeparator()
+                  .AppendAction( ACTIONS::undo )
+                  .AppendAction( ACTIONS::redo );
 
-        config.AppendSeparator()
-              .AppendAction( ACTIONS::find )
-              .AppendAction( ACTIONS::findAndReplace );
+            config.AppendSeparator()
+                  .AppendAction( ACTIONS::find )
+                  .AppendAction( ACTIONS::findAndReplace );
 
-        config.AppendSeparator()
-              .AppendAction( ACTIONS::zoomRedraw )
-              .AppendAction( ACTIONS::zoomInCenter )
-              .AppendAction( ACTIONS::zoomOutCenter )
-              .AppendAction( ACTIONS::zoomFitScreen )
-              .AppendAction( ACTIONS::zoomFitObjects )
-              .AppendAction( ACTIONS::zoomTool );
+            config.AppendSeparator()
+                  .AppendAction( ACTIONS::zoomRedraw )
+                  .AppendAction( ACTIONS::zoomInCenter )
+                  .AppendAction( ACTIONS::zoomOutCenter )
+                  .AppendAction( ACTIONS::zoomFitScreen )
+                  .AppendAction( ACTIONS::zoomFitObjects )
+                  .AppendAction( ACTIONS::zoomTool );
+        }
 
         config.AppendSeparator()
               .AppendAction( SCH_ACTIONS::navigateBack )

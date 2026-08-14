@@ -253,6 +253,13 @@ void BITMAP2CMP_FRAME::OnClearFileHistory( wxCommandEvent& aEvent )
 
 void BITMAP2CMP_FRAME::doReCreateMenuBar()
 {
+    // KiCad Next: build the shared common menu bar instead of the legacy one when enabled.
+    if( UseUnifiedMenuBar() )
+    {
+        buildCommonMenuBar();
+        return;
+    }
+
     COMMON_CONTROL* tool = m_toolManager->GetTool<COMMON_CONTROL>();
     EDA_BASE_FRAME* base_frame = dynamic_cast<EDA_BASE_FRAME*>( this );
 
@@ -316,6 +323,60 @@ void BITMAP2CMP_FRAME::doReCreateMenuBar()
 
     base_frame->SetMenuBar( menuBar );
     delete oldMenuBar;
+}
+
+
+//================================ KiCad Next unified menu bar ================================
+// The hooks reproduce the small menus above so the Image Converter joins the unified bar and
+// the modern layout's Window menu.  Like the calculator, its Preferences menu is kept as-is
+// by the assembler's safety net (no Tools menu to fold into).
+
+TOOL_INTERACTIVE* BITMAP2CMP_FRAME::getCurrentMenuTool()
+{
+    return m_toolManager->GetTool<COMMON_CONTROL>();
+}
+
+
+void BITMAP2CMP_FRAME::buildFileMenu( ACTION_MENU* fileMenu )
+{
+    COMMON_CONTROL* tool = m_toolManager->GetTool<COMMON_CONTROL>();
+
+    fileMenu->Add( ACTIONS::open );
+
+    static ACTION_MENU* openRecentMenu;
+    FILE_HISTORY&       fileHistory = GetFileHistory();
+
+    if( !openRecentMenu )
+    {
+        openRecentMenu = new ACTION_MENU( false, tool );
+        openRecentMenu->SetIcon( BITMAPS::recent );
+
+        fileHistory.UseMenu( openRecentMenu );
+        fileHistory.AddFilesToMenu();
+    }
+
+    openRecentMenu->SetTitle( _( "Open Recent" ) );
+    fileHistory.UpdateClearText( openRecentMenu, _( "Clear Recent Files" ) );
+
+    wxMenuItem* item = fileMenu->Add( openRecentMenu->Clone() );
+
+    ACTION_CONDITIONS cond;
+    cond.Enable( FILE_HISTORY::FileHistoryNotEmpty( fileHistory ) );
+    RegisterUIUpdateHandler( item->GetId(), cond );
+
+    fileMenu->AppendSeparator();
+    fileMenu->AddQuit( _( "Image Converter" ) );
+}
+
+
+void BITMAP2CMP_FRAME::buildPreferencesMenu( ACTION_MENU* prefsMenu )
+{
+    COMMON_CONTROL* tool = m_toolManager->GetTool<COMMON_CONTROL>();
+
+    prefsMenu->Add( ACTIONS::openPreferences );
+
+    prefsMenu->AppendSeparator();
+    AddMenuLanguageList( prefsMenu, tool );
 }
 
 
@@ -521,7 +582,7 @@ void BITMAP2CMP_FRAME::ExportEeschemaFormat()
     if( fileDlg.ShowModal() != wxID_OK )
         return;
 
-    fn = EnsureFileExtension( fileDlg.GetPath(), FILEEXT::KiCadSymbolLibFileExtension );
+    fn = EnsureFileExtension( fileDlg.GetPath(), FILEEXT::AnvilSymbolLibFileExtension );
     m_outFileName = fn.GetFullPath();
 
     FILE* outfile = wxFopen( m_outFileName, wxT( "w" ) );
@@ -556,7 +617,7 @@ void BITMAP2CMP_FRAME::ExportPcbnewFormat()
     if( fileDlg.ShowModal() != wxID_OK )
         return;
 
-    fn = EnsureFileExtension( fileDlg.GetPath(), FILEEXT::KiCadFootprintFileExtension );
+    fn = EnsureFileExtension( fileDlg.GetPath(), FILEEXT::AnvilFootprintFileExtension );
     m_outFileName = fn.GetFullPath();
 
     FILE* outfile = wxFopen( m_outFileName, wxT( "w" ) );

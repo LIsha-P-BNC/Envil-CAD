@@ -767,6 +767,10 @@ protected:
     void buildInspectMenu( ACTION_MENU* aMenu ) override;
     void buildToolsMenu( ACTION_MENU* aMenu ) override;
     void buildPreferencesMenu( ACTION_MENU* aMenu ) override;
+    void buildProjectMenu( ACTION_MENU* aMenu ) override;
+    void buildDesignMenu( ACTION_MENU* aMenu ) override;
+    void buildReportsMenu( ACTION_MENU* aMenu ) override;
+    void buildPanelsMenu( ACTION_MENU* aMenu ) override;
 
     void configureToolbars() override;
 

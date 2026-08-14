@@ -216,8 +216,16 @@ void PL_EDITOR_FRAME::Files_io( wxCommandEvent& event )
         // extension
         wxFileName fn(filename);
 
-        if( fn.GetExt() != FILEEXT::DrawingSheetFileExtension )
+        if( FILEEXT::IsForeignFamilyExt( fn.GetExt() ) )
+        {
+            // We never write kicad_* files: a foreign extension is replaced outright.
+            fn.SetExt( FILEEXT::DrawingSheetFileExtension );
+            filename = fn.GetFullPath();
+        }
+        else if( fn.GetExt() != FILEEXT::DrawingSheetFileExtension )
+        {
             filename << wxT( "." ) << FILEEXT::DrawingSheetFileExtension;
+        }
 
         if( !SaveDrawingSheetFile( filename ) )
         {

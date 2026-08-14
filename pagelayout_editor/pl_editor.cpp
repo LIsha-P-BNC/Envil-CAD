@@ -26,6 +26,7 @@
 #include <wx/file.h>
 #include <wx/snglinst.h>
 
+#include <wildcards_and_files_ext.h>
 #include <kiface_base.h>
 #include <confirm.h>
 #include <gestfich.h>
@@ -178,7 +179,8 @@ void IFACE::SaveFileAs( const wxString& aProjectBasePath, const wxString& aSrcPr
         destFile.SetPath( destPath );
     }
 
-    if( ext == "kicad_wks" )
+    if( ext == FILEEXT::DrawingSheetFileExtension
+            || FILEEXT::FamilySiblingExt( ext ) == FILEEXT::DrawingSheetFileExtension )
     {
         if( destFile.GetName() == aSrcProjectName )
             destFile.SetName( aNewProjectName );

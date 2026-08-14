@@ -232,7 +232,10 @@ FOOTPRINT_EDIT_FRAME::FOOTPRINT_EDIT_FRAME( KIWAY* aKiway, wxWindow* aParent ) :
                       .MinSize( FromDIP( 250 ), FromDIP( 80 ) )
                       .BestSize( FromDIP( 250 ), -1 ) );
     m_auimgr.AddPane( m_propertiesPanel, EDA_PANE().Name( PropertiesPaneName() )
-                      .Left().Layer( 3 )
+                      // Altium arrangement: Properties docks on the right (classic KiCad = left).
+                      .Direction( ADVANCED_CFG::GetCfg().m_ModernMenuLayout ? wxAUI_DOCK_RIGHT
+                                                                            : wxAUI_DOCK_LEFT )
+                      .Layer( 3 )
                       .Caption( _( "Properties" ) ).PaneBorder( false )
                       .MinSize( FromDIP( wxSize( 240, 60 ) ) ).BestSize( FromDIP( wxSize( 300, 200 ) ) ) );
     m_auimgr.AddPane( m_tbLeft, EDA_PANE().VToolbar().Name( "LeftToolbar" )

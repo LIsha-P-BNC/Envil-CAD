@@ -1233,6 +1233,11 @@ bool SETTINGS_MANAGER::SaveProject( const wxString& aFullPath, PROJECT* aProject
     PROJECT_FILE* project     = m_project_files.at( path );
     wxString      projectPath = aProject->GetProjectPath();
 
+    // We never write kicad_* files: a project read from a .kicad_pro (read-old fallback in
+    // the standalone editors) is written back under the native extension.  The last line
+    // of defense against any residual foreign-project writer.
+    project->SetProjectFileExt( FILEEXT::AnvilProjectFileExtension );
+
     project->SaveToFile( projectPath );
     aProject->GetLocalSettings().SaveToFile( projectPath );
 

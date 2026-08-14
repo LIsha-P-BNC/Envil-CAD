@@ -19,6 +19,7 @@
 */
 
 #include <kiplatform/app.h>
+#include <kiplatform/anvil_theme.h>
 
 #include <wx/app.h>
 #include <wx/log.h>
@@ -81,11 +82,15 @@ public:
             //   content  = deepest  (text fields, lists, tree, list/combo popups)
             //   panel    = mid      (dialog & panel faces, buttons, tool-bars, menus)
             //   border   = light    (control / group outlines, so panels read as separate)
-            const wxColour content( 18, 16, 32 );    // deepest — content/data areas
-            const wxColour panel  ( 36, 30, 58 );    // mid — panel & dialog faces
-            const wxColour border ( 92, 80, 132 );   // light — visible edges/separators
-            const wxColour accent ( 139, 92, 246 );  // vibrant purple highlight
-            const wxColour text   ( 255, 255, 255 ); // white
+            // Single source of truth = kiplatform/anvil_theme.h (namespace ANVIL).  These are
+            // references, not new literals, so the palette is defined in exactly one place.
+            const wxColour& content  = ANVIL::CONTENT;      // NEMI Black Ground — content/data areas
+            const wxColour& panel    = ANVIL::PANEL;        // NEMI Warm Graphite — panel & dialog faces
+            const wxColour& border   = ANVIL::BORDER;       // NEMI emerald edge — visible separators
+            const wxColour& accent   = ANVIL::ACCENT;       // NEMI Signal Emerald highlight
+            const wxColour& text     = ANVIL::BONE;         // NEMI Bone
+            const wxColour& capAct   = ANVIL::CAP_ACTIVE;   // NEMI active pane caption (deep emerald)
+            const wxColour& capInact = ANVIL::CAP_INACTIVE; // NEMI inactive pane caption
 
             switch( index )
             {
@@ -100,11 +105,11 @@ public:
             // (Some wx/Windows paths colour popups from here rather than GetMenuColour().)
             case wxSYS_COLOUR_MENU:
             case wxSYS_COLOUR_MENUBAR:
-                return wxColour( 76, 74, 120 );   // #4C4A78
+                return ANVIL::POPUP_BG;   // NEMI emerald popup/menu bg
 
             // Control edges / separators / group-box outlines — lift them so they're visible.
             case wxSYS_COLOUR_3DLIGHT:
-                return wxColour( 60, 52, 92 );
+                return ANVIL::HOVER;
 
             case wxSYS_COLOUR_WINDOWFRAME:
             case wxSYS_COLOUR_ACTIVEBORDER:
@@ -120,13 +125,52 @@ public:
 
             // Dim (disabled/secondary) text — still readable, not muddy.
             case wxSYS_COLOUR_GRAYTEXT:
-                return wxColour( 155, 150, 180 );
+                return ANVIL::DIM;
 
             case wxSYS_COLOUR_HIGHLIGHT:
                 return accent;
 
             case wxSYS_COLOUR_HIGHLIGHTTEXT:
-                return wxColour( 255, 255, 255 );
+                return ANVIL::ON_ACCENT;
+
+            // Selected row inside list/combo dropdown popups (wxListBox-based combos: net
+            // selector, font picker, filter combos).  Without these the picked row falls back
+            // to the generic-dark default instead of emerald.
+            case wxSYS_COLOUR_LISTBOXHIGHLIGHT:
+                return accent;
+
+            case wxSYS_COLOUR_LISTBOXHIGHLIGHTTEXT:
+                return ANVIL::ON_ACCENT;
+
+            // Hyperlinks (HTML report / help panels) + owner-drawn menu-hover paths.  The
+            // default here is a generic blue — pin both to the emerald accent.
+            case wxSYS_COLOUR_HOTLIGHT:
+            case wxSYS_COLOUR_MENUHILIGHT:
+                return accent;
+
+            // Info / warning bar (ERC/DRC/save/load banners) reads INFOBK/INFOTEXT.  The
+            // Windows default INFOBK is a pale yellow that ignores dark mode — pin to panel.
+            case wxSYS_COLOUR_INFOBK:
+                return panel;
+
+            case wxSYS_COLOUR_INFOTEXT:
+                return text;
+
+            // AUI gutter behind / between docked panes.  Mapping it here makes EVERY editor
+            // frame read emerald, not just the two that override dock-art colours by hand.
+            case wxSYS_COLOUR_APPWORKSPACE:
+                return content;
+
+            // Docked-pane caption (title) bars.  Feeds wxAuiDefaultDockArt in the editor
+            // frames (PCB, footprint, symbol, gerbview, pl_editor, 3D, sim, cvpcb) that do
+            // not set dock-art colours themselves.
+            case wxSYS_COLOUR_ACTIVECAPTION:
+            case wxSYS_COLOUR_GRADIENTACTIVECAPTION:
+                return capAct;
+
+            case wxSYS_COLOUR_INACTIVECAPTION:
+            case wxSYS_COLOUR_GRADIENTINACTIVECAPTION:
+                return capInact;
 
             default:
                 return wxDarkModeSettings::GetColour( index );
@@ -152,10 +196,10 @@ public:
             // Lighter "premium purple" dropdown / context-menu popups (flat; native menus can't
             // do gradient/glass).  Popups only — the menu *bar* and the rest of the chrome keep
             // the darker indigo from GetColour() above.
-            case wxMenuColour::StandardBg: return wxColour(  76,  74, 120 ); // #4C4A78 popup bg
-            case wxMenuColour::StandardFg: return wxColour( 248, 250, 252 ); // #F8FAFC text
-            case wxMenuColour::HotBg:      return wxColour( 109,  99, 230 ); // #6D63E6 hover
-            case wxMenuColour::DisabledFg: return wxColour( 176, 172, 205 ); // dim, readable
+            case wxMenuColour::StandardBg: return ANVIL::POPUP_BG;  // NEMI emerald popup bg
+            case wxMenuColour::StandardFg: return ANVIL::BONE;      // NEMI Bone text
+            case wxMenuColour::HotBg:      return ANVIL::ACCENT;    // NEMI Signal Emerald hover
+            case wxMenuColour::DisabledFg: return ANVIL::DIM_MENU;  // dim, readable
             }
         }
 
@@ -165,7 +209,7 @@ public:
     wxPen GetBorderPen() override
     {
         if( g_anvilPurpleDark )
-            return wxPen( wxColour( 92, 80, 132 ) );   // visible group-box / static-box outline
+            return wxPen( ANVIL::BORDER );   // visible group-box / static-box outline
 
         return wxDarkModeSettings::GetBorderPen();
     }

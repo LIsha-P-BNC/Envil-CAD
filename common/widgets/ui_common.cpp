@@ -38,6 +38,7 @@
 #include <pgm_base.h>
 #include <wx/settings.h>
 #include <settings/common_settings.h>
+#include <advanced_config.h>
 #include <bitmaps/bitmap_types.h>
 #include <string_utils.h>
 #include <wx/hyperlink.h>
@@ -96,6 +97,17 @@ wxFont KIUI::GetMonospacedUIFont()
 
     wxFont font( guiFontSize, wxFONTFAMILY_MODERN, wxFONTSTYLE_NORMAL, wxFONTWEIGHT_NORMAL );
 
+    // NEMI brand: honour the app-wide UI base size (AnvilUiFontPt) so monospaced UI (Scintilla
+    // code/text editors, CvPcb lists, simulator console) scales with the rest of the UI instead
+    // of staying pinned to the OS default size.  This helper takes no window, so it reads the
+    // config directly (not derived from a parent font).
+    if( ADVANCED_CFG::GetCfg().m_AnvilUiFontPt > 0.0 )
+        font.SetFractionalPointSize( ADVANCED_CFG::GetCfg().m_AnvilUiFontPt );
+
+    // NEMI brand: use the configured monospaced face (default "IBM Plex Mono") when set.
+    if( !ADVANCED_CFG::GetCfg().m_AnvilMonoFontFace.IsEmpty() )
+        font.SetFaceName( ADVANCED_CFG::GetCfg().m_AnvilMonoFontFace );
+
 #ifdef __WXMAC__
     // https://trac.wxwidgets.org/ticket/19210
     if( font.GetFaceName().IsEmpty() )
@@ -137,7 +149,15 @@ wxFont KIUI::GetStatusFont( wxWindow* aWindow )
     int scale = 0;
 #endif
 
-    return getGUIFont( aWindow, scale );
+    wxFont font = getGUIFont( aWindow, scale );
+
+    // NEMI brand: the status strip is metadata (paths, coordinates) -> monospaced IBM Plex Mono.
+    const wxString& monoFace = ADVANCED_CFG::GetCfg().m_AnvilMonoFontFace;
+
+    if( !monoFace.IsEmpty() )
+        font.SetFaceName( monoFace );
+
+    return font;
 }
 
 

@@ -50,6 +50,57 @@ std::optional<TOOLBAR_CONFIGURATION> FOOTPRINT_EDIT_TOOLBAR_SETTINGS::DefaultToo
         return std::nullopt;
 
     case TOOLBAR_LOC::LEFT:
+        // Modern (classic-Altium) preset: the left edge hosts the drawing tools, in
+        // Place-menu order.  The display toggles it replaces surface in the View menu
+        // (modern layout) and the Preferences dialog.
+        if( ADVANCED_CFG::GetCfg().m_ModernToolbarLayout )
+        {
+            config.AppendGroup( TOOLBAR_GROUP_CONFIG( _( "Selection modes" ) )
+                  .AddAction( ACTIONS::selectSetRect )
+                  .AddAction( ACTIONS::selectSetLasso ) );
+
+            config.AppendSeparator()
+                  .AppendAction( PCB_ACTIONS::placePad )
+                  .AppendAction( PCB_ACTIONS::drawRuleArea );
+
+            config.AppendSeparator()
+                  .AppendAction( PCB_ACTIONS::drawLine )
+                  .AppendAction( PCB_ACTIONS::drawArc )
+                  .WithContextMenu(
+                          []( TOOL_MANAGER* aToolMgr )
+                          {
+                              PCB_SELECTION_TOOL* selTool = aToolMgr->GetTool<PCB_SELECTION_TOOL>();
+                              auto menu = std::make_unique<ACTION_MENU>( false, selTool );
+                              menu->Add( ACTIONS::pointEditorArcKeepCenter, ACTION_MENU::CHECK );
+                              menu->Add( ACTIONS::pointEditorArcKeepEndpoint, ACTION_MENU::CHECK );
+                              menu->Add( ACTIONS::pointEditorArcKeepRadius, ACTION_MENU::CHECK );
+                              return menu;
+                          } )
+                  .AppendAction( PCB_ACTIONS::drawRectangle )
+                  .AppendAction( PCB_ACTIONS::drawCircle )
+                  .AppendAction( PCB_ACTIONS::drawPolygon )
+                  .AppendAction( PCB_ACTIONS::drawBezier )
+                  .AppendAction( PCB_ACTIONS::placeReferenceImage )
+                  .AppendAction( PCB_ACTIONS::placeText )
+                  .AppendAction( PCB_ACTIONS::drawTextBox )
+                  .AppendAction( PCB_ACTIONS::drawTable )
+                  .AppendGroup( TOOLBAR_GROUP_CONFIG( _( "Dimension objects" ) )
+                                .AddAction( PCB_ACTIONS::drawOrthogonalDimension )
+                                .AddAction( PCB_ACTIONS::drawAlignedDimension )
+                                .AddAction( PCB_ACTIONS::drawCenterDimension )
+                                .AddAction( PCB_ACTIONS::drawRadialDimension )
+                                .AddAction( PCB_ACTIONS::drawLeader ) )
+                  .AppendAction( ACTIONS::deleteTool );
+
+            config.AppendSeparator()
+                  .AppendAction( PCB_ACTIONS::placePoint )
+                  .AppendAction( PCB_ACTIONS::setAnchor )
+                  .AppendAction( ACTIONS::gridSetOrigin )
+                  .AppendAction( ACTIONS::measureTool );
+
+            break;
+        }
+
         config.AppendAction( ACTIONS::toggleGrid )
               .WithContextMenu(
                       []( TOOL_MANAGER* aToolMgr )
@@ -93,6 +144,10 @@ std::optional<TOOLBAR_CONFIGURATION> FOOTPRINT_EDIT_TOOLBAR_SETTINGS::DefaultToo
         break;
 
     case TOOLBAR_LOC::RIGHT:
+        // Modern (classic-Altium) preset: no right toolbar — the drawing tools live on the left.
+        if( ADVANCED_CFG::GetCfg().m_ModernToolbarLayout )
+            return std::nullopt;
+
         config.AppendGroup( TOOLBAR_GROUP_CONFIG( _( "Selection modes" ) )
               .AddAction( ACTIONS::selectSetRect )
               .AddAction( ACTIONS::selectSetLasso ) );
@@ -148,6 +203,15 @@ std::optional<TOOLBAR_CONFIGURATION> FOOTPRINT_EDIT_TOOLBAR_SETTINGS::DefaultToo
         config.AppendSeparator()
               .AppendAction( ACTIONS::undo )
               .AppendAction( ACTIONS::redo );
+
+        // Classic-Altium Standard row: the clipboard icons sit next to undo/redo.
+        if( ADVANCED_CFG::GetCfg().m_ModernToolbarLayout )
+        {
+            config.AppendSeparator()
+                  .AppendAction( ACTIONS::cut )
+                  .AppendAction( ACTIONS::copy )
+                  .AppendAction( ACTIONS::paste );
+        }
 
         config.AppendSeparator()
               .AppendAction( ACTIONS::zoomRedraw )

@@ -9,6 +9,7 @@
                 <key>CFBundleTypeIconFile</key>         <string>kicad_doc.icns</string>
                 <key>CFBundleTypeExtensions</key>       <array>
                                                             <string>pro</string>
+                                                            <string>anvil_pro</string>
                                                             <string>kicad_pro</string>
                                                         </array>
                 <key>CFBundleTypeName</key>             <string>KiCad project file</string>

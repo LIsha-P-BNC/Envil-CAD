@@ -35,6 +35,13 @@
 
 void CVPCB_MAINFRAME::doReCreateMenuBar()
 {
+    // KiCad Next: build the shared common menu bar instead of the legacy one when enabled.
+    if( UseUnifiedMenuBar() )
+    {
+        buildCommonMenuBar();
+        return;
+    }
+
     COMMON_CONTROL* tool = m_toolManager->GetTool<COMMON_CONTROL>();
 
     // wxWidgets handles the Mac Application menu behind the scenes, but that means
@@ -83,4 +90,71 @@ void CVPCB_MAINFRAME::doReCreateMenuBar()
 
     SetMenuBar( menuBar );
     delete oldMenuBar;
+}
+
+
+//================================ KiCad Next unified menu bar ================================
+// The hooks reproduce the menus above so CvPcb joins the unified bar and the modern layout's
+// Window menu; in the modern layout the Preferences items fold into a Tools tail.
+
+TOOL_INTERACTIVE* CVPCB_MAINFRAME::getCurrentMenuTool()
+{
+    return m_toolManager->GetTool<COMMON_CONTROL>();
+}
+
+
+void CVPCB_MAINFRAME::buildFileMenu( ACTION_MENU* fileMenu )
+{
+    fileMenu->Add( CVPCB_ACTIONS::saveAssociationsToSchematic );
+    fileMenu->AppendSeparator();
+    fileMenu->AddClose( _( "Assign Footprints" ) );
+}
+
+
+void CVPCB_MAINFRAME::buildEditMenu( ACTION_MENU* editMenu )
+{
+    editMenu->Add( ACTIONS::undo );
+    editMenu->Add( ACTIONS::redo );
+
+    editMenu->AppendSeparator();
+    editMenu->Add( ACTIONS::cut );
+    editMenu->Add( ACTIONS::copy );
+    editMenu->Add( ACTIONS::paste );
+}
+
+
+void CVPCB_MAINFRAME::buildToolsMenu( ACTION_MENU* toolsMenu )
+{
+    // The classic CvPcb has no Tools menu; the modern (Altium-style) layout gains one holding
+    // the Preferences items folded in from the dropped Preferences menu.
+    if( !UseModernMenuLayout() )
+        return;
+
+    COMMON_CONTROL* tool = m_toolManager->GetTool<COMMON_CONTROL>();
+
+    toolsMenu->Add( ACTIONS::configurePaths );
+    toolsMenu->Add( ACTIONS::showFootprintLibTable );
+    toolsMenu->Add( CVPCB_ACTIONS::showEquFileTable );
+    toolsMenu->Add( ACTIONS::openPreferences );
+
+    toolsMenu->AppendSeparator();
+    AddMenuLanguageList( toolsMenu, tool );
+}
+
+
+void CVPCB_MAINFRAME::buildPreferencesMenu( ACTION_MENU* prefsMenu )
+{
+    // Modern layout: these items live in the tail of Tools instead of a top-level menu.
+    if( UseModernMenuLayout() )
+        return;
+
+    COMMON_CONTROL* tool = m_toolManager->GetTool<COMMON_CONTROL>();
+
+    prefsMenu->Add( ACTIONS::configurePaths );
+    prefsMenu->Add( ACTIONS::showFootprintLibTable );
+    prefsMenu->Add( CVPCB_ACTIONS::showEquFileTable );
+    prefsMenu->Add( ACTIONS::openPreferences );
+
+    prefsMenu->AppendSeparator();
+    AddMenuLanguageList( prefsMenu, tool );
 }

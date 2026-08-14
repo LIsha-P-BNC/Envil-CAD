@@ -22,6 +22,7 @@
 #include <wx/wupdlock.h>
 #include <wx/stattext.h>
 
+#include <advanced_config.h>
 #include <gerbview.h>
 #include <gerbview_frame.h>
 #include <bitmaps.h>
@@ -49,6 +50,15 @@ std::optional<TOOLBAR_CONFIGURATION> GERBVIEW_TOOLBAR_SETTINGS::DefaultToolbarCo
         return std::nullopt;
 
     case TOOLBAR_LOC::LEFT:
+        // Modern (classic-Altium) preset: keep only the working tools here; every display
+        // toggle below is already reachable in the View menu, so nothing is lost.
+        if( ADVANCED_CFG::GetCfg().m_ModernToolbarLayout )
+        {
+            config.AppendAction( ACTIONS::selectionTool )
+                  .AppendAction( ACTIONS::measureTool );
+            break;
+        }
+
         config.AppendAction( ACTIONS::selectionTool )
               .AppendAction( ACTIONS::measureTool );
 
@@ -91,12 +101,23 @@ std::optional<TOOLBAR_CONFIGURATION> GERBVIEW_TOOLBAR_SETTINGS::DefaultToolbarCo
         config.AppendSeparator()
               .AppendAction( ACTIONS::print );
 
-        config.AppendSeparator()
-              .AppendAction( ACTIONS::zoomRedraw )
-              .AppendAction( ACTIONS::zoomInCenter )
-              .AppendAction( ACTIONS::zoomOutCenter )
-              .AppendAction( ACTIONS::zoomFitScreen )
-              .AppendAction( ACTIONS::zoomTool );
+        // Modern (classic-Altium) preset: Standard-row zoom set (In / Out / Fit).
+        if( ADVANCED_CFG::GetCfg().m_ModernToolbarLayout )
+        {
+            config.AppendSeparator()
+                  .AppendAction( ACTIONS::zoomInCenter )
+                  .AppendAction( ACTIONS::zoomOutCenter )
+                  .AppendAction( ACTIONS::zoomFitScreen );
+        }
+        else
+        {
+            config.AppendSeparator()
+                  .AppendAction( ACTIONS::zoomRedraw )
+                  .AppendAction( ACTIONS::zoomInCenter )
+                  .AppendAction( ACTIONS::zoomOutCenter )
+                  .AppendAction( ACTIONS::zoomFitScreen )
+                  .AppendAction( ACTIONS::zoomTool );
+        }
 
         config.AppendSeparator()
               .AppendControl( ACTION_TOOLBAR_CONTROLS::layerSelector )

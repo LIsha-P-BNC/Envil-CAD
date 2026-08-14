@@ -71,6 +71,15 @@ std::optional<TOOLBAR_CONFIGURATION> FOOTPRINT_VIEWER_TOOLBAR_SETTINGS::DefaultT
         break;
 
     case TOOLBAR_LOC::LEFT:
+        // Modern (classic-Altium) preset: keep only the working tools here; the display
+        // toggles surface in the View menu instead.
+        if( ADVANCED_CFG::GetCfg().m_ModernToolbarLayout )
+        {
+            config.AppendAction( ACTIONS::selectionTool )
+                  .AppendAction( ACTIONS::measureTool );
+            break;
+        }
+
         config.AppendAction( ACTIONS::selectionTool )
               .AppendAction( ACTIONS::measureTool );
 
@@ -106,6 +115,13 @@ std::optional<TOOLBAR_CONFIGURATION> FOOTPRINT_VIEWER_TOOLBAR_SETTINGS::DefaultT
 
 void FOOTPRINT_VIEWER_FRAME::doReCreateMenuBar()
 {
+    // KiCad Next: build the shared common menu bar instead of the legacy one when enabled.
+    if( UseUnifiedMenuBar() )
+    {
+        buildCommonMenuBar();
+        return;
+    }
+
     PCB_SELECTION_TOOL* selTool = m_toolManager->GetTool<PCB_SELECTION_TOOL>();
 
     // wxWidgets handles the Mac Application menu behind the scenes, but that means
@@ -141,4 +157,55 @@ void FOOTPRINT_VIEWER_FRAME::doReCreateMenuBar()
 
     SetMenuBar( menuBar );
     delete oldMenuBar;
+}
+
+
+//================================ KiCad Next unified menu bar ================================
+// The hooks reproduce the small browser menus above so the viewer joins the unified bar and
+// the modern layout's Window menu.  In the modern toolbar preset the left bar keeps only the
+// working tools, so its display toggles surface in the View menu here.
+
+TOOL_INTERACTIVE* FOOTPRINT_VIEWER_FRAME::getCurrentMenuTool()
+{
+    return m_toolManager->GetTool<PCB_SELECTION_TOOL>();
+}
+
+
+void FOOTPRINT_VIEWER_FRAME::buildFileMenu( ACTION_MENU* fileMenu )
+{
+    fileMenu->AddClose( _( "Footprint Viewer" ) );
+}
+
+
+void FOOTPRINT_VIEWER_FRAME::buildViewMenu( ACTION_MENU* viewMenu )
+{
+    PCB_SELECTION_TOOL* selTool = m_toolManager->GetTool<PCB_SELECTION_TOOL>();
+
+    viewMenu->Add( ACTIONS::zoomInCenter );
+    viewMenu->Add( ACTIONS::zoomOutCenter );
+    viewMenu->Add( ACTIONS::zoomFitScreen );
+    viewMenu->Add( ACTIONS::zoomRedraw );
+
+    viewMenu->AppendSeparator();
+    viewMenu->Add( ACTIONS::show3DViewer );
+
+    if( ADVANCED_CFG::GetCfg().m_ModernToolbarLayout )
+    {
+        viewMenu->AppendSeparator();
+        viewMenu->Add( ACTIONS::toggleGrid,            ACTION_MENU::CHECK );
+        viewMenu->Add( PCB_ACTIONS::togglePolarCoords, ACTION_MENU::CHECK );
+
+        ACTION_MENU* unitsSubMenu = new ACTION_MENU( false, selTool );
+        unitsSubMenu->SetTitle( _( "&Units" ) );
+        unitsSubMenu->Add( ACTIONS::millimetersUnits, ACTION_MENU::CHECK );
+        unitsSubMenu->Add( ACTIONS::inchesUnits,      ACTION_MENU::CHECK );
+        unitsSubMenu->Add( ACTIONS::milsUnits,        ACTION_MENU::CHECK );
+        viewMenu->Add( unitsSubMenu );
+
+        viewMenu->AppendSeparator();
+        viewMenu->Add( PCB_ACTIONS::showPadNumbers,   ACTION_MENU::CHECK );
+        viewMenu->Add( PCB_ACTIONS::padDisplayMode,   ACTION_MENU::CHECK );
+        viewMenu->Add( PCB_ACTIONS::textOutlines,     ACTION_MENU::CHECK );
+        viewMenu->Add( PCB_ACTIONS::graphicsOutlines, ACTION_MENU::CHECK );
+    }
 }

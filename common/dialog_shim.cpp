@@ -36,6 +36,7 @@
 #include <settings/settings_manager.h>
 #include <tool/tool_manager.h>
 #include <kiplatform/ui.h>
+#include <kiplatform/anvil_theme.h>
 #include <widgets/unit_binder.h>
 #include <advanced_config.h>
 
@@ -119,11 +120,25 @@ DIALOG_SHIM::DIALOG_SHIM( wxWindow* aParent, wxWindowID id, const wxString& titl
     // Anvil: apply the app-wide UI base font size (AnvilUiFontPt) before the derived dialog builds
     // its controls, so every widget inherits it.  A dialog is a top-level window and does not
     // inherit its parent frame's font, so it must be set here independently of EDA_BASE_FRAME.
-    if( ADVANCED_CFG::GetCfg().m_AnvilUiFontPt > 0.0 )
     {
-        wxFont uiFont = GetFont();
-        uiFont.SetFractionalPointSize( ADVANCED_CFG::GetCfg().m_AnvilUiFontPt );
-        SetFont( uiFont );
+        const ADVANCED_CFG& acfg = ADVANCED_CFG::GetCfg();
+        wxFont uiFont  = GetFont();
+        bool   changed = false;
+
+        if( acfg.m_AnvilUiFontPt > 0.0 )
+        {
+            uiFont.SetFractionalPointSize( acfg.m_AnvilUiFontPt );
+            changed = true;
+        }
+
+        if( !acfg.m_AnvilUiFontFace.IsEmpty() )
+        {
+            uiFont.SetFaceName( acfg.m_AnvilUiFontFace );
+            changed = true;
+        }
+
+        if( changed )
+            SetFont( uiFont );
     }
 
     if( aParent )
@@ -1755,7 +1770,19 @@ static void recursiveDescent( wxSizer* aSizer, std::map<int, wxString>& aLabels 
         sdbSizer->Layout();
 
         if( sdbSizer->GetAffirmativeButton() )
-            sdbSizer->GetAffirmativeButton()->SetDefault();
+        {
+            wxButton* aff = sdbSizer->GetAffirmativeButton();
+            aff->SetDefault();
+
+            // Give the primary (default) action an emerald fill so it clearly reads as the
+            // primary button.  Otherwise Windows draws the native default-button emphasis in
+            // the OS system accent (blue), ignoring our emerald highlight override.
+            if( ADVANCED_CFG::GetCfg().m_AnvilPurpleFrame )
+            {
+                aff->SetBackgroundColour( ANVIL::ACCENT );      // NEMI Signal Emerald
+                aff->SetForegroundColour( ANVIL::ON_ACCENT );
+            }
+        }
     }
 
     for( wxSizerItem* item : aSizer->GetChildren() )

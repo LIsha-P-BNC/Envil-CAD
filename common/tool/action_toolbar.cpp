@@ -109,6 +109,21 @@ void ACTION_GROUP::SetDefaultAction( const TOOL_ACTION& aDefault )
 #define BUTTON_BORDER  FromDIP( 1 ) // The border on the sides of the buttons that touch other buttons
 
 
+// Anvil: Altium-style compact toolbar icon size (logical px).  Altium toolbars use ~16 px icons in
+// tight rows; stock KiCad defaults to 24.  When the modern (Altium) toolbar layout is on, force the
+// small size so rows/icons match Altium regardless of the saved Common icon-size setting; when it is
+// off, respect the user's Common setting.
+static constexpr int ANVIL_TOOLBAR_ICON_SIZE = 16;
+
+static int anvilToolbarIconSize()
+{
+    if( ADVANCED_CFG::GetCfg().m_ModernToolbarLayout )
+        return ANVIL_TOOLBAR_ICON_SIZE;
+
+    return Pgm().GetCommonSettings()->m_Appearance.toolbar_icon_size;
+}
+
+
 ACTION_TOOLBAR_PALETTE::ACTION_TOOLBAR_PALETTE( wxWindow* aParent, bool aVertical ) :
         wxPopupTransientWindow( aParent, wxBORDER_NONE ),
         m_group( nullptr ),
@@ -129,13 +144,17 @@ ACTION_TOOLBAR_PALETTE::ACTION_TOOLBAR_PALETTE( wxWindow* aParent, bool aVertica
 
     m_panel->SetSizer( m_mainSizer );
 
+    // Soft drop shadow so the flyout palette reads as floating above the toolbar (matches
+    // native menus and the NEMI dropdown popups).
+    KIPLATFORM::UI::AddDropShadow( this );
+
     Connect( wxEVT_CHAR_HOOK, wxCharEventHandler( ACTION_TOOLBAR_PALETTE::onCharHook ), nullptr, this );
 }
 
 
 void ACTION_TOOLBAR_PALETTE::AddAction( const TOOL_ACTION& aAction )
 {
-    int            iconSize = Pgm().GetCommonSettings()->m_Appearance.toolbar_icon_size;
+    int            iconSize = anvilToolbarIconSize();
     wxBitmapBundle normalBmp = KiBitmapBundleDef( aAction.GetIcon(), iconSize );
     int            paddingDip = ( ToDIP( m_buttonSize.GetWidth() ) - iconSize ) / 2;
 
@@ -446,7 +465,7 @@ void ACTION_TOOLBAR::Add( const TOOL_ACTION& aAction, bool aIsToggleEntry, bool 
                   wxS( "aIsCancellable requires aIsToggleEntry" ) );
 
     int toolId = aAction.GetUIId();
-    int iconSize = Pgm().GetCommonSettings()->m_Appearance.toolbar_icon_size;
+    int iconSize = anvilToolbarIconSize();
 
     AddTool( toolId, wxEmptyString,
              KiBitmapBundleDef( aAction.GetIcon(), iconSize ),
@@ -463,7 +482,7 @@ void ACTION_TOOLBAR::Add( const TOOL_ACTION& aAction, bool aIsToggleEntry, bool 
 void ACTION_TOOLBAR::AddButton( const TOOL_ACTION& aAction )
 {
     int toolId = aAction.GetUIId();
-    int iconSize = Pgm().GetCommonSettings()->m_Appearance.toolbar_icon_size;
+    int iconSize = anvilToolbarIconSize();
 
     AddTool( toolId, wxEmptyString,
              KiBitmapBundleDef( aAction.GetIcon(), iconSize ),
@@ -509,7 +528,7 @@ void ACTION_TOOLBAR::AddGroup( std::unique_ptr<ACTION_GROUP> aGroup )
 {
     int                groupId = aGroup->GetUIId();
     const TOOL_ACTION* defaultAction = aGroup->GetDefaultAction();
-    int                iconSize = Pgm().GetCommonSettings()->m_Appearance.toolbar_icon_size;
+    int                iconSize = anvilToolbarIconSize();
 
     wxASSERT( GetParent() );
     wxASSERT( defaultAction );
@@ -582,7 +601,7 @@ void ACTION_TOOLBAR::doSelectAction( ACTION_GROUP* aGroup, const TOOL_ACTION& aA
     if( !item )
         return;
 
-    int iconSize = Pgm().GetCommonSettings()->m_Appearance.toolbar_icon_size;
+    int iconSize = anvilToolbarIconSize();
 
     // Update the item information
     item->SetShortHelp( aAction.GetButtonTooltip() );
@@ -1149,7 +1168,7 @@ void ACTION_TOOLBAR::onThemeChanged( wxSysColourChangedEvent &aEvent )
 
 void ACTION_TOOLBAR::RefreshBitmaps()
 {
-    int iconSize = Pgm().GetCommonSettings()->m_Appearance.toolbar_icon_size;
+    int iconSize = anvilToolbarIconSize();
 
     for( const std::pair<int, const TOOL_ACTION*> pair : m_toolActions )
     {

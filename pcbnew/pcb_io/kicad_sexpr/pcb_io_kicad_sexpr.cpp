@@ -3735,15 +3735,12 @@ void PCB_IO_KICAD_SEXPR::FootprintSave( const wxString& aLibraryPath, const FOOT
     ReplaceIllegalFileNameChars( fpName, '_' );
 
     // Quietly overwrite footprint and delete footprint file from path for any by same name.
+    // Saves always target the native extension; an existing .kicad_mod for the same
+    // footprint is removed after the save so one footprint never owns two files.  This
+    // only ever runs on a writable library (checked above) — read-only stock libraries
+    // are never touched.
     wxFileName fn( libPath, fpName, FILEEXT::AnvilFootprintFileExtension );
-
-    {
-        // Keep an existing .kicad_mod in place rather than leaving two files for one footprint.
-        wxFileName legacyFn( libPath, fpName, FILEEXT::KiCadFootprintFileExtension );
-
-        if( !fn.FileExists() && legacyFn.FileExists() )
-            fn = legacyFn;
-    }
+    wxFileName foreignFn( libPath, fpName, FILEEXT::KiCadFootprintFileExtension );
 
     // Write through symlinks, don't replace them
     WX_FILENAME::ResolvePossibleSymlinks( fn );
@@ -3795,6 +3792,10 @@ void PCB_IO_KICAD_SEXPR::FootprintSave( const wxString& aLibraryPath, const FOOT
                                      new FP_CACHE_ENTRY( footprint,
                                                          WX_FILENAME( fn.GetPath(), fullName ) ) );
     m_cache->Save( footprint );
+
+    // The save succeeded under the native name; retire the foreign twin.
+    if( foreignFn.FileExists() && foreignFn.IsFileWritable() )
+        wxRemoveFile( foreignFn.GetFullPath() );
 }
 
 

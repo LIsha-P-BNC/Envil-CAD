@@ -9,6 +9,7 @@
             <key>CFBundleTypeIconFile</key>     <string>pcbnew_doc.icns</string>
             <key>CFBundleTypeExtensions</key>
                 <array>
+                    <string>anvil_pcb</string>
                     <string>kicad_pcb</string>
                     <string>brd</string>
                 </array>

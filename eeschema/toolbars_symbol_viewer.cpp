@@ -126,6 +126,13 @@ void SYMBOL_VIEWER_FRAME::ClearToolbarControl( int aId )
 
 void SYMBOL_VIEWER_FRAME::doReCreateMenuBar()
 {
+    // KiCad Next: build the shared common menu bar instead of the legacy one when enabled.
+    if( UseUnifiedMenuBar() )
+    {
+        buildCommonMenuBar();
+        return;
+    }
+
     SYMBOL_EDITOR_CONTROL* libControl = m_toolManager->GetTool<SYMBOL_EDITOR_CONTROL>();
     // wxWidgets handles the OSX Application menu behind the scenes, but that means
     // we always have to start from scratch with a new wxMenuBar.
@@ -163,4 +170,33 @@ void SYMBOL_VIEWER_FRAME::doReCreateMenuBar()
 
     SetMenuBar( menuBar );
     delete oldMenuBar;
+}
+
+
+//================================ KiCad Next unified menu bar ================================
+// The hooks reproduce the small browser menus above so the viewer joins the unified bar and
+// the modern layout's Window menu.
+
+TOOL_INTERACTIVE* SYMBOL_VIEWER_FRAME::getCurrentMenuTool()
+{
+    return m_toolManager->GetTool<SYMBOL_EDITOR_CONTROL>();
+}
+
+
+void SYMBOL_VIEWER_FRAME::buildFileMenu( ACTION_MENU* fileMenu )
+{
+    fileMenu->AddClose( _( "Symbol Viewer" ) );
+}
+
+
+void SYMBOL_VIEWER_FRAME::buildViewMenu( ACTION_MENU* viewMenu )
+{
+    viewMenu->Add( ACTIONS::zoomInCenter );
+    viewMenu->Add( ACTIONS::zoomOutCenter );
+    viewMenu->Add( ACTIONS::zoomFitScreen );
+    viewMenu->Add( ACTIONS::zoomRedraw );
+
+    viewMenu->AppendSeparator();
+    viewMenu->Add( SCH_ACTIONS::showElectricalTypes, ACTION_MENU::CHECK );
+    viewMenu->Add( SCH_ACTIONS::showPinNumbers,      ACTION_MENU::CHECK );
 }

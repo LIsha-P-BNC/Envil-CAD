@@ -215,6 +215,12 @@ public:
 
 private:
     void importKiCadProjectFile( const wxString& aInputPath );
+
+    /// Direct-open router: a foreign (KiCad or legacy) project reached LoadProject via
+    /// File>Open, CLI, double-click, MRU or drag-drop.  Offers to import & convert it —
+    /// foreign projects are never opened natively.  Returns true when an import ran.
+    bool OfferImportForeignProject( const wxFileName& aProjectFile );
+
     void importProjectFromFile( const wxString& aInputPath,
                                 const std::vector<std::string>& aSchFileExtensions,
                                 const std::vector<std::string>& aPcbFileExtensions,
@@ -286,6 +292,36 @@ public:
      */
     bool LoadProject( const wxFileName& aProjectFileName );
 
+    /**
+     * Open a file inside THIS already-running shell window instead of spawning a second
+     * process/window (VS Code / Cursor style).  Called for the initial command-line file and
+     * for files handed over from a later launch via the single-instance IPC bridge (see
+     * kicad.cpp).
+     *
+     * @a aPath is classified by extension using FILEEXT (the single source of the
+     * extension→type mapping):
+     *   - project file    → LoadProject()
+     *   - schematic/board → load its sibling project (if not already active) and open the
+     *                       matching editor as a tab (via the editSchematic / editPCB action,
+     *                       which routes through KICAD_MANAGER_CONTROL::ShowPlayer →
+     *                       DockEditorAsTab).
+     * An empty @a aPath just raises/focuses the shell (a bare second launch).  The window is
+     * always brought to the front so opening a file behaves like focusing the app.
+     */
+    void OpenAnvilFile( const wxString& aPath );
+
+    /**
+     * Entry point for a file handed over from a *second* launch via the single-instance IPC
+     * bridge (kicad.cpp).  Always raises this window, then:
+     *   - a file of the currently-open project (same directory) → open it here as a tab
+     *     (delegates to OpenAnvilFile());
+     *   - a file of a DIFFERENT project → launch a fresh instance ("--new <path>") so it gets
+     *     its own window, instead of silently swapping the active project (and its unsaved
+     *     edits) out from under the user.  Same rule as VS Code opening a different folder.
+     * Runs on the GUI thread (the IPC callback marshals here via CallAfter).
+     */
+    void HandleForwardedOpen( const wxString& aPath );
+
     void OpenJobsFile( const wxFileName& aFileName, bool aCreate = false,
                        bool aResaveProjectPreferences = true );
 
@@ -350,7 +386,28 @@ protected:
     void buildEditMenu( ACTION_MENU* aMenu ) override;
     void buildViewMenu( ACTION_MENU* aMenu ) override;
     void buildToolsMenu( ACTION_MENU* aMenu ) override;
+    void buildProjectMenu( ACTION_MENU* aMenu ) override;
     void buildPreferencesMenu( ACTION_MENU* aMenu ) override;
+    void buildPanelsMenu( ACTION_MENU* aMenu ) override;
+
+public:
+    /**
+     * KiCad Next: titlebar quick access (0=Save, 1=Undo, 2=Redo) and the Preferences gear
+     * (3), dispatched to the ACTIVE editor tab's tool manager (resolved per click).
+     */
+    void RunQuickAccessAction( int aWhich );
+
+    /// Dim/brighten the quick-access buttons from the active editor's real state.
+    void RefreshQuickAccess();
+
+    /// Update the Altium-style document/project name shown in the title bar.
+    void RefreshShellDocumentTitle();
+
+    /// Pop the Altium "Open editor" dropdown (replaces the removed left icon rail).
+    void ShowOpenEditorMenu( const wxPoint& aScreenPos );
+    void buildOpenEditorMenu( ACTION_MENU* aMenu );
+
+protected:
 
     void onToolbarSizeChanged();
 

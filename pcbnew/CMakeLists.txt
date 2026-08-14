@@ -648,7 +648,7 @@ add_executable( pcbnew WIN32 MACOSX_BUNDLE
     )
 
 set_source_files_properties( ${CMAKE_SOURCE_DIR}/common/single_top.cpp PROPERTIES
-    COMPILE_DEFINITIONS "TOP_FRAME=FRAME_PCB_EDITOR;PGM_DATA_FILE_EXT=\"kicad_pcb\";BUILD_KIWAY_DLL"
+    COMPILE_DEFINITIONS "TOP_FRAME=FRAME_PCB_EDITOR;PGM_DATA_FILE_EXT=\"anvil_pcb\";BUILD_KIWAY_DLL"
     )
 
 target_link_libraries( pcbnew

@@ -703,7 +703,10 @@ PCB_EDIT_FRAME::PCB_EDIT_FRAME( KIWAY* aKiway, wxWindow* aParent ) :
     }
 
     m_auimgr.AddPane( m_propertiesPanel, EDA_PANE().Name( PropertiesPaneName() )
-                      .Left().Layer( 5 )
+                      // Altium arrangement: Properties docks on the right (classic KiCad = left).
+                      .Direction( ADVANCED_CFG::GetCfg().m_ModernMenuLayout ? wxAUI_DOCK_RIGHT
+                                                                            : wxAUI_DOCK_LEFT )
+                      .Layer( 5 )
                       .Caption( _( "Properties" ) ).PaneBorder( false )
                       .MinSize( FromDIP( wxSize( 240, 60 ) ) )
                       .BestSize( FromDIP( wxSize( 300, 200 ) ) )

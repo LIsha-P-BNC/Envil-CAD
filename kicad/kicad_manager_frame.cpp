@@ -47,6 +47,7 @@
 #include <policy_keys.h>
 #include <gestfich.h>
 #include <kiplatform/app.h>
+#include <kiplatform/anvil_theme.h>
 #include <kidialog.h>
 #include <json_common.h>
 #include <kiplatform/environment.h>
@@ -74,12 +75,16 @@
 #include <tool/common_control.h>
 #include <tool/tool_dispatcher.h>
 #include <tool/tool_manager.h>
+#include <tool/actions.h>
+#include <wx/time.h>
 #include <tools/kicad_manager_actions.h>
 #include <tools/kicad_manager_control.h>
 #include <toolbars_kicad_manager.h>
 #include <wildcards_and_files_ext.h>
 #include <widgets/app_progress_dialog.h>
 #include <widgets/kistatusbar.h>
+#include <widgets/bitmap_button.h>
+#include <tool/common_tools.h>
 #include <wx/ffile.h>
 #include <wx/filedlg.h>
 #include <wx/dnd.h>
@@ -106,6 +111,7 @@
 #include <wx/datetime.h>                   // wxDateTime::Now (chat.html cache-buster)
 #include <wx/panel.h>
 #include <wx/statbmp.h>
+#include <wx/stattext.h>
 #include <wx/button.h>
 #include <wx/dcbuffer.h>
 #include <wx/sizer.h>
@@ -168,14 +174,24 @@ public:
         // Dropdown rows follow the app-wide UI font size (AnvilUiFontPt) — the popups belong to
         // the rest of the UI, not the top menu BAR (which keeps its own larger size).  Set before
         // computeLayout() so row width/height are measured at the new size.
-        const double uiPt = ADVANCED_CFG::GetCfg().m_AnvilUiFontPt;
+        const ADVANCED_CFG& acfg = ADVANCED_CFG::GetCfg();
+        wxFont rowFont    = GetFont();
+        bool   rowChanged = false;
 
-        if( uiPt > 0.0 )
+        if( acfg.m_AnvilUiFontPt > 0.0 )
         {
-            wxFont rowFont = GetFont();
-            rowFont.SetFractionalPointSize( uiPt );
-            SetFont( rowFont );
+            rowFont.SetFractionalPointSize( acfg.m_AnvilUiFontPt );
+            rowChanged = true;
         }
+
+        if( !acfg.m_AnvilUiFontFace.IsEmpty() )
+        {
+            rowFont.SetFaceName( acfg.m_AnvilUiFontFace );
+            rowChanged = true;
+        }
+
+        if( rowChanged )
+            SetFont( rowFont );
 
         buildRows();
         computeLayout();
@@ -185,6 +201,30 @@ public:
         Bind( wxEVT_LEFT_UP, &ANVIL_POPUP_MENU::onClick, this );
         Bind( wxEVT_LEAVE_WINDOW,
               [this]( wxMouseEvent& ) { if( !m_child ) { m_hover = -1; Refresh(); } } );
+
+        // Soft drop shadow (like a native menu) so the flat emerald popup reads as floating
+        // above the window instead of painted onto it.  Must be set before the first Popup().
+        KIPLATFORM::UI::AddDropShadow( this );
+
+        // A transient popup only auto-dismisses on a click-outside INSIDE this application.
+        // When the user switches to another app (Alt-Tab, clicking another window) MSW merely
+        // drops the mouse capture, which left the menu floating on top of the other program.
+        // Watch the owning frame's activation from the root popup and drop the whole chain the
+        // moment the frame is deactivated — exactly what a native menu does.
+        if( !m_parentPopup )
+        {
+            if( wxWindow* top = wxGetTopLevelParent( aParent ) )
+            {
+                m_activationSource = top;
+                top->Bind( wxEVT_ACTIVATE, &ANVIL_POPUP_MENU::onFrameActivate, this );
+            }
+        }
+    }
+
+    ~ANVIL_POPUP_MENU() override
+    {
+        if( m_activationSource )
+            m_activationSource->Unbind( wxEVT_ACTIVATE, &ANVIL_POPUP_MENU::onFrameActivate, this );
     }
 
     /// Pop the menu so its top-left sits at screen point @p aScreenPos.
@@ -295,12 +335,12 @@ private:
         wxAutoBufferedPaintDC dc( this );
         const wxSize sz = GetClientSize();
 
-        const wxColour bg     ( 76, 74, 120 );    // #4C4A78
-        const wxColour border ( 94, 78, 146 );
-        const wxColour hover  ( 109, 99, 230 );
-        const wxColour text   ( 248, 250, 252 );
-        const wxColour dim    ( 168, 164, 200 );
-        const wxColour accelC ( 196, 190, 221 );
+        const wxColour& bg     = ANVIL::POPUP_BG;   // NEMI dark-emerald popup
+        const wxColour& border = ANVIL::BORDER;     // NEMI emerald edge
+        const wxColour& hover  = ANVIL::ACCENT;     // NEMI Signal Emerald
+        const wxColour& text   = ANVIL::BONE;       // NEMI Bone
+        const wxColour& dim    = ANVIL::DIM_MENU;
+        const wxColour& accelC = ANVIL::ACCEL;
 
         dc.SetPen( *wxTRANSPARENT_PEN );
         dc.SetBrush( wxBrush( bg ) );
@@ -463,7 +503,17 @@ private:
         root->dismissChain();
     }
 
+    /// The owning frame was (de)activated: on deactivation close the menu like a native one.
+    void onFrameActivate( wxActivateEvent& aEvent )
+    {
+        if( !aEvent.GetActive() )
+            DismissChain();
+
+        aEvent.Skip();
+    }
+
     wxMenu*           m_menu;
+    wxWindow*         m_activationSource = nullptr;
     ANVIL_POPUP_MENU* m_parentPopup;
     ANVIL_POPUP_MENU* m_child = nullptr;
     int               m_childRow = -1;
@@ -485,9 +535,20 @@ public:
     {
         SetBackgroundStyle( wxBG_STYLE_PAINT );
 
-        // Menu-bar labels at 11 pt (keep the system face, bump only the size).
+        // Menu-bar label size is config-driven (AnvilMenuFontPt, default 11 pt) — deliberately a
+        // bit larger than the app UI size; falls back to AnvilUiFontPt if unset.  Face follows
+        // AnvilUiFontFace.  No hardcoded point size.
+        const ADVANCED_CFG& acfg = ADVANCED_CFG::GetCfg();
         wxFont labelFont = GetFont();
-        labelFont.SetPointSize( 11 );
+
+        if( acfg.m_AnvilMenuFontPt > 0.0 )
+            labelFont.SetFractionalPointSize( acfg.m_AnvilMenuFontPt );
+        else if( acfg.m_AnvilUiFontPt > 0.0 )
+            labelFont.SetFractionalPointSize( acfg.m_AnvilUiFontPt );
+
+        if( !acfg.m_AnvilUiFontFace.IsEmpty() )
+            labelFont.SetFaceName( acfg.m_AnvilUiFontFace );
+
         SetFont( labelFont );
 
         wxSize ext = GetTextExtent( m_label.IsEmpty() ? wxString( wxS( "M" ) ) : m_label );
@@ -514,7 +575,7 @@ private:
         wxAutoBufferedPaintDC dc( this );
 
         const wxColour normalBg = GetParent()->GetBackgroundColour();
-        const wxColour hoverBg( 60, 52, 92 );   // subtle hover (refined, not a solid block)
+        const wxColour& hoverBg = ANVIL::HOVER;   // subtle hover (refined, not a solid block)
 
         dc.SetPen( *wxTRANSPARENT_PEN );
         dc.SetBrush( wxBrush( m_hover ? hoverBg : normalBg ) );
@@ -587,7 +648,7 @@ private:
         dc.DrawRectangle( 0, 0, sz.x, sz.y );
 
         dc.SetFont( GetFont() );
-        dc.SetTextForeground( m_active ? *wxWHITE : wxColour( 150, 145, 175 ) );
+        dc.SetTextForeground( m_active ? *wxWHITE : ANVIL::DIM_MENU );
 
         wxSize ext = dc.GetTextExtent( m_glyph );
         dc.DrawText( m_glyph, ( sz.x - ext.x ) / 2, ( sz.y - ext.y ) / 2 );
@@ -598,7 +659,7 @@ private:
         {
             const int barW = sz.x / 2;
             const int barH = FromDIP( 2 );
-            dc.SetBrush( wxBrush( wxColour( 139, 92, 246 ) ) );
+            dc.SetBrush( wxBrush( ANVIL::ACCENT ) );
             dc.DrawRectangle( ( sz.x - barW ) / 2, sz.y - barH, barW, barH );
         }
     }
@@ -658,7 +719,7 @@ private:
         const int  oy   = ( sz.y - side ) / 2;
         const int  t    = side / 3;                          // docked-region thickness
         const int  r    = FromDIP( 2 );
-        const wxColour fg = m_active ? wxColour( 255, 255, 255 ) : wxColour( 150, 145, 180 );
+        const wxColour fg = m_active ? ANVIL::ON_ACCENT : ANVIL::DIM_MENU;
 
         // Outer editor-window outline.
         dc.SetPen( wxPen( fg, FromDIP( 1 ) ) );
@@ -682,7 +743,7 @@ private:
         if( m_active )
         {
             dc.SetPen( *wxTRANSPARENT_PEN );
-            dc.SetBrush( wxBrush( wxColour( 139, 92, 246 ) ) );
+            dc.SetBrush( wxBrush( ANVIL::ACCENT ) );
             dc.DrawRectangle( region.Deflate( FromDIP( 1 ) ) );
         }
     }
@@ -804,10 +865,70 @@ public:
         m_logo = new wxStaticBitmap( this, wxID_ANY, KiBitmapBundle( BITMAPS::icon_kicad, 16 ) );
         m_sizer->Add( m_logo, 0, wxALIGN_CENTRE_VERTICAL | wxLEFT | wxRIGHT, FromDIP( 6 ) );
 
+        // The menu ("Menu Manager") lives on its OWN row beneath the title bar (Altium
+        // architecture: title bar = row 1, menu = row 2), so it is added to the second row
+        // further down rather than to this top row.
         m_menuSizer = new wxBoxSizer( wxHORIZONTAL );
-        m_sizer->Add( m_menuSizer, 0, wxEXPAND );   // full-height menu buttons (clean hover)
+
+        // Altium-style quick access: Save / Undo / Redo acting on the active editor tab.
+        // Lives OUTSIDE m_menuSizer, which SetMenus() clears on every tab switch.  Buttons
+        // dim via RefreshQuickAccess() when there is nothing to save/undo/redo (or on the
+        // Project Manager view); clicks re-resolve the target frame, so a stale state can
+        // never dispatch to a dead editor.
+        const wxColour& qaHover = ANVIL::HOVER;
+
+        m_qaSave = makeWinButton( wxUniChar( 0xE74E ), qaHover );   // Save glyph
+        m_qaUndo = makeWinButton( wxUniChar( 0xE7A7 ), qaHover );   // Undo glyph
+        m_qaRedo = makeWinButton( wxUniChar( 0xE7A6 ), qaHover );   // Redo glyph
+        m_qaSave->SetToolTip( _( "Save (active editor)" ) );
+        m_qaUndo->SetToolTip( _( "Undo (active editor)" ) );
+        m_qaRedo->SetToolTip( _( "Redo (active editor)" ) );
+
+        m_sizer->AddSpacer( FromDIP( 8 ) );
+        m_sizer->Add( m_qaSave, 0, wxEXPAND );
+        m_sizer->Add( m_qaUndo, 0, wxEXPAND );
+        m_sizer->Add( m_qaRedo, 0, wxEXPAND );
+
+        m_qaSave->Bind( wxEVT_BUTTON, [this]( wxCommandEvent& ) { m_frame->RunQuickAccessAction( 0 ); } );
+        m_qaUndo->Bind( wxEVT_BUTTON, [this]( wxCommandEvent& ) { m_frame->RunQuickAccessAction( 1 ); } );
+        m_qaRedo->Bind( wxEVT_BUTTON, [this]( wxCommandEvent& ) { m_frame->RunQuickAccessAction( 2 ); } );
+
+        m_layoutBtns.push_back( m_qaSave );   // include in HitInteractive()
+        m_layoutBtns.push_back( m_qaUndo );
+        m_layoutBtns.push_back( m_qaRedo );
+
+        // Altium-style document title: the active project / document name, centred between the
+        // quick-access buttons and the right-hand controls.  Filled on project load and tab
+        // switch by KICAD_MANAGER_FRAME::RefreshShellDocumentTitle().
+        m_sizer->AddStretchSpacer( 1 );
+
+        m_docTitle = new wxStaticText( this, wxID_ANY, wxEmptyString, wxDefaultPosition,
+                                       wxDefaultSize, wxALIGN_CENTRE_HORIZONTAL | wxST_ELLIPSIZE_END );
+        m_docTitle->SetForegroundColour( GetForegroundColour() );
+        m_sizer->Add( m_docTitle, 0, wxALIGN_CENTRE_VERTICAL );
 
         m_sizer->AddStretchSpacer( 1 );
+
+        // Altium look: "Open editor" dropdown (replaces the removed left icon rail) — pops a
+        // menu of the editors/tools the rail used to launch.
+        m_openEditor = makeWinButton( wxUniChar( 0xE710 ), qaHover );   // "Add" glyph
+        m_openEditor->SetToolTip( _( "Open editor" ) );
+        m_sizer->Add( m_openEditor, 0, wxEXPAND );
+        m_openEditor->Bind( wxEVT_BUTTON,
+                [this]( wxCommandEvent& )
+                {
+                    wxPoint p = m_openEditor->GetScreenPosition();
+                    m_frame->ShowOpenEditorMenu( wxPoint( p.x, p.y + m_openEditor->GetSize().y ) );
+                } );
+        m_layoutBtns.push_back( m_openEditor );
+
+        // Altium-style gear: Preferences of the active editor (additive — every editor keeps
+        // its Tools-menu Preferences entry as well).
+        m_gear = makeWinButton( wxUniChar( 0xE713 ), qaHover );     // Settings gear glyph
+        m_gear->SetToolTip( _( "Preferences" ) );
+        m_sizer->Add( m_gear, 0, wxEXPAND );
+        m_gear->Bind( wxEVT_BUTTON, [this]( wxCommandEvent& ) { m_frame->RunQuickAccessAction( 3 ); } );
+        m_layoutBtns.push_back( m_gear );
 
         // KiCad Next single-window shell: VS Code / Cursor-style title-bar layout toggles,
         // sitting just left of the window-control buttons.  Each is a vector panel-diagram icon
@@ -837,8 +958,8 @@ public:
 
         // Segoe MDL2 Assets caption glyphs (same as the native Windows / VS Code bar).
         // Subtle hover for minimize/maximize; the conventional red hover for close.
-        const wxColour subtleHover( 60, 52, 92 );
-        const wxColour closeHover( 232, 17, 35 );
+        const wxColour& subtleHover = ANVIL::HOVER;
+        const wxColour& closeHover  = ANVIL::CLOSE_HOVER;
         m_min   = makeWinButton( wxUniChar( 0xE921 ), subtleHover );  // ChromeMinimize
         m_max   = makeWinButton( wxUniChar( 0xE922 ), subtleHover );  // ChromeMaximize
         m_close = makeWinButton( wxUniChar( 0xE8BB ), closeHover );   // ChromeClose
@@ -857,8 +978,18 @@ public:
 
         UpdateMaximizeGlyph();   // show restore vs maximize for the initial window state
 
-        SetSizer( m_sizer );
-        SetMinSize( wxSize( -1, FromDIP( 32 ) ) );   // 32px title bar (pane MinSize/BestSize is the real driver)
+        // Two stacked rows to match the Altium architecture: title bar (this m_sizer) on top,
+        // the menu manager on its own row underneath.
+        wxBoxSizer* menuRow = new wxBoxSizer( wxHORIZONTAL );
+        menuRow->AddSpacer( FromDIP( 6 ) );          // align the menu under the logo
+        menuRow->Add( m_menuSizer, 0, wxEXPAND );
+
+        wxBoxSizer* outerSizer = new wxBoxSizer( wxVERTICAL );
+        outerSizer->Add( m_sizer, 1, wxEXPAND );     // row 1: title bar
+        outerSizer->Add( menuRow, 1, wxEXPAND );     // row 2: menu manager
+
+        SetSizer( outerSizer );
+        SetMinSize( wxSize( -1, FromDIP( 60 ) ) );   // two rows (title + menu); pane size is the real driver
 
         Bind( wxEVT_SYS_COLOUR_CHANGED,
               [this]( wxSysColourChangedEvent& e ) { applyTheme(); Refresh(); e.Skip(); } );
@@ -942,6 +1073,30 @@ public:
             fn();
     }
 
+    /// Dim/brighten the quick-access buttons to match the active editor's real state.
+    void RefreshQuickAccess( bool aCanSave, bool aCanUndo, bool aCanRedo )
+    {
+        if( m_qaSave )
+            m_qaSave->SetActiveGlyph( aCanSave );
+
+        if( m_qaUndo )
+            m_qaUndo->SetActiveGlyph( aCanUndo );
+
+        if( m_qaRedo )
+            m_qaRedo->SetActiveGlyph( aCanRedo );
+    }
+
+    /// Set the Altium-style document/project name shown in the centre of the title bar.
+    void SetDocumentTitle( const wxString& aTitle )
+    {
+        if( m_docTitle && m_docTitle->GetLabel() != aTitle )
+        {
+            m_docTitle->SetLabel( aTitle );
+            m_docTitle->SetToolTip( aTitle );
+            Layout();
+        }
+    }
+
 private:
     /// One VS Code-style title-bar layout toggle: a glyph button that flips a pane's
     /// visibility (aToggle) and highlights itself while that pane is shown (aIsShown).
@@ -951,7 +1106,7 @@ private:
     {
         // Vector panel-diagram icon with a subtle hover (refined, not a solid block).
         TITLEBAR_PANEL_BUTTON* b =
-                new TITLEBAR_PANEL_BUTTON( this, aSide, FromDIP( 40 ), wxColour( 60, 52, 92 ) );
+                new TITLEBAR_PANEL_BUTTON( this, aSide, FromDIP( 40 ), ANVIL::HOVER );
 
         b->SetToolTip( aTooltip );
 
@@ -975,7 +1130,7 @@ private:
     TITLEBAR_AI_BUTTON* makeAiToggle( const wxString& aTooltip, std::function<void()> aToggle,
                                       std::function<bool()> aIsShown )
     {
-        TITLEBAR_AI_BUTTON* b = new TITLEBAR_AI_BUTTON( this, FromDIP( 48 ), wxColour( 60, 52, 92 ) );
+        TITLEBAR_AI_BUTTON* b = new TITLEBAR_AI_BUTTON( this, FromDIP( 48 ), ANVIL::HOVER );
         b->SetToolTip( aTooltip );
 
         auto refresh = [b, aIsShown]() { b->SetActiveGlyph( aIsShown() ); };
@@ -1004,8 +1159,8 @@ private:
             // Match the rest of the Anvil "Vibrant Purple & Indigo" frame.  Use an explicit
             // colour (not wxSYS_COLOUR_MENUBAR, whose public query doesn't return the dark-mode
             // purple override) so the title-bar strip is the same indigo as the panels.
-            bg = wxColour( 33, 27, 56 );
-            fg = wxColour( 255, 255, 255 );
+            bg = ANVIL::PANEL;      // NEMI Warm Graphite header
+            fg = ANVIL::BONE;       // NEMI Bone
         }
         else
         {
@@ -1033,6 +1188,12 @@ private:
     TITLEBAR_GLYPH_BUTTON* m_min = nullptr;
     TITLEBAR_GLYPH_BUTTON* m_max = nullptr;
     TITLEBAR_GLYPH_BUTTON* m_close = nullptr;
+    TITLEBAR_GLYPH_BUTTON* m_qaSave = nullptr;   // Altium-style quick access (active editor)
+    TITLEBAR_GLYPH_BUTTON* m_qaUndo = nullptr;
+    TITLEBAR_GLYPH_BUTTON* m_qaRedo = nullptr;
+    TITLEBAR_GLYPH_BUTTON* m_gear = nullptr;     // Preferences gear (additive to the menus)
+    TITLEBAR_GLYPH_BUTTON* m_openEditor = nullptr; // "Open editor" dropdown (replaces the rail)
+    wxStaticText*          m_docTitle = nullptr; // active project / document name (Altium-style)
     std::vector<wxWindow*> m_menuBtns;
     std::vector<wxMenu*>   m_ownedMenus;
 
@@ -1119,6 +1280,74 @@ KICAD_MANAGER_FRAME::KICAD_MANAGER_FRAME( wxWindow* parent, const wxString& titl
     Pgm().GetNotificationsManager().RegisterStatusBar( (KISTATUSBAR*) GetStatusBar() );
     Pgm().RegisterLibraryLoadStatusBar( (KISTATUSBAR*) GetStatusBar() );
     GetStatusBar()->SetFont( KIUI::GetStatusFont( this ) );
+
+    // Altium-style Panels button (bottom-right): pops the ACTIVE editor tab's panels menu
+    // (or the shell's own panels on the Project Manager view).  The frame is re-resolved on
+    // every click, so a closed tab can never leave a dangling target.
+    if( BITMAP_BUTTON* panelsBtn = static_cast<KISTATUSBAR*>( GetStatusBar() )->GetPanelsButton() )
+    {
+        panelsBtn->Bind( wxEVT_BUTTON,
+                [this]( wxCommandEvent& )
+                {
+                    EDA_BASE_FRAME* target = getActiveDockedEditorFrame();
+
+                    if( !target )
+                        target = this;
+
+                    TOOL_INTERACTIVE* tool = nullptr;
+
+                    if( target == this )
+                        tool = m_toolManager->GetTool<KICAD_MANAGER_CONTROL>();
+                    else if( target->GetToolManager() )
+                        tool = target->GetToolManager()->GetTool<COMMON_TOOLS>();
+
+                    // Fall back to any tool the menu can dispatch through; ACTION_MENU items
+                    // resolve their own actions, so the specific tool only routes events.
+                    ACTION_MENU* menu = new ACTION_MENU( false, tool );
+                    target->buildPanelsMenu( menu );
+
+                    if( menu->GetMenuItemCount() == 0 )
+                    {
+                        delete menu;
+                        return;
+                    }
+
+                    ANVIL_POPUP_MENU* popup = new ANVIL_POPUP_MENU( GetStatusBar(), menu );
+
+                    // The popup destroys itself on dismiss; free the menu with it.
+                    popup->Bind( wxEVT_DESTROY,
+                            [popup, menu]( wxWindowDestroyEvent& aEvt )
+                            {
+                                if( aEvt.GetEventObject() == popup )
+                                    delete menu;
+
+                                aEvt.Skip();
+                            } );
+
+                    wxPoint pos = static_cast<KISTATUSBAR*>( GetStatusBar() )->GetPanelsButton()
+                                          ->GetScreenPosition();
+                    popup->PopupAt( wxPoint( pos.x - popup->GetSize().x + FromDIP( 20 ),
+                                             pos.y - popup->GetSize().y - FromDIP( 4 ) ) );
+                } );
+    }
+
+    // Throttled quick-access state refresh (~3×/sec).  Idle does not fire while a docked
+    // editor owns a modal dialog — accepted: every click re-resolves frame + state fresh,
+    // so a stale dim-state can never mis-dispatch.  Do not "fix" this with a timer.
+    Bind( wxEVT_IDLE,
+          [this]( wxIdleEvent& aEvent )
+          {
+              static wxLongLong s_lastQuickAccessRefresh = 0;
+              wxLongLong        now = wxGetLocalTimeMillis();
+
+              if( now - s_lastQuickAccessRefresh > 300 )
+              {
+                  s_lastQuickAccessRefresh = now;
+                  RefreshQuickAccess();
+              }
+
+              aEvent.Skip();
+          } );
 
     // Give an icon
     wxIcon icon;
@@ -1236,10 +1465,15 @@ KICAD_MANAGER_FRAME::KICAD_MANAGER_FRAME( wxWindow* parent, const wxString& titl
     m_notebook->Thaw();
 
     // Editor/tool launchers as a compact left icon rail (the "activity bar").
+    // Altium look: hidden when the modern layout is on (the Project Files tree becomes the
+    // far-left dock; editors open from Project Files or the title-bar "Open editor" button).
+    // Auto-revealed by HideTabsIfNeeded() if a job-set is opened, since job-sets share this
+    // notebook.
     m_auimgr.AddPane( m_notebook, EDA_PANE().Name( "Editors" ).Left().Layer( 3 ).Position( 0 )
                                             .CaptionVisible( false ).PaneBorder( false )
                                             .CloseButton( false ).Floatable( false ).Movable( false )
                                             .DockFixed( true )
+                                            .Show( !ADVANCED_CFG::GetCfg().m_ModernMenuLayout )
                                             .MinSize( FromDIP( 40 ), -1 ).BestSize( FromDIP( 40 ), -1 ) );
 
     // KiCad Next single-window shell (Layer B): the center editor-tab area.  Each
@@ -1291,6 +1525,42 @@ KICAD_MANAGER_FRAME::KICAD_MANAGER_FRAME( wxWindow* parent, const wxString& titl
         // editor they open as a tab here instead of floating it as a separate window.  Cleared
         // in doCloseWindow().  Only registered when the shell's tab area actually exists.
         Kiway().SetTabHost( this );
+
+        // KiCad Next: the modern layout's Window menu activates frames through this hook.
+        // A docked editor becomes a tab selection; everything else (the shell itself, still-
+        // floating tools like the 3D viewer) falls back to the default Show + Raise.  Cleared
+        // in doCloseWindow() alongside the tab host.
+        EDA_BASE_FRAME::SetWindowMenuActivator(
+                [this]( EDA_BASE_FRAME* aFrame )
+                {
+                    if( aFrame == this )
+                    {
+                        Raise();
+                        SetFocus();
+                        return;
+                    }
+
+                    for( const std::pair<int, wxWindow*>& entry : m_dockedEditors )
+                    {
+                        if( entry.first == aFrame->GetId() )
+                        {
+                            int idx = m_editorTabs->GetPageIndex( entry.second );
+
+                            if( idx != wxNOT_FOUND )
+                            {
+                                m_editorTabs->SetSelection( idx );
+                                Raise();
+                                return;
+                            }
+                        }
+                    }
+
+                    if( aFrame->IsIconized() )
+                        aFrame->Iconize( false );
+
+                    aFrame->Show( true );
+                    aFrame->Raise();
+                } );
     }
 
 #ifdef __WXMSW__
@@ -1300,7 +1570,7 @@ KICAD_MANAGER_FRAME::KICAD_MANAGER_FRAME( wxWindow* parent, const wxString& titl
                                   .CaptionVisible( false ).PaneBorder( false ).Gripper( false )
                                   .DockFixed( true ).Floatable( false ).Movable( false )
                                   .Resizable( false )
-                                  .MinSize( -1, FromDIP( 32 ) ).BestSize( -1, FromDIP( 32 ) ) );
+                                  .MinSize( -1, FromDIP( 60 ) ).BestSize( -1, FromDIP( 60 ) ) );
 #endif
 
     // KiCad Next: a single shell-owned "AI Assistant" panel (Cursor style).  Created only
@@ -1710,6 +1980,25 @@ void KICAD_MANAGER_FRAME::HideTabsIfNeeded()
         m_notebook->SetTabCtrlHeight( 0 );
     else
         m_notebook->SetTabCtrlHeight( -1 );
+
+    // Altium look: the launcher-only rail is hidden; reveal this notebook when a job-set (an
+    // extra page) is present so job-sets stay reachable, and hide it again when only the
+    // (hidden) launcher page remains.
+    if( ADVANCED_CFG::GetCfg().m_ModernMenuLayout )
+    {
+        wxAuiPaneInfo& pane = m_auimgr.GetPane( wxS( "Editors" ) );
+
+        if( pane.IsOk() )
+        {
+            bool show = m_notebook->GetPageCount() > 1;
+
+            if( pane.IsShown() != show )
+            {
+                pane.Show( show );
+                m_auimgr.Update();
+            }
+        }
+    }
 }
 
 
@@ -1776,6 +2065,125 @@ void KICAD_MANAGER_FRAME::DetachDockedEditor( wxWindow* aPlayer )
         if( wxStatusBar* sb = frame->GetStatusBar() )
             sb->Show();
     }
+#endif
+}
+
+
+void KICAD_MANAGER_FRAME::RunQuickAccessAction( int aWhich )
+{
+#ifdef __WXMSW__
+    // Resolve the target on EVERY click (never cached): a closed or dying tab simply no-ops.
+    EDA_BASE_FRAME* target = getActiveDockedEditorFrame();
+
+    if( aWhich == 3 )   // gear — Preferences works everywhere, including the PM view
+    {
+        EDA_BASE_FRAME* prefsTarget = target ? target : this;
+
+        if( TOOL_MANAGER* mgr = prefsTarget->GetToolManager() )
+            mgr->RunAction( ACTIONS::openPreferences );
+
+        return;
+    }
+
+    if( !target || !target->GetToolManager() )
+        return;
+
+    switch( aWhich )
+    {
+    case 0: target->GetToolManager()->RunAction( ACTIONS::save ); break;
+    case 1: target->GetToolManager()->RunAction( ACTIONS::undo ); break;
+    case 2: target->GetToolManager()->RunAction( ACTIONS::redo ); break;
+    default: break;
+    }
+
+    RefreshQuickAccess();
+#endif
+}
+
+
+void KICAD_MANAGER_FRAME::RefreshQuickAccess()
+{
+#ifdef __WXMSW__
+    if( !m_titleBar )
+        return;
+
+    EDA_BASE_FRAME* target = getActiveDockedEditorFrame();
+
+    bool canSave = false;
+    bool canUndo = false;
+    bool canRedo = false;
+
+    if( target )
+    {
+        // Library editors define IsContentModified() frame-wide; the titlebar Save maps to
+        // ACTIONS::save (current item) — accepted, documented behaviour.
+        canSave = target->IsContentModified();
+        canUndo = target->GetUndoCommandCount() > 0;
+        canRedo = target->GetRedoCommandCount() > 0;
+    }
+
+    m_titleBar->RefreshQuickAccess( canSave, canUndo, canRedo );
+#endif
+}
+
+
+void KICAD_MANAGER_FRAME::RefreshShellDocumentTitle()
+{
+#ifdef __WXMSW__
+    if( !m_titleBar )
+        return;
+
+    // Altium-style: the loaded project and the active editor tab's document name, in the title bar.
+    wxString text = wxS( "Anvil" );
+
+    wxString projName = Prj().GetProjectName();
+
+    if( !projName.IsEmpty() )
+        text << wxT( "  —  " ) << projName;
+
+    if( EDA_BASE_FRAME* editor = getActiveDockedEditorFrame() )
+    {
+        wxString file = editor->GetCurrentFileName();
+
+        if( !file.IsEmpty() )
+            text << wxT( "  —  " ) << wxFileName( file ).GetFullName();
+    }
+
+    m_titleBar->SetDocumentTitle( text );
+#endif
+}
+
+
+void KICAD_MANAGER_FRAME::ShowOpenEditorMenu( const wxPoint& aScreenPos )
+{
+#ifdef __WXMSW__
+    // Altium "Open editor" dropdown: the editors/tools the removed left icon rail used to launch.
+    // Reuses the themed ANVIL_POPUP_MENU + ACTION_MENU dispatch (same as the status-bar Panels
+    // button) so each item runs its stock action.
+    KICAD_MANAGER_CONTROL* tool = m_toolManager->GetTool<KICAD_MANAGER_CONTROL>();
+
+    ACTION_MENU* menu = new ACTION_MENU( false, tool );
+    buildOpenEditorMenu( menu );
+
+    if( menu->GetMenuItemCount() == 0 )
+    {
+        delete menu;
+        return;
+    }
+
+    ANVIL_POPUP_MENU* popup = new ANVIL_POPUP_MENU( this, menu );
+
+    // The popup destroys itself on dismiss; free the menu with it.
+    popup->Bind( wxEVT_DESTROY,
+            [popup, menu]( wxWindowDestroyEvent& aEvt )
+            {
+                if( aEvt.GetEventObject() == popup )
+                    delete menu;
+
+                aEvt.Skip();
+            } );
+
+    popup->PopupAt( aScreenPos );
 #endif
 }
 
@@ -1849,7 +2257,7 @@ void KICAD_MANAGER_FRAME::syncShellMenuToActiveTab( bool aForcePM )
     // Only the single-window shell with the unified menu bar re-hosts editors as tabs and owns
     // a single shared top menu; in every other configuration each editor shows its own menu.
     if( !m_editorTabs || !ADVANCED_CFG::GetCfg().m_SingleWindowShell
-            || !ADVANCED_CFG::GetCfg().m_UnifiedMenuBar )
+            || !UseUnifiedMenuBar() )
     {
         return;
     }
@@ -1888,6 +2296,8 @@ void KICAD_MANAGER_FRAME::syncShellMenuToActiveTab( bool aForcePM )
         // The manager's doReCreateMenuBar() already refreshes the title-bar buttons on this path.
         doReCreateMenuBar();
     }
+
+    RefreshShellDocumentTitle();
 
     m_syncingShellMenu = false;
 #endif
@@ -2086,14 +2496,14 @@ void anvilRecolorShellTree( wxWindow* aWindow, const wxColour& aBg, const wxColo
 void KICAD_MANAGER_FRAME::applyAnvilShellTheme()
 {
     // Anvil chrome palette (matches sch_edit_frame.cpp and the MSW dark-mode palette).
-    const wxColour bgDeep  ( 24, 20, 42 );
-    const wxColour bgPanel ( 33, 27, 56 );
-    const wxColour accent  ( 139, 92, 246 );
-    const wxColour capAct  ( 88, 52, 156 );
-    const wxColour capInact( 43, 35, 70 );
-    const wxColour border  ( 58, 46, 99 );
-    const wxColour sash    ( 40, 33, 66 );
-    const wxColour text    ( 255, 255, 255 );
+    const wxColour& bgDeep   = ANVIL::CONTENT;
+    const wxColour& bgPanel  = ANVIL::PANEL;
+    const wxColour& accent   = ANVIL::ACCENT;
+    const wxColour& capAct   = ANVIL::CAP_ACTIVE;
+    const wxColour& capInact = ANVIL::CAP_INACTIVE;
+    const wxColour& border   = ANVIL::BORDER;
+    const wxColour& sash     = ANVIL::SASH;
+    const wxColour& text     = ANVIL::BONE;
 
     // 1) Dock-pane chrome: the background behind/between panes, sashes, borders, captions.
     if( wxAuiDockArt* dockArt = m_auimgr.GetArtProvider() )
@@ -2148,8 +2558,11 @@ void KICAD_MANAGER_FRAME::onShellPaneFocus( wxChildFocusEvent& aEvent )
     // The Project Explorer (a non-editor pane) gained focus: the user is on the Project
     // Manager, so bring its own menu back.  Only rebuild when an editor menu is currently
     // shown, so repeated clicks in the tree don't rebuild the bar.
-    if( ADVANCED_CFG::GetCfg().m_SingleWindowShell && ADVANCED_CFG::GetCfg().m_UnifiedMenuBar
-            && m_shellMenuShowsEditor )
+    // Keep the active editor tab's menu while an editor is open: clicking the Project Files
+    // tree should NOT flip the top menu back to the home set (that made the dynamic menu look
+    // broken).  Only fall back to the Project Manager menu when no editor tab is open.
+    if( ADVANCED_CFG::GetCfg().m_SingleWindowShell && UseUnifiedMenuBar()
+            && m_shellMenuShowsEditor && !getActiveDockedEditorFrame() )
     {
         syncShellMenuToActiveTab( true );
     }
@@ -2163,7 +2576,7 @@ void KICAD_MANAGER_FRAME::onEditorAreaFocus( wxChildFocusEvent& aEvent )
 #ifdef __WXMSW__
     // Focus returned to the editor-tab area: show the active editor's menu again.  Only rebuild
     // when the PM menu is currently shown and an editor tab actually exists.
-    if( ADVANCED_CFG::GetCfg().m_SingleWindowShell && ADVANCED_CFG::GetCfg().m_UnifiedMenuBar
+    if( ADVANCED_CFG::GetCfg().m_SingleWindowShell && UseUnifiedMenuBar()
             && !m_shellMenuShowsEditor && getActiveDockedEditorFrame() )
     {
         syncShellMenuToActiveTab( false );
@@ -2248,6 +2661,11 @@ bool KICAD_MANAGER_FRAME::DockEditorAsTab( KIWAY_PLAYER* aPlayer, const wxString
         }
     }
 
+    // Keep the editor frame hidden and frozen during the reparent / WS_CHILD surgery so it
+    // never flashes as a separate top-level window before it becomes a tab.
+    aPlayer->Hide();
+    aPlayer->Freeze();
+
     // A plain panel is the notebook page; the editor frame is reparented inside it so
     // wxAuiNotebook only ever manages an ordinary child window, sized via the sizer.
     wxPanel*    host  = new wxPanel( m_editorTabs, wxID_ANY );
@@ -2315,16 +2733,17 @@ bool KICAD_MANAGER_FRAME::DockEditorAsTab( KIWAY_PLAYER* aPlayer, const wxString
     m_editorTabs->AddPage( host, tabLabel, true );
     m_dockedEditors.emplace_back( aPlayer->GetId(), host );
 
-    aPlayer->Show( true );
     host->Layout();
 
     // The reparented frame does not always honour the box sizer on first dock (a wxFrame
-    // is an unusual sizer item), so size it explicitly to the host's client area now;
-    // subsequent shell resizes are handled by the sizer / host EVT_SIZE.
+    // is an unusual sizer item), so size it explicitly to the host's client area BEFORE it is
+    // shown; subsequent shell resizes are handled by the sizer / host EVT_SIZE.
     aPlayer->SetSize( host->GetClientSize() );
 
-    // Give the editor keyboard focus so hotkeys work immediately (the floating path
-    // did this via player->SetFocus(); the docked path must do it too).
+    // Now that it is correctly parented and sized, reveal it in one paint (no wrong-size or
+    // separate-window flash) and give it keyboard focus so hotkeys work immediately.
+    aPlayer->Thaw();
+    aPlayer->Show( true );
     aPlayer->SetFocus();
 
     // Make the shell's top menu reflect the just-docked editor.  AddPage(..., true) above may
@@ -2378,6 +2797,166 @@ bool KICAD_MANAGER_FRAME::IsPlayerDocked( KIWAY_PLAYER* aPlayer )
 }
 
 
+void KICAD_MANAGER_FRAME::OpenAnvilFile( const wxString& aPath )
+{
+    // Opening a file focuses the one running window (VS Code / Cursor behaviour).
+    if( IsIconized() )
+        Iconize( false );
+
+    Raise();
+    RequestUserAttention();
+
+    if( aPath.IsEmpty() )
+        return;   // bare second launch: nothing to open, we already raised the window.
+
+    wxFileName fn( aPath );
+    fn.MakeAbsolute();
+
+    if( !fn.FileExists() )
+    {
+        DisplayErrorMessage( this, wxString::Format( _( "File '%s' does not exist." ),
+                                                     fn.GetFullPath() ) );
+        return;
+    }
+
+    const wxString ext = fn.GetExt();
+
+    // 1) Project file → open / switch to it.  KiCad & legacy projects route through LoadProject
+    //    too (it offers to import them).  FILEEXT is the single source of this mapping.
+    if( ext == FILEEXT::AnvilProjectFileExtension
+        || ext == FILEEXT::ProjectFileExtension
+        || ext == FILEEXT::LegacyProjectFileExtension )
+    {
+        LoadProject( fn );
+        return;
+    }
+
+    // 2) Schematic or board file.  Opening is Anvil-only: only a native anvil_sch / anvil_pcb
+    //    opens directly in the editor.  A foreign KiCad (or legacy) schematic/board is never
+    //    opened natively — it reaches an editor only through the import flow — so route it to its
+    //    owning project's import offer instead.  FILEEXT is the single source of the mapping.
+    const TOOL_ACTION* editorAction = nullptr;
+
+    if( ext == FILEEXT::AnvilSchematicFileExtension )
+        editorAction = &KICAD_MANAGER_ACTIONS::editSchematic;
+    else if( ext == FILEEXT::AnvilPcbFileExtension )
+        editorAction = &KICAD_MANAGER_ACTIONS::editPCB;
+
+    if( !editorAction )
+    {
+        // Foreign (kicad_*) / legacy schematic or board → import, don't open natively.
+        if( FILEEXT::IsForeignFamilyExt( ext )
+            || ext == FILEEXT::LegacySchematicFileExtension
+            || ext == FILEEXT::LegacyPcbFileExtension )
+        {
+            // Hand the owning project (sibling .kicad_pro / legacy .pro) to LoadProject, which
+            // puts up the "Import & Convert" offer.  If there is no sibling project, tell the
+            // user how KiCad designs enter Anvil.
+            wxFileName projectFn = fn;
+            projectFn.SetExt( FILEEXT::ProjectFileExtension );          // sibling kicad_pro
+
+            if( !projectFn.FileExists() )
+                projectFn.SetExt( FILEEXT::LegacyProjectFileExtension );  // or legacy .pro
+
+            if( projectFn.FileExists() )
+            {
+                LoadProject( projectFn );
+                return;
+            }
+
+            DisplayInfoMessage( this, wxString::Format(
+                    _( "'%s' is a KiCad file.\n\nAnvil opens KiCad designs through import: use "
+                       "File > Import > KiCad Project." ),
+                    fn.GetFullName() ) );
+            return;
+        }
+
+        DisplayErrorMessage( this, wxString::Format( _( "Don't know how to open '%s' in Anvil." ),
+                                                     fn.GetFullPath() ) );
+        return;
+    }
+
+    // A project and its schematic / board share one basename in one directory, so the owning
+    // project is the sibling carrying the project extension.  Make it the active project (if it
+    // isn't already) so ShowPlayer resolves the right file to open as a tab.  Compare by
+    // directory + basename (ignoring the .anvil_/.kicad_ spelling) so we don't needlessly reload
+    // the project that is already open.
+    wxFileName projectFn = fn;
+    projectFn.SetExt( FILEEXT::AnvilProjectFileExtension );
+
+    if( !projectFn.FileExists() )
+        projectFn.SetExt( FILEEXT::ProjectFileExtension );   // KiCad-native sibling
+
+    wxFileName activeFn( GetProjectFileName() );
+
+    const bool sameProject = IsProjectActive()
+                             && activeFn.GetPath() == projectFn.GetPath()
+                             && activeFn.GetName() == projectFn.GetName();
+
+    if( projectFn.FileExists() && !sameProject )
+        LoadProject( projectFn );
+
+    if( !IsProjectActive() )
+    {
+        DisplayInfoMessage( this, wxString::Format( _( "Open or create a project for '%s' first." ),
+                                                    fn.GetFullName() ) );
+        return;
+    }
+
+    // Fire the editor action exactly as the sidebar button does: KICAD_MANAGER_CONTROL::ShowPlayer
+    // creates (or re-selects) the editor and, with the single-window shell on, docks it as a tab.
+    GetToolManager()->RunAction( *editorAction );
+}
+
+
+void KICAD_MANAGER_FRAME::HandleForwardedOpen( const wxString& aPath )
+{
+    // A later launch handed us this file — bring our window forward regardless of what we do
+    // with the path (opening a file behaves like focusing the app).
+    if( IsIconized() )
+        Iconize( false );
+
+    Raise();
+    RequestUserAttention();
+
+    if( aPath.IsEmpty() )
+        return;   // bare second launch: just focus.
+
+    wxFileName fn( aPath );
+    fn.MakeAbsolute();
+
+    if( !fn.FileExists() )
+    {
+        DisplayErrorMessage( this, wxString::Format( _( "File '%s' does not exist." ),
+                                                     fn.GetFullPath() ) );
+        return;
+    }
+
+    // A file belonging to a DIFFERENT project than the one open here gets its own window instead
+    // of silently swapping the active project (and its unsaved edits) out from under the user —
+    // same rule as VS Code opening a different folder.  KiCad keeps one project per directory, so
+    // "same directory as the active project" == "belongs to the open project" (this also covers
+    // sub-sheets whose basename differs from the project).  A fresh "--new" instance bypasses the
+    // single-instance handoff and opens the file in its own window.
+    if( IsProjectActive() )
+    {
+        const wxString activeDir = wxFileName( GetProjectFileName() ).GetPath();
+
+        if( fn.GetPath() != activeDir )
+        {
+            const wxString exe = wxStandardPaths::Get().GetExecutablePath();
+
+            wxExecute( wxString::Format( wxS( "\"%s\" --new \"%s\"" ), exe, fn.GetFullPath() ),
+                       wxEXEC_ASYNC );
+            return;
+        }
+    }
+
+    // Same project (or nothing open yet) → open it here as a tab.
+    OpenAnvilFile( fn.GetFullPath() );
+}
+
+
 void KICAD_MANAGER_FRAME::onNotebookPageCountChanged( wxAuiNotebookEvent& evt )
 {
     HideTabsIfNeeded();
@@ -2416,7 +2995,8 @@ wxStatusBar* KICAD_MANAGER_FRAME::OnCreateStatusBar( int number, long style, wxW
     return new KISTATUSBAR( number, this, id,
                             static_cast<KISTATUSBAR::STYLE_FLAGS>(  KISTATUSBAR::NOTIFICATION_ICON
                                                                   | KISTATUSBAR::CANCEL_BUTTON
-                                                                  | KISTATUSBAR::WARNING_ICON ) );
+                                                                  | KISTATUSBAR::WARNING_ICON
+                                                                  | KISTATUSBAR::PANELS_BUTTON ) );
 }
 
 
@@ -2789,6 +3369,10 @@ void KICAD_MANAGER_FRAME::doCloseWindow()
     if( Kiway().GetTabHost() == this )
         Kiway().SetTabHost( nullptr );
 
+    // The Window-menu activator captures `this`; drop it before destruction so a late menu
+    // event falls back to the default Show + Raise instead of calling into a dead shell.
+    EDA_BASE_FRAME::SetWindowMenuActivator( nullptr );
+
     Destroy();
 
 #ifdef _WINDOWS_
@@ -2958,23 +3542,23 @@ bool KICAD_MANAGER_FRAME::LoadProject( const wxFileName& aProjectFileNameIn )
     wxFileName aProjectFileName( aProjectFileNameIn );
 
     // Anvil dual-extension: MRU / session-restore / drag-drop may reference the sibling
-    // extension of the project file actually on disk.  Heal before validating.
-    if( !aProjectFileName.FileExists() )
-    {
-        wxFileName sibling( aProjectFileName );
-
-        if( aProjectFileName.GetExt() == FILEEXT::ProjectFileExtension )
-            sibling.SetExt( FILEEXT::AnvilProjectFileExtension );
-        else if( aProjectFileName.GetExt() == FILEEXT::AnvilProjectFileExtension )
-            sibling.SetExt( FILEEXT::ProjectFileExtension );
-
-        if( sibling.GetFullPath() != aProjectFileName.GetFullPath() && sibling.FileExists() )
-            aProjectFileName = sibling;
-    }
+    // extension of the project file actually on disk.  Heal before validating (this also
+    // prefers the .anvil_pro twin of a half-converted directory over its .kicad_pro).
+    aProjectFileName =
+            wxFileName( FILEEXT::HealToExistingFamilySibling( aProjectFileName.GetFullPath() ) );
 
     // The project file should be valid by the time we get here or something has gone wrong.
     if( !aProjectFileName.Exists() )
         return false;
+
+    // Foreign projects are never opened natively: every direct-open path (File>Open, CLI,
+    // double-click, MRU, drag-drop, unarchive) funnels through here, so this is the single
+    // place KiCad projects get routed into the import & convert flow instead.
+    if( FILEEXT::IsForeignFamilyExt( aProjectFileName.GetExt() )
+            || aProjectFileName.GetExt().IsSameAs( FILEEXT::LegacyProjectFileExtension, false ) )
+    {
+        return OfferImportForeignProject( aProjectFileName );
+    }
 
     wxString fullPath = aProjectFileName.GetFullPath();
 
@@ -3038,6 +3622,36 @@ bool KICAD_MANAGER_FRAME::LoadProject( const wxFileName& aProjectFileNameIn )
     // Propagate lock override decision to the loaded project
     if( lockOverrideGranted )
         Prj().SetLockOverrideGranted( true );
+
+    // Heal companions written by older builds: rename this project's own
+    // <basename>.kicad_{prl,dru,jobset} to the native spelling when no anvil sibling
+    // exists yet.  Project basename only — libraries are never touched.  Announced on the
+    // status bar so the on-disk rename (visible to VCS as delete+add) isn't silent.
+    {
+        const std::string* companions[] = { &FILEEXT::ProjectLocalSettingsFileExtension,
+                                            &FILEEXT::DesignRulesFileExtension,
+                                            &FILEEXT::KiCadJobSetFileExtension };
+        wxArrayString      healed;
+
+        for( const std::string* ext : companions )
+        {
+            wxFileName native( Prj().GetProjectPath(), Prj().GetProjectName(), *ext );
+            wxFileName foreign( native );
+            foreign.SetExt( FILEEXT::FamilySiblingExt( native.GetExt() ) );
+
+            if( !native.FileExists() && foreign.FileExists()
+                    && wxRenameFile( foreign.GetFullPath(), native.GetFullPath() ) )
+            {
+                healed.Add( native.GetFullName() );
+            }
+        }
+
+        if( !healed.IsEmpty() )
+        {
+            SetStatusText( wxString::Format( _( "Renamed to Anvil extensions: %s" ),
+                                             wxJoin( healed, ',' ) ) );
+        }
+    }
 
     LoadWindowState( aProjectFileName.GetFullName() );
 
@@ -3372,6 +3986,7 @@ void KICAD_MANAGER_FRAME::ProjectChanged()
         title += wxT( " \u2014 " ) + wxString( wxS( "Anvil " ) ) + GetMajorMinorVersion();
 
     SetTitle( title );
+    RefreshShellDocumentTitle();
 
     // Register project file saver. Ensures project file participates in
     // autosave history commits without affecting dirty state.

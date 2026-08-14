@@ -32,6 +32,46 @@
 #include <widgets/wx_aui_art_providers.h>
 #include <gal/color4d.h>
 
+// NEMI brand: build the app-wide UI font (Space Grotesk @ AnvilUiFontPt) from a base font, so AUI
+// chrome text (tab labels, dock captions, toolbar labels) matches the rest of the UI instead of
+// staying at the wx default (*wxNORMAL_FONT ~ system 9pt).  These art providers are not windows,
+// so they hold their own private fonts; nothing else syncs them to the frame font.
+static wxFont anvilChromeFont( const wxFont& aBase )
+{
+    const ADVANCED_CFG& acfg = ADVANCED_CFG::GetCfg();
+    wxFont              font = aBase;
+
+    if( acfg.m_AnvilUiFontPt > 0.0 )
+        font.SetFractionalPointSize( acfg.m_AnvilUiFontPt );
+
+    if( !acfg.m_AnvilUiFontFace.IsEmpty() )
+        font.SetFaceName( acfg.m_AnvilUiFontFace );
+
+    return font;
+}
+
+
+WX_AUI_TOOLBAR_ART::WX_AUI_TOOLBAR_ART() :
+        wxAuiDefaultToolBarArt()
+{
+    saturateHighlightColor();
+
+    // Toolbar button text labels (on text-bearing bars) follow the app UI font.
+    m_font = anvilChromeFont( m_font );
+}
+
+
+WX_AUI_TAB_ART::WX_AUI_TAB_ART() :
+        wxAuiGenericTabArt()
+{
+    // Notebook tab labels (editor tabs + side-panel tabs) follow the app UI font.  The measuring
+    // font must match so tab sizes are computed at the same size they are drawn.
+    SetNormalFont( anvilChromeFont( m_normalFont ) );
+    SetSelectedFont( anvilChromeFont( m_selectedFont ) );
+    SetMeasuringFont( anvilChromeFont( m_measuringFont ) );
+}
+
+
 #if wxCHECK_VERSION( 3, 3, 0 )
 wxSize WX_AUI_TOOLBAR_ART::GetToolSize( wxReadOnlyDC& aDc, wxWindow* aWindow,
                                         const wxAuiToolBarItem& aItem )
@@ -358,11 +398,12 @@ WX_AUI_DOCK_ART::WX_AUI_DOCK_ART() :
         wxAuiDefaultDockArt()
 {
 #if defined( _WIN32 )
-    // Use normal control font, wx likes to use "small"
-    m_captionFont = *wxNORMAL_FONT;
+    // Dock-pane caption titles ("Properties", "Schematic Hierarchy", ...) in the app UI font
+    // (Space Grotesk @ AnvilUiFontPt); wx likes to use "small" (system ~9pt).
+    m_captionFont = anvilChromeFont( *wxNORMAL_FONT );
 
     // Increase the box the caption rests in size a bit
-    m_captionSize = ( wxNORMAL_FONT->GetPointSize() * 7 ) / 4 + 6;
+    m_captionSize = ( m_captionFont.GetPointSize() * 7 ) / 4 + 6;
 #endif
 
     SetColour( wxAUI_DOCKART_ACTIVE_CAPTION_TEXT_COLOUR,

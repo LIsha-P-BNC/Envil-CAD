@@ -141,7 +141,14 @@ public:
      * title blocks. No file of this name is ever created -- LoadDrawingSheet() recognises it
      * and empties the layout instead of falling back to the default sheet.
      */
-    static const wxChar* EmptySheetName() { return wxT( "empty.kicad_wks" ); }
+    static const wxChar* EmptySheetName() { return wxT( "empty.anvil_wks" ); }
+
+    /**
+     * The marker's spelling before the anvil_* extension rename.  Projects written by
+     * older builds (and unconverted KiCad imports) still carry it; LoadDrawingSheet()
+     * accepts both.
+     */
+    static const wxChar* LegacyEmptySheetName() { return wxT( "empty.kicad_wks" ); }
 
     /**
      * Return a string containing the empty layout shape.

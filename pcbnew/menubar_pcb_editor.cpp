@@ -41,7 +41,7 @@
 void PCB_EDIT_FRAME::doReCreateMenuBar()
 {
     // KiCad Next: build the shared common menu bar instead of the legacy one when enabled.
-    if( ADVANCED_CFG::GetCfg().m_UnifiedMenuBar )
+    if( UseUnifiedMenuBar() )
     {
         buildCommonMenuBar();
         return;
@@ -221,20 +221,10 @@ void PCB_EDIT_FRAME::doReCreateMenuBar()
     //
     ACTION_MENU* viewMenu = new ACTION_MENU( false, selTool );
 
+    // Show / Hide Panels submenu (content shared with the shell's Panels button).
     ACTION_MENU* showHidePanels = new ACTION_MENU( false, selTool );
     showHidePanels->SetTitle( _( "Panels" ) );
-    showHidePanels->Add( ACTIONS::showProperties,                 ACTION_MENU::CHECK );
-    showHidePanels->Add( PCB_ACTIONS::showSearch,                 ACTION_MENU::CHECK );
-    showHidePanels->Add( PCB_ACTIONS::showLayersManager,          ACTION_MENU::CHECK );
-    showHidePanels->Add( PCB_ACTIONS::showNetInspector,           ACTION_MENU::CHECK );
-    // In the shell's common-AI mode the shell owns the only AI panel, so drop the per-editor
-    // AI toggle from the View menu (kept when CommonAiPanel is off).
-    if( !( ADVANCED_CFG::GetCfg().m_SingleWindowShell
-           && ADVANCED_CFG::GetCfg().m_CommonAiPanel ) )
-        showHidePanels->Add( PCB_ACTIONS::showAiChat );
-
-    if( ADVANCED_CFG::GetCfg().m_EnablePcbDesignBlocks )
-        showHidePanels->Add( PCB_ACTIONS::showDesignBlockPanel, ACTION_MENU::CHECK, _( "Design Blocks" ) );
+    buildPanelsMenu( showHidePanels );
 
     viewMenu->Add( showHidePanels );
 
@@ -253,6 +243,45 @@ void PCB_EDIT_FRAME::doReCreateMenuBar()
     viewMenu->Add( ACTIONS::zoomFitSelection );
     viewMenu->Add( ACTIONS::zoomTool );
     viewMenu->Add( ACTIONS::zoomRedraw );
+
+    // Modern toolbar preset: the left toolbar is gone, so its display toggles surface here.
+    // (High contrast, zone / pad / via / track display and the panel toggles already live in
+    // the Contrast Mode, Drawing Mode and Panels entries of this menu.)
+    if( ADVANCED_CFG::GetCfg().m_ModernToolbarLayout )
+    {
+        viewMenu->AppendSeparator();
+        viewMenu->Add( ACTIONS::toggleGrid,            ACTION_MENU::CHECK );
+        viewMenu->Add( ACTIONS::toggleGridOverrides,   ACTION_MENU::CHECK );
+        viewMenu->Add( PCB_ACTIONS::togglePolarCoords, ACTION_MENU::CHECK );
+
+        ACTION_MENU* unitsSubMenu = new ACTION_MENU( false, selTool );
+        unitsSubMenu->SetTitle( _( "&Units" ) );
+        unitsSubMenu->Add( ACTIONS::millimetersUnits, ACTION_MENU::CHECK );
+        unitsSubMenu->Add( ACTIONS::inchesUnits,      ACTION_MENU::CHECK );
+        unitsSubMenu->Add( ACTIONS::milsUnits,        ACTION_MENU::CHECK );
+        viewMenu->Add( unitsSubMenu );
+
+        ACTION_MENU* crosshairSubMenu = new ACTION_MENU( false, selTool );
+        crosshairSubMenu->SetTitle( _( "&Crosshair Mode" ) );
+        crosshairSubMenu->Add( ACTIONS::cursorSmallCrosshairs, ACTION_MENU::CHECK );
+        crosshairSubMenu->Add( ACTIONS::cursorFullCrosshairs,  ACTION_MENU::CHECK );
+        crosshairSubMenu->Add( ACTIONS::cursor45Crosshairs,    ACTION_MENU::CHECK );
+        viewMenu->Add( crosshairSubMenu );
+
+        ACTION_MENU* lineModeSubMenu = new ACTION_MENU( false, selTool );
+        lineModeSubMenu->SetTitle( _( "&Line Mode" ) );
+        lineModeSubMenu->Add( PCB_ACTIONS::lineModeFree, ACTION_MENU::CHECK );
+        lineModeSubMenu->Add( PCB_ACTIONS::lineMode90,   ACTION_MENU::CHECK );
+        lineModeSubMenu->Add( PCB_ACTIONS::lineMode45,   ACTION_MENU::CHECK );
+        viewMenu->Add( lineModeSubMenu );
+
+        viewMenu->Add( PCB_ACTIONS::showRatsnest,       ACTION_MENU::CHECK );
+        viewMenu->Add( PCB_ACTIONS::ratsnestLineMode,   ACTION_MENU::CHECK );
+        viewMenu->Add( PCB_ACTIONS::toggleNetHighlight, ACTION_MENU::CHECK );
+
+        if( ADVANCED_CFG::GetCfg().m_DrawBoundingBoxes )
+            viewMenu->Add( ACTIONS::toggleBoundingBoxes, ACTION_MENU::CHECK );
+    }
 
     viewMenu->AppendSeparator();
     // Drawing Mode Submenu
@@ -506,6 +535,24 @@ TOOL_INTERACTIVE* PCB_EDIT_FRAME::getCurrentMenuTool()
 }
 
 
+void PCB_EDIT_FRAME::buildPanelsMenu( ACTION_MENU* aMenu )
+{
+    aMenu->Add( ACTIONS::showProperties,        ACTION_MENU::CHECK );
+    aMenu->Add( PCB_ACTIONS::showSearch,        ACTION_MENU::CHECK );
+    aMenu->Add( PCB_ACTIONS::showLayersManager, ACTION_MENU::CHECK );
+    aMenu->Add( PCB_ACTIONS::showNetInspector,  ACTION_MENU::CHECK );
+
+    // In the shell's common-AI mode the shell owns the only AI panel, so drop the per-editor
+    // AI toggle (kept when CommonAiPanel is off).
+    if( !( ADVANCED_CFG::GetCfg().m_SingleWindowShell
+           && ADVANCED_CFG::GetCfg().m_CommonAiPanel ) )
+        aMenu->Add( PCB_ACTIONS::showAiChat );
+
+    if( ADVANCED_CFG::GetCfg().m_EnablePcbDesignBlocks )
+        aMenu->Add( PCB_ACTIONS::showDesignBlockPanel, ACTION_MENU::CHECK, _( "Design Blocks" ) );
+}
+
+
 void PCB_EDIT_FRAME::buildFileMenu( ACTION_MENU* fileMenu )
 {
     PCB_SELECTION_TOOL* selTool = m_toolManager->GetTool<PCB_SELECTION_TOOL>();
@@ -610,8 +657,12 @@ void PCB_EDIT_FRAME::buildFileMenu( ACTION_MENU* fileMenu )
     submenuFabOutputs->Add( PCB_ACTIONS::generateBOM );
     fileMenu->Add( submenuFabOutputs );
 
-    fileMenu->AppendSeparator();
-    fileMenu->Add( PCB_ACTIONS::boardSetup );
+    // Modern layout: Board Setup lives in the Design menu instead.
+    if( !UseModernMenuLayout() )
+    {
+        fileMenu->AppendSeparator();
+        fileMenu->Add( PCB_ACTIONS::boardSetup );
+    }
 
     fileMenu->AppendSeparator();
     fileMenu->Add( ACTIONS::pageSettings );
@@ -657,7 +708,11 @@ void PCB_EDIT_FRAME::buildEditMenu( ACTION_MENU* editMenu )
     editMenu->Add( PCB_ACTIONS::editTextAndGraphics );
     editMenu->Add( PCB_ACTIONS::editTeardrops );
     editMenu->Add( PCB_ACTIONS::changeFootprints );
-    editMenu->Add( PCB_ACTIONS::swapLayers );
+
+    // Modern layout: Swap Layers lives in the Design menu instead.
+    if( !UseModernMenuLayout() )
+        editMenu->Add( PCB_ACTIONS::swapLayers );
+
     editMenu->Add( ACTIONS::gridOrigin );
 
     editMenu->AppendSeparator();
@@ -675,20 +730,10 @@ void PCB_EDIT_FRAME::buildViewMenu( ACTION_MENU* viewMenu )
 {
     PCB_SELECTION_TOOL* selTool = m_toolManager->GetTool<PCB_SELECTION_TOOL>();
 
+    // Show / Hide Panels submenu (content shared with the shell's Panels button).
     ACTION_MENU* showHidePanels = new ACTION_MENU( false, selTool );
     showHidePanels->SetTitle( _( "Panels" ) );
-    showHidePanels->Add( ACTIONS::showProperties,                 ACTION_MENU::CHECK );
-    showHidePanels->Add( PCB_ACTIONS::showSearch,                 ACTION_MENU::CHECK );
-    showHidePanels->Add( PCB_ACTIONS::showLayersManager,          ACTION_MENU::CHECK );
-    showHidePanels->Add( PCB_ACTIONS::showNetInspector,           ACTION_MENU::CHECK );
-    // In the shell's common-AI mode the shell owns the only AI panel, so drop the per-editor
-    // AI toggle from the View menu (kept when CommonAiPanel is off).
-    if( !( ADVANCED_CFG::GetCfg().m_SingleWindowShell
-           && ADVANCED_CFG::GetCfg().m_CommonAiPanel ) )
-        showHidePanels->Add( PCB_ACTIONS::showAiChat );
-
-    if( ADVANCED_CFG::GetCfg().m_EnablePcbDesignBlocks )
-        showHidePanels->Add( PCB_ACTIONS::showDesignBlockPanel, ACTION_MENU::CHECK, _( "Design Blocks" ) );
+    buildPanelsMenu( showHidePanels );
 
     viewMenu->Add( showHidePanels );
 
@@ -707,6 +752,45 @@ void PCB_EDIT_FRAME::buildViewMenu( ACTION_MENU* viewMenu )
     viewMenu->Add( ACTIONS::zoomFitSelection );
     viewMenu->Add( ACTIONS::zoomTool );
     viewMenu->Add( ACTIONS::zoomRedraw );
+
+    // Modern toolbar preset: the left toolbar is gone, so its display toggles surface here.
+    // (High contrast, zone / pad / via / track display and the panel toggles already live in
+    // the Contrast Mode, Drawing Mode and Panels entries of this menu.)
+    if( ADVANCED_CFG::GetCfg().m_ModernToolbarLayout )
+    {
+        viewMenu->AppendSeparator();
+        viewMenu->Add( ACTIONS::toggleGrid,            ACTION_MENU::CHECK );
+        viewMenu->Add( ACTIONS::toggleGridOverrides,   ACTION_MENU::CHECK );
+        viewMenu->Add( PCB_ACTIONS::togglePolarCoords, ACTION_MENU::CHECK );
+
+        ACTION_MENU* unitsSubMenu = new ACTION_MENU( false, selTool );
+        unitsSubMenu->SetTitle( _( "&Units" ) );
+        unitsSubMenu->Add( ACTIONS::millimetersUnits, ACTION_MENU::CHECK );
+        unitsSubMenu->Add( ACTIONS::inchesUnits,      ACTION_MENU::CHECK );
+        unitsSubMenu->Add( ACTIONS::milsUnits,        ACTION_MENU::CHECK );
+        viewMenu->Add( unitsSubMenu );
+
+        ACTION_MENU* crosshairSubMenu = new ACTION_MENU( false, selTool );
+        crosshairSubMenu->SetTitle( _( "&Crosshair Mode" ) );
+        crosshairSubMenu->Add( ACTIONS::cursorSmallCrosshairs, ACTION_MENU::CHECK );
+        crosshairSubMenu->Add( ACTIONS::cursorFullCrosshairs,  ACTION_MENU::CHECK );
+        crosshairSubMenu->Add( ACTIONS::cursor45Crosshairs,    ACTION_MENU::CHECK );
+        viewMenu->Add( crosshairSubMenu );
+
+        ACTION_MENU* lineModeSubMenu = new ACTION_MENU( false, selTool );
+        lineModeSubMenu->SetTitle( _( "&Line Mode" ) );
+        lineModeSubMenu->Add( PCB_ACTIONS::lineModeFree, ACTION_MENU::CHECK );
+        lineModeSubMenu->Add( PCB_ACTIONS::lineMode90,   ACTION_MENU::CHECK );
+        lineModeSubMenu->Add( PCB_ACTIONS::lineMode45,   ACTION_MENU::CHECK );
+        viewMenu->Add( lineModeSubMenu );
+
+        viewMenu->Add( PCB_ACTIONS::showRatsnest,       ACTION_MENU::CHECK );
+        viewMenu->Add( PCB_ACTIONS::ratsnestLineMode,   ACTION_MENU::CHECK );
+        viewMenu->Add( PCB_ACTIONS::toggleNetHighlight, ACTION_MENU::CHECK );
+
+        if( ADVANCED_CFG::GetCfg().m_DrawBoundingBoxes )
+            viewMenu->Add( ACTIONS::toggleBoundingBoxes, ACTION_MENU::CHECK );
+    }
 
     viewMenu->AppendSeparator();
     // Drawing Mode Submenu
@@ -838,6 +922,11 @@ void PCB_EDIT_FRAME::buildRouteMenu( ACTION_MENU* routeMenu )
 
 void PCB_EDIT_FRAME::buildInspectMenu( ACTION_MENU* inspectMenu )
 {
+    // Modern layout: DRC and the marker navigation move to Tools, the diagnostics and
+    // statistics to Reports, so the classic Inspect menu is dropped entirely.
+    if( UseModernMenuLayout() )
+        return;
+
     inspectMenu->Add( PCB_ACTIONS::boardStatistics );
     inspectMenu->Add( ACTIONS::measureTool );
 
@@ -858,6 +947,54 @@ void PCB_EDIT_FRAME::buildInspectMenu( ACTION_MENU* inspectMenu )
 void PCB_EDIT_FRAME::buildToolsMenu( ACTION_MENU* toolsMenu )
 {
     PCB_SELECTION_TOOL* selTool = m_toolManager->GetTool<PCB_SELECTION_TOOL>();
+
+    if( UseModernMenuLayout() )
+    {
+        // Altium-style Tools: checkers, cleanup and utilities.  Cross-editor navigation lives
+        // in Project, design-data operations in Design, diagnostics in Reports, and the
+        // Preferences items are folded into the tail here until the title-bar gear hosts them.
+        toolsMenu->Add( PCB_ACTIONS::runDRC );
+        toolsMenu->Add( ACTIONS::prevMarker );
+        toolsMenu->Add( ACTIONS::nextMarker );
+        toolsMenu->Add( ACTIONS::excludeMarker );
+
+        toolsMenu->AppendSeparator();
+        toolsMenu->Add( ACTIONS::showFootprintEditor );
+        toolsMenu->Add( PCB_ACTIONS::updateFootprints );
+        toolsMenu->Add( PCB_ACTIONS::collect3DModels );
+
+        toolsMenu->AppendSeparator();
+        toolsMenu->Add( PCB_ACTIONS::cleanupTracksAndVias );
+        toolsMenu->Add( PCB_ACTIONS::removeUnusedPads );
+        toolsMenu->Add( PCB_ACTIONS::cleanupGraphics );
+        toolsMenu->Add( PCB_ACTIONS::repairBoard );
+
+        toolsMenu->AppendSeparator();
+        toolsMenu->Add( PCB_ACTIONS::boardReannotate );
+        toolsMenu->Add( ACTIONS::showCalculatorTools );
+
+        ACTION_MENU* modernPluginsSubmenu = new ACTION_MENU( false, selTool );
+        modernPluginsSubmenu->SetTitle( _( "External Plugins" ) );
+        modernPluginsSubmenu->SetIcon( BITMAPS::puzzle_piece );
+        modernPluginsSubmenu->Add( ACTIONS::pluginsReload );
+        modernPluginsSubmenu->Add( PCB_ACTIONS::pluginsShowFolder );
+
+        toolsMenu->AppendSeparator();
+        toolsMenu->Add( modernPluginsSubmenu );
+
+        toolsMenu->AppendSeparator();
+        toolsMenu->Add( ACTIONS::configurePaths );
+        toolsMenu->Add( ACTIONS::showFootprintLibTable );
+
+        if( ADVANCED_CFG::GetCfg().m_EnablePcbDesignBlocks )
+            toolsMenu->Add( ACTIONS::showDesignBlockLibTable );
+
+        toolsMenu->Add( ACTIONS::openPreferences );
+
+        toolsMenu->AppendSeparator();
+        AddMenuLanguageList( toolsMenu, selTool );
+        return;
+    }
 
     toolsMenu->Add( ACTIONS::updatePcbFromSchematic )->Enable( !Kiface().IsSingle() );
     toolsMenu->Add( PCB_ACTIONS::showEeschema );
@@ -921,6 +1058,10 @@ void PCB_EDIT_FRAME::buildToolsMenu( ACTION_MENU* toolsMenu )
 
 void PCB_EDIT_FRAME::buildPreferencesMenu( ACTION_MENU* prefsMenu )
 {
+    // Modern layout: these items live in the tail of Tools instead of a top-level menu.
+    if( UseModernMenuLayout() )
+        return;
+
     PCB_SELECTION_TOOL* selTool = m_toolManager->GetTool<PCB_SELECTION_TOOL>();
 
     prefsMenu->Add( ACTIONS::configurePaths );
@@ -933,4 +1074,62 @@ void PCB_EDIT_FRAME::buildPreferencesMenu( ACTION_MENU* prefsMenu )
 
     prefsMenu->AppendSeparator();
     AddMenuLanguageList( prefsMenu, selTool );
+}
+
+
+void PCB_EDIT_FRAME::buildProjectMenu( ACTION_MENU* projectMenu )
+{
+    projectMenu->Add( PCB_ACTIONS::showEeschema );
+
+    if( !Kiface().IsSingle() )
+        projectMenu->Add( ACTIONS::showProjectManager );
+}
+
+
+void PCB_EDIT_FRAME::buildDesignMenu( ACTION_MENU* designMenu )
+{
+    PCB_SELECTION_TOOL* selTool = m_toolManager->GetTool<PCB_SELECTION_TOOL>();
+
+    designMenu->Add( PCB_ACTIONS::boardSetup );
+    designMenu->Add( PCB_ACTIONS::drcRuleEditor );
+
+    designMenu->AppendSeparator();
+    designMenu->Add( ACTIONS::updatePcbFromSchematic )->Enable( !Kiface().IsSingle() );
+    designMenu->Add( ACTIONS::updateSchematicFromPcb )->Enable( !Kiface().IsSingle() );
+
+    designMenu->AppendSeparator();
+    designMenu->Add( PCB_ACTIONS::zonesManager );
+    designMenu->Add( PCB_ACTIONS::swapLayers );
+
+    if( ADVANCED_CFG::GetCfg().m_EnableGenerators )
+    {
+        designMenu->AppendSeparator();
+        designMenu->Add( PCB_ACTIONS::generatorsShowManager );
+        designMenu->Add( PCB_ACTIONS::regenerateAll );
+        designMenu->Add( PCB_ACTIONS::regenerateSelected );
+    }
+
+    designMenu->AppendSeparator();
+
+    ACTION_MENU* multichannelSubmenu = new ACTION_MENU( false, selTool );
+    multichannelSubmenu->SetTitle( _( "Multi-Channel" ) );
+    multichannelSubmenu->SetIcon( BITMAPS::mode_module );
+    multichannelSubmenu->Add( PCB_ACTIONS::generatePlacementRuleAreas );
+    multichannelSubmenu->Add( PCB_ACTIONS::repeatLayout );
+    designMenu->Add( multichannelSubmenu );
+}
+
+
+void PCB_EDIT_FRAME::buildReportsMenu( ACTION_MENU* reportsMenu )
+{
+    reportsMenu->Add( PCB_ACTIONS::boardStatistics );
+
+    reportsMenu->AppendSeparator();
+    reportsMenu->Add( PCB_ACTIONS::inspectClearance );
+    reportsMenu->Add( PCB_ACTIONS::inspectConstraints );
+    reportsMenu->Add( PCB_ACTIONS::showFootprintAssociations );
+    reportsMenu->Add( PCB_ACTIONS::diffFootprint );
+
+    reportsMenu->AppendSeparator();
+    reportsMenu->Add( ACTIONS::measureTool );
 }

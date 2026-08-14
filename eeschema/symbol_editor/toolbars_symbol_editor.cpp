@@ -59,6 +59,29 @@ std::optional<TOOLBAR_CONFIGURATION> SYMBOL_EDIT_TOOLBAR_SETTINGS::DefaultToolba
         return std::nullopt;
 
     case TOOLBAR_LOC::LEFT:
+        // Modern (classic-Altium) preset: the left edge hosts the drawing tools, in
+        // Place-menu order.  The display toggles it replaces surface in the View menu
+        // (modern layout) and the Preferences dialog.
+        if( ADVANCED_CFG::GetCfg().m_ModernToolbarLayout )
+        {
+            config.AppendAction( ACTIONS::selectionTool );
+
+            config.AppendSeparator()
+                  .AppendAction( SCH_ACTIONS::placeSymbolPin )
+                  .AppendAction( SCH_ACTIONS::placeSymbolText )
+                  .AppendAction( SCH_ACTIONS::drawSymbolTextBox )
+                  .AppendAction( SCH_ACTIONS::drawRectangle )
+                  .AppendAction( SCH_ACTIONS::drawCircle )
+                  .AppendAction( SCH_ACTIONS::drawArc )
+                  .AppendAction( SCH_ACTIONS::drawBezier )
+                  .AppendAction( SCH_ACTIONS::drawSymbolLines )
+                  .AppendAction( SCH_ACTIONS::drawSymbolPolygon )
+                  .AppendAction( SCH_ACTIONS::placeSymbolAnchor )
+                  .AppendAction( ACTIONS::deleteTool );
+
+            break;
+        }
+
         config.AppendAction( ACTIONS::toggleGrid )
               .WithContextMenu(
                       []( TOOL_MANAGER* aToolMgr )
@@ -93,6 +116,10 @@ std::optional<TOOLBAR_CONFIGURATION> SYMBOL_EDIT_TOOLBAR_SETTINGS::DefaultToolba
         break;
 
     case TOOLBAR_LOC::RIGHT:
+        // Modern (classic-Altium) preset: no right toolbar — the drawing tools live on the left.
+        if( ADVANCED_CFG::GetCfg().m_ModernToolbarLayout )
+            return std::nullopt;
+
         config.AppendAction( ACTIONS::selectionTool );
 
         config.AppendSeparator()
@@ -117,6 +144,15 @@ std::optional<TOOLBAR_CONFIGURATION> SYMBOL_EDIT_TOOLBAR_SETTINGS::DefaultToolba
         config.AppendSeparator()
               .AppendAction( ACTIONS::undo )
               .AppendAction( ACTIONS::redo );
+
+        // Classic-Altium Standard row: the clipboard icons sit next to undo/redo.
+        if( ADVANCED_CFG::GetCfg().m_ModernToolbarLayout )
+        {
+            config.AppendSeparator()
+                  .AppendAction( ACTIONS::cut )
+                  .AppendAction( ACTIONS::copy )
+                  .AppendAction( ACTIONS::paste );
+        }
 
         config.AppendSeparator()
               .AppendAction( ACTIONS::find )

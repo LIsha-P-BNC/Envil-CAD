@@ -5,6 +5,7 @@
         <comment>KiCad Project</comment>
         <generic-icon name="@KICAD_MIME_ICON_PREFIX@application-x-kicad-project"/>
         <glob pattern="*.pro" weight="40"/>
+        <glob pattern="*.anvil_pro" weight="60"/>
         <glob pattern="*.kicad_pro" weight="50"/>
     </mime-type>
     <mime-type type="application/x-kicad-schematic">
@@ -12,6 +13,7 @@
         <comment>KiCad Schematic</comment>
         <generic-icon name="@KICAD_MIME_ICON_PREFIX@application-x-kicad-schematic"/>
         <glob pattern="*.sch" weight="40"/>
+        <glob pattern="*.anvil_sch" weight="60"/>
         <glob pattern="*.kicad_sch" weight="50"/>
         <magic priority="50">
             <!--The new schematic file (.kicad_sch) header-->
@@ -26,6 +28,7 @@
         <sub-class-of type="text/plain"/>
         <comment>KiCad Printed Circuit Board</comment>
         <generic-icon name="@KICAD_MIME_ICON_PREFIX@application-x-kicad-pcb"/>
+        <glob pattern="*.anvil_pcb" weight="60"/>
         <glob pattern="*.kicad_pcb" weight="50"/>
         <magic priority="50">
             <!--The new board file (.kicad_pcb) header-->
@@ -40,6 +43,7 @@
         <sub-class-of type="text/plain"/>
         <comment>KiCad Footprint</comment>
         <generic-icon name="@KICAD_MIME_ICON_PREFIX@application-x-kicad-footprint"/>
+        <glob pattern="*.anvil_mod" weight="60"/>
         <glob pattern="*.kicad_mod" weight="50"/>
         <magic priority="50">
             <!--The new fp file (.kicad_mod) header-->
@@ -54,6 +58,7 @@
         <sub-class-of type="text/plain"/>
         <comment>KiCad Schematic Symbol</comment>
         <generic-icon name="@KICAD_MIME_ICON_PREFIX@application-x-kicad-symbol"/>
+        <glob pattern="*.anvil_sym" weight="60"/>
         <glob pattern="*.kicad_sym" weight="50"/>
         <magic priority="50">
             <!--The new sym file (.kicad_sym) header-->
@@ -68,6 +73,7 @@
         <sub-class-of type="text/plain"/>
         <comment>KiCad Drawing Sheet</comment>
         <generic-icon name="@KICAD_MIME_ICON_PREFIX@application-x-kicad-worksheet"/>
+        <glob pattern="*.anvil_wks" weight="60"/>
         <glob pattern="*.kicad_wks" weight="50"/>
         <magic priority="50">
             <!--The new wks file (.kicad_wks) header-->

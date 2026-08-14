@@ -148,6 +148,11 @@ bool AskLoadBoardFileName( PCB_EDIT_FRAME* aParent, wxString* aFileName, int aCt
 
         for( const std::string& ext : desc.m_FileExtensions )
         {
+            // The native Open dialog never offers foreign (kicad_*) or legacy spellings;
+            // they remain readable through the descriptors but enter via import surfaces.
+            if( ( aCtl & KICTL_KICAD_ONLY ) && !FILEEXT::IsNativeFamilyExt( ext ) )
+                continue;
+
             allExtensions.emplace_back( ext );
             allWildcardsSet.insert( wxT( "*." ) + formatWildcardExt( ext ) + wxT( ";" ) );
         }
@@ -160,7 +165,7 @@ bool AskLoadBoardFileName( PCB_EDIT_FRAME* aParent, wxString* aFileName, int aCt
 
     if( aCtl & KICTL_KICAD_ONLY )
     {
-        fileFiltersStr = _( "All KiCad Board Files" ) + AddFileExtListToFilter( allExtensions );
+        fileFiltersStr = _( "All Anvil Board Files" ) + AddFileExtListToFilter( allExtensions );
     }
     else
     {
@@ -229,14 +234,10 @@ bool AskSaveBoardFileName( PCB_EDIT_FRAME* aParent, wxString* aFileName, bool* a
     wxString   wildcard = FILEEXT::PcbFileWildcard();
     wxFileName  fn = *aFileName;
 
-    // Default to the Anvil format, and never rewrite a board that already has a native
-    // extension -- offering a .kicad_pcb name for an open .anvil_pcb invites the user to
-    // save a duplicate board next to the real one.
-    if( fn.GetExt().Lower() != FILEEXT::AnvilPcbFileExtension
-        && fn.GetExt().Lower() != FILEEXT::KiCadPcbFileExtension )
-    {
+    // Boards are only ever written in the native Anvil format; a board still carrying a
+    // foreign kicad_pcb name is normalized on its way through Save As.
+    if( !fn.GetExt().IsSameAs( FILEEXT::AnvilPcbFileExtension, false ) )
         fn.SetExt( FILEEXT::AnvilPcbFileExtension );
-    }
 
     wxFileDialog dlg( aParent, _( "Save Board File As" ), fn.GetPath(), fn.GetFullName(), wildcard,
                       wxFD_SAVE | wxFD_OVERWRITE_PROMPT );
@@ -253,7 +254,26 @@ bool AskSaveBoardFileName( PCB_EDIT_FRAME* aParent, wxString* aFileName, bool* a
         return false;
 
     *aFileName = dlg.GetPath();
-    *aFileName = EnsureFileExtension( *aFileName, FILEEXT::KiCadPcbFileExtension );
+
+    // Never write a kicad_* board: replace a typed foreign/legacy extension (and tell the
+    // user), otherwise just guarantee the native extension is present.  EnsureFileExtension
+    // appends rather than replaces, so running it on a foreign name would produce the
+    // 'board.anvil_pcb.kicad_pcb' class of double extension.
+    wxFileName chosenFn( *aFileName );
+
+    if( FILEEXT::IsForeignFamilyExt( chosenFn.GetExt() )
+            || chosenFn.GetExt().IsSameAs( FILEEXT::LegacyPcbFileExtension, false ) )
+    {
+        chosenFn.SetExt( FILEEXT::AnvilPcbFileExtension );
+        *aFileName = chosenFn.GetFullPath();
+        aParent->ShowInfoBarMsg( wxString::Format( _( "Boards are saved in the Anvil format; "
+                                                      "saving as '%s'." ),
+                                                   chosenFn.GetFullName() ) );
+    }
+    else
+    {
+        *aFileName = EnsureFileExtension( *aFileName, FILEEXT::AnvilPcbFileExtension );
+    }
 
     if( newProjectHook.IsAttachedToDialog() )
         *aCreateProject = newProjectHook.GetCreateNewProject();
@@ -411,7 +431,7 @@ bool PCB_EDIT_FRAME::SaveBoard( bool aSaveAs, bool aSaveCopy )
             savePath = PATHS::GetDefaultUserProjectsPath();
     }
 
-    wxFileName  fn( savePath.GetPath(), orig_name, FILEEXT::KiCadPcbFileExtension );
+    wxFileName  fn( savePath.GetPath(), orig_name, FILEEXT::AnvilPcbFileExtension );
     wxString    filename = fn.GetFullPath();
     bool        createProject = false;
     bool        success = false;
@@ -420,7 +440,7 @@ bool PCB_EDIT_FRAME::SaveBoard( bool aSaveAs, bool aSaveCopy )
     {
         if( aSaveCopy )
         {
-            success = SavePcbCopy( EnsureFileExtension( filename, FILEEXT::KiCadPcbFileExtension ), createProject );
+            success = SavePcbCopy( EnsureFileExtension( filename, FILEEXT::AnvilPcbFileExtension ), createProject );
         }
         else
         {
@@ -544,7 +564,7 @@ bool PCB_EDIT_FRAME::OpenProjectFiles( const std::vector<wxString>& aFileSet, in
     }
 
     wxFileName pro = fullFileName;
-    pro.SetExt( FILEEXT::ProjectFileExtension );
+    pro.SetExt( FILEEXT::AnvilProjectFileExtension );
 
     bool is_new = !wxFileName::IsFileReadable( fullFileName );
 
@@ -948,22 +968,10 @@ bool PCB_EDIT_FRAME::OpenProjectFiles( const std::vector<wxString>& aFileSet, in
             fn.SetPath( Prj().GetProjectPath() );
             fn.SetName( Prj().GetProjectName() );
 
-            // Keep the extension of the board we actually opened. Forcing .kicad_pcb here
-            // renamed an Anvil board out from under itself: the frame then pointed at a file
-            // that doesn't exist on disk, so the tab read "[Unsaved]" and a save would have
-            // written a second board beside the .anvil_pcb instead of updating it. A foreign
-            // board (Altium, Eagle, ...) still gets the native name -- it has none of its own.
-            wxString loadedExt = wxFileName( fullFileName ).GetExt().Lower();
-
-            if( loadedExt == FILEEXT::AnvilPcbFileExtension
-                || loadedExt == FILEEXT::KiCadPcbFileExtension )
-            {
-                fn.SetExt( loadedExt );
-            }
-            else
-            {
-                fn.SetExt( FILEEXT::KiCadPcbFileExtension );
-            }
+            // We never write kicad_* files: a board that isn't already Anvil-named —
+            // foreign kicad_pcb, legacy, Altium, Eagle, ... — is reborn under the native
+            // extension and converts to .anvil_pcb on its first save.
+            fn.SetExt( FILEEXT::AnvilPcbFileExtension );
 
             fname = fn.GetFullPath();
 
@@ -1077,8 +1085,13 @@ bool PCB_EDIT_FRAME::SavePcbFile( const wxString& aFileName, bool addToHistory,
     // please, keep it simple.  prompting goes elsewhere.
     wxFileName pcbFileName = aFileName;
 
-    if( pcbFileName.GetExt() == FILEEXT::LegacyPcbFileExtension )
-        pcbFileName.SetExt( FILEEXT::KiCadPcbFileExtension );
+    // We never write kicad_* or legacy board files: normalize any non-native name to the
+    // native extension before saving.
+    if( FILEEXT::IsForeignFamilyExt( pcbFileName.GetExt() )
+            || pcbFileName.GetExt().IsSameAs( FILEEXT::LegacyPcbFileExtension, false ) )
+    {
+        pcbFileName.SetExt( FILEEXT::AnvilPcbFileExtension );
+    }
 
     // Write through symlinks, don't replace them
     WX_FILENAME::ResolvePossibleSymlinks( pcbFileName );
@@ -1097,7 +1110,14 @@ bool PCB_EDIT_FRAME::SavePcbFile( const wxString& aFileName, bool addToHistory,
     wxFileName rulesFile( pcbFileName );
     wxString   msg;
 
-    projectFile.SetExt( FILEEXT::ProjectFileExtension );
+    // Companion project file follows the loaded project's real extension (never a foreign
+    // one — we don't write kicad_* files), defaulting to the native extension.
+    wxString projectExt = wxFileName( Prj().GetProjectFullName() ).GetExt();
+
+    if( projectExt.IsEmpty() || FILEEXT::IsForeignFamilyExt( projectExt ) )
+        projectExt = FILEEXT::AnvilProjectFileExtension;
+
+    projectFile.SetExt( projectExt );
     rulesFile.SetExt( FILEEXT::DesignRulesFileExtension );
 
     if( projectFile.FileExists() )
@@ -1250,7 +1270,8 @@ bool PCB_EDIT_FRAME::SavePcbCopy( const wxString& aFileName, bool aCreateProject
     wxFileName rulesFile( pcbFileName );
     wxString   msg;
 
-    projectFile.SetExt( FILEEXT::ProjectFileExtension );
+    // A saved copy is a brand-new project: it is born under the native extension.
+    projectFile.SetExt( FILEEXT::AnvilProjectFileExtension );
     rulesFile.SetExt( FILEEXT::DesignRulesFileExtension );
 
     if( aCreateProject && !projectFile.FileExists() )

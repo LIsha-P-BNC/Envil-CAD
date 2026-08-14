@@ -228,7 +228,28 @@ void STD_BITMAP_BUTTON::OnPaint( wxPaintEvent& WXUNUSED( aEvent ) )
     r1.width += 1;
 #endif
 
-    wxRendererNative::Get().DrawPushButton( this, dc, r1, m_stateButton );
+    if( KIPLATFORM::UI::IsDarkTheme() )
+    {
+        // Match BITMAP_BUTTON / AUI toolbar buttons: a flat face with an emerald hover / press.
+        // The native dark push-button draws a grey hover that ignores the theme accent colour.
+        wxColour face      = wxSystemSettings::GetColour( wxSYS_COLOUR_BTNFACE );
+        wxColour highlight = wxSystemSettings::GetColour( wxSYS_COLOUR_HIGHLIGHT );
+        wxColour edge      = wxSystemSettings::GetColour( wxSYS_COLOUR_ACTIVEBORDER );
+        wxColour fill      = face;
+
+        if( m_stateButton == wxCONTROL_PRESSED )
+            fill = highlight.ChangeLightness( 20 );
+        else if( m_stateButton == wxCONTROL_CURRENT )
+            fill = highlight.ChangeLightness( 40 );
+
+        dc.SetBrush( wxBrush( fill ) );
+        dc.SetPen( wxPen( ( m_stateButton != 0 ) ? highlight : edge ) );
+        dc.DrawRoundedRectangle( r1, FromDIP( 3 ) );
+    }
+    else
+    {
+        wxRendererNative::Get().DrawPushButton( this, dc, r1, m_stateButton );
+    }
 #endif
 
     if( m_bitmap.IsOk() )

@@ -122,6 +122,14 @@ private:
 
     wxImage getImage( BITMAPS aBitmapId, int aHeight = -1 );
 
+    /**
+     * Anvil: recolor a decoded icon from KiCad blue to the NEMI emerald hue in place.  A
+     * hue-selective remap — only pixels in the KiCad-blue window are shifted; semantic colours
+     * (red = delete/DRC, layer colours, warnings) and greys are left untouched.  Gated by the
+     * AnvilEmeraldIcons advanced-config flag (m_anvilIcons).
+     */
+    void recolorToAnvilTheme( wxImage& aImage ) const;
+
     const wxString& bitmapName( BITMAPS aBitmapId, int aHeight = -1 );
 
     wxString computeBitmapName( BITMAPS aBitmapId, int aHeight = -1 );
@@ -135,6 +143,10 @@ private:
     std::unordered_map<BITMAPS, std::vector<BITMAP_INFO>> m_bitmapInfoCache;
 
     BITMAP_INFO::THEME m_theme;
+
+    /// Anvil: when true, icons are hue-remapped from KiCad blue to NEMI emerald in getImage().
+    /// Read once from ADVANCED_CFG at construction (restart-to-apply; bundles are cached).
+    bool m_anvilIcons = false;
 };
 
 #endif // KICAD_BITMAP_STORE_H

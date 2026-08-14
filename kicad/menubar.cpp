@@ -51,7 +51,7 @@
 void KICAD_MANAGER_FRAME::doReCreateMenuBar()
 {
     // KiCad Next: build the shared common menu bar instead of the legacy one when enabled.
-    if( ADVANCED_CFG::GetCfg().m_UnifiedMenuBar )
+    if( UseUnifiedMenuBar() )
     {
         buildCommonMenuBar();
 #ifdef __WXMSW__
@@ -189,7 +189,7 @@ void KICAD_MANAGER_FRAME::doReCreateMenuBar()
 
     ACTION_MENU* panelsMenu = new ACTION_MENU( false, controlTool );
     panelsMenu->SetTitle( _( "Panels" ) );
-    panelsMenu->Add( KICAD_MANAGER_ACTIONS::showLocalHistory, ACTION_MENU::CHECK );
+    buildPanelsMenu( panelsMenu );
     viewMenu->Add( panelsMenu );
 
     viewMenu->AppendSeparator();
@@ -275,6 +275,28 @@ void KICAD_MANAGER_FRAME::doReCreateMenuBar()
 TOOL_INTERACTIVE* KICAD_MANAGER_FRAME::getCurrentMenuTool()
 {
     return m_toolManager->GetTool<KICAD_MANAGER_CONTROL>();
+}
+
+
+void KICAD_MANAGER_FRAME::buildPanelsMenu( ACTION_MENU* aMenu )
+{
+    aMenu->Add( KICAD_MANAGER_ACTIONS::showLocalHistory, ACTION_MENU::CHECK );
+}
+
+
+void KICAD_MANAGER_FRAME::buildOpenEditorMenu( ACTION_MENU* aMenu )
+{
+    // The editors/tools the removed left icon rail used to launch (Altium "Open editor" dropdown).
+    aMenu->Add( KICAD_MANAGER_ACTIONS::editSchematic );
+    aMenu->Add( KICAD_MANAGER_ACTIONS::editSymbols );
+    aMenu->Add( KICAD_MANAGER_ACTIONS::editPCB );
+    aMenu->Add( KICAD_MANAGER_ACTIONS::editFootprints );
+
+    aMenu->AppendSeparator();
+    aMenu->Add( KICAD_MANAGER_ACTIONS::viewGerbers );
+    aMenu->Add( KICAD_MANAGER_ACTIONS::convertImage );
+    aMenu->Add( KICAD_MANAGER_ACTIONS::showCalculator );
+    aMenu->Add( KICAD_MANAGER_ACTIONS::editDrawingSheet );
 }
 
 
@@ -402,7 +424,7 @@ void KICAD_MANAGER_FRAME::buildViewMenu( ACTION_MENU* viewMenu )
 
     ACTION_MENU* panelsMenu = new ACTION_MENU( false, controlTool );
     panelsMenu->SetTitle( _( "Panels" ) );
-    panelsMenu->Add( KICAD_MANAGER_ACTIONS::showLocalHistory, ACTION_MENU::CHECK );
+    buildPanelsMenu( panelsMenu );
     viewMenu->Add( panelsMenu );
 
     viewMenu->AppendSeparator();
@@ -421,12 +443,18 @@ void KICAD_MANAGER_FRAME::buildViewMenu( ACTION_MENU* viewMenu )
 
 void KICAD_MANAGER_FRAME::buildToolsMenu( ACTION_MENU* toolsMenu )
 {
-    toolsMenu->Add( KICAD_MANAGER_ACTIONS::editSchematic );
-    toolsMenu->Add( KICAD_MANAGER_ACTIONS::editSymbols );
-    toolsMenu->Add( KICAD_MANAGER_ACTIONS::editPCB );
-    toolsMenu->Add( KICAD_MANAGER_ACTIONS::editFootprints );
+    // Modern layout: the editor launchers live in the Project menu and the Preferences items
+    // in the tail of this menu (see below).
+    if( !UseModernMenuLayout() )
+    {
+        toolsMenu->Add( KICAD_MANAGER_ACTIONS::editSchematic );
+        toolsMenu->Add( KICAD_MANAGER_ACTIONS::editSymbols );
+        toolsMenu->Add( KICAD_MANAGER_ACTIONS::editPCB );
+        toolsMenu->Add( KICAD_MANAGER_ACTIONS::editFootprints );
 
-    toolsMenu->AppendSeparator();
+        toolsMenu->AppendSeparator();
+    }
+
     toolsMenu->Add( KICAD_MANAGER_ACTIONS::viewGerbers );
     toolsMenu->Add( KICAD_MANAGER_ACTIONS::convertImage );
     toolsMenu->Add( KICAD_MANAGER_ACTIONS::showCalculator );
@@ -445,11 +473,39 @@ void KICAD_MANAGER_FRAME::buildToolsMenu( ACTION_MENU* toolsMenu )
                     _( "Edit local file in text editor" ),
                     ID_EDIT_LOCAL_FILE_IN_TEXT_EDITOR,
                     BITMAPS::editor );
+
+    if( UseModernMenuLayout() )
+    {
+        KICAD_MANAGER_CONTROL* controlTool = m_toolManager->GetTool<KICAD_MANAGER_CONTROL>();
+
+        toolsMenu->AppendSeparator();
+        toolsMenu->Add( ACTIONS::configurePaths );
+        toolsMenu->Add( ACTIONS::showSymbolLibTable );
+        toolsMenu->Add( ACTIONS::showFootprintLibTable );
+        toolsMenu->Add( ACTIONS::showDesignBlockLibTable );
+        toolsMenu->Add( ACTIONS::openPreferences );
+
+        toolsMenu->AppendSeparator();
+        AddMenuLanguageList( toolsMenu, controlTool );
+    }
+}
+
+
+void KICAD_MANAGER_FRAME::buildProjectMenu( ACTION_MENU* projectMenu )
+{
+    projectMenu->Add( KICAD_MANAGER_ACTIONS::editSchematic );
+    projectMenu->Add( KICAD_MANAGER_ACTIONS::editSymbols );
+    projectMenu->Add( KICAD_MANAGER_ACTIONS::editPCB );
+    projectMenu->Add( KICAD_MANAGER_ACTIONS::editFootprints );
 }
 
 
 void KICAD_MANAGER_FRAME::buildPreferencesMenu( ACTION_MENU* prefsMenu )
 {
+    // Modern layout: these items live in the tail of Tools instead of a top-level menu.
+    if( UseModernMenuLayout() )
+        return;
+
     KICAD_MANAGER_CONTROL* controlTool = m_toolManager->GetTool<KICAD_MANAGER_CONTROL>();
 
     prefsMenu->Add( ACTIONS::configurePaths );

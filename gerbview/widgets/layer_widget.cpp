@@ -35,6 +35,7 @@
 
 #include "layer_widget.h"
 
+#include <advanced_config.h>
 #include <bitmaps.h>
 #include <macros.h>
 #include <widgets/indicator_icon.h>
@@ -493,6 +494,13 @@ LAYER_WIDGET::LAYER_WIDGET( wxWindow* aParent, wxWindow* aFocusOwner, wxWindowID
     m_IconProvider = new ROW_ICON_PROVIDER( KIUI::c_IndicatorSizeDIP, this );
 
     int pointSize = wxSystemSettings::GetFont( wxSYS_DEFAULT_GUI_FONT ).GetPointSize();
+
+    // NEMI brand: base the layer panel on the app-wide UI size (AnvilUiFontPt) so its rows,
+    // checkboxes and tabs match the rest of the UI instead of the OS default size.  The
+    // small-screen compaction below still applies on top of the brand size.
+    if( ADVANCED_CFG::GetCfg().m_AnvilUiFontPt > 0.0 )
+        pointSize = static_cast<int>( ADVANCED_CFG::GetCfg().m_AnvilUiFontPt + 0.5 );
+
     int screenHeight = wxSystemSettings::GetMetric( wxSYS_SCREEN_Y );
 
     if( screenHeight <= 900 && pointSize >= FromDIP( KIUI::c_IndicatorSizeDIP ) )

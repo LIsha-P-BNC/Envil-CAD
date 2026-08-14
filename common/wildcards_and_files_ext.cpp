@@ -27,9 +27,11 @@
  * @file wildcards_and_files_ext.cpp
  * Definition of file extensions used in Kicad.
  */
+#include <map>
 #include <regex>
 #include <wildcards_and_files_ext.h>
 #include <wx/filedlg.h>
+#include <wx/filename.h>
 #include <wx/regex.h>
 #include <wx/translation.h>
 #include <regex>
@@ -144,7 +146,7 @@ const std::string FILEEXT::AnvilSchematicFileExtension( "anvil_sch" );
 const std::string FILEEXT::AnvilPcbFileExtension( "anvil_pcb" );
 const std::string FILEEXT::AnvilSymbolLibFileExtension( "anvil_sym" );
 const std::string FILEEXT::AnvilFootprintFileExtension( "anvil_mod" );
-const std::string FILEEXT::ProjectLocalSettingsFileExtension( "kicad_prl" );
+const std::string FILEEXT::ProjectLocalSettingsFileExtension( "anvil_prl" );
 const std::string FILEEXT::LegacySchematicFileExtension( "sch" );
 const std::string FILEEXT::CadstarSchematicFileExtension( "csa" );
 const std::string FILEEXT::CadstarPartsLibraryFileExtension( "lib" );
@@ -164,9 +166,9 @@ const std::string FILEEXT::GerberJobFileExtension( "gbrjob" );
 const std::string FILEEXT::HtmlFileExtension( "html" );
 const std::string FILEEXT::EquFileExtension( "equ" );
 const std::string FILEEXT::HotkeyFileExtension( "hotkeys" );
-const std::string FILEEXT::DatabaseLibraryFileExtension( "kicad_dbl" );
-const std::string FILEEXT::HTTPLibraryFileExtension( "kicad_httplib" );
-const std::string FILEEXT::KiCadJobSetFileExtension( "kicad_jobset" );
+const std::string FILEEXT::DatabaseLibraryFileExtension( "anvil_dbl" );
+const std::string FILEEXT::HTTPLibraryFileExtension( "anvil_httplib" );
+const std::string FILEEXT::KiCadJobSetFileExtension( "anvil_jobset" );
 
 const std::string FILEEXT::ArchiveFileExtension( "zip" );
 
@@ -174,8 +176,8 @@ const std::string FILEEXT::LegacyPcbFileExtension( "brd" );
 const std::string FILEEXT::EaglePcbFileExtension( "brd" );
 const std::string FILEEXT::CadstarPcbFileExtension( "cpa" );
 const std::string FILEEXT::KiCadPcbFileExtension( "kicad_pcb" );
-const std::string FILEEXT::DrawingSheetFileExtension( "kicad_wks" );
-const std::string FILEEXT::DesignRulesFileExtension( "kicad_dru" );
+const std::string FILEEXT::DrawingSheetFileExtension( "anvil_wks" );
+const std::string FILEEXT::DesignRulesFileExtension( "anvil_dru" );
 
 const std::string FILEEXT::PdfFileExtension( "pdf" );
 const std::string FILEEXT::MacrosFileExtension( "mcr" );
@@ -240,6 +242,69 @@ bool FILEEXT::IsGerberFileExtension( const wxString& ext )
 }
 
 
+bool FILEEXT::IsForeignFamilyExt( const wxString& aExt )
+{
+    return aExt.Lower().StartsWith( wxS( "kicad_" ) );
+}
+
+
+bool FILEEXT::IsNativeFamilyExt( const wxString& aExt )
+{
+    return aExt.Lower().StartsWith( wxS( "anvil_" ) );
+}
+
+
+wxString FILEEXT::FamilySiblingExt( const wxString& aExt )
+{
+    wxString lower = aExt.Lower();
+
+    if( lower.StartsWith( wxS( "kicad_" ) ) )
+        return wxS( "anvil_" ) + lower.Mid( 6 );
+
+    if( lower.StartsWith( wxS( "anvil_" ) ) )
+        return wxS( "kicad_" ) + lower.Mid( 6 );
+
+    return wxEmptyString;
+}
+
+
+wxString FILEEXT::LegacyToNativeExt( const wxString& aExt )
+{
+    static const std::map<wxString, std::string> legacyMap = {
+        { wxS( "pro" ), AnvilProjectFileExtension },
+        { wxS( "sch" ), AnvilSchematicFileExtension },
+        { wxS( "brd" ), AnvilPcbFileExtension },
+        { wxS( "lib" ), AnvilSymbolLibFileExtension },
+        { wxS( "mod" ), AnvilFootprintFileExtension },
+    };
+
+    auto it = legacyMap.find( aExt.Lower() );
+    return it == legacyMap.end() ? wxString() : wxString( it->second );
+}
+
+
+wxString FILEEXT::HealToExistingFamilySibling( const wxString& aFullPath )
+{
+    wxFileName fn( aFullPath );
+    wxString   siblingExt = FamilySiblingExt( fn.GetExt() );
+
+    if( siblingExt.IsEmpty() )
+        return aFullPath;
+
+    wxFileName sibling( fn );
+    sibling.SetExt( siblingExt );
+
+    if( !fn.FileExists() )
+        return sibling.FileExists() ? sibling.GetFullPath() : aFullPath;
+
+    // Both exist: prefer the native spelling when the named file is foreign.
+    if( IsForeignFamilyExt( fn.GetExt() ) && sibling.FileExists() )
+        return sibling.GetFullPath();
+
+    return aFullPath;
+}
+
+
 wxString FILEEXT::AllFilesWildcard()
 {
     return _( "All files" ) + AddFileExtListToFilter( {} );
@@ -248,8 +313,9 @@ wxString FILEEXT::AllFilesWildcard()
 
 wxString FILEEXT::KiCadSymbolLibFileWildcard()
 {
+    // UI filters are native-only; kicad_* files enter through the import wizard.
     return _( "Anvil symbol library files" )
-            + AddFileExtListToFilter( { AnvilSymbolLibFileExtension, KiCadSymbolLibFileExtension } );
+            + AddFileExtListToFilter( { AnvilSymbolLibFileExtension } );
 }
 
 
@@ -261,7 +327,7 @@ wxString FILEEXT::AnvilProjectFileWildcard()
 
 wxString FILEEXT::ProjectFileWildcard()
 {
-    return _( "Anvil project files" ) + AddFileExtListToFilter( { AnvilProjectFileExtension, ProjectFileExtension } );
+    return _( "Anvil project files" ) + AddFileExtListToFilter( { AnvilProjectFileExtension } );
 }
 
 
@@ -275,14 +341,14 @@ wxString FILEEXT::LegacyProjectFileWildcard()
 wxString FILEEXT::AllProjectFilesWildcard()
 {
     return _( "All Anvil project files" )
-            + AddFileExtListToFilter( { AnvilProjectFileExtension, ProjectFileExtension, LegacyProjectFileExtension } );
+            + AddFileExtListToFilter( { AnvilProjectFileExtension } );
 }
 
 
 wxString FILEEXT::AllSchematicFilesWildcard()
 {
     return _( "All Anvil schematic files" )
-            + AddFileExtListToFilter( { AnvilSchematicFileExtension, KiCadSchematicFileExtension, LegacySchematicFileExtension } );
+            + AddFileExtListToFilter( { AnvilSchematicFileExtension } );
 }
 
 
@@ -296,7 +362,7 @@ wxString FILEEXT::LegacySchematicFileWildcard()
 wxString FILEEXT::KiCadSchematicFileWildcard()
 {
     return _( "Anvil schematic files" )
-            + AddFileExtListToFilter( { AnvilSchematicFileExtension, KiCadSchematicFileExtension } );
+            + AddFileExtListToFilter( { AnvilSchematicFileExtension } );
 }
 
 
@@ -371,19 +437,19 @@ wxString FILEEXT::EasyEdaProFileWildcard()
 wxString FILEEXT::PcbFileWildcard()
 {
     return _( "Anvil board files" )
-           + AddFileExtListToFilter( { AnvilPcbFileExtension, KiCadPcbFileExtension } );
+           + AddFileExtListToFilter( { AnvilPcbFileExtension } );
 }
 
 
 wxString FILEEXT::KiCadFootprintLibFileWildcard()
 {
-    return _( "Anvil footprint files" ) + AddFileExtListToFilter( { AnvilFootprintFileExtension, KiCadFootprintFileExtension } );
+    return _( "Anvil footprint files" ) + AddFileExtListToFilter( { AnvilFootprintFileExtension } );
 }
 
 
 wxString FILEEXT::KiCadFootprintLibPathWildcard()
 {
-    return _( "KiCad footprint library paths" )
+    return _( "Anvil footprint library folders" )
             + AddFileExtListToFilter( { KiCadFootprintLibPathExtension } );
 }
 
@@ -611,5 +677,5 @@ wxString FILEEXT::HotkeyFileWildcard()
 
 wxString FILEEXT::JobsetFileWildcard()
 {
-    return _( "KiCad jobset files" ) + AddFileExtListToFilter( { KiCadJobSetFileExtension } );
+    return _( "Anvil jobset files" ) + AddFileExtListToFilter( { KiCadJobSetFileExtension } );
 }

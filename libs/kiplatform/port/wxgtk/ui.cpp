@@ -440,6 +440,12 @@ void KIPLATFORM::UI::AllowNetworkFileSystems( wxDialog* aDialog )
         gtk_file_chooser_set_local_only( GTK_FILE_CHOOSER( widget ), FALSE );
 }
 
+
+void KIPLATFORM::UI::AddDropShadow( wxWindow* aWindow )
+{
+    // The GTK window manager already draws shadows under popup/menu windows.
+}
+
 //
 // **** Wayland hacks ahead ****
 //
