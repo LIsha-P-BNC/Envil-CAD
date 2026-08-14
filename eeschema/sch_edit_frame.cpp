@@ -836,6 +836,7 @@ SCH_EDIT_FRAME::SCH_EDIT_FRAME( KIWAY* aKiway, wxWindow* aParent ) :
 
     // Init for dropping files
     m_acceptedExts.emplace( FILEEXT::KiCadSchematicFileExtension, &SCH_ACTIONS::ddAppendFile );
+    m_acceptedExts.emplace( FILEEXT::AnvilSchematicFileExtension, &SCH_ACTIONS::ddAppendFile );
     m_acceptedExts.emplace( FILEEXT::PngFileExtension, &SCH_ACTIONS::ddAddImage );
     m_acceptedExts.emplace( FILEEXT::JpegFileExtension, &SCH_ACTIONS::ddAddImage );
     m_acceptedExts.emplace( wxS( "jpeg" ), &SCH_ACTIONS::ddAddImage );
@@ -2030,7 +2031,7 @@ void SCH_EDIT_FRAME::NewProject()
 
     wxString pro_dir = m_mruPath;
 
-    wxFileDialog dlg( this, _( "New Schematic" ), pro_dir, wxEmptyString, FILEEXT::KiCadSchematicFileWildcard(),
+    wxFileDialog dlg( this, _( "New Schematic" ), pro_dir, wxEmptyString, FILEEXT::AnvilSchematicFileWildcard(),
                       wxFD_SAVE );
 
     KIPLATFORM::UI::AllowNetworkFileSystems( &dlg );
@@ -2038,7 +2039,7 @@ void SCH_EDIT_FRAME::NewProject()
     if( dlg.ShowModal() != wxID_CANCEL )
     {
         // Enforce the extension, wxFileDialog is inept.
-        wxFileName create_me = EnsureFileExtension( dlg.GetPath(), FILEEXT::KiCadSchematicFileExtension );
+        wxFileName create_me = FILEEXT::ForceAnvilSchExtension( dlg.GetPath() );
 
         if( create_me.FileExists() )
         {

@@ -428,14 +428,14 @@ int SCH_EDITOR_CONTROL::SaveCurrSheetCopyAs( const TOOL_EVENT& aEvent )
     SCH_SHEET*   curr_sheet = m_frame->GetCurrentSheet().Last();
     wxFileName   curr_fn = curr_sheet->GetFileName();
     wxFileDialog dlg( m_frame, _( "Schematic Files" ), curr_fn.GetPath(), curr_fn.GetFullName(),
-                      FILEEXT::KiCadSchematicFileWildcard(), wxFD_SAVE | wxFD_OVERWRITE_PROMPT );
+                      FILEEXT::AnvilSchematicFileWildcard(), wxFD_SAVE | wxFD_OVERWRITE_PROMPT );
 
     KIPLATFORM::UI::AllowNetworkFileSystems( &dlg );
 
     if( dlg.ShowModal() == wxID_CANCEL )
         return false;
 
-    wxString newFilename = EnsureFileExtension( dlg.GetPath(), FILEEXT::KiCadSchematicFileExtension );
+    wxString newFilename = FILEEXT::ForceAnvilSchExtension( dlg.GetPath() );
 
     m_frame->saveSchematicFile( curr_sheet, newFilename );
     return 0;

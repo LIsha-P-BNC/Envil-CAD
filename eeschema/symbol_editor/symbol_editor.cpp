@@ -1091,7 +1091,7 @@ void SYMBOL_EDIT_FRAME::ExportSymbol()
     wxFileName fn;
 
     fn.SetName( symbol->GetName().Lower() );
-    fn.SetExt( FILEEXT::KiCadSymbolLibFileExtension );
+    fn.SetExt( FILEEXT::AnvilSymbolLibFileExtension );
 
     wxFileDialog dlg( this, _( "Export Symbol" ), m_mruPath, fn.GetFullName(),
                       FILEEXT::KiCadSymbolLibFileWildcard(), wxFD_SAVE );
@@ -1105,6 +1105,15 @@ void SYMBOL_EDIT_FRAME::ExportSymbol()
 
     fn = dlg.GetPath();
     fn.MakeAbsolute();
+
+    // A new library file is always created under the Anvil extension; an existing library
+    // (either extension) is appended to as-is.
+    if( !fn.FileExists() )
+    {
+        fn = FILEEXT::ForceAnvilFileExtension( fn.GetFullPath(),
+                                               FILEEXT::AnvilSymbolLibFileExtension,
+                                               FILEEXT::KiCadSymbolLibFileExtension );
+    }
 
     LIBRARY_MANAGER& manager = Pgm().GetLibraryManager();
 
@@ -1556,7 +1565,7 @@ bool SYMBOL_EDIT_FRAME::saveLibrary( const wxString& aLibrary, bool aNewFile )
             default_path = search->LastVisitedPath();
 
         fn.SetName( aLibrary );
-        fn.SetExt( FILEEXT::KiCadSymbolLibFileExtension );
+        fn.SetExt( FILEEXT::AnvilSymbolLibFileExtension );
 
         wxString wildcards = FILEEXT::KiCadSymbolLibFileWildcard();
 
@@ -1575,8 +1584,13 @@ bool SYMBOL_EDIT_FRAME::saveLibrary( const wxString& aLibrary, bool aNewFile )
 
         prj.SetRString( PROJECT::SCH_LIB_PATH, fn.GetPath() );
 
-        if( fn.GetExt().IsEmpty() )
-            fn.SetExt( FILEEXT::KiCadSymbolLibFileExtension );
+        // Save Library As creates a new file: always the Anvil extension.
+        if( !fn.FileExists() )
+        {
+            fn = FILEEXT::ForceAnvilFileExtension( fn.GetFullPath(),
+                                                   FILEEXT::AnvilSymbolLibFileExtension,
+                                                   FILEEXT::KiCadSymbolLibFileExtension );
+        }
 
         type = saveAsHook.GetOption();
     }

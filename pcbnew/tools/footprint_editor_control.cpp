@@ -690,9 +690,13 @@ int FOOTPRINT_EDITOR_CONTROL::OpenWithTextEditor( const TOOL_EVENT& aEvent )
     libItemName = *optUri;
     libItemName << wxFileName::GetPathSeparator();
     libItemName << libId.GetLibItemName();
+
+    wxString anvilItemName = libItemName + '.' + FILEEXT::AnvilFootprintFileExtension;
     libItemName << '.' + FILEEXT::KiCadFootprintFileExtension;
 
-    if( !wxFileName::FileExists( libItemName ) )
+    if( wxFileName::FileExists( anvilItemName ) )
+        libItemName = anvilItemName;
+    else if( !wxFileName::FileExists( libItemName ) )
         return 0;
 
     ExecuteFile( fullEditorName, libItemName.wc_str(), nullptr, false );

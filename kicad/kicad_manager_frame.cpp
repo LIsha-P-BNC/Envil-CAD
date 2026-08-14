@@ -2997,8 +2997,9 @@ bool KICAD_MANAGER_FRAME::LoadProject( const wxFileName& aProjectFileNameIn )
         {
             // If we cannot acquire the lock but we appear to be the one who locked it, check to
             // see if there is another KiCad instance running. If not, then we can override the
-            // lock. This could happen if KiCad crashed or was interrupted.
-            if( !Pgm().SingleInstance()->IsAnotherRunning() )
+            // lock. This could happen if KiCad crashed or was interrupted.  Live check, not the
+            // startup snapshot — see PGM_BASE::IsAnotherInstanceRunningLive().
+            if( !Pgm().IsAnotherInstanceRunningLive() )
                 lockFile.OverrideLock();
         }
 
@@ -3137,8 +3138,12 @@ void KICAD_MANAGER_FRAME::CreateNewProject( const wxFileName& aProjectFileName, 
             // Copy template project file from template folder.
             wxString srcFileName = sys_search().FindValidPath( "kicad.kicad_pro" );
 
+            // Preserve the requested native extension: forcing .kicad_pro here left a stray
+            // KiCad project file next to every freshly created .anvil_pro project.
             wxFileName destFileName( aProjectFileName );
-            destFileName.SetExt( FILEEXT::ProjectFileExtension );
+
+            if( destFileName.GetExt() != FILEEXT::AnvilProjectFileExtension )
+                destFileName.SetExt( FILEEXT::ProjectFileExtension );
 
             // Create a minimal project file if the template project file could not be copied
             if( !wxFileName::FileExists( srcFileName )
@@ -3325,8 +3330,9 @@ void KICAD_MANAGER_FRAME::ProjectChanged()
             // If we cannot acquire the lock but we appear to be the one who
             // locked it, check to see if there is another KiCad instance running.
             // If there is not, then we can override the lock.  This could happen if
-            // KiCad crashed or was interrupted
-            if( !Pgm().SingleInstance()->IsAnotherRunning() )
+            // KiCad crashed or was interrupted.  Live check, not the startup
+            // snapshot — see PGM_BASE::IsAnotherInstanceRunningLive().
+            if( !Pgm().IsAnotherInstanceRunningLive() )
             {
                 lockFile.OverrideLock();
             }

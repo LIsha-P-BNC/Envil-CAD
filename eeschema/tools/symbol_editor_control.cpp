@@ -946,7 +946,12 @@ int SYMBOL_EDITOR_CONTROL::AddSymbolToSchematic( const TOOL_EVENT& aEvent )
             symbol->AutoplaceFields( nullptr, AUTOPLACE_AUTO );
         }
 
-        schframe->Raise();
+        // Single-window shell: the schematic editor lives on a background tab, where
+        // Raise() on the re-parented frame cannot bring it to the front.  Ask the shell
+        // to select its tab; fall back to Raise() for a floating standalone frame.
+        if( !schframe->Kiway().DockPlayer( schframe ) )
+            schframe->Raise();
+
         schframe->GetToolManager()->PostAction( SCH_ACTIONS::placeSymbol,
                                                 SCH_ACTIONS::PLACE_SYMBOL_PARAMS{ symbol, true } );
     }

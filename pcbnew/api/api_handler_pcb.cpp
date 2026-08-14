@@ -302,11 +302,13 @@ HANDLER_RESULT<Empty> API_HANDLER_PCB::handleSaveCopyOfDocument(
         return tl::unexpected( e );
     }
 
-    if( boardPath.GetExt() != FILEEXT::KiCadPcbFileExtension )
+    if( boardPath.GetExt() != FILEEXT::KiCadPcbFileExtension
+        && boardPath.GetExt() != FILEEXT::AnvilPcbFileExtension )
     {
         ApiResponseStatus e;
         e.set_status( ApiStatusCode::AS_BAD_REQUEST );
-        e.set_error_message( fmt::format( "save path '{}' must have a kicad_pcb extension",
+        e.set_error_message( fmt::format( "save path '{}' must have an anvil_pcb or kicad_pcb "
+                                          "extension",
                                           boardPath.GetFullPath().ToStdString() ) );
         return tl::unexpected( e );
     }

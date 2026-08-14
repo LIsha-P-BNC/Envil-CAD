@@ -51,7 +51,8 @@ void EESCHEMA_HELPERS::SetSchEditFrame( SCH_EDIT_FRAME* aSchEditFrame )
 SCHEMATIC* EESCHEMA_HELPERS::LoadSchematic( const wxString& aFileName, bool aSetActive,
                                             bool aForceDefaultProject, PROJECT* aProject, bool aCalculateConnectivity )
 {
-    if( aFileName.EndsWith( FILEEXT::KiCadSchematicFileExtension ) )
+    if( aFileName.EndsWith( FILEEXT::KiCadSchematicFileExtension )
+        || aFileName.EndsWith( FILEEXT::AnvilSchematicFileExtension ) )
         return LoadSchematic( aFileName, SCH_IO_MGR::SCH_KICAD, aSetActive, aForceDefaultProject,
                               aProject, aCalculateConnectivity );
     else if( aFileName.EndsWith( FILEEXT::LegacySchematicFileExtension ) )

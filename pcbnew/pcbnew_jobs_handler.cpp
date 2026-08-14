@@ -425,7 +425,11 @@ BOARD* PCBNEW_JOBS_HANDLER::getBoard( const wxString& aPath )
             [&]( const wxString& aBoardPath ) -> PROJECT*
             {
                 wxFileName pro = aBoardPath;
-                pro.SetExt( FILEEXT::ProjectFileExtension );
+                pro.SetExt( FILEEXT::AnvilProjectFileExtension );
+
+                if( !pro.FileExists() )
+                    pro.SetExt( FILEEXT::ProjectFileExtension );
+
                 pro.MakeAbsolute();
 
                 PROJECT* project = settingsManager.GetProject( pro.GetFullPath() );
@@ -480,7 +484,11 @@ BOARD* PCBNEW_JOBS_HANDLER::getBoard( const wxString& aPath )
         if( pcbPath.IsEmpty() )
         {
             wxFileName path = Pgm().GetSettingsManager().Prj().GetProjectFullName();
-            path.SetExt( FILEEXT::KiCadPcbFileExtension );
+            path.SetExt( FILEEXT::AnvilPcbFileExtension );
+
+            if( !path.FileExists() )
+                path.SetExt( FILEEXT::KiCadPcbFileExtension );
+
             path.MakeAbsolute();
             pcbPath = path.GetFullPath();
         }
@@ -3011,7 +3019,7 @@ int PCBNEW_JOBS_HANDLER::JobImport( JOB* aJob )
     if( outputPath.IsEmpty() )
     {
         wxFileName fn( job->m_inputFile );
-        fn.SetExt( FILEEXT::KiCadPcbFileExtension );
+        fn.SetExt( FILEEXT::AnvilPcbFileExtension );
         outputPath = fn.GetFullPath();
     }
 

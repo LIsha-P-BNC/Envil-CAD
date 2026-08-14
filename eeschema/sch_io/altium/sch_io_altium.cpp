@@ -371,7 +371,7 @@ wxString SCH_IO_ALTIUM::getLibName()
 wxFileName SCH_IO_ALTIUM::getLibFileName()
 {
     wxFileName fn( m_schematic->Project().GetProjectPath(), getLibName(),
-                   FILEEXT::KiCadSymbolLibFileExtension );
+                   FILEEXT::AnvilSymbolLibFileExtension );
 
     return fn;
 }
@@ -431,8 +431,8 @@ SCH_SHEET* SCH_IO_ALTIUM::LoadSchematicProject( SCHEMATIC* aSchematic, const std
         SCH_SCREEN* screen = new SCH_SCREEN( m_schematic );
         sheet->SetScreen( screen );
 
-        // Convert to KiCad project-relative path with .kicad_sch extension
-        kicad_fn.SetExt( FILEEXT::KiCadSchematicFileExtension );
+        // Convert to Anvil project-relative path with .anvil_sch extension
+        kicad_fn.SetExt( FILEEXT::AnvilSchematicFileExtension );
         kicad_fn.SetPath( aSchematic->Project().GetProjectPath() );
 
         // Sheet uses relative filename, screen uses full path
@@ -510,7 +510,7 @@ SCH_SHEET* SCH_IO_ALTIUM::LoadSchematicFile( const wxString& aFileName, SCHEMATI
     wxCHECK( ( !aFileName.IsEmpty() || !aProperties->empty() ) && aSchematic, nullptr );
 
     wxFileName fileName( aFileName );
-    fileName.SetExt( FILEEXT::KiCadSchematicFileExtension );
+    fileName.SetExt( FILEEXT::AnvilSchematicFileExtension );
     m_schematic = aSchematic;
 
     // Collect the font substitution warnings (RAII - automatically reset on scope exit)
@@ -1127,7 +1127,7 @@ void SCH_IO_ALTIUM::ParseAltiumSch( const wxString& aFileName )
 
             wxFileName projectFileName = loadAltiumFileName;
             projectFileName.SetPath( m_schematic->Project().GetProjectPath() );
-            projectFileName.SetExt( FILEEXT::KiCadSchematicFileExtension );
+            projectFileName.SetExt( FILEEXT::AnvilSchematicFileExtension );
             sheet->SetFileName( projectFileName.GetFullName() );
 
             // Set up symbol instance data for this new sheet path. When the same schematic
@@ -1201,7 +1201,7 @@ void SCH_IO_ALTIUM::ParseAltiumSch( const wxString& aFileName )
             // Map the loaded Altium file to the project file.
             wxFileName projectFileName = loadAltiumFileName;
             projectFileName.SetPath( m_schematic->Project().GetProjectPath() );
-            projectFileName.SetExt( FILEEXT::KiCadSchematicFileExtension );
+            projectFileName.SetExt( FILEEXT::AnvilSchematicFileExtension );
             sheet->SetFileName( projectFileName.GetFullName() );
             screen->SetFileName( projectFileName.GetFullPath() );
 

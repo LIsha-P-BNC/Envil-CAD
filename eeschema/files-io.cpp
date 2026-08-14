@@ -1036,7 +1036,10 @@ bool SCH_EDIT_FRAME::saveSchematicFile( SCH_SHEET* aSheet, const wxString& aSave
 
     wxFileName projectFile( schematicFileName );
 
-    projectFile.SetExt( FILEEXT::ProjectFileExtension );
+    projectFile.SetExt( FILEEXT::AnvilProjectFileExtension );
+
+    if( !projectFile.FileExists() )
+        projectFile.SetExt( FILEEXT::ProjectFileExtension );
 
     if( projectFile.FileExists() )
     {
@@ -1208,12 +1211,12 @@ bool SCH_EDIT_FRAME::SaveProject( bool aSaveAs )
         }
 
         if( savePath.HasExt() )
-            savePath.SetExt( FILEEXT::KiCadSchematicFileExtension );
+            savePath.SetExt( FILEEXT::AnvilSchematicFileExtension );
         else
             savePath.SetName( wxEmptyString );
 
         wxFileDialog dlg( this, _( "Schematic Files" ), savePath.GetPath(), savePath.GetFullName(),
-                          FILEEXT::KiCadSchematicFileWildcard(),
+                          FILEEXT::AnvilSchematicFileWildcard(),
                           wxFD_SAVE | wxFD_OVERWRITE_PROMPT );
 
         FILEDLG_HOOK_SAVE_PROJECT newProjectHook;
@@ -1229,7 +1232,7 @@ bool SCH_EDIT_FRAME::SaveProject( bool aSaveAs )
         if( dlg.ShowModal() == wxID_CANCEL )
             return false;
 
-        newFileName = EnsureFileExtension( dlg.GetPath(), FILEEXT::KiCadSchematicFileExtension );
+        newFileName = FILEEXT::ForceAnvilSchExtension( dlg.GetPath() );
 
         if( ( !newFileName.DirExists() && !newFileName.Mkdir() ) ||
             !newFileName.IsDirWritable() )
@@ -1312,10 +1315,13 @@ bool SCH_EDIT_FRAME::SaveProject( bool aSaveAs )
         if( tmpFn.FileExists() && !tmpFn.IsFileWritable() )
             lockedFiles.Add( tmpFn.GetFullPath() );
 
-        if( tmpFn.GetExt() == FILEEXT::KiCadSchematicFileExtension )
+        if( tmpFn.GetExt() == FILEEXT::KiCadSchematicFileExtension
+            || tmpFn.GetExt() == FILEEXT::AnvilSchematicFileExtension )
+        {
             continue;
+        }
 
-        tmpFn.SetExt( FILEEXT::KiCadSchematicFileExtension );
+        tmpFn.SetExt( FILEEXT::AnvilSchematicFileExtension );
 
         if( tmpFn.FileExists() )
             overwrittenFiles.Add( tmpFn.GetFullPath() );
@@ -1374,10 +1380,11 @@ bool SCH_EDIT_FRAME::SaveProject( bool aSaveAs )
         // Convert legacy schematics file name extensions for the new format.
         wxFileName tmpFn = filenameMap[screen];
 
-        if( tmpFn.IsOk() && tmpFn.GetExt() != FILEEXT::KiCadSchematicFileExtension )
+        if( tmpFn.IsOk() && tmpFn.GetExt() != FILEEXT::KiCadSchematicFileExtension
+            && tmpFn.GetExt() != FILEEXT::AnvilSchematicFileExtension )
         {
             updateFileHistory = true;
-            tmpFn.SetExt( FILEEXT::KiCadSchematicFileExtension );
+            tmpFn.SetExt( FILEEXT::AnvilSchematicFileExtension );
 
             for( EDA_ITEM* item : screen->Items().OfType( SCH_SHEET_T ) )
             {
@@ -1385,10 +1392,11 @@ bool SCH_EDIT_FRAME::SaveProject( bool aSaveAs )
                 wxFileName sheetFileName = sheet->GetFileName();
 
                 if( !sheetFileName.IsOk()
-                    || sheetFileName.GetExt() == FILEEXT::KiCadSchematicFileExtension )
+                    || sheetFileName.GetExt() == FILEEXT::KiCadSchematicFileExtension
+                    || sheetFileName.GetExt() == FILEEXT::AnvilSchematicFileExtension )
                     continue;
 
-                sheetFileName.SetExt( FILEEXT::KiCadSchematicFileExtension );
+                sheetFileName.SetExt( FILEEXT::AnvilSchematicFileExtension );
                 sheet->SetFileName( sheetFileName.GetFullPath() );
                 UpdateItem( sheet );
             }
@@ -1445,7 +1453,18 @@ bool SCH_EDIT_FRAME::SaveProject( bool aSaveAs )
 
     wxASSERT( filenameMap.count( Schematic().RootScreen() ) );
     wxFileName projectPath( filenameMap.at( Schematic().RootScreen() ) );
-    projectPath.SetExt( FILEEXT::ProjectFileExtension );
+    projectPath.SetExt( FILEEXT::AnvilProjectFileExtension );
+
+    // Keep writing to an existing KiCad-extension project rather than creating a stray
+    // .anvil_pro sibling next to it.
+    if( !projectPath.FileExists() )
+    {
+        wxFileName kicadPro( projectPath );
+        kicadPro.SetExt( FILEEXT::ProjectFileExtension );
+
+        if( kicadPro.FileExists() )
+            projectPath = kicadPro;
+    }
 
     if( Prj().IsNullProject() || ( aSaveAs && !saveCopy ) )
     {
@@ -1560,7 +1579,7 @@ bool SCH_EDIT_FRAME::importFile( const wxString& aFileName, int aFileType,
 
                 newfilename.SetPath( Prj().GetProjectPath() );
                 newfilename.SetName( Prj().GetProjectName() );
-                newfilename.SetExt( FILEEXT::KiCadSchematicFileExtension );
+                newfilename.SetExt( FILEEXT::AnvilSchematicFileExtension );
 
                 SetScreen( Schematic().RootScreen() );
 

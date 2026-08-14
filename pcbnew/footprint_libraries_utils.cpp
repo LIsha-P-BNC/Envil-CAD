@@ -240,9 +240,9 @@ void FOOTPRINT_EDIT_FRAME::ExportFootprint( FOOTPRINT* aFootprint )
 
     fn.SetName( aFootprint->GetFPID().GetLibItemName() );
 
-    wxString wildcard = FILEEXT::KiCadFootprintLibFileWildcard();
+    wxString wildcard = FILEEXT::AnvilFootprintLibFileWildcard();
 
-    fn.SetExt( FILEEXT::KiCadFootprintFileExtension );
+    fn.SetExt( FILEEXT::AnvilFootprintFileExtension );
 
     if( !cfg->m_LastExportPath.empty() )
         fn.SetPath( cfg->m_LastExportPath );
@@ -257,7 +257,8 @@ void FOOTPRINT_EDIT_FRAME::ExportFootprint( FOOTPRINT* aFootprint )
     if( dlg.ShowModal() == wxID_CANCEL )
         return;
 
-    fn = EnsureFileExtension( dlg.GetPath(), FILEEXT::KiCadFootprintFileExtension );
+    fn = FILEEXT::ForceAnvilFileExtension( dlg.GetPath(), FILEEXT::AnvilFootprintFileExtension,
+                                           FILEEXT::KiCadFootprintFileExtension );
     cfg->m_LastExportPath = fn.GetPath();
 
     try

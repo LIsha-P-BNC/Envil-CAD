@@ -184,7 +184,11 @@ SCHEMATIC* EESCHEMA_JOBS_HANDLER::getSchematic( const wxString& aPath )
         if( schPath.IsEmpty() )
         {
             wxFileName path = project.GetProjectFullName();
-            path.SetExt( FILEEXT::KiCadSchematicFileExtension );
+            path.SetExt( FILEEXT::AnvilSchematicFileExtension );
+
+            if( !path.FileExists() )
+                path.SetExt( FILEEXT::KiCadSchematicFileExtension );
+
             path.MakeAbsolute();
             schPath = path.GetFullPath();
         }

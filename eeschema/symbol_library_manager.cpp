@@ -99,7 +99,9 @@ int SYMBOL_LIBRARY_MANAGER::GetLibraryHash( const wxString& aLibrary ) const
 
         if( fn.DirExists() )
             mtime = KIPLATFORM::IO::TimestampDir( fn.GetFullPath(),
-                        wxS( "*." ) + wxString( FILEEXT::KiCadSymbolLibFileExtension ) );
+                        wxS( "*." ) + wxString( FILEEXT::KiCadSymbolLibFileExtension ) )
+                    + KIPLATFORM::IO::TimestampDir( fn.GetFullPath(),
+                        wxS( "*." ) + wxString( FILEEXT::AnvilSymbolLibFileExtension ) );
         else if( fn.IsFileReadable() )
             mtime = fn.GetModificationTime().GetValue().GetValue();
 

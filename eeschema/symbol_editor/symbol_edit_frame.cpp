@@ -286,6 +286,7 @@ SYMBOL_EDIT_FRAME::SYMBOL_EDIT_FRAME( KIWAY* aKiway, wxWindow* aParent ) :
     m_toolManager->RunAction( ACTIONS::zoomFitScreen );
 
     m_acceptedExts.emplace( FILEEXT::KiCadSymbolLibFileExtension, &ACTIONS::ddAddLibrary );
+    m_acceptedExts.emplace( FILEEXT::AnvilSymbolLibFileExtension, &ACTIONS::ddAddLibrary );
     DragAcceptFiles( true );
 
     KIPLATFORM::APP::SetShutdownBlockReason( this, _( "Library changes are unsaved" ) );
@@ -1159,7 +1160,7 @@ wxString SYMBOL_EDIT_FRAME::AddLibraryFile( bool aCreateNew )
 
     if( !LibraryFileBrowser( aCreateNew ? _( "New Symbol Library" ) : _( "Add Symbol Library" ),
                              !aCreateNew, fn, FILEEXT::KiCadSymbolLibFileWildcard(),
-                             FILEEXT::KiCadSymbolLibFileExtension, false,
+                             FILEEXT::AnvilSymbolLibFileExtension, false,
                              Pgm().GetSettingsManager().IsProjectOpenNotDummy() ? &tableChooser : nullptr ) )
     {
         return wxEmptyString;

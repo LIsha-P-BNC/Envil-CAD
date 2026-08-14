@@ -438,11 +438,21 @@ bool FP_CACHE::loadFromAggregateCache( long long aDirTimestamp )
 
             footprint->SetFPID( LIB_ID( wxEmptyString, fpName ) );
 
-            // Reconstruct the per-footprint source path (KiCad stores one footprint per file named
-            // <fpName>.kicad_mod, so the filename equals the footprint name — same as the per-file
-            // path's fn.GetName()).  Save()/Remove() rely on this pointing at the real file.
+            // Reconstruct the per-footprint source path (one footprint per file named
+            // <fpName>.anvil_mod or <fpName>.kicad_mod, so the filename equals the footprint
+            // name — same as the per-file path's fn.GetName()).  Save()/Remove() rely on this
+            // pointing at the real file.
             WX_FILENAME fn( m_lib_raw_path, fpName + wxT( "." )
-                                   + wxString( FILEEXT::KiCadFootprintFileExtension ) );
+                                   + wxString( FILEEXT::AnvilFootprintFileExtension ) );
+
+            if( !wxFileName::FileExists( fn.GetFullPath() ) )
+            {
+                WX_FILENAME kicadFn( m_lib_raw_path, fpName + wxT( "." )
+                                       + wxString( FILEEXT::KiCadFootprintFileExtension ) );
+
+                if( wxFileName::FileExists( kicadFn.GetFullPath() ) )
+                    fn = kicadFn;
+            }
 
             entries.emplace_back( fpName, new FP_CACHE_ENTRY( footprint, fn ) );
         }

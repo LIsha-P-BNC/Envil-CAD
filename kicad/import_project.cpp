@@ -32,6 +32,7 @@
 #include <wx/filedlg.h>
 #include <wx/dirdlg.h>
 #include <wx/ffile.h>
+#include <wx/regex.h>
 
 #include <confirm.h>
 #include <kidialog.h>
@@ -67,8 +68,18 @@ bool KICAD_MANAGER_FRAME::ConvertProjectToAnvil( const wxFileName& aSrcPro,
             return FILEEXT::AnvilSchematicFileExtension;
         if( aExt == FILEEXT::KiCadPcbFileExtension )
             return FILEEXT::AnvilPcbFileExtension;
+        if( aExt == FILEEXT::KiCadSymbolLibFileExtension )
+            return FILEEXT::AnvilSymbolLibFileExtension;
+        if( aExt == FILEEXT::KiCadFootprintFileExtension )
+            return FILEEXT::AnvilFootprintFileExtension;
 
         return aExt;
+    };
+
+    auto isLibTable = []( const wxFileName& aFn ) -> bool
+    {
+        return aFn.GetFullName() == FILEEXT::SymbolLibraryTableFileName
+               || aFn.GetFullName() == FILEEXT::FootprintLibraryTableFileName;
     };
 
     int converted = 0;
@@ -91,11 +102,13 @@ bool KICAD_MANAGER_FRAME::ConvertProjectToAnvil( const wxFileName& aSrcPro,
         wxFileName relFn( rel );
         wxString   mapped = extMapped( relFn.GetExt() );
         bool       isProjectFile = mapped != relFn.GetExt();
+        bool       needsRewrite = isProjectFile || isLibTable( relFn );
 
         relFn.SetExt( mapped );
 
-        // When converting into the same folder, non-project files stay untouched.
-        if( sameDir && !isProjectFile )
+        // When converting into the same folder, non-project files stay untouched (but the
+        // library tables still need their URIs rewritten in place).
+        if( sameDir && !needsRewrite )
             continue;
 
         wxFileName destFile( aDestDir + wxFileName::GetPathSeparator() + relFn.GetFullPath() );
@@ -106,9 +119,10 @@ bool KICAD_MANAGER_FRAME::ConvertProjectToAnvil( const wxFileName& aSrcPro,
         if( destFile.GetFullPath() != file )
             wxCopyFile( file, destFile.GetFullPath(), true );
 
-        if( isProjectFile )
+        if( needsRewrite )
         {
-            ++converted;
+            if( isProjectFile )
+                ++converted;
 
             if( !aKeepOriginals && destFile.GetFullPath() != file )
                 wxRemoveFile( file );
@@ -125,6 +139,15 @@ bool KICAD_MANAGER_FRAME::ConvertProjectToAnvil( const wxFileName& aSrcPro,
                 hits += text.Replace( wxT( ".kicad_sch\"" ), wxT( ".anvil_sch\"" ) );
                 hits += text.Replace( wxT( ".kicad_pcb\"" ), wxT( ".anvil_pcb\"" ) );
                 hits += text.Replace( wxT( ".kicad_pro\"" ), wxT( ".anvil_pro\"" ) );
+
+                // Library-table URIs: only project-local libraries are renamed by this
+                // conversion, so only rewrite project-relative references.  An absolute URI
+                // to an external .kicad_sym stays valid and must not be touched.
+                wxRegEx projSym( wxT( "(\\$\\{KIPRJMOD\\}[^\"]*)\\.kicad_sym\"" ) );
+                wxRegEx projMod( wxT( "(\\$\\{KIPRJMOD\\}[^\"]*)\\.kicad_mod\"" ) );
+
+                hits += projSym.ReplaceAll( &text, wxT( "\\1.anvil_sym\"" ) );
+                hits += projMod.ReplaceAll( &text, wxT( "\\1.anvil_mod\"" ) );
 
                 if( hits > 0 )
                 {
@@ -477,7 +500,8 @@ void KICAD_MANAGER_FRAME::importProjectFromFile( const wxString& aInputPath,
 
         if( !importProj.m_TargetProj.DirExists() )
         {
-            if( !importProj.m_TargetProj.Mkdir() )
+            // Recursive create: the target path's parent directories may not exist yet.
+            if( !importProj.m_TargetProj.Mkdir( wxS_DIR_DEFAULT, wxPATH_MKDIR_FULL ) )
             {
                 msg.Printf( _( "Folder '%s' could not be created.\n\n"
                                "Make sure you have write permissions and try again." ),

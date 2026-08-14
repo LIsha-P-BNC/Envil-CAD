@@ -187,7 +187,16 @@ void SCH_EDIT_FRAME::saveProjectSettings()
 {
     wxFileName fn = Schematic().RootScreen()->GetFileName();  //ConfigFileName
 
-    fn.SetExt( FILEEXT::ProjectFileExtension );
+    fn.SetExt( FILEEXT::AnvilProjectFileExtension );
+
+    if( !fn.FileExists() )
+    {
+        wxFileName kicadFn( fn );
+        kicadFn.SetExt( FILEEXT::ProjectFileExtension );
+
+        if( kicadFn.FileExists() )
+            fn = kicadFn;
+    }
 
     if( !fn.HasName() || !IsWritable( fn, false ) )
         return;

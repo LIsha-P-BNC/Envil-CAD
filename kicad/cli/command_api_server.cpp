@@ -184,16 +184,26 @@ int CLI::API_SERVER_COMMAND::doPerform( KIWAY& aKiway )
 
         doc->set_type( openDocumentType );
 
+        // Report the file that actually exists on disk: an Anvil project has .anvil_*
+        // documents, a KiCad project .kicad_* ones.
         if( openDocumentType == types::DOCTYPE_PCB )
         {
             wxFileName boardPath( openProjectPath );
-            boardPath.SetExt( FILEEXT::KiCadPcbFileExtension );
+            boardPath.SetExt( FILEEXT::AnvilPcbFileExtension );
+
+            if( !boardPath.FileExists() )
+                boardPath.SetExt( FILEEXT::KiCadPcbFileExtension );
+
             doc->set_board_filename( boardPath.GetFullName().ToStdString() );
         }
         else if( openDocumentType == types::DOCTYPE_SCHEMATIC )
         {
             wxFileName schPath( openProjectPath );
-            schPath.SetExt( FILEEXT::KiCadSchematicFileExtension );
+            schPath.SetExt( FILEEXT::AnvilSchematicFileExtension );
+
+            if( !schPath.FileExists() )
+                schPath.SetExt( FILEEXT::KiCadSchematicFileExtension );
+
             doc->set_schematic_filename( schPath.GetFullName().ToStdString() );
         }
 
@@ -295,9 +305,11 @@ int CLI::API_SERVER_COMMAND::doPerform( KIWAY& aKiway )
         wxFileName preloadFile( preloadPath );
         types::DocumentType preloadType = types::DOCTYPE_PROJECT;
 
-        if( preloadFile.GetExt() == FILEEXT::KiCadSchematicFileExtension )
+        if( preloadFile.GetExt() == FILEEXT::KiCadSchematicFileExtension
+            || preloadFile.GetExt() == FILEEXT::AnvilSchematicFileExtension )
             preloadType = types::DOCTYPE_SCHEMATIC;
-        else if( preloadFile.GetExt() == FILEEXT::KiCadPcbFileExtension )
+        else if( preloadFile.GetExt() == FILEEXT::KiCadPcbFileExtension
+                 || preloadFile.GetExt() == FILEEXT::AnvilPcbFileExtension )
             preloadType = types::DOCTYPE_PCB;
 
         commands::OpenDocument request;

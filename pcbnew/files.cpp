@@ -226,17 +226,11 @@ bool AskLoadBoardFileName( PCB_EDIT_FRAME* aParent, wxString* aFileName, int aCt
  */
 bool AskSaveBoardFileName( PCB_EDIT_FRAME* aParent, wxString* aFileName, bool* aCreateProject )
 {
-    wxString   wildcard = FILEEXT::PcbFileWildcard();
+    wxString   wildcard = FILEEXT::AnvilPcbFileWildcard();
     wxFileName  fn = *aFileName;
 
-    // Default to the Anvil format, and never rewrite a board that already has a native
-    // extension -- offering a .kicad_pcb name for an open .anvil_pcb invites the user to
-    // save a duplicate board next to the real one.
-    if( fn.GetExt().Lower() != FILEEXT::AnvilPcbFileExtension
-        && fn.GetExt().Lower() != FILEEXT::KiCadPcbFileExtension )
-    {
-        fn.SetExt( FILEEXT::AnvilPcbFileExtension );
-    }
+    // Boards are always saved under the Anvil extension.
+    fn.SetExt( FILEEXT::AnvilPcbFileExtension );
 
     wxFileDialog dlg( aParent, _( "Save Board File As" ), fn.GetPath(), fn.GetFullName(), wildcard,
                       wxFD_SAVE | wxFD_OVERWRITE_PROMPT );
@@ -253,7 +247,7 @@ bool AskSaveBoardFileName( PCB_EDIT_FRAME* aParent, wxString* aFileName, bool* a
         return false;
 
     *aFileName = dlg.GetPath();
-    *aFileName = EnsureFileExtension( *aFileName, FILEEXT::KiCadPcbFileExtension );
+    *aFileName = FILEEXT::ForceAnvilPcbExtension( *aFileName );
 
     if( newProjectHook.IsAttachedToDialog() )
         *aCreateProject = newProjectHook.GetCreateNewProject();
@@ -411,7 +405,7 @@ bool PCB_EDIT_FRAME::SaveBoard( bool aSaveAs, bool aSaveCopy )
             savePath = PATHS::GetDefaultUserProjectsPath();
     }
 
-    wxFileName  fn( savePath.GetPath(), orig_name, FILEEXT::KiCadPcbFileExtension );
+    wxFileName  fn( savePath.GetPath(), orig_name, FILEEXT::AnvilPcbFileExtension );
     wxString    filename = fn.GetFullPath();
     bool        createProject = false;
     bool        success = false;
@@ -420,7 +414,7 @@ bool PCB_EDIT_FRAME::SaveBoard( bool aSaveAs, bool aSaveCopy )
     {
         if( aSaveCopy )
         {
-            success = SavePcbCopy( EnsureFileExtension( filename, FILEEXT::KiCadPcbFileExtension ), createProject );
+            success = SavePcbCopy( FILEEXT::ForceAnvilPcbExtension( filename ), createProject );
         }
         else
         {
@@ -504,9 +498,10 @@ bool PCB_EDIT_FRAME::OpenProjectFiles( const std::vector<wxString>& aFileSet, in
     {
         // If we cannot acquire the lock but we appear to be the one who locked it, check to
         // see if there is another KiCad instance running.  If not, then we can override the
-        // lock.  This could happen if KiCad crashed or was interrupted.
+        // lock.  This could happen if KiCad crashed or was interrupted.  Live check, not the
+        // startup snapshot — see PGM_BASE::IsAnotherInstanceRunningLive().
 
-        if( !Pgm().SingleInstance()->IsAnotherRunning() )
+        if( !Pgm().IsAnotherInstanceRunningLive() )
             lock->OverrideLock();
     }
 
@@ -962,7 +957,7 @@ bool PCB_EDIT_FRAME::OpenProjectFiles( const std::vector<wxString>& aFileSet, in
             }
             else
             {
-                fn.SetExt( FILEEXT::KiCadPcbFileExtension );
+                fn.SetExt( FILEEXT::AnvilPcbFileExtension );
             }
 
             fname = fn.GetFullPath();
@@ -1078,7 +1073,7 @@ bool PCB_EDIT_FRAME::SavePcbFile( const wxString& aFileName, bool addToHistory,
     wxFileName pcbFileName = aFileName;
 
     if( pcbFileName.GetExt() == FILEEXT::LegacyPcbFileExtension )
-        pcbFileName.SetExt( FILEEXT::KiCadPcbFileExtension );
+        pcbFileName.SetExt( FILEEXT::AnvilPcbFileExtension );
 
     // Write through symlinks, don't replace them
     WX_FILENAME::ResolvePossibleSymlinks( pcbFileName );
@@ -1097,8 +1092,11 @@ bool PCB_EDIT_FRAME::SavePcbFile( const wxString& aFileName, bool addToHistory,
     wxFileName rulesFile( pcbFileName );
     wxString   msg;
 
-    projectFile.SetExt( FILEEXT::ProjectFileExtension );
+    projectFile.SetExt( FILEEXT::AnvilProjectFileExtension );
     rulesFile.SetExt( FILEEXT::DesignRulesFileExtension );
+
+    if( !projectFile.FileExists() )
+        projectFile.SetExt( FILEEXT::ProjectFileExtension );
 
     if( projectFile.FileExists() )
     {
@@ -1247,13 +1245,15 @@ bool PCB_EDIT_FRAME::SavePcbCopy( const wxString& aFileName, bool aCreateProject
     }
 
     wxFileName projectFile( pcbFileName );
+    wxFileName kicadProjectFile( pcbFileName );
     wxFileName rulesFile( pcbFileName );
     wxString   msg;
 
-    projectFile.SetExt( FILEEXT::ProjectFileExtension );
+    projectFile.SetExt( FILEEXT::AnvilProjectFileExtension );
+    kicadProjectFile.SetExt( FILEEXT::ProjectFileExtension );
     rulesFile.SetExt( FILEEXT::DesignRulesFileExtension );
 
-    if( aCreateProject && !projectFile.FileExists() )
+    if( aCreateProject && !projectFile.FileExists() && !kicadProjectFile.FileExists() )
         GetSettingsManager()->SaveProjectCopy( projectFile.GetFullPath() );
 
     wxFileName currentRules( GetDesignRulesPath() );

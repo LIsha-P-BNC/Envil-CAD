@@ -267,7 +267,7 @@ bool DIALOG_SHEET_PROPERTIES::TransferDataFromWindow()
 
     // Ensure the filename extension is OK.  (In normal use will be caught by grid validators,
     // but unedited data from existing files can be bad.)
-    sheetFileName = EnsureFileExtension( sheetFileName, FILEEXT::KiCadSchematicFileExtension );
+    sheetFileName = FILEEXT::EnsureNativeSchExtension( sheetFileName );
 
     // Ensure sheetFileName is legal
     if( !IsFullFileNameValid( sheetFileName ) )
