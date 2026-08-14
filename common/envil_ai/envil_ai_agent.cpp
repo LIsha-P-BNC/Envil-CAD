@@ -51,9 +51,29 @@ ENVIL_AI_AGENT::ENVIL_AI_AGENT( KIWAY* aKiway, wxWindow* aParent, WEBVIEW_PANEL*
         m_parent( aParent ),
         m_panel( aPanel ),
         m_approveAll( false ),
-        m_busy( false )
+        m_busy( false ),
+        m_cancel( false ),
+        m_sawReply( false ),
+        m_turnClosed( true ),
+        m_heartbeatRun( false ),
+        m_cliProcess( nullptr )
 {
     m_messages = json::array();
+}
+
+
+ENVIL_AI_AGENT::~ENVIL_AI_AGENT()
+{
+    // The panel is going away, so stop talking to it. The turn worker is detached, so give
+    // it a bounded chance to unwind (killing the CLI unblocks its read loop) before we let
+    // the members it touches go out from under it.
+    m_cancel = true;
+    killCliProcess();
+
+    for( int i = 0; i < 60 && m_busy.load(); ++i )
+        std::this_thread::sleep_for( std::chrono::milliseconds( 50 ) );
+
+    stopHeartbeat();
 }
 
 
@@ -76,6 +96,10 @@ void ENVIL_AI_AGENT::emit( const json& aMsg )
                          + wxString::FromUTF8( json( payload ).dump() ) + wxS( ");" );
 
     WEBVIEW_PANEL* panel = m_panel;
+
+    if( !panel )
+        return;
+
     panel->CallAfter( [panel, script]() { panel->RunScriptAsync( script ); } );
 }
 
@@ -91,6 +115,146 @@ void ENVIL_AI_AGENT::runOnUiSync( std::function<void()> aFn )
     } );
 
     sem.Wait();
+}
+
+
+// ---------------------------------------------------------------------------------------
+// Turn lifecycle: phase, heartbeat, end, cancel
+// ---------------------------------------------------------------------------------------
+
+void ENVIL_AI_AGENT::setPhase( const wxString& aPhase )
+{
+    {
+        std::lock_guard<std::mutex> lock( m_phaseMutex );
+
+        if( m_phase == aPhase )
+            return;                     // same step as before — don't spam the timeline
+
+        m_phase = aPhase;
+    }
+
+    emit( { { "kind", "status" }, { "text", std::string( aPhase.utf8_str() ) } } );
+}
+
+
+wxString ENVIL_AI_AGENT::currentPhase()
+{
+    std::lock_guard<std::mutex> lock( m_phaseMutex );
+    return m_phase;
+}
+
+
+long ENVIL_AI_AGENT::elapsedSeconds() const
+{
+    return (long) std::chrono::duration_cast<std::chrono::seconds>(
+                   std::chrono::steady_clock::now() - m_turnStart ).count();
+}
+
+
+void ENVIL_AI_AGENT::startHeartbeat( const wxString& aPhase )
+{
+    stopHeartbeat();
+
+    {
+        std::lock_guard<std::mutex> lock( m_phaseMutex );
+        m_phase.Clear();                // force the first setPhase() through
+    }
+
+    setPhase( aPhase );
+
+    std::lock_guard<std::mutex> lock( m_hbMutex );
+
+    m_turnStart = std::chrono::steady_clock::now();
+    m_heartbeatRun = true;
+
+    // Claude can be silent for minutes on a long prompt, so silence cannot be allowed to
+    // mean anything. This ticks for as long as the turn is alive; the panel keeps its
+    // "working" state on the strength of these alone.
+    m_heartbeat = std::thread( [this]()
+    {
+        int ticks = 0;
+
+        while( m_heartbeatRun.load() )
+        {
+            std::this_thread::sleep_for( std::chrono::milliseconds( 200 ) );
+
+            if( !m_heartbeatRun.load() )
+                break;
+
+            if( ++ticks % 15 != 0 )     // ~every 3 s
+                continue;
+
+            emit( { { "kind", "progress" },
+                    { "text", std::string( currentPhase().utf8_str() ) },
+                    { "elapsed_s", elapsedSeconds() } } );
+        }
+    } );
+}
+
+
+void ENVIL_AI_AGENT::stopHeartbeat()
+{
+    std::lock_guard<std::mutex> lock( m_hbMutex );
+
+    m_heartbeatRun = false;
+
+    if( m_heartbeat.joinable() )
+        m_heartbeat.join();
+}
+
+
+void ENVIL_AI_AGENT::endTurn( const std::string& aReason, const wxString& aText )
+{
+    // Every exit path calls this, including two that can race (the worker finishing and the
+    // destructor). Latch it so the panel gets exactly one "done".
+    bool expected = false;
+
+    if( !m_turnClosed.compare_exchange_strong( expected, true ) )
+        return;
+
+    long secs = elapsedSeconds();
+
+    stopHeartbeat();
+    m_busy = false;
+
+    json done;
+    done["kind"] = "done";
+    done["reason"] = aReason;
+    done["elapsed_s"] = secs;
+
+    if( !aText.IsEmpty() )
+        done["text"] = std::string( aText.utf8_str() );
+
+    emit( done );
+}
+
+
+void ENVIL_AI_AGENT::cancelTurn()
+{
+    if( !m_busy )
+        return;
+
+    m_cancel = true;
+    setPhase( wxS( "Stopping" ) );
+
+    // Killing the child unblocks the worker's ReadFile; the worker then closes the turn.
+    // Deliberately not calling endTurn() here: clearing m_busy while the worker is still
+    // running would let a second turn start on top of the first.
+    killCliProcess();
+}
+
+
+void ENVIL_AI_AGENT::killCliProcess()
+{
+#ifdef _WIN32
+    std::lock_guard<std::mutex> lock( m_procMutex );
+
+    if( m_cliProcess )
+    {
+        TerminateProcess( (HANDLE) m_cliProcess, 1 );
+        m_cliProcess = nullptr;         // the worker still owns (and closes) the handle
+    }
+#endif
 }
 
 
@@ -147,10 +311,19 @@ void ENVIL_AI_AGENT::onBridgeMessage( const wxString& aJson )
     {
         emit( { { "kind", "pong" } } );
     }
+    else if( kind == "cancel" )
+    {
+        cancelTurn();
+    }
     else if( kind == "reset" )
     {
         if( m_busy )
+        {
+            emit( { { "kind", "notice" },
+                    { "text", "Still working on the previous request — press Stop first, "
+                              "then start a new chat." } } );
             return;
+        }
 
         m_messages = json::array();
         m_cliSession.Clear();   // start a fresh CLI session on the next turn too
@@ -158,8 +331,16 @@ void ENVIL_AI_AGENT::onBridgeMessage( const wxString& aJson )
     }
     else if( kind == "message" )
     {
+        // Dropping this silently is what made the panel look dead: chat.html has already
+        // drawn the user's bubble locally, so with no reply and no explanation there is
+        // nothing to tell "busy" apart from "crashed".
         if( m_busy )
+        {
+            emit( { { "kind", "notice" },
+                    { "text", "Still working on your previous request — press Stop to "
+                              "cancel it, or wait for it to finish." } } );
             return;
+        }
 
         wxString text = wxString::FromUTF8( msg.value( "text", std::string() ) );
 
@@ -169,7 +350,14 @@ void ENVIL_AI_AGENT::onBridgeMessage( const wxString& aJson )
         m_messages.push_back( { { "role", "user" },
                                 { "content", std::string( text.utf8_str() ) } } );
         m_approveAll = false;
+        m_cancel = false;
+        m_sawReply = false;
+        m_turnClosed = false;
         m_busy = true;
+
+        // Start talking before the worker even spawns: on a long prompt the first real
+        // event from the model can be minutes away.
+        startHeartbeat( wxS( "Preparing your request" ) );
 
         bool cli = useCliBackend();
 
@@ -505,10 +693,19 @@ void ENVIL_AI_AGENT::agentLoop( wxString aUserText )
 {
     const std::string tools = toolsJson();
 
-    emit( { { "kind", "status" }, { "text", "Analyzing" } } );
-
     for( int iter = 0; iter < 16; ++iter )
     {
+        if( m_cancel )
+        {
+            endTurn( "cancelled" );
+            return;
+        }
+
+        // A step per round trip, so a multi-tool answer reads as progress rather than as
+        // one "Analyzing" that never changes.
+        setPhase( iter == 0 ? wxString( wxS( "Thinking" ) )
+                            : wxString::Format( wxS( "Thinking (step %d)" ), iter + 1 ) );
+
         std::string assistantContent, stopReason;
         wxString    error;
 
@@ -518,7 +715,8 @@ void ENVIL_AI_AGENT::agentLoop( wxString aUserText )
         if( !ok )
         {
             emit( { { "kind", "error" }, { "text", std::string( error.utf8_str() ) } } );
-            break;
+            endTurn( "error", error );
+            return;
         }
 
         json content;
@@ -537,7 +735,11 @@ void ENVIL_AI_AGENT::agentLoop( wxString aUserText )
         for( const json& block : content )
         {
             if( block.value( "type", std::string() ) == "text" )
+            {
+                m_sawReply = true;
+                setPhase( wxS( "Writing the answer" ) );
                 emit( { { "kind", "reply" }, { "text", block.value( "text", std::string() ) } } );
+            }
         }
 
         json toolResults = json::array();
@@ -557,6 +759,8 @@ void ENVIL_AI_AGENT::agentLoop( wxString aUserText )
             wxString    name = wxString::FromUTF8( block.value( "name", std::string() ) );
             std::string inputJson = block.contains( "input" ) ? block["input"].dump() : "{}";
 
+            setPhase( wxS( "Waiting for your approval" ) );
+
             bool        approved = approve( name, wxString::FromUTF8( inputJson ) );
             std::string resultText;
             bool        isError = false;
@@ -568,6 +772,7 @@ void ENVIL_AI_AGENT::agentLoop( wxString aUserText )
             }
             else
             {
+                setPhase( wxString::Format( wxS( "Running %s" ), name ) );
                 resultText = execTool( name, inputJson, isError );
             }
 
@@ -601,7 +806,7 @@ void ENVIL_AI_AGENT::agentLoop( wxString aUserText )
         m_messages.push_back( { { "role", "user" }, { "content", toolResults } } );
     }
 
-    m_busy = false;
+    endTurn( m_cancel ? "cancelled" : "ok" );
 }
 
 
@@ -686,17 +891,17 @@ wxString ENVIL_AI_AGENT::writeCliMcpConfig() const
 
 void ENVIL_AI_AGENT::agentLoopCli( wxString aUserText )
 {
-    emit( { { "kind", "status" }, { "text", "Analyzing" } } );
-
 #ifdef _WIN32
+    setPhase( wxS( "Starting Claude Code" ) );
+
     wxString claudeExe = resolveClaudeExe();
 
     if( claudeExe != wxS( "claude" ) && !wxFileExists( claudeExe ) )
     {
-        emit( { { "kind", "error" },
-                { "text", "Claude CLI not found. Install it with: "
-                          "npm install -g @anthropic-ai/claude-code" } } );
-        m_busy = false;
+        wxString err = wxS( "Claude CLI not found. Install it with: "
+                            "npm install -g @anthropic-ai/claude-code" );
+        emit( { { "kind", "error" }, { "text", std::string( err.utf8_str() ) } } );
+        endTurn( "error", err );
         return;
     }
 
@@ -748,8 +953,9 @@ void ENVIL_AI_AGENT::agentLoopCli( wxString aUserText )
 
     if( !CreatePipe( &hOutRd, &hOutWr, &sa, 0 ) )
     {
-        emit( { { "kind", "error" }, { "text", "Could not create output pipe for Claude CLI." } } );
-        m_busy = false;
+        wxString err = wxS( "Could not create output pipe for Claude CLI." );
+        emit( { { "kind", "error" }, { "text", std::string( err.utf8_str() ) } } );
+        endTurn( "error", err );
         return;
     }
 
@@ -782,15 +988,36 @@ void ENVIL_AI_AGENT::agentLoopCli( wxString aUserText )
     if( !okSpawn )
     {
         CloseHandle( hOutRd );
-        emit( { { "kind", "error" }, { "text", "Failed to launch the Claude CLI process." } } );
-        m_busy = false;
+        wxString err = wxS( "Failed to launch the Claude CLI process." );
+        emit( { { "kind", "error" }, { "text", std::string( err.utf8_str() ) } } );
+        endTurn( "error", err );
         return;
     }
 
-    // Read stdout, split into newline-delimited stream-json events, dispatch each.
+    // Publish the handle so Stop can kill the child and unblock the ReadFile below.
+    {
+        std::lock_guard<std::mutex> lock( m_procMutex );
+        m_cliProcess = pi.hProcess;
+    }
+
+    if( m_cancel )              // Stop pressed in the gap between the flag and the handle
+        killCliProcess();
+
+    setPhase( wxS( "Thinking" ) );
+
+    // Read stdout, split into newline-delimited stream-json events, dispatch each. Lines
+    // that are not JSON are the CLI's own stderr (it shares this pipe) — keep them, so a
+    // run that dies without answering can say why instead of leaving the panel silent.
     std::string accum;
+    std::string diagnostics;
     char        buf[8192];
     DWORD       nRead = 0;
+
+    auto feed = [&]( const std::string& aLine )
+    {
+        if( !handleCliEvent( aLine ) && diagnostics.size() < 8000 )
+            diagnostics += aLine + "\n";
+    };
 
     while( ReadFile( hOutRd, buf, sizeof( buf ), &nRead, nullptr ) && nRead > 0 )
     {
@@ -802,49 +1029,103 @@ void ENVIL_AI_AGENT::agentLoopCli( wxString aUserText )
         {
             std::string line = accum.substr( 0, nl );
             accum.erase( 0, nl + 1 );
-            handleCliEvent( line );
+            feed( line );
         }
     }
 
     if( !accum.empty() )
-        handleCliEvent( accum );
+        feed( accum );
 
     WaitForSingleObject( pi.hProcess, INFINITE );
+
+    DWORD exitCode = 0;
+    GetExitCodeProcess( pi.hProcess, &exitCode );
+
+    {
+        std::lock_guard<std::mutex> lock( m_procMutex );
+        m_cliProcess = nullptr;     // before CloseHandle, so Stop can't touch a dead handle
+    }
+
     CloseHandle( hOutRd );
     CloseHandle( pi.hProcess );
     CloseHandle( pi.hThread );
+
+    if( m_cancel )
+    {
+        endTurn( "cancelled" );     // the panel reports the stop off the "done" itself
+        return;
+    }
+
+    // A turn that ends having said nothing is the failure the user actually sees. Never let
+    // it pass quietly: report the exit code and whatever the CLI printed on the way out.
+    if( !m_sawReply || exitCode != 0 )
+    {
+        wxString detail = wxString::FromUTF8( diagnostics.c_str() ).Trim().Trim( false );
+
+        if( detail.Length() > 2000 )
+            detail = detail.Left( 2000 ) + wxS( "\n..." );
+
+        wxString err = m_sawReply
+                ? wxString::Format( wxS( "Claude Code exited with code %lu." ),
+                                    (unsigned long) exitCode )
+                : wxString::Format( wxS( "Claude Code stopped after %lds without answering "
+                                         "(exit code %lu)." ),
+                                    elapsedSeconds(), (unsigned long) exitCode );
+
+        if( !detail.IsEmpty() )
+            err << wxS( "\n\n" ) << detail;
+        else if( !m_sawReply )
+            err << wxS( " Run `claude` once in a terminal to check that you are signed in." );
+
+        emit( { { "kind", "error" }, { "text", std::string( err.utf8_str() ) } } );
+        endTurn( "error", err );
+        return;
+    }
 #else
-    emit( { { "kind", "error" },
-            { "text", "The CLI backend is currently Windows-only. Set ENVIL_AI_BACKEND=api "
-                      "to use an API key instead." } } );
+    wxString err = wxS( "The CLI backend is currently Windows-only. Set ENVIL_AI_BACKEND=api "
+                        "to use an API key instead." );
+    emit( { { "kind", "error" }, { "text", std::string( err.utf8_str() ) } } );
+    endTurn( "error", err );
 #endif
 
-    m_busy = false;
+    endTurn( "ok" );    // idempotent: a no-op when a path above already closed the turn
 }
 
 
-void ENVIL_AI_AGENT::handleCliEvent( const std::string& aLine )
+bool ENVIL_AI_AGENT::handleCliEvent( const std::string& aLine )
 {
-    if( aLine.empty() )
-        return;
+    // The pipe hands us raw bytes, so a line can still carry the CR of a CRLF; that would
+    // break the parse on the last field.
+    std::string line = aLine;
+
+    while( !line.empty() && ( line.back() == '\r' || line.back() == '\n' ) )
+        line.pop_back();
+
+    if( line.find_first_not_of( " \t" ) == std::string::npos )
+        return true;            // blank — handled, and nothing worth reporting
 
     json j;
 
     try
     {
-        j = json::parse( aLine );
+        j = json::parse( line );
     }
     catch( const std::exception& )
     {
-        return;   // non-JSON noise (shouldn't happen with stream-json)
+        return false;           // not stream-json: the CLI's own stderr. The caller keeps it.
     }
 
     std::string type = j.value( "type", std::string() );
 
     if( type == "system" )
     {
-        if( j.value( "subtype", std::string() ) == "init" && j.contains( "session_id" ) )
-            m_cliSession = wxString::FromUTF8( j["session_id"].get<std::string>() );
+        if( j.value( "subtype", std::string() ) == "init" )
+        {
+            if( j.contains( "session_id" ) )
+                m_cliSession = wxString::FromUTF8( j["session_id"].get<std::string>() );
+
+            setPhase( wxS( "Reading your design" ) );
+        }
     }
     else if( type == "assistant" )
     {
@@ -859,7 +1140,20 @@ void ENVIL_AI_AGENT::handleCliEvent( const std::string& aLine )
                     std::string t = block.value( "text", std::string() );
 
                     if( !t.empty() )
+                    {
+                        m_sawReply = true;
+                        setPhase( wxS( "Writing the answer" ) );
                         emit( { { "kind", "reply" }, { "text", t } } );
+                    }
+                }
+                else if( bt == "thinking" )
+                {
+                    // chat.html renders these in its collapsible reasoning panel, which is
+                    // the most honest "here is what I am doing" the model can give.
+                    std::string t = block.value( "thinking", std::string() );
+
+                    if( !t.empty() )
+                        emit( { { "kind", "thinking" }, { "text", t } } );
                 }
                 else if( bt == "tool_use" )
                 {
@@ -870,10 +1164,16 @@ void ENVIL_AI_AGENT::handleCliEvent( const std::string& aLine )
                     if( p != std::string::npos )
                         name = name.substr( p + 2 );
 
-                    emit( { { "kind", "status" }, { "text", std::string( "Running " ) + name } } );
+                    setPhase( wxString::FromUTF8( ( "Running " + name ).c_str() ) );
                 }
             }
         }
+    }
+    else if( type == "user" )
+    {
+        // A tool_result coming back from MCP: that step is done and the model is thinking
+        // again. Naming it keeps the timeline moving during long tool chains.
+        setPhase( wxS( "Thinking" ) );
     }
     else if( type == "result" )
     {
@@ -884,8 +1184,13 @@ void ENVIL_AI_AGENT::handleCliEvent( const std::string& aLine )
         // an explicit error here.
         if( j.value( "is_error", false ) )
         {
+            // Surface it, but leave closing the turn to agentLoopCli(): clearing m_busy
+            // from here would free the panel to start a second turn while this one is
+            // still draining the pipe.
             std::string msg = j.value( "result", std::string( "Claude CLI reported an error." ) );
             emit( { { "kind", "error" }, { "text", msg } } );
         }
     }
+
+    return true;
 }

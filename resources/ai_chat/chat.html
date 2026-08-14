@@ -356,6 +356,60 @@
     40%           { transform: scale(1.0); opacity: 1; }
   }
 
+  /* ── Live activity feed (Claude-Code-style tool timeline) ─────────────
+     Names what Anvil is doing right now — one line per tool call, with a
+     spinner while it runs and a green check once it's done, plus an elapsed
+     timer. Pinned above the footer; auto-hides shortly after the turn ends.
+     This replaces the old generic "Analyzing/Designing/Processing" loop. */
+  .activity {
+    display: none;
+    margin: 4px 14px 10px;
+    border: 1px solid var(--border-1);
+    border-radius: var(--radius-sm);
+    background: var(--bg-2);
+    overflow: hidden;
+    box-shadow: var(--shadow-sm);
+  }
+  .activity.active { display: block; }
+  .act-head {
+    display: flex; align-items: center; gap: 8px;
+    padding: 8px 12px;
+    font-size: 12.5px; font-weight: 600; color: var(--text-1);
+    border-bottom: 1px solid var(--border-1);
+  }
+  .act-head .dot {
+    width: 7px; height: 7px; border-radius: 50%;
+    background: var(--accent-hi); box-shadow: 0 0 8px rgba(167,139,250,.6);
+    animation: pulse 1.2s infinite; flex-shrink: 0;
+  }
+  .act-title { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .act-timer {
+    font-size: 11px; font-weight: 500; color: var(--text-3);
+    font-family: "JetBrains Mono", ui-monospace, Consolas, monospace;
+  }
+  .act-list { padding: 4px 0; max-height: 148px; overflow-y: auto; }
+  .act-step {
+    display: flex; align-items: center; gap: 9px;
+    padding: 4px 12px; font-size: 12px; color: var(--text-2);
+  }
+  .act-ico { width: 13px; height: 13px; flex-shrink: 0; display: grid; place-items: center; }
+  .act-ico svg { width: 13px; height: 13px; }
+  .act-label { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .act-step.done { color: var(--text-3); }
+  .act-step.done .act-ico { color: var(--ok); }
+  .act-step.run  { color: var(--text-1); font-weight: 500; }
+  .act-spin {
+    width: 11px; height: 11px;
+    border: 2px solid var(--border-acc); border-top-color: var(--accent-hi);
+    border-radius: 50%; animation: act-spin .7s linear infinite;
+  }
+  @keyframes act-spin { to { transform: rotate(360deg); } }
+  /* Backend has gone quiet for longer than its heartbeat interval. The feed stays put —
+     it just stops claiming everything is fine. Silently hiding it is what used to make a
+     live turn look like a crash. */
+  .activity.stalled .act-head .dot { background: var(--warn, #e0a33e); box-shadow: none; }
+  .activity.stalled .act-timer { color: var(--warn, #e0a33e); }
+
   /* Collapsible "Thinking" panel — streams the model's real reasoning
      (Claude.ai-style). Expanded while the model reasons, auto-collapses
      once the actual reply starts; click the header to toggle. Only ever
@@ -713,6 +767,15 @@
   <span id="thinkLabel">Analyzing</span>
 </div>
 
+<div id="activity" class="activity" aria-live="polite">
+  <div class="act-head">
+    <span class="dot"></span>
+    <span class="act-title" id="actTitle">Anvil is working</span>
+    <span class="act-timer" id="actTimer"></span>
+  </div>
+  <div class="act-list" id="actList"></div>
+</div>
+
 <footer>
   <div id="pending" class="pending"></div>
   <div class="input-shell">
@@ -871,6 +934,10 @@ const thinkEl = $("thinking");
 const thinkLabelEl = $("thinkLabel");
 const THINK_LABELS = ["Analyzing", "Designing", "Processing"];
 let thinkTimer = null;
+const actEl      = $("activity");
+const actListEl  = $("actList");
+const actTitleEl = $("actTitle");
+const actTimerEl = $("actTimer");
 const pendEl  = $("pending");
 const scrollBtnEl = $("scrollBtn");
 // Auto-scroll only sticks to the bottom while the user is already there. If they
@@ -883,6 +950,13 @@ let stickToBottom = true;
 // thinking indicator appears only after you submit a prompt. See send() and the
 // "status" handler in handleSrv().
 let turnActive = false;
+// Set once the agent sends its first {kind:"progress"} heartbeat. A heartbeat-capable
+// agent also sends exactly one {kind:"done"} per turn, so the UI can stop guessing when a
+// turn is over from timers — guessing is what dropped the "working" state mid-turn.
+let hasHeartbeat = false;
+// True between pressing Stop and the agent confirming; suppresses late events from
+// re-opening the feed after the user has already walked away from the turn.
+let turnCancelled = false;
 
 const SVG_USER = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>';
 // AI avatar: Anvil "A" logo image instead of the robot SVG
@@ -959,20 +1033,193 @@ function copyText(text, onDone) {
     navigator.clipboard.writeText(text).then(() => onDone && onDone()).catch(fb);
   else fb();
 }
+// showThinking now just opens/holds the turn's UI (stop button + live activity
+// feed). It no longer drives a generic looping "Analyzing/Designing" label —
+// the activity feed below names the real work instead. Turning it "off" is a
+// no-op: the feed closes itself via its idle watchdog (or an explicit end on
+// reply/error/cancel), so streaming/reasoning can't yank the stop button away
+// mid-turn.
 function showThinking(on) {
-  // Show stop button while AI is generating, send button when idle.
-  if (typeof setBusy === "function") setBusy(!!on);
-  thinkEl.classList.toggle("active", !!on);
+  thinkEl.classList.remove("active");   // legacy dots retired in favour of the feed
   if (thinkTimer) { clearInterval(thinkTimer); thinkTimer = null; }
-  if (on) {
-    let i = 0;
-    thinkLabelEl.textContent = THINK_LABELS[0];
-    thinkTimer = setInterval(() => {
-      i = (i + 1) % THINK_LABELS.length;
-      thinkLabelEl.textContent = THINK_LABELS[i];
-    }, 1500);
-    scroll();
+  if (on) { setBusy(true); activityStart(); }
+}
+
+// ── Live activity feed ─────────────────────────────────────────────────────
+// Turns the backend's {kind:"status", text:"Running <tool>"} stream into a
+// readable, Claude-Code-style timeline. Every step gets a friendly label; the
+// current one spins, finished ones get a check.
+const SVG_CHECK_SM =
+  '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3.2" '
+  + 'stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>';
+
+// Raw tool name (Claude built-ins + Anvil's eeschema/pcbnew MCP tools) → plain
+// English. Unknown names fall back to Title-Cased words.
+const TOOL_LABELS = {
+  Read:"Reading a file", Write:"Writing a file", Edit:"Editing a file",
+  MultiEdit:"Editing a file", NotebookEdit:"Editing a file", LS:"Listing files",
+  Bash:"Running a command", Glob:"Searching for files", Grep:"Searching the code",
+  TodoWrite:"Planning the steps", Task:"Working on a sub-task",
+  WebFetch:"Reading a web page", WebSearch:"Searching the web",
+  // eeschema
+  get_schematic:"Reading the schematic", run_erc:"Checking rules (ERC)",
+  snap_to_grid:"Snapping parts to grid", annotate:"Annotating parts",
+  add_component:"Placing a component", add_wire:"Drawing a wire",
+  add_label:"Adding a net label", add_junction:"Adding a junction",
+  add_no_connect:"Marking a no-connect", edit_value:"Editing a value",
+  move_component:"Moving a component", delete_component:"Deleting a component",
+  delete_at:"Deleting an item",
+  // pcbnew
+  get_board:"Reading the board", run_drc:"Checking rules (DRC)",
+  add_footprint:"Placing a footprint", move_footprint:"Moving a footprint",
+  add_track:"Routing a track", add_via:"Adding a via",
+  delete_track_at:"Removing a track", set_text_variable:"Setting a variable",
+  capture_footprints:"Capturing footprints into the library",
+};
+function humanizeTool(name) {
+  let n = String(name || "").trim();
+  const p = n.lastIndexOf("__");             // strip any mcp__envil-cad__ prefix
+  if (p !== -1) n = n.slice(p + 2);
+  if (TOOL_LABELS[n]) return TOOL_LABELS[n];
+  return n.replace(/[_-]+/g, " ").replace(/\b\w/g, c => c.toUpperCase()) || "Working";
+}
+
+// "192s" tells you nothing at a glance; "3m 12s" does. Used for the live timer and for
+// the end-of-turn summary line.
+function fmtDur(ms) {
+  const s = Math.max(0, Math.round(ms / 1000));
+  return s < 60 ? s + "s" : Math.floor(s / 60) + "m " + String(s % 60).padStart(2, "0") + "s";
+}
+
+let actSteps    = [];    // the step rows currently in the DOM
+let actRunning  = false;
+let actStartMs  = 0;
+let actTimerInt = null;  // 1/2s tick updating the elapsed timer
+let actEndTimer = null;  // short close scheduled after the model's reply
+let actSafety   = null;  // fires when the agent has gone quiet for longer than expected
+let actStalled  = false;
+let actStallShown = false;
+let actLastMs   = 0;     // when we last heard anything at all from the agent
+// The agent heartbeats about every 3s, so this much silence means it really has stopped
+// talking — not that it is busy.
+const STALL_MS  = 45000;
+
+function activityStart() {
+  if (actRunning) { keepActivity(); return; }
+  actRunning = true;
+  actStartMs = Date.now();
+  actLastMs  = actStartMs;
+  actStalled = false; actStallShown = false;
+  actEl.classList.remove("stalled");
+  actListEl.innerHTML = ""; actSteps = [];
+  actTitleEl.textContent = "Anvil is working";
+  actTimerEl.textContent = "0s";
+  actEl.classList.add("active");
+  if (actTimerInt) clearInterval(actTimerInt);
+  // The ticking clock is the cheapest proof of life there is: it keeps moving even
+  // between the agent's own updates, so a long silent step never reads as frozen.
+  actTimerInt = setInterval(() => {
+    actTimerEl.textContent = fmtDur(Date.now() - actStartMs);
+  }, 500);
+  keepActivity();
+  scroll();
+}
+
+function markLastDone() {
+  const prev = actSteps[actSteps.length - 1];
+  if (prev && prev.classList.contains("run")) {
+    prev.classList.remove("run"); prev.classList.add("done");
+    const ic = prev.querySelector(".act-ico");
+    if (ic) ic.innerHTML = SVG_CHECK_SM;
   }
+}
+
+// Add one step to the timeline (finishing the previous one).
+function activityStep(label) {
+  activityStart();
+  // The agent re-states its phase after every tool result, so the same label can arrive
+  // several times in a row. Refresh the live step instead of stacking duplicates.
+  const cur = actSteps[actSteps.length - 1];
+  if (cur && cur.classList.contains("run") && cur.dataset.label === label) {
+    actTitleEl.textContent = label;
+    keepActivity();
+    return;
+  }
+  markLastDone();
+  const row = document.createElement("div");
+  row.className = "act-step run";
+  row.dataset.label = label;
+  row.innerHTML = '<span class="act-ico"><span class="act-spin"></span></span>'
+                + '<span class="act-label"></span>';
+  row.querySelector(".act-label").textContent = label;
+  actListEl.appendChild(row);
+  actSteps.push(row);
+  // Keep only the most recent handful of rows — the reply bubbles carry the
+  // full narrative, this is just a live "what's happening now" strip.
+  while (actSteps.length > 6) actSteps.shift().remove();
+  actTitleEl.textContent = label;
+  actListEl.scrollTop = actListEl.scrollHeight;
+  keepActivity();
+  scroll();
+}
+
+// Cancel any pending close and re-arm the stall watchdog. Called on every inbound turn
+// event, including the agent's ~3s heartbeat, so the feed survives slow single tool calls
+// (a long ERC/DRC run emits no intermediate events) and long silent thinking.
+//
+// It no longer closes the feed on a timer. The old 90s backstop silently cleared the
+// "working" state on any long step, which is precisely what made a running turn look
+// frozen: the spinner, the stop button and the timer all disappeared while the agent was
+// still going. Silence now raises a visible warning instead, and only the agent's own
+// {kind:"done"} (or Stop) ends a turn.
+function keepActivity() {
+  if (!actRunning) return;
+  actLastMs = Date.now();
+  if (actEndTimer) { clearTimeout(actEndTimer); actEndTimer = null; }
+  if (actStalled) { actStalled = false; actEl.classList.remove("stalled"); }
+  if (actSafety)   clearTimeout(actSafety);
+  actSafety = setTimeout(activityStall, STALL_MS);
+}
+
+// The agent has stopped heartbeating. Say so plainly and keep the turn open — the user
+// can decide to wait or press Stop. Never silently pretend the turn finished.
+function activityStall() {
+  if (!actRunning) return;
+  actStalled = true;
+  actEl.classList.add("stalled");
+  actTitleEl.textContent = "No update for " + fmtDur(Date.now() - actLastMs);
+  if (!actStallShown) {
+    actStallShown = true;
+    addSystem("⏳ No update from Anvil for " + fmtDur(Date.now() - actLastMs)
+      + ". It may still be working on a long step — press Stop if you want to cancel.");
+  }
+  actSafety = setTimeout(activityStall, STALL_MS);
+}
+
+// Reply text used to be treated as "the turn is winding down". On the CLI transport it
+// isn't: a reply is routinely followed by more tool calls. With a heartbeat-capable agent
+// the turn ends when the agent says it ends, so just close off the current step and wait.
+// The timer path is kept only for an older agent build that never sends "done".
+function scheduleActivityEnd() {
+  if (!actRunning) return;
+  markLastDone();
+  if (hasHeartbeat) { keepActivity(); return; }
+  if (actEndTimer) clearTimeout(actEndTimer);
+  actEndTimer = setTimeout(activityEnd, 1500);
+}
+
+function activityEnd() {
+  if (actEndTimer)  { clearTimeout(actEndTimer);  actEndTimer = null; }
+  if (actSafety)    { clearTimeout(actSafety);    actSafety   = null; }
+  if (actTimerInt)  { clearInterval(actTimerInt); actTimerInt = null; }
+  markLastDone();
+  actRunning = false;
+  turnActive = false;
+  actStalled = false; actStallShown = false;
+  setBusy(false);
+  actEl.classList.remove("active");
+  actEl.classList.remove("stalled");
+  actListEl.innerHTML = ""; actSteps = [];
 }
 
 function escHtml(s) {
@@ -1272,7 +1519,7 @@ function addUserRow(text, attachments) {
 // The C++ side pushes server messages back by calling window.appendServerMessage().
 function send(obj) {
   obj.session_id = sessionId;
-  if (obj.kind === "message" || obj.kind === "export_gerbers") turnActive = true;
+  if (obj.kind === "message" || obj.kind === "export_gerbers") { turnActive = true; turnCancelled = false; }
   else if (obj.kind === "reset") turnActive = false;
   try {
     window.envilSend.postMessage(JSON.stringify(obj));
@@ -1303,29 +1550,75 @@ function handleSrv(m) {
   switch (m.kind) {
     case "ready":   return;
     case "pong":    return;
-    case "status":
-      // Only spin while a turn is actually in flight. Bare status acks (e.g.
-      // "Conversation reset." after New Chat, "Opened the folder.") must NOT
-      // show the thinking indicator without a prompt — matches Cursor/Claude.
-      if (turnActive) showThinking(true);
+    case "status": {
+      // Bare status acks (e.g. "Conversation reset." after New Chat, "Opened the
+      // folder.") arrive without a live turn — never open the feed for those.
+      // Within a turn every status is a named phase from the agent ("Starting Claude
+      // Code", "Reading your design", "Running add_component", "Writing the answer"),
+      // so each one becomes a timeline step. Previously anything that wasn't
+      // "Running <tool>" collapsed into a generic kick-off and the user was left
+      // staring at one unchanging label for the whole turn.
+      if (!turnActive || turnCancelled) return;
+      setBusy(true);
+      const raw = (m.text || "").trim();
+      if (!raw) return;
+      const mm = raw.match(/^Running\s+(.+)$/i);
+      activityStep(mm ? humanizeTool(mm[1]) : raw);
+      return;
+    }
+    case "progress": {
+      // Liveness heartbeat, ~every 3s for as long as the turn runs. It carries no new
+      // work — its whole job is to prove the agent is still there while the model is
+      // silent, and to re-open the feed if anything closed it early.
+      hasHeartbeat = true;
+      if (turnCancelled) return;
+      turnActive = true;
+      setBusy(true);
+      if (!actRunning) activityStart();
+      if (m.text && !actSteps.length) actTitleEl.textContent = m.text;
+      keepActivity();
+      return;
+    }
+    case "done": {
+      // The agent's authoritative end-of-turn. Every exit path sends exactly one, so
+      // the UI never has to infer that a turn is over.
+      const secs = m.elapsed_s || 0;
+      showThinking(false);
+      collapseThink();
+      finalizeStream();
+      activityEnd();
+      turnCancelled = false;
+      if (m.reason === "cancelled")  addSystem("■ Stopped after " + fmtDur(secs * 1000) + ".");
+      else if (m.reason === "ok" && secs >= 20) addSystem("✓ Finished in " + fmtDur(secs * 1000) + ".");
+      return;
+    }
+    case "notice":
+      // Plain talk from the agent about the turn itself (busy, stopped). Not an error,
+      // but it must be visible: this is what a dropped message used to look like.
+      if (m.text) addSystem(m.text);
+      keepActivity();
       return;
     case "thinking":
       // Streamed reasoning -> live collapsible panel (created lazily).
       appendThinking(m.text || "");
+      keepActivity();
       return;
     case "chunk":
-      showThinking(false);
       appendStream(m.text || "");
+      keepActivity();
       return;
     case "reply":
-      turnActive = false;
+      // Don't force turnActive off here: on the CLI transport a turn is several
+      // interleaved reply/status events, and reply text is routinely followed by more
+      // tool calls. Only the agent's "done" ends a turn.
       showThinking(false);
       collapseThink();
       finalizeStream(m.text);
+      scheduleActivityEnd();
       if (m.action_id && Array.isArray(m.ops) && m.ops.length) renderApproval(m);
       return;
     case "applied":
-      showThinking(false);
+      keepActivity();
       addSystem("✓ Applied " + (m.count ?? 0) + "/" + (m.total ?? m.count ?? 0) + " operations"
         + (m.file_path ? " → " + m.file_path.split(/[\\/]/).pop() : ""));
       // Surface per-op warnings (e.g. fuzzy lib_id substitutions) and missing-library
@@ -1363,15 +1656,17 @@ function handleSrv(m) {
     case "gerbers_ready":
       // Fab bundle is on disk. Show a card with an "Open Folder" button so
       // the user can grab the zip and upload it to the factory.
-      turnActive = false;
       showThinking(false);
+      activityEnd();
       renderGerbersReady(m);
       return;
     case "error":
-      turnActive = false;
       showThinking(false);
       collapseThink();
       addError(m.text || "Unknown error");
+      // A heartbeat-capable agent always follows an error with "done", which does the
+      // closing. Close here only for an older build that doesn't.
+      if (!hasHeartbeat) activityEnd();
       return;
     default:
       console.warn("[anvil] unhandled", m.kind, m);
@@ -2188,6 +2483,7 @@ function newChat() {
   if (emptyEl) emptyEl.style.display = "";
   // 4) Reset transient UI state.
   showThinking(false);
+  activityEnd();
   currentStream = null; currentBuf = "";
   currentThink = null; currentThinkBody = null; currentThinkBuf = "";
   pending.length = 0; renderPending();
@@ -2214,8 +2510,8 @@ function hasConversation() {
 // fresh. Guarded so it never destroys work in progress: skipped while a
 // build is running, and a no-op when the panel is already blank.
 window.anvilPanelOpened = function () {
-  if (thinkEl.classList.contains("active")) return;   // build in flight — keep it
-  if (!hasConversation()) return;                      // already blank
+  if (actRunning || turnActive) return;   // build in flight — keep it
+  if (!hasConversation()) return;         // already blank
   newChat();
 };
 
@@ -2256,11 +2552,12 @@ function setBusy(on) {
 
 sendBtnEl.onclick = () => {
   if (sendBtnEl.classList.contains("stop-mode")) {
-    // Stop: tell the server to cancel, immediately reset UI
+    // Stop: tell the agent to cancel, immediately reset UI. The latch stops the
+    // agent's in-flight heartbeats from re-opening the feed before its "done" lands.
+    turnCancelled = true;
     send({ kind: "cancel" });
-    turnActive = false;
     showThinking(false);
-    setBusy(false);
+    activityEnd();          // clears the feed + turnActive + stop button
     if (currentStream) {
       currentStream.classList.remove("streaming");
       if (!currentStream.innerText.trim()) currentStream.innerHTML = "<em style='opacity:.5'>Stopped.</em>";

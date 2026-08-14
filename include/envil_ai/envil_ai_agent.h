@@ -15,8 +15,12 @@
 #ifndef ENVIL_AI_AGENT_H
 #define ENVIL_AI_AGENT_H
 
+#include <atomic>
+#include <chrono>
 #include <functional>
+#include <mutex>
 #include <string>
+#include <thread>
 
 #include <wx/string.h>
 
@@ -40,6 +44,8 @@ public:
      */
     ENVIL_AI_AGENT( KIWAY* aKiway, wxWindow* aParent, WEBVIEW_PANEL* aPanel );
 
+    ~ENVIL_AI_AGENT();
+
     /// Register the JS->C++ bridge handler on the webview. Call before the page loads.
     void Attach();
 
@@ -47,9 +53,36 @@ private:
     void        onBridgeMessage( const wxString& aJson );   // UI thread
     void        agentLoop( wxString aUserText );            // worker thread — API-key backend
     void        agentLoopCli( wxString aUserText );         // worker thread — subscription (CLI)
-    void        handleCliEvent( const std::string& aLine ); // parse one stream-json line
+    /// Parse one stream-json line. False = the line was not JSON (the CLI's own stderr),
+    /// which the caller keeps so a failed run can explain itself instead of going quiet.
+    bool        handleCliEvent( const std::string& aLine );
     void        emit( const nlohmann::json& aMsg );         // push to the webview
     void        runOnUiSync( std::function<void()> aFn );
+
+    // ---- turn lifecycle / liveness ------------------------------------------------------
+    //
+    // A turn can run for minutes with the model saying nothing at all (a big prompt, a long
+    // thinking block, one slow ERC/DRC call). The panel therefore cannot infer "still alive"
+    // from traffic: the agent has to keep saying so. These drive that contract — every turn
+    // opens with a phase, ticks a heartbeat while it runs, and closes with exactly one
+    // "done", whatever path it takes out (reply, error, cancel, or a dead CLI process).
+
+    /// Set what we tell the user we are doing right now, and push it as a named step.
+    void        setPhase( const wxString& aPhase );
+    wxString    currentPhase();
+
+    /// Start/stop the background ticker that emits {kind:"progress"} while a turn is live.
+    void        startHeartbeat( const wxString& aPhase );
+    void        stopHeartbeat();
+    long        elapsedSeconds() const;
+
+    /// Close the turn exactly once: stop the heartbeat, clear busy, emit {kind:"done"}.
+    /// aReason is "ok", "cancelled" or "error".
+    void        endTurn( const std::string& aReason, const wxString& aText = wxEmptyString );
+
+    /// User pressed Stop. Flags the turn and kills the CLI process so the read loop unblocks.
+    void        cancelTurn();
+    void        killCliProcess();
     bool        approve( const wxString& aToolName, const wxString& aInputJson );
     std::string execTool( const wxString& aToolName, const std::string& aInputJson,
                           bool& aIsError );
@@ -74,7 +107,23 @@ private:
     wxString        m_schematicFile;
     wxString        m_cliSession;       // CLI session id for --resume (multi-turn)
     bool            m_approveAll;
-    bool            m_busy;
+
+    // Written on a worker thread, read on the UI thread (and vice versa) — atomic, not bool.
+    std::atomic<bool> m_busy;
+    std::atomic<bool> m_cancel;
+    std::atomic<bool> m_sawReply;    // did this turn produce any assistant text at all?
+    std::atomic<bool> m_turnClosed;  // endTurn() is idempotent; this is the latch
+
+    std::atomic<bool>                     m_heartbeatRun;
+    std::thread                           m_heartbeat;
+    std::mutex                            m_hbMutex;   // serialises start/stop + join
+    std::chrono::steady_clock::time_point m_turnStart;
+
+    std::mutex m_phaseMutex;
+    wxString   m_phase;
+
+    std::mutex m_procMutex;
+    void*      m_cliProcess;         // Win32 HANDLE of the live claude.exe, or nullptr
 };
 
 #endif // ENVIL_AI_AGENT_H
