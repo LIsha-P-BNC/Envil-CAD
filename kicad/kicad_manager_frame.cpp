@@ -140,6 +140,7 @@
 #include "settings/kicad_settings.h"
 
 #include <project/project_file.h>
+#include <widgets/ui_common.h>
 
 
 #define EDITORS_CAPTION _( "Editors" )
@@ -184,11 +185,9 @@ public:
             rowChanged = true;
         }
 
-        if( !acfg.m_AnvilUiFontFace.IsEmpty() )
-        {
-            rowFont.SetFaceName( acfg.m_AnvilUiFontFace );
+        // Brand face only when it is installed — SetFaceName() invalidates the font otherwise.
+        if( KIUI::ApplyFontFace( rowFont, acfg.m_AnvilUiFontFace ) )
             rowChanged = true;
-        }
 
         if( rowChanged )
             SetFont( rowFont );
@@ -546,8 +545,7 @@ public:
         else if( acfg.m_AnvilUiFontPt > 0.0 )
             labelFont.SetFractionalPointSize( acfg.m_AnvilUiFontPt );
 
-        if( !acfg.m_AnvilUiFontFace.IsEmpty() )
-            labelFont.SetFaceName( acfg.m_AnvilUiFontFace );
+        KIUI::ApplyFontFace( labelFont, acfg.m_AnvilUiFontFace );
 
         SetFont( labelFont );
 
@@ -3528,13 +3526,6 @@ void KICAD_MANAGER_FRAME::OnSize( wxSizeEvent& event )
 {
     if( m_auimgr.GetManagedWindow() )
         m_auimgr.Update();
-
-#ifdef __WXMSW__
-    // Keep the title-bar maximize/restore glyph in sync when the window is maximized
-    // or restored via the OS (double-click caption, snap, Win+Up) — not just the button.
-    if( m_titleBar )
-        m_titleBar->UpdateMaximizeGlyph();
-#endif
 
     PrintPrjInfo();
 

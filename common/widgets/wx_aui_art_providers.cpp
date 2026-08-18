@@ -30,6 +30,7 @@
 #include <settings/common_settings.h>
 #include <widgets/panel_notebook_base.h>
 #include <widgets/wx_aui_art_providers.h>
+#include <widgets/ui_common.h>
 #include <gal/color4d.h>
 
 // NEMI brand: build the app-wide UI font (Space Grotesk @ AnvilUiFontPt) from a base font, so AUI
@@ -44,8 +45,10 @@ static wxFont anvilChromeFont( const wxFont& aBase )
     if( acfg.m_AnvilUiFontPt > 0.0 )
         font.SetFractionalPointSize( acfg.m_AnvilUiFontPt );
 
-    if( !acfg.m_AnvilUiFontFace.IsEmpty() )
-        font.SetFaceName( acfg.m_AnvilUiFontFace );
+    // Only when the brand face is really installed: SetFaceName() invalidates the font
+    // otherwise, and an invalid font reports point size 0 — which collapsed m_captionSize below
+    // to 6 px and clipped every dock-pane title ("Project Files", "AI Assistant", ...).
+    KIUI::ApplyFontFace( font, acfg.m_AnvilUiFontFace );
 
     return font;
 }
