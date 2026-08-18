@@ -681,7 +681,9 @@ void IFACE::SaveFileAs( const wxString& aProjectBasePath, const wxString& aSrcPr
     destFile.SetPath( destPath );
 
     if( ext == FILEEXT::KiCadPcbFileExtension
-        || ext == FILEEXT::KiCadPcbFileExtension + FILEEXT::BackupFileSuffix )
+        || ext == FILEEXT::KiCadPcbFileExtension + FILEEXT::BackupFileSuffix
+        || ext == FILEEXT::AnvilPcbFileExtension
+        || ext == FILEEXT::AnvilPcbFileExtension + FILEEXT::BackupFileSuffix )
     {
         if( destFile.GetName() == aSrcProjectName )
             destFile.SetName( aNewProjectName  );
@@ -691,7 +693,8 @@ void IFACE::SaveFileAs( const wxString& aProjectBasePath, const wxString& aSrcPr
                 {
                     if( token == "sheetfile" )
                     {
-                        for( const wxString extension : { wxT( ".sch" ), wxT( ".kicad_sch" ) } )
+                        for( const wxString extension : { wxT( ".sch" ), wxT( ".kicad_sch" ),
+                                                          wxT( ".anvil_sch" ) } )
                         {
                             if( value == aSrcProjectName + extension )
                             {
@@ -723,7 +726,8 @@ void IFACE::SaveFileAs( const wxString& aProjectBasePath, const wxString& aSrcPr
         KiCopyFile( aSrcFilePath, destFile.GetFullPath(), aErrors );
     }
     else if( ext == FILEEXT::LegacyFootprintLibPathExtension
-             || ext == FILEEXT::KiCadFootprintFileExtension )
+             || ext == FILEEXT::KiCadFootprintFileExtension
+             || ext == FILEEXT::AnvilFootprintFileExtension )
     {
         // Footprints are not project-specific.  Keep their source names.
         KiCopyFile( aSrcFilePath, destFile.GetFullPath(), aErrors );
@@ -842,7 +846,10 @@ bool IFACE::HandleApiOpenDocument( const wxString& aPath, KICAD_API_SERVER* aSer
     }
 
     wxFileName boardPath( projectPath );
-    boardPath.SetExt( FILEEXT::KiCadPcbFileExtension );
+    boardPath.SetExt( FILEEXT::AnvilPcbFileExtension );
+
+    if( !boardPath.FileExists() )
+        boardPath.SetExt( FILEEXT::KiCadPcbFileExtension );
 
     if( !boardPath.FileExists() )
     {

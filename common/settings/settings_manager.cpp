@@ -1270,6 +1270,14 @@ void SETTINGS_MANAGER::SaveProjectAs( const wxString& aFullPath, PROJECT* aProje
     project->SetReadOnly( aProject->IsReadOnly() );
     aProject->GetLocalSettings().SetReadOnly( aProject->IsReadOnly() );
 
+    // Honor the extension of the new name: without this a Save As to <name>.anvil_pro
+    // silently writes <name>.kicad_pro (getFileExt() defaults to the KiCad extension).
+    if( fn.GetExt() == FILEEXT::AnvilProjectFileExtension
+        || fn.GetExt() == FILEEXT::ProjectFileExtension )
+    {
+        project->SetProjectFileExt( fn.GetExt() );
+    }
+
     project->SetFilename( fn.GetName() );
     project->SaveToFile( fn.GetPath() );
 
@@ -1296,9 +1304,18 @@ void SETTINGS_MANAGER::SaveProjectCopy( const wxString& aFullPath, PROJECT* aPro
     bool readOnly = project->IsReadOnly();
     project->SetReadOnly( false );
 
+    wxString oldExt = project->GetProjectFileExt();
+
+    if( fn.GetExt() == FILEEXT::AnvilProjectFileExtension
+        || fn.GetExt() == FILEEXT::ProjectFileExtension )
+    {
+        project->SetProjectFileExt( fn.GetExt() );
+    }
+
     project->SetFilename( fn.GetName() );
     project->SaveToFile( fn.GetPath() );
     project->SetFilename( oldName );
+    project->SetProjectFileExt( oldExt );
 
     PROJECT_LOCAL_SETTINGS& localSettings = aProject->GetLocalSettings();
 

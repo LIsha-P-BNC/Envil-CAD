@@ -38,6 +38,11 @@
 #include <wx/propgrid/propgrid.h>
 #include <wx/snglinst.h>
 #include <wx/stdpaths.h>
+
+#ifdef __WXMSW__
+#include <windows.h>
+#include <tlhelp32.h>
+#endif
 #include <wx/sysopt.h>
 #include <wx/filedlg.h>
 #include <wx/ffile.h>
@@ -321,6 +326,49 @@ void PGM_BASE::HideSplash()
     m_splash->Close( true );
     m_splash->Destroy();
     m_splash = nullptr;
+}
+
+
+bool PGM_BASE::IsAnotherInstanceRunningLive() const
+{
+#ifdef __WXMSW__
+    // Count live processes with our own executable name, excluding ourselves.  This must
+    // be a LIVE answer (see header): the wxSingleInstanceChecker snapshot taken at startup
+    // goes stale the moment the other instance exits, and a stale "true" here suppresses
+    // the silent reclaim of our own leftover lock files.  In the single-window shell all
+    // editors live in this one process, so "no other process with our exe name" really
+    // does mean "no other instance that could own the lock".
+    wxFileName exe( wxStandardPaths::Get().GetExecutablePath() );
+    const wxString ourName = exe.GetFullName();
+    const DWORD    ourPid  = ::GetCurrentProcessId();
+
+    HANDLE snap = ::CreateToolhelp32Snapshot( TH32CS_SNAPPROCESS, 0 );
+
+    if( snap == INVALID_HANDLE_VALUE )
+        return m_pgm_checker && m_pgm_checker->IsAnotherRunning();
+
+    PROCESSENTRY32 entry;
+    entry.dwSize = sizeof( entry );
+    bool found = false;
+
+    if( ::Process32First( snap, &entry ) )
+    {
+        do
+        {
+            if( entry.th32ProcessID != ourPid
+                    && ourName.CmpNoCase( wxString( entry.szExeFile ) ) == 0 )
+            {
+                found = true;
+                break;
+            }
+        } while( ::Process32Next( snap, &entry ) );
+    }
+
+    ::CloseHandle( snap );
+    return found;
+#else
+    return m_pgm_checker && m_pgm_checker->IsAnotherRunning();
+#endif
 }
 
 

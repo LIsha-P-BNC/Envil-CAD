@@ -554,7 +554,7 @@ static void LoadSchematic( SCHEMATIC* aSchematic, SCH_SHEET* aRootSheet, const w
                     wxFileName sheetFname( aFileName );
                     sheetFname.SetFullName(
                             sheetBaseName + wxS( "." )
-                            + wxString::FromUTF8( FILEEXT::KiCadSchematicFileExtension ) );
+                            + wxString::FromUTF8( FILEEXT::AnvilSchematicFileExtension ) );
 
                     wxFileName relSheetPath( sheetFname );
                     relSheetPath.MakeRelativeTo(

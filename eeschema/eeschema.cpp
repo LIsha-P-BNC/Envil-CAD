@@ -666,7 +666,9 @@ void IFACE::SaveFileAs( const wxString& aProjectBasePath, const wxString& aProje
     if( ext == FILEEXT::LegacySchematicFileExtension
         || ext == FILEEXT::LegacySchematicFileExtension + FILEEXT::BackupFileSuffix
         || ext == FILEEXT::KiCadSchematicFileExtension
-        || ext == FILEEXT::KiCadSchematicFileExtension + FILEEXT::BackupFileSuffix )
+        || ext == FILEEXT::KiCadSchematicFileExtension + FILEEXT::BackupFileSuffix
+        || ext == FILEEXT::AnvilSchematicFileExtension
+        || ext == FILEEXT::AnvilSchematicFileExtension + FILEEXT::BackupFileSuffix )
     {
         if( destFile.GetName() == aProjectName )
         {
@@ -705,7 +707,8 @@ void IFACE::SaveFileAs( const wxString& aProjectBasePath, const wxString& aProje
     }
     else if( ext == FILEEXT::LegacySymbolLibFileExtension
              || ext == FILEEXT::LegacySymbolDocumentFileExtension
-             || ext == FILEEXT::KiCadSymbolLibFileExtension )
+             || ext == FILEEXT::KiCadSymbolLibFileExtension
+             || ext == FILEEXT::AnvilSymbolLibFileExtension )
     {
         if( destFile.GetName() == aProjectName + wxS( "-cache" ) )
             destFile.SetName( aNewProjectName + wxS( "-cache" ) );
@@ -860,7 +863,10 @@ bool IFACE::HandleApiOpenDocument( const wxString& aPath, KICAD_API_SERVER* aSer
     }
 
     wxFileName schPath( projectPath );
-    schPath.SetExt( FILEEXT::KiCadSchematicFileExtension );
+    schPath.SetExt( FILEEXT::AnvilSchematicFileExtension );
+
+    if( !schPath.FileExists() )
+        schPath.SetExt( FILEEXT::KiCadSchematicFileExtension );
 
     if( !schPath.FileExists() )
     {

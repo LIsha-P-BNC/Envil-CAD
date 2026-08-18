@@ -132,6 +132,27 @@ public:
     static const std::string AnvilPcbFileExtension;
     static const std::string AnvilSymbolLibFileExtension;
     static const std::string AnvilFootprintFileExtension;
+
+    /**
+     * Normalize the extension of a file-name *reference* (e.g. a sheet's filename field):
+     * an explicit kicad_* or anvil_* extension is kept (the file it points at may be a
+     * KiCad-extension file on disk), anything else becomes the Anvil extension.
+     */
+    static wxString EnsureNativeFileExtension( const wxString& aFilename,
+                                               const std::string& aAnvilExt,
+                                               const std::string& aKiCadExt );
+    static wxString EnsureNativeSchExtension( const wxString& aFilename );
+
+    /**
+     * Force the Anvil extension on a file name about to be *written* (Save As, exports,
+     * new files): a kicad_* extension is replaced, anything else has the Anvil extension
+     * appended.  Anvil-CAD never creates new kicad_* files.
+     */
+    static wxString ForceAnvilFileExtension( const wxString& aFilename,
+                                             const std::string& aAnvilExt,
+                                             const std::string& aKiCadExt );
+    static wxString ForceAnvilSchExtension( const wxString& aFilename );
+    static wxString ForceAnvilPcbExtension( const wxString& aFilename );
     static const std::string ProjectLocalSettingsFileExtension;
     static const std::string LegacySchematicFileExtension;
     static const std::string CadstarSchematicFileExtension;
@@ -270,6 +291,10 @@ public:
     static wxString DrawingSheetFileWildcard();
     static wxString KiCadSymbolLibFileWildcard();
     static wxString AnvilProjectFileWildcard();
+    static wxString AnvilSchematicFileWildcard();
+    static wxString AnvilPcbFileWildcard();
+    static wxString AnvilSymbolLibFileWildcard();
+    static wxString AnvilFootprintLibFileWildcard();
     static wxString ProjectFileWildcard();
     static wxString LegacyProjectFileWildcard();
     static wxString AllProjectFilesWildcard();

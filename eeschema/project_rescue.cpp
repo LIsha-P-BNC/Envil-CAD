@@ -804,7 +804,18 @@ bool SYMBOL_LIB_TABLE_RESCUER::WriteRescueLibrary( wxWindow *aParent )
 
     std::optional<const LIBRARY_TABLE_ROW*> optRow = manager.GetRow( LIBRARY_TABLE_TYPE::SYMBOL, fn.GetName() );
 
-    fn.SetExt( FILEEXT::KiCadSymbolLibFileExtension );
+    fn.SetExt( FILEEXT::AnvilSymbolLibFileExtension );
+
+    // Append to an existing KiCad-extension rescue library rather than splitting rescues
+    // across two files.
+    if( !fn.FileExists() )
+    {
+        wxFileName kicadFn( fn );
+        kicadFn.SetExt( FILEEXT::KiCadSymbolLibFileExtension );
+
+        if( kicadFn.FileExists() )
+            fn = kicadFn;
+    }
 
     try
     {

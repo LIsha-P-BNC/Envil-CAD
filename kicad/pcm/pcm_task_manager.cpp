@@ -77,6 +77,19 @@ PCM_TASK_MANAGER::STATUS PCM_TASK_MANAGER::DownloadAndInstall( const PCM_PACKAGE
             return PCM_TASK_MANAGER::STATUS::FAILED;
         }
 
+        // download_url is optional in the PCM schema, so a schema-valid repository can list a
+        // version with nothing to download.  Dereferencing the empty optional below is undefined
+        // behaviour, so bail out with a report the user can act on instead.
+        if( !find_pkgver->download_url )
+        {
+            m_reporter->PCMReport( wxString::Format( _( "Version %s of package %s has no download "
+                                                        "URL in the repository, it cannot be "
+                                                        "installed." ),
+                                                     aVersion, aPackage.identifier ),
+                                   RPT_SEVERITY_ERROR );
+            return PCM_TASK_MANAGER::STATUS::FAILED;
+        }
+
         if( !wxDirExists( file_path.GetPath() )
             && !wxFileName::Mkdir( file_path.GetPath(), wxS_DIR_DEFAULT, wxPATH_MKDIR_FULL ) )
         {

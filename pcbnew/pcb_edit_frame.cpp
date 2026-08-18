@@ -979,6 +979,7 @@ PCB_EDIT_FRAME::PCB_EDIT_FRAME( KIWAY* aKiway, wxWindow* aParent ) :
     }
 
     m_acceptedExts.emplace( FILEEXT::KiCadPcbFileExtension, &PCB_ACTIONS::ddAppendBoard );
+    m_acceptedExts.emplace( FILEEXT::AnvilPcbFileExtension, &PCB_ACTIONS::ddAppendBoard );
     m_acceptedExts.emplace( FILEEXT::LegacyPcbFileExtension, &PCB_ACTIONS::ddAppendBoard );
     m_acceptedExts.emplace( wxS( "dxf" ), &PCB_ACTIONS::ddImportGraphics );
     m_acceptedExts.emplace( FILEEXT::SVGFileExtension, &PCB_ACTIONS::ddImportGraphics );

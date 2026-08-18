@@ -728,11 +728,17 @@ bool PROJECT_FILE::LoadFromFile( const wxString& aDirectory )
                 if( referencedFile.FileExists() )
                     continue;
 
-                // Try the project-name-based filename
+                // Try the project-name-based filename under either native extension
                 wxString expectedFile =
-                        projectName + wxS( "." ) + FILEEXT::KiCadSchematicFileExtension;
+                        projectName + wxS( "." ) + FILEEXT::AnvilSchematicFileExtension;
 
                 wxFileName candidateFile( projectPath, expectedFile );
+
+                if( !candidateFile.FileExists() )
+                {
+                    expectedFile = projectName + wxS( "." ) + FILEEXT::KiCadSchematicFileExtension;
+                    candidateFile = wxFileName( projectPath, expectedFile );
+                }
 
                 if( candidateFile.FileExists() )
                 {
@@ -757,7 +763,7 @@ bool PROJECT_FILE::SaveToFile( const wxString& aDirectory, bool aForce )
 {
     wxASSERT( m_project );
 
-    Set( "meta.filename", m_project->GetProjectName() + "." + FILEEXT::ProjectFileExtension );
+    Set( "meta.filename", m_project->GetProjectName() + "." + getFileExt() );
 
     // Even if parameters were not modified, we should resave after migration
     bool force = aForce || m_wasMigrated;
@@ -776,7 +782,7 @@ bool PROJECT_FILE::SaveAs( const wxString& aDirectory, const wxString& aFile )
     wxString   oldProjectName = oldFilename.GetName();
     wxString   oldProjectPath = oldFilename.GetPath();
 
-    Set( "meta.filename", aFile + "." + FILEEXT::ProjectFileExtension );
+    Set( "meta.filename", aFile + "." + getFileExt() );
     SetFilename( aFile );
 
     auto updatePath =
