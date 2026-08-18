@@ -213,6 +213,28 @@ public:
     void SetToolManager( TOOL_MANAGER* aManager ) { m_toolManager = aManager; }
 
     /**
+     * Anvil: override the icon size (logical px) used for this toolbar's buttons.  Pass 0 to fall
+     * back to the global/Anvil default size.  Used to give the Altium-style Active Bar larger,
+     * more prominent icons than the compact side/top toolbars.  Set before the toolbar is
+     * populated (ApplyConfiguration).
+     */
+    void SetIconSizeOverride( int aSizePx ) { m_iconSizeOverride = aSizePx; }
+
+    /**
+     * Anvil: when true, show each action's friendly name as a bold-capable text label next to its
+     * icon (used by the Active Bar).  Set before the toolbar is populated (ApplyConfiguration).
+     */
+    void SetShowTextLabels( bool aShow ) { m_showTextLabels = aShow; }
+
+    /**
+     * Anvil: force this toolbar to render TOOLBAR_GROUPs as collapsed multi-function buttons
+     * (click-hold flyout) even when the global m_AnvilFlatToolbars "show every tool flat" mode is
+     * on.  Used by the Altium-style Active Bar so it stays a short strip of grouped buttons.  Set
+     * before the toolbar is populated (ApplyConfiguration).
+     */
+    void SetForceGrouped( bool aForce ) { m_forceGrouped = aForce; }
+
+    /**
      * Add a TOOL_ACTION-based button to the toolbar.
      *
      * The toggle/cancel attributes are set using the attributes in the action.
@@ -413,6 +435,19 @@ protected:
     wxAuiManager*           m_auiManager;
     TOOL_MANAGER*           m_toolManager;
     ACTION_TOOLBAR_PALETTE* m_palette;
+
+    /// Anvil: per-toolbar icon-size override (logical px); 0 = use the global/Anvil default.
+    int                     m_iconSizeOverride = 0;
+
+    /// Anvil: show friendly-name text labels beside each button (Active Bar).
+    bool                    m_showTextLabels = false;
+
+    /// Anvil: keep TOOLBAR_GROUPs collapsed to multi-function buttons even when the global
+    /// "flat toolbars" mode is on (used by the Active Bar).
+    bool                    m_forceGrouped = false;
+
+    /// Anvil: resolve the icon size for this toolbar (override if set, else the global default).
+    int getIconSize() const;
 
     std::map<int, bool>                m_toolKinds;
     std::map<int, bool>                m_toolCancellable;

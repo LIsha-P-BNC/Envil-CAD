@@ -489,6 +489,11 @@ bool PGM_BASE::InitPgm( bool aHeadless, bool aIsUnitTest )
     {
         wxToolTip::Enable( true );
         wxToolTip::SetAutoPop( 10000 );
+
+        // Anvil: snappier tooltip popup so hovering a toolbar icon names it quickly
+        // (AnvilTooltipDelay ms; 0 = instant, -1 = keep the OS default delay)
+        if( ADVANCED_CFG::GetCfg().m_AnvilTooltipDelayMs >= 0 )
+            wxToolTip::SetDelay( ADVANCED_CFG::GetCfg().m_AnvilTooltipDelayMs );
     }
 
     if( ADVANCED_CFG::GetCfg().m_UpdateUIEventInterval != 0 )

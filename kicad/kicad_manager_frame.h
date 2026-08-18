@@ -467,6 +467,22 @@ private:
     /// Project Manager tab. No-op unless SingleWindowShell + UnifiedStatusBar are both set.
     void syncShellStatusBarToActiveTab();
 
+    /// UnifiedToolbar: move aEditor's top toolbar (Standard + aux row) OUT of its tab and dock
+    /// it in a shell strip ABOVE the editor tab bar, so the layout matches Altium
+    /// (Title -> Menu -> Toolbar -> Tabs -> Workspace).  Reparent-safe: ACTION_TOOLBAR dispatches
+    /// through a stored TOOL_MANAGER pointer, so its buttons keep driving the editor after the
+    /// widget is reparented.  No-op unless SingleWindowShell + UnifiedToolbar, or already hoisted.
+    void hoistEditorTopToolbar( EDA_BASE_FRAME* aEditor );
+
+    /// Reverse hoistEditorTopToolbar(): return aEditor's toolbars to its own AUI so a standalone
+    /// (undocked) editor keeps its toolbar.  Called before the WS_CHILD reversal in
+    /// DetachDockedEditor(), and for every editor at shell teardown.
+    void restoreEditorTopToolbar( EDA_BASE_FRAME* aEditor );
+
+    /// Show the active editor tab's hoisted toolbar strip and hide every other editor's, so only
+    /// the front tab's toolbar is visible above the tabs.
+    void syncShellToolbarToActiveTab();
+
     /// Single-window shell: queue the heavy editor KIFACEs (Symbol/Footprint/Gerber/
     /// Drawing-Sheet) to be warmed in the background after startup so the user's first
     /// click on one is instant instead of "loading the whole app".  Gated on
@@ -501,6 +517,20 @@ private:
     LOCAL_HISTORY_PANE*   m_historyPane;
     wxAuiNotebook*        m_notebook;
     wxAuiNotebook*        m_editorTabs;   ///< Center editor-tab area; only created when m_SingleWindowShell
+
+    /// UnifiedToolbar: editors whose top toolbars have been hoisted above the tab bar.  Each entry
+    /// owns the editor's window-id plus its (reparented-to-shell) main + aux ACTION_TOOLBARs, so
+    /// syncShellToolbarToActiveTab() can toggle visibility and DetachDockedEditor() can restore them.
+    struct HOISTED_EDITOR_TOOLBAR
+    {
+        int             editorId;
+        ACTION_TOOLBAR* main;
+        ACTION_TOOLBAR* aux;
+        ACTION_TOOLBAR* activeBar; ///< Altium-style Active Bar, hoisted as a 3rd top row (Layer 4)
+        ACTION_TOOLBAR* left;    ///< drawing-tools rail, flipped horizontal + hoisted to the top
+        ACTION_TOOLBAR* right;   ///< second drawing rail (if the editor uses one), same treatment
+    };
+    std::vector<HOISTED_EDITOR_TOOLBAR> m_hoistedToolbars;
     WEBVIEW_PANEL*        m_aiChatPanel;  ///< Shell-owned common AI panel; only when CommonAiPanel + shell
     ENVIL_AI_AGENT*       m_envilAgent;   ///< Native Claude agent driving m_aiChatPanel
     std::unique_ptr<ENVIL_AI_TOOL_SERVER> m_envilToolServer;  ///< MCP tool socket (loopback)

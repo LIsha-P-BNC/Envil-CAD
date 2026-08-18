@@ -90,6 +90,65 @@
 #include <api/api_server.h>
 #endif
 
+#ifdef __WXMSW__
+#include <windows.h>
+
+// Anvil: re-font all native tooltip windows (tooltips_class32) in this process with the
+// themed UI font.  Windows draws tooltips with the system font and wxToolTip exposes no
+// font hook, so this Win32 pass is the only way hover labels can match AnvilUiFontFace.
+// Tooltip HWNDs only borrow the font (WM_SETFONT takes no ownership), so a private HFONT
+// copy is kept alive for the process lifetime.  Safe and cheap to call repeatedly.
+static void anvilThemeNativeTooltipFonts()
+{
+    static HFONT s_hFont = nullptr;
+
+    if( !s_hFont )
+    {
+        const ADVANCED_CFG& acfg = ADVANCED_CFG::GetCfg();
+
+        if( acfg.m_AnvilUiFontFace.IsEmpty() )
+            return;
+
+        wxFont font( wxFontInfo( acfg.m_AnvilUiFontPt > 0.0 ? acfg.m_AnvilUiFontPt : 9.0 )
+                             .FaceName( acfg.m_AnvilUiFontFace ) );
+
+        if( !font.IsOk() )
+            return;
+
+        LOGFONTW lf;
+
+        if( !::GetObjectW( (HFONT) font.GetHFONT(), sizeof( lf ), &lf ) )
+            return;
+
+        s_hFont = ::CreateFontIndirectW( &lf );
+
+        if( !s_hFont )
+            return;
+    }
+
+    ::EnumWindows(
+            []( HWND aHwnd, LPARAM aParam ) -> BOOL
+            {
+                DWORD pid = 0;
+                ::GetWindowThreadProcessId( aHwnd, &pid );
+
+                if( pid == ::GetCurrentProcessId() )
+                {
+                    wchar_t cls[64];
+
+                    if( ::GetClassNameW( aHwnd, cls, 64 )
+                            && wcscmp( cls, L"tooltips_class32" ) == 0 )
+                    {
+                        ::SendMessageW( aHwnd, WM_SETFONT, (WPARAM) aParam, TRUE );
+                    }
+                }
+
+                return TRUE;
+            },
+            (LPARAM) s_hFont );
+}
+#endif
+
 
 // Minimum window size
 static const wxSize minSizeLookup( FRAME_T aFrameType, wxWindow* aWindow )
@@ -192,6 +251,7 @@ EDA_BASE_FRAME::EDA_BASE_FRAME( wxWindow* aParent, FRAME_T aFrameType, const wxS
     m_tbTopAux = nullptr;
     m_tbRight      = nullptr;
     m_tbLeft   = nullptr;
+    m_tbActiveBar = nullptr;
     m_uiUpdateHandlerBound = false;
 
     // Anvil: apply the app-wide UI base font size (AnvilUiFontPt) up-front, before commonInit()
@@ -219,6 +279,27 @@ EDA_BASE_FRAME::EDA_BASE_FRAME( wxWindow* aParent, FRAME_T aFrameType, const wxS
         if( changed )
             SetFont( uiFont );
     }
+
+#ifdef __WXMSW__
+    // Anvil: native tooltip popups (tooltips_class32) are drawn by Windows with the system
+    // font — the ONE text surface the wx font override cannot reach.  Re-font every tooltip
+    // window in this process with the themed UI font so hover labels match the brand too.
+    // Tooltip HWNDs are created lazily by each control, so re-apply on a throttled idle.
+    Bind( wxEVT_IDLE,
+          []( wxIdleEvent& aEvent )
+          {
+              static wxLongLong s_last = 0;
+              wxLongLong        now = wxGetLocalTimeMillis();
+
+              if( now - s_last > 1500 )
+              {
+                  s_last = now;
+                  anvilThemeNativeTooltipFonts();
+              }
+
+              aEvent.Skip();
+          } );
+#endif
 
     commonInit( aFrameType );
 
@@ -650,6 +731,9 @@ void EDA_BASE_FRAME::SelectToolbarAction( const TOOL_ACTION& aAction )
 
     if( m_tbRight )
         m_tbRight->SelectAction( aAction );
+
+    if( m_tbActiveBar )
+        m_tbActiveBar->SelectAction( aAction );
 }
 
 
@@ -723,6 +807,27 @@ void EDA_BASE_FRAME::RecreateToolbars()
 
         m_tbTopAux->ApplyConfiguration( tbConfig.value() );
     }
+
+    // Active Bar (Altium-style horizontal tool bar at the top of the design space).  Only editors
+    // that return a config for TOOLBAR_LOC::ACTIVE_BAR (currently the PCB editor) create one; every
+    // other frame leaves it null and is unaffected.
+    tbConfig = m_toolbarSettings->GetToolbarConfig( TOOLBAR_LOC::ACTIVE_BAR, config()->m_CustomToolbars );
+
+    if( tbConfig.has_value() )
+    {
+        if( !m_tbActiveBar )
+        {
+            // NOTE: deliberately NO wxAUI_TB_OVERFLOW, so no tools are ever hidden behind a ">>"
+            // chevron.  The Active Bar gets its OWN full-width top row (see the hoist / AUI layer),
+            // where all of its flat tool icons fit — nothing hidden, no dropdowns, no chevron.
+            m_tbActiveBar = new ACTION_TOOLBAR( this, wxID_ANY, wxDefaultPosition, wxDefaultSize,
+                                                KICAD_AUI_TB_STYLE | wxAUI_TB_HORZ_LAYOUT | wxAUI_TB_HORIZONTAL
+                                                        | wxAUI_TB_TEXT );
+            m_tbActiveBar->SetAuiManager( &m_auimgr );
+        }
+
+        m_tbActiveBar->ApplyConfiguration( tbConfig.value() );
+    }
 }
 
 
@@ -740,6 +845,9 @@ void EDA_BASE_FRAME::UpdateToolbarControlSizes()
     if( m_tbTopAux )
         m_tbTopAux->UpdateControlWidths();
 
+    if( m_tbActiveBar )
+        m_tbActiveBar->UpdateControlWidths();
+
 }
 
 
@@ -756,6 +864,9 @@ void EDA_BASE_FRAME::OnToolbarSizeChanged()
 
     if( m_tbTopAux )
         m_auimgr.GetPane( m_tbTopAux ).MaxSize( m_tbTopAux->GetSize() );
+
+    if( m_tbActiveBar )
+        m_auimgr.GetPane( m_tbActiveBar ).MaxSize( m_tbActiveBar->GetSize() );
 
     m_auimgr.Update();
 }
@@ -1288,6 +1399,14 @@ void EDA_BASE_FRAME::RestoreAuiLayout()
 
     if( topMainToolbar.IsOk() )
         topMainToolbar.Top().Layer( 6 ).Position( 0 );
+
+    // Same self-heal for the Altium-style Active Bar (PCB, schematic, symbol, footprint editors):
+    // it must always sit on a top row just above the canvas, never get re-docked into a side column
+    // by a stale perspective.
+    wxAuiPaneInfo& activeBar = m_auimgr.GetPane( wxS( "ActiveBarToolbar" ) );
+
+    if( activeBar.IsOk() )
+        activeBar.Top().Layer( 4 ).Position( 0 );
 }
 
 

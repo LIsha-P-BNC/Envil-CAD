@@ -107,7 +107,6 @@ void PCB_EDIT_FRAME::doReCreateMenuBar()
     fileMenu->Add( ACTIONS::revert );
 
     fileMenu->AppendSeparator();
-    fileMenu->Add( PCB_ACTIONS::rescueAutosave );
 
     // Import submenu
     ACTION_MENU* submenuImport = new ACTION_MENU( false, selTool );
@@ -480,15 +479,9 @@ void PCB_EDIT_FRAME::doReCreateMenuBar()
 
     toolsMenu->Add( multichannelSubmenu );
 
-    ACTION_MENU* submenuActionPlugins = new ACTION_MENU( false, selTool );
-    submenuActionPlugins->SetTitle( _( "External Plugins" ) );
-    submenuActionPlugins->SetIcon( BITMAPS::puzzle_piece );
-
-    submenuActionPlugins->Add( ACTIONS::pluginsReload );
-    submenuActionPlugins->Add( PCB_ACTIONS::pluginsShowFolder );
-
-    toolsMenu->AppendSeparator();
-    toolsMenu->Add( submenuActionPlugins );
+    // Anvil: the External Plugins submenu was removed — its entries (reload / show folder)
+    // belong to the SWIG action-plugin backend, which does not exist in this fork, so both
+    // menu items were dead (no handler).  IPC-API plugins surface on the toolbar instead.
 
     //-- Preferences menu ----------------------------------------------------
     //
@@ -605,7 +598,6 @@ void PCB_EDIT_FRAME::buildFileMenu( ACTION_MENU* fileMenu )
     fileMenu->Add( ACTIONS::revert );
 
     fileMenu->AppendSeparator();
-    fileMenu->Add( PCB_ACTIONS::rescueAutosave );
 
     // Import submenu
     ACTION_MENU* submenuImport = new ACTION_MENU( false, selTool );
@@ -973,14 +965,8 @@ void PCB_EDIT_FRAME::buildToolsMenu( ACTION_MENU* toolsMenu )
         toolsMenu->Add( PCB_ACTIONS::boardReannotate );
         toolsMenu->Add( ACTIONS::showCalculatorTools );
 
-        ACTION_MENU* modernPluginsSubmenu = new ACTION_MENU( false, selTool );
-        modernPluginsSubmenu->SetTitle( _( "External Plugins" ) );
-        modernPluginsSubmenu->SetIcon( BITMAPS::puzzle_piece );
-        modernPluginsSubmenu->Add( ACTIONS::pluginsReload );
-        modernPluginsSubmenu->Add( PCB_ACTIONS::pluginsShowFolder );
-
-        toolsMenu->AppendSeparator();
-        toolsMenu->Add( modernPluginsSubmenu );
+        // Anvil: External Plugins submenu removed here too (dead SWIG-plugin entries; the
+        // scripting backend does not exist in this fork).
 
         toolsMenu->AppendSeparator();
         toolsMenu->Add( ACTIONS::configurePaths );
@@ -1044,15 +1030,9 @@ void PCB_EDIT_FRAME::buildToolsMenu( ACTION_MENU* toolsMenu )
 
     toolsMenu->Add( multichannelSubmenu );
 
-    ACTION_MENU* submenuActionPlugins = new ACTION_MENU( false, selTool );
-    submenuActionPlugins->SetTitle( _( "External Plugins" ) );
-    submenuActionPlugins->SetIcon( BITMAPS::puzzle_piece );
-
-    submenuActionPlugins->Add( ACTIONS::pluginsReload );
-    submenuActionPlugins->Add( PCB_ACTIONS::pluginsShowFolder );
-
-    toolsMenu->AppendSeparator();
-    toolsMenu->Add( submenuActionPlugins );
+    // Anvil: the External Plugins submenu was removed — its entries (reload / show folder)
+    // belong to the SWIG action-plugin backend, which does not exist in this fork, so both
+    // menu items were dead (no handler).  IPC-API plugins surface on the toolbar instead.
 }
 
 

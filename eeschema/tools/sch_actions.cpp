@@ -1062,7 +1062,9 @@ TOOL_ACTION SCH_ACTIONS::showNetNavigator( TOOL_ACTION_ARGS()
         .Name( "eeschema.EditorControl.showNetNavigator" )
         .Scope( AS_GLOBAL )
         .FriendlyName( _( "Net Navigator" ) )
-        .Tooltip( _( "Show/hide the net navigator" ) ) );
+        .Tooltip( _( "Show/hide the net navigator" ) )
+        .ToolbarState( TOOLBAR_STATE::TOGGLE )
+        .Icon( BITMAPS::list_nets ) );
 
 TOOL_ACTION SCH_ACTIONS::editWithLibEdit( TOOL_ACTION_ARGS()
         .Name( "eeschema.EditorControl.editWithSymbolEditor" )
@@ -1323,7 +1325,8 @@ TOOL_ACTION SCH_ACTIONS::togglePinAltIcons( TOOL_ACTION_ARGS()
         .Scope( AS_GLOBAL )
         .FriendlyName( _( "Show Pin Alternate Icons" ) )
         .Tooltip( _( "Show indicator icons for pins with alternate modes" ) )
-        .ToolbarState( TOOLBAR_STATE::TOGGLE ) );
+        .ToolbarState( TOOLBAR_STATE::TOGGLE )
+        .Icon( BITMAPS::morgan1 ) );    // repurposed (was unused): pin + swap-arrows glyph
 
 TOOL_ACTION SCH_ACTIONS::lineModeFree( TOOL_ACTION_ARGS()
         .Name( "eeschema.EditorControl.lineModeFree" )

@@ -58,29 +58,40 @@ std::optional<TOOLBAR_CONFIGURATION> SYMBOL_EDIT_TOOLBAR_SETTINGS::DefaultToolba
     case TOOLBAR_LOC::TOP_AUX:
         return std::nullopt;
 
-    case TOOLBAR_LOC::LEFT:
-        // Modern (classic-Altium) preset: the left edge hosts the drawing tools, in
-        // Place-menu order.  The display toggles it replaces surface in the View menu
-        // (modern layout) and the Preferences dialog.
-        if( ADVANCED_CFG::GetCfg().m_ModernToolbarLayout )
+    case TOOLBAR_LOC::ACTIVE_BAR:
+        // Altium-style Active Bar (modern layout only): the symbol drawing tools, in Place-menu
+        // order, docked as a horizontal bar at the top of the design space.  In the classic layout
+        // these tools live on the RIGHT toolbar instead, so there is no Active Bar.
+        if( !ADVANCED_CFG::GetCfg().m_ModernToolbarLayout )
+            return std::nullopt;
+
         {
+            // Compact Altium-style Active Bar: pin + a grouped Draw button keep the strip short.
             config.AppendAction( ACTIONS::selectionTool );
 
             config.AppendSeparator()
                   .AppendAction( SCH_ACTIONS::placeSymbolPin )
-                  .AppendAction( SCH_ACTIONS::placeSymbolText )
-                  .AppendAction( SCH_ACTIONS::drawSymbolTextBox )
-                  .AppendAction( SCH_ACTIONS::drawRectangle )
-                  .AppendAction( SCH_ACTIONS::drawCircle )
-                  .AppendAction( SCH_ACTIONS::drawArc )
-                  .AppendAction( SCH_ACTIONS::drawBezier )
-                  .AppendAction( SCH_ACTIONS::drawSymbolLines )
-                  .AppendAction( SCH_ACTIONS::drawSymbolPolygon )
+                  .AppendGroup( TOOLBAR_GROUP_CONFIG( _( "Draw" ) )
+                                .AddAction( SCH_ACTIONS::placeSymbolText )
+                                .AddAction( SCH_ACTIONS::drawSymbolTextBox )
+                                .AddAction( SCH_ACTIONS::drawRectangle )
+                                .AddAction( SCH_ACTIONS::drawCircle )
+                                .AddAction( SCH_ACTIONS::drawArc )
+                                .AddAction( SCH_ACTIONS::drawBezier )
+                                .AddAction( SCH_ACTIONS::drawSymbolLines )
+                                .AddAction( SCH_ACTIONS::drawSymbolPolygon ) )
                   .AppendAction( SCH_ACTIONS::placeSymbolAnchor )
                   .AppendAction( ACTIONS::deleteTool );
 
             break;
         }
+
+    case TOOLBAR_LOC::LEFT:
+        // Classic preset: the left edge is the options / display-toggle toolbar.  In the modern
+        // (Altium) layout the left edge is empty — the drawing tools moved to the Active Bar and
+        // the display toggles moved into the View menu / Preferences dialog.
+        if( ADVANCED_CFG::GetCfg().m_ModernToolbarLayout )
+            return std::nullopt;
 
         config.AppendAction( ACTIONS::toggleGrid )
               .WithContextMenu(

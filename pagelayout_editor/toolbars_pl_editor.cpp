@@ -43,6 +43,7 @@ std::optional<TOOLBAR_CONFIGURATION> PL_EDITOR_TOOLBAR_SETTINGS::DefaultToolbarC
     {
     // No aux toolbar
     case TOOLBAR_LOC::TOP_AUX:
+    case TOOLBAR_LOC::ACTIVE_BAR:   // Active Bar is PCB-editor-only; no bar here.
         return std::nullopt;
 
     case TOOLBAR_LOC::LEFT:

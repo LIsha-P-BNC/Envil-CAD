@@ -36,6 +36,7 @@
 #include "widgets/gbr_layer_box_selector.h"
 #include "widgets/dcode_selection_box.h"
 #include <toolbars_gerber.h>
+#include <kiplatform/anvil_theme.h>
 
 
 std::optional<TOOLBAR_CONFIGURATION> GERBVIEW_TOOLBAR_SETTINGS::DefaultToolbarConfig( TOOLBAR_LOC aToolbar )
@@ -47,6 +48,7 @@ std::optional<TOOLBAR_CONFIGURATION> GERBVIEW_TOOLBAR_SETTINGS::DefaultToolbarCo
     {
     // No right toolbar
     case TOOLBAR_LOC::RIGHT:
+    case TOOLBAR_LOC::ACTIVE_BAR:   // Active Bar is PCB-editor-only; no bar here.
         return std::nullopt;
 
     case TOOLBAR_LOC::LEFT:
@@ -159,6 +161,12 @@ void GERBVIEW_FRAME::configureToolbars()
                                                                 wxDefaultPosition, wxDefaultSize, 0, nullptr );
                 }
 
+                // Anvil dark theme: the owner-drawn bitmap combo (and the read-only text-info box
+                // below) don't follow wx's MSW dark-mode painting, so they render white-on-white.
+                // Pin them to the ANVIL content/text palette so their text stays readable.
+                m_SelLayerBox->SetBackgroundColour( ANVIL::CONTENT );
+                m_SelLayerBox->SetForegroundColour( ANVIL::BONE );
+
                 m_SelLayerBox->Resync();
                 aToolbar->Add( m_SelLayerBox );
 
@@ -186,6 +194,10 @@ void GERBVIEW_FRAME::configureToolbars()
                     m_TextInfo = new wxTextCtrl( aToolbar, ID_TOOLBARH_GERBER_DATA_TEXT_BOX, wxEmptyString,
                                                 wxDefaultPosition, wxDefaultSize, wxTE_READONLY );
                 }
+
+                // Anvil dark theme: read-only text ctrl otherwise paints white-on-white on MSW.
+                m_TextInfo->SetBackgroundColour( ANVIL::CONTENT );
+                m_TextInfo->SetForegroundColour( ANVIL::BONE );
 
                 aToolbar->Add( m_TextInfo );
             };

@@ -112,6 +112,7 @@ static const wxChar ModernToolbarLayout[] = wxT( "ModernToolbarLayout" );
 static const wxChar SingleWindowShell[] = wxT( "SingleWindowShell" );
 static const wxChar CommonAiPanel[] = wxT( "CommonAiPanel" );
 static const wxChar UnifiedStatusBar[] = wxT( "UnifiedStatusBar" );
+static const wxChar UnifiedToolbar[] = wxT( "UnifiedToolbar" );
 static const wxChar ShellPrewarmEditors[] = wxT( "ShellPrewarmEditors" );
 static const wxChar EnableLibWithText[] = wxT( "EnableLibWithText" );
 static const wxChar EnableLibDir[] = wxT( "EnableLibDir" );
@@ -123,7 +124,10 @@ static const wxChar ConfirmComponentPackage[] = wxT( "ConfirmComponentPackage" )
 static const wxChar AnvilAutoSaveRealFile[] = wxT( "AnvilAutoSaveRealFile" );
 static const wxChar AnvilPurpleFrame[] = wxT( "AnvilPurpleFrame" );
 static const wxChar AnvilEmeraldIcons[] = wxT( "AnvilEmeraldIcons" );
+static const wxChar AnvilTooltipDelay[] = wxT( "AnvilTooltipDelay" );
+static const wxChar AnvilFlatToolbars[] = wxT( "AnvilFlatToolbars" );
 static const wxChar AnvilUiFontPt[] = wxT( "AnvilUiFontPt" );
+static const wxChar AnvilTitlebarGlyphPt[] = wxT( "AnvilTitlebarGlyphPt" );
 static const wxChar AnvilUiFontFace[] = wxT( "AnvilUiFontFace" );
 static const wxChar AnvilMonoFontFace[] = wxT( "AnvilMonoFontFace" );
 static const wxChar AnvilMenuFontPt[] = wxT( "AnvilMenuFontPt" );
@@ -305,6 +309,9 @@ ADVANCED_CFG::ADVANCED_CFG()
     m_SingleWindowShell = true;
     m_CommonAiPanel = false;   // opt-in: one shell-owned AI panel (needs SingleWindowShell); see header
     m_UnifiedStatusBar = true;   // ships ON (part of the single-window product UI); set 0 to opt out
+    m_UnifiedToolbar = true;   // ships ON: hoist the active editor tab's top toolbar ABOVE the tab
+                               // strip (Altium order: menu -> toolbar -> tabs); set 0 to keep the
+                               // toolbar inside each tab (below the tab strip)
     m_ShellPrewarmEditors = false;   // opt-in: GUI-thread KIFACE warm can freeze startup; see header
     m_EnableLibWithText = false;
     m_EnableLibDir = false;
@@ -315,11 +322,20 @@ ADVANCED_CFG::ADVANCED_CFG()
     m_ConfirmComponentPackage = false;   // opt-in: ask THT/SMD + library choice before placing/creating a symbol; see header
     m_AnvilAutoSaveRealFile = false;   // opt-in: autosave writes the real .kicad_sch/.kicad_pcb (not .history) so the AI sees manual edits; see header
     m_AnvilPurpleFrame = false;   // opt-in: vibrant-purple dark chrome on the schematic editor frame; see header
-    m_AnvilEmeraldIcons = true;   // ships ON: recolor toolbar/menu icons KiCad-blue -> NEMI emerald; set 0 for stock icons
+    m_AnvilEmeraldIcons = false;  // ships OFF: whole icon set is rich MULTI-COLOUR (native palette + custom multi-colour
+                                  // editor icons); set AnvilEmeraldIcons=1 to opt back into the single-emerald recolor
+    m_AnvilTooltipDelayMs = 200;  // ships ON: toolbar tooltips appear after 200ms instead of the ~1s OS
+                                  // default; 0 = instant, -1 = keep the OS default delay
+    m_AnvilFlatToolbars = true;   // ships ON: ungroup toolbar tool-groups into individual buttons (every
+                                  // tool its own button, no >> group-dropdowns); set 0 for stock grouping
     m_AnvilUiFontPt = 10.0;       // app-wide UI base font size (pt); 0 disables the override; see header
+    m_AnvilTitlebarGlyphPt = 11.5; // title-bar caption glyph size (pt); 11.5pt renders ~15px so the
+                                   // caption chrome matches the 15px save/undo/redo icons; 0 = track UI font
     m_AnvilUiFontFace = wxS( "Space Grotesk" );   // app-wide UI font family (NEMI brand); empty = leave OS default face
     m_AnvilMonoFontFace = wxS( "IBM Plex Mono" );  // monospaced UI font family (NEMI brand); empty = leave OS default mono face
-    m_AnvilMenuFontPt = 11.0;     // top title-bar menu button size (pt); 0 = fall back to AnvilUiFontPt; see header
+    m_AnvilMenuFontPt = 0.0;      // menu font tracks the app-wide UI size (AnvilUiFontPt) so the
+                                  // menu bar is the SAME size as the rest of the UI (even fonts);
+                                  // set to a >0 pt value to make the menu a different size again
 
     m_3DRT_BevelHeight_um = 30;
     m_3DRT_BevelExtentFactor = 1.0 / 16.0;
@@ -601,6 +617,9 @@ void ADVANCED_CFG::loadSettings( wxConfigBase& aCfg )
     m_entries.push_back( std::make_unique<PARAM_CFG_BOOL>( true, AC_KEYS::UnifiedStatusBar,
                                                            &m_UnifiedStatusBar, m_UnifiedStatusBar ) );
 
+    m_entries.push_back( std::make_unique<PARAM_CFG_BOOL>( true, AC_KEYS::UnifiedToolbar,
+                                                           &m_UnifiedToolbar, m_UnifiedToolbar ) );
+
     m_entries.push_back( std::make_unique<PARAM_CFG_BOOL>( true, AC_KEYS::ShellPrewarmEditors,
                                                            &m_ShellPrewarmEditors, m_ShellPrewarmEditors ) );
 
@@ -644,9 +663,21 @@ void ADVANCED_CFG::loadSettings( wxConfigBase& aCfg )
                                                            &m_AnvilEmeraldIcons,
                                                            m_AnvilEmeraldIcons ) );
 
+    m_entries.push_back( std::make_unique<PARAM_CFG_INT>( true, AC_KEYS::AnvilTooltipDelay,
+                                                          &m_AnvilTooltipDelayMs,
+                                                          m_AnvilTooltipDelayMs, -1, 5000 ) );
+
+    m_entries.push_back( std::make_unique<PARAM_CFG_BOOL>( true, AC_KEYS::AnvilFlatToolbars,
+                                                           &m_AnvilFlatToolbars,
+                                                           m_AnvilFlatToolbars ) );
+
     m_entries.push_back( std::make_unique<PARAM_CFG_DOUBLE>( true, AC_KEYS::AnvilUiFontPt,
                                                              &m_AnvilUiFontPt, m_AnvilUiFontPt,
                                                              0.0, 32.0 ) );
+
+    m_entries.push_back( std::make_unique<PARAM_CFG_DOUBLE>( true, AC_KEYS::AnvilTitlebarGlyphPt,
+                                                             &m_AnvilTitlebarGlyphPt,
+                                                             m_AnvilTitlebarGlyphPt, 0.0, 32.0 ) );
 
     m_entries.push_back( std::make_unique<PARAM_CFG_WXSTRING>( true, AC_KEYS::AnvilUiFontFace,
                                                               &m_AnvilUiFontFace, m_AnvilUiFontFace ) );

@@ -638,6 +638,14 @@ PCB_EDIT_FRAME::PCB_EDIT_FRAME( KIWAY* aKiway, wxWindow* aParent ) :
                       .Top().Layer( 6 ) );
     m_auimgr.AddPane( m_tbTopAux, EDA_PANE().HToolbar().Name( wxS( "TopAuxToolbar" ) )
                       .Top().Layer( 5 ) );
+
+    // Altium-style Active Bar: the routing / drawing tools, docked as a top row just above the
+    // canvas (below the selectors row).  Only created for the PCB editor, and only when the modern
+    // toolbar layout is active (see PCB_EDIT_TOOLBAR_SETTINGS::DefaultToolbarConfig), so guard it.
+    if( m_tbActiveBar )
+        m_auimgr.AddPane( m_tbActiveBar, EDA_PANE().HToolbar().Name( wxS( "ActiveBarToolbar" ) )
+                          .Top().Layer( 4 ) );
+
     m_auimgr.AddPane( m_messagePanel, EDA_PANE().Messages().Name( wxS( "MsgPanel" ) )
                       .Bottom().Layer( 6 ) );
 

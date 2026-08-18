@@ -535,9 +535,9 @@ public:
     {
         SetBackgroundStyle( wxBG_STYLE_PAINT );
 
-        // Menu-bar label size is config-driven (AnvilMenuFontPt, default 11 pt) — deliberately a
-        // bit larger than the app UI size; falls back to AnvilUiFontPt if unset.  Face follows
-        // AnvilUiFontFace.  No hardcoded point size.
+        // Menu-bar label size is config-driven (AnvilMenuFontPt, default 0 -> tracks AnvilUiFontPt
+        // = 10 pt, so the menu bar matches the rest of the UI: even fonts, NEMI consistency).  Face
+        // follows AnvilUiFontFace.  No hardcoded point size.
         const ADVANCED_CFG& acfg = ADVANCED_CFG::GetCfg();
         wxFont labelFont = GetFont();
 
@@ -582,7 +582,7 @@ private:
         dc.DrawRectangle( GetClientRect() );
 
         dc.SetFont( GetFont() );
-        dc.SetTextForeground( *wxWHITE );
+        dc.SetTextForeground( ANVIL::BONE );   // warm Bone primary text (matches popup rows), not cold #FFF
 
         wxSize sz  = GetClientSize();
         wxSize ext = dc.GetTextExtent( m_label );
@@ -612,7 +612,15 @@ public:
     {
         SetBackgroundStyle( wxBG_STYLE_PAINT );
 
-        wxFont glyphFont( wxFontInfo( 11 ).FaceName( wxT( "Segoe MDL2 Assets" ) ) );
+        // Caption glyph size: AnvilTitlebarGlyphPt (ships larger than the UI font so the
+        // quick-access icons visually match the 24px toolbar icons below); 0 falls back to
+        // tracking AnvilUiFontPt.  The icon FACE stays Segoe MDL2 Assets (a semantic
+        // window-control glyph font, not a text face).
+        const ADVANCED_CFG& acfg = ADVANCED_CFG::GetCfg();
+        const double glyphPt = acfg.m_AnvilTitlebarGlyphPt > 0.0 ? acfg.m_AnvilTitlebarGlyphPt
+                               : acfg.m_AnvilUiFontPt > 0.0      ? acfg.m_AnvilUiFontPt
+                                                                 : 11.0;
+        wxFont glyphFont( wxFontInfo( glyphPt ).FaceName( wxT( "Segoe MDL2 Assets" ) ) );
 
         if( glyphFont.IsOk() )
             SetFont( glyphFont );
@@ -648,7 +656,7 @@ private:
         dc.DrawRectangle( 0, 0, sz.x, sz.y );
 
         dc.SetFont( GetFont() );
-        dc.SetTextForeground( m_active ? *wxWHITE : ANVIL::DIM_MENU );
+        dc.SetTextForeground( m_active ? ANVIL::BONE : ANVIL::DIM_MENU );   // warm Bone, not cold #FFF
 
         wxSize ext = dc.GetTextExtent( m_glyph );
         dc.DrawText( m_glyph, ( sz.x - ext.x ) / 2, ( sz.y - ext.y ) / 2 );
@@ -669,6 +677,81 @@ private:
     bool     m_hover     = false;
     bool     m_active    = true;
     bool     m_indicator = false;
+};
+
+
+// Anvil: title-bar quick-access button drawing a real toolbar BITMAP icon (the same emerald
+// icon set as the editor toolbars) instead of a Segoe MDL2 font glyph — so the caption's
+// save/undo/redo match the toolbar icons below in type, colour and weight.
+//
+// App-wide icon target is 18px.  KiCad icon artwork carries ~2px of transparent padding, so the
+// bitmap CELL must be 2px larger than the desired visible glyph: 18 + 2 = 20 renders an 18px icon.
+static constexpr int ANVIL_TITLEBAR_ICON_PX   = 15;   // visible glyph size (what you see on screen)
+static constexpr int ANVIL_TITLEBAR_ICON_CELL = ANVIL_TITLEBAR_ICON_PX + 2;   // bitmap cell (= 17)
+class TITLEBAR_ICON_BUTTON : public wxWindow
+{
+public:
+    TITLEBAR_ICON_BUTTON( wxWindow* aParent, BITMAPS aBitmap, int aWidth,
+                          const wxColour& aHoverBg ) :
+            wxWindow( aParent, wxID_ANY ),
+            // 18px visible glyph = 20px bitmap cell (icon has ~2px built-in padding).
+            m_normal( KiBitmapBundleDef( aBitmap, ANVIL_TITLEBAR_ICON_CELL ) ),
+            m_disabled( KiDisabledBitmapBundleDef( aBitmap, ANVIL_TITLEBAR_ICON_CELL ) ),
+            m_hoverBg( aHoverBg )
+    {
+        SetBackgroundStyle( wxBG_STYLE_PAINT );
+        SetMinSize( wxSize( aWidth, FromDIP( 24 ) ) );
+
+        Bind( wxEVT_PAINT, &TITLEBAR_ICON_BUTTON::onPaint, this );
+        Bind( wxEVT_ENTER_WINDOW, [this]( wxMouseEvent& ) { m_hover = true;  Refresh(); } );
+        Bind( wxEVT_LEAVE_WINDOW, [this]( wxMouseEvent& ) { m_hover = false; Refresh(); } );
+        Bind( wxEVT_LEFT_DOWN,
+              [this]( wxMouseEvent& )
+              {
+                  wxCommandEvent evt( wxEVT_BUTTON, GetId() );
+                  evt.SetEventObject( this );
+                  ProcessWindowEvent( evt );
+              } );
+    }
+
+    /// Same interface as TITLEBAR_GLYPH_BUTTON: bright icon while usable, dimmed otherwise.
+    void SetActiveGlyph( bool aActive )
+    {
+        if( m_active != aActive )
+        {
+            m_active = aActive;
+            Refresh();
+        }
+    }
+
+private:
+    void onPaint( wxPaintEvent& )
+    {
+        wxAutoBufferedPaintDC dc( this );
+        const wxSize sz = GetClientSize();
+
+        // Full-height hover fill (window-control / VS Code style), same as the glyph buttons.
+        dc.SetPen( *wxTRANSPARENT_PEN );
+        dc.SetBrush( wxBrush( m_hover ? m_hoverBg : GetParent()->GetBackgroundColour() ) );
+        dc.DrawRectangle( 0, 0, sz.x, sz.y );
+
+        // 18px visible glyph; the +2 cell compensates the icon's built-in padding, matching the
+        // editor toolbar (base 18 -> 18px) and the tree (18).
+        const int side = FromDIP( ANVIL_TITLEBAR_ICON_CELL );
+        wxBitmap  bmp = ( m_active ? m_normal : m_disabled ).GetBitmap( wxSize( side, side ) );
+
+        if( bmp.IsOk() )
+        {
+            dc.DrawBitmap( bmp, ( sz.x - bmp.GetWidth() ) / 2, ( sz.y - bmp.GetHeight() ) / 2,
+                           true );
+        }
+    }
+
+    wxBitmapBundle m_normal;
+    wxBitmapBundle m_disabled;
+    wxColour       m_hoverBg;
+    bool           m_hover  = false;
+    bool           m_active = true;
 };
 
 
@@ -860,10 +943,10 @@ public:
 
         m_sizer = new wxBoxSizer( wxHORIZONTAL );
 
-        // VS Code / Cursor-style title bar: a small 16px app glyph at the far left
-        // with tight padding, then the menu.
-        m_logo = new wxStaticBitmap( this, wxID_ANY, KiBitmapBundle( BITMAPS::icon_kicad, 16 ) );
-        m_sizer->Add( m_logo, 0, wxALIGN_CENTRE_VERTICAL | wxLEFT | wxRIGHT, FromDIP( 6 ) );
+        // Left app logo removed (brand request — no icon_kicad glyph in the title bar).  Keep a
+        // small left inset so the title-bar content does not butt against the window edge and the
+        // menu row below still aligns to a consistent left margin.
+        m_sizer->AddSpacer( FromDIP( 10 ) );
 
         // The menu ("Menu Manager") lives on its OWN row beneath the title bar (Altium
         // architecture: title bar = row 1, menu = row 2), so it is added to the second row
@@ -877,12 +960,21 @@ public:
         // never dispatch to a dead editor.
         const wxColour& qaHover = ANVIL::HOVER;
 
-        m_qaSave = makeWinButton( wxUniChar( 0xE74E ), qaHover );   // Save glyph
-        m_qaUndo = makeWinButton( wxUniChar( 0xE7A7 ), qaHover );   // Undo glyph
-        m_qaRedo = makeWinButton( wxUniChar( 0xE7A6 ), qaHover );   // Redo glyph
+        // Real toolbar bitmap icons (the emerald set), not MDL2 font glyphs — so the
+        // quick-access buttons match the editor toolbar icons in type, colour and weight.
+        m_qaSave = new TITLEBAR_ICON_BUTTON( this, BITMAPS::save, FromDIP( 46 ), qaHover );
+        m_qaUndo = new TITLEBAR_ICON_BUTTON( this, BITMAPS::undo, FromDIP( 46 ), qaHover );
+        m_qaRedo = new TITLEBAR_ICON_BUTTON( this, BITMAPS::redo, FromDIP( 46 ), qaHover );
         m_qaSave->SetToolTip( _( "Save (active editor)" ) );
         m_qaUndo->SetToolTip( _( "Undo (active editor)" ) );
         m_qaRedo->SetToolTip( _( "Redo (active editor)" ) );
+
+        // Altium-style app mark: the Anvil logo anchors the far left of the title bar
+        // (Altium/OrCAD and native Windows apps lead the caption with the app icon).
+        wxStaticBitmap* appMark = new wxStaticBitmap( this, wxID_ANY,
+                KiBitmapBundle( BITMAPS::icon_kicad_24 ) );
+        m_sizer->AddSpacer( FromDIP( 10 ) );
+        m_sizer->Add( appMark, 0, wxALIGN_CENTRE_VERTICAL );
 
         m_sizer->AddSpacer( FromDIP( 8 ) );
         m_sizer->Add( m_qaSave, 0, wxEXPAND );
@@ -963,6 +1055,22 @@ public:
         m_min   = makeWinButton( wxUniChar( 0xE921 ), subtleHover );  // ChromeMinimize
         m_max   = makeWinButton( wxUniChar( 0xE922 ), subtleHover );  // ChromeMaximize
         m_close = makeWinButton( wxUniChar( 0xE8BB ), closeHover );   // ChromeClose
+
+        // Anvil (user request): render ONLY the three window-control glyphs (minimize / maximize /
+        // close) at a reduced ~13px — smaller than the +/gear caption icons (15px).  10.0pt Segoe
+        // MDL2 Assets renders ~13px.  SetFont after creation overrides the shared caption glyph size
+        // for just these three buttons (their paint uses GetFont()).
+        {
+            wxFont winGlyph( wxFontInfo( 10.0 ).FaceName( wxT( "Segoe MDL2 Assets" ) ) );
+
+            if( winGlyph.IsOk() )
+            {
+                m_min->SetFont( winGlyph );
+                m_max->SetFont( winGlyph );
+                m_close->SetFont( winGlyph );
+            }
+        }
+
         m_sizer->Add( m_min,   0, wxEXPAND );
         m_sizer->Add( m_max,   0, wxEXPAND );
         m_sizer->Add( m_close, 0, wxEXPAND );
@@ -1184,13 +1292,12 @@ private:
     KICAD_MANAGER_FRAME*   m_frame;
     wxBoxSizer*            m_sizer = nullptr;
     wxBoxSizer*            m_menuSizer = nullptr;
-    wxStaticBitmap*        m_logo = nullptr;
     TITLEBAR_GLYPH_BUTTON* m_min = nullptr;
     TITLEBAR_GLYPH_BUTTON* m_max = nullptr;
     TITLEBAR_GLYPH_BUTTON* m_close = nullptr;
-    TITLEBAR_GLYPH_BUTTON* m_qaSave = nullptr;   // Altium-style quick access (active editor)
-    TITLEBAR_GLYPH_BUTTON* m_qaUndo = nullptr;
-    TITLEBAR_GLYPH_BUTTON* m_qaRedo = nullptr;
+    TITLEBAR_ICON_BUTTON* m_qaSave = nullptr;    // Altium-style quick access (active editor);
+    TITLEBAR_ICON_BUTTON* m_qaUndo = nullptr;    // real toolbar bitmap icons, not MDL2 glyphs
+    TITLEBAR_ICON_BUTTON* m_qaRedo = nullptr;
     TITLEBAR_GLYPH_BUTTON* m_gear = nullptr;     // Preferences gear (additive to the menus)
     TITLEBAR_GLYPH_BUTTON* m_openEditor = nullptr; // "Open editor" dropdown (replaces the rail)
     wxStaticText*          m_docTitle = nullptr; // active project / document name (Altium-style)
@@ -2039,6 +2146,11 @@ void KICAD_MANAGER_FRAME::DetachDockedEditor( wxWindow* aPlayer )
     if( !aPlayer )
         return;
 
+    // UnifiedToolbar: if this editor's top toolbar was hoisted above the tab bar, give it back to
+    // the editor's own AUI BEFORE the WS_CHILD reversal, so the undocked/standalone frame keeps
+    // its toolbar (and the reparented widget is not left dangling in the shell).
+    restoreEditorTopToolbar( dynamic_cast<EDA_BASE_FRAME*>( aPlayer ) );
+
     // Reverse the WS_CHILD surgery DockEditorAsTab() applied: detach the frame from its
     // host panel and restore its top-level decorations so it is a normal (hidden) window
     // again — ready to be re-docked.  We do NOT destroy it, so KIWAY's pointer stays valid.
@@ -2309,6 +2421,7 @@ void KICAD_MANAGER_FRAME::onEditorTabChanged( wxAuiNotebookEvent& evt )
     syncShellMenuToActiveTab();
     syncAiPanelToActiveTab();
     syncShellStatusBarToActiveTab();
+    syncShellToolbarToActiveTab();   // reveal the front tab's hoisted toolbar (UnifiedToolbar)
     evt.Skip();
 }
 
@@ -2341,6 +2454,184 @@ void KICAD_MANAGER_FRAME::syncShellStatusBarToActiveTab()
     // The frame's client area changes when the status bar is shown/hidden; force a resize so the
     // AUI panes (and the embedded editor frame + its native footer) reflow to fill it.
     SendSizeEvent();
+#endif
+}
+
+
+void KICAD_MANAGER_FRAME::hoistEditorTopToolbar( EDA_BASE_FRAME* aEditor )
+{
+#ifdef __WXMSW__
+    if( !aEditor || !m_editorTabs || !ADVANCED_CFG::GetCfg().m_SingleWindowShell
+            || !ADVANCED_CFG::GetCfg().m_UnifiedToolbar )
+    {
+        return;
+    }
+
+    const int idx = aEditor->GetId();
+
+    for( const HOISTED_EDITOR_TOOLBAR& h : m_hoistedToolbars )
+    {
+        if( h.editorId == idx )
+            return;   // already hoisted
+    }
+
+    ACTION_TOOLBAR* main      = aEditor->GetTopMainToolbar();
+    ACTION_TOOLBAR* aux       = aEditor->GetTopAuxToolbar();
+    ACTION_TOOLBAR* activeBar = aEditor->GetActiveBarToolbar();
+
+    if( !main && !aux && !activeBar )
+        return;   // frame has no top toolbar (e.g. a viewer) — leave it as-is
+
+    // NOTE: the LEFT/RIGHT drawing rails are intentionally NOT hoisted — they stay vertical next to
+    // the canvas (standard EDA ergonomics; keeps route/via/zone one click from the board).  Only the
+    // Standard toolbar (main) + its aux row are lifted to the top band.  Laying the vertical drawing
+    // rails out horizontally needs a toolbar orientation flip (wxAuiToolBar::SetOrientation is
+    // protected, and AUI does not reliably re-orient a rail built vertical), so that is deferred.
+
+    wxAuiManager& editorMgr = aEditor->GetAuiManager();
+
+    // Lift every toolbar out of the editor's own AUI and dock them in the shell's top strip.  Each
+    // widget is reparented to the shell, but ACTION_TOOLBAR keeps a direct TOOL_MANAGER pointer, so
+    // its buttons still drive THIS editor.  Added hidden; syncShellToolbarToActiveTab() reveals only
+    // the front tab's.  Everything docks in the SAME top layer/row so wxAUI flows them left-to-right
+    // and, when the window is too narrow, wraps the overflow onto the next row automatically — fully
+    // dynamic (re-lays-out on every resize): fills row 1 on a wide desktop, wraps to row 2/3 on a
+    // small laptop, no hardcoded widths.  aFlip turns the side drawing rails (created vertical)
+    // horizontal so they join the top band too (full Altium ribbon).
+    auto hoistOne = [&]( ACTION_TOOLBAR* tb, const wxString& tag, int layer, int pos )
+    {
+        if( !tb )
+            return;
+
+        if( editorMgr.GetPane( tb ).IsOk() )
+            editorMgr.DetachPane( tb );
+
+        tb->Reparent( this );
+        tb->SetAuiManager( &m_auimgr );
+
+        // Same AUI layer + a higher Position keeps a toolbar on the SAME physical row as the one
+        // before it (side-by-side), and wxAuiManager wraps it to a new row only when the row is
+        // actually full — so free right-hand space is used before a new row is created.
+        m_auimgr.AddPane( tb, EDA_PANE().HToolbar()
+                                        .Name( wxString::Format( "Hoist%s_%d", tag, idx ) )
+                                        .Top().Layer( layer ).Position( pos ).Hide() );
+    };
+
+    // NOTHING-CLIPPED priority (user rule: nothing may be lost, excess can spill to another row):
+    // main Standard toolbar on the top row (Layer 6) and the aux settings row (Track/Via/layer/grid/
+    // Zoom/Override) on its OWN full-width row below it (Layer 5).  Each row gets the whole window
+    // width, so no control is ever cut off the right edge — the "second/third row" absorbs overflow.
+    // Higher AUI layer docks higher up, so Layer 6 (main) sits above Layer 5 (aux).
+    hoistOne( main, wxT( "Main" ), 6, 0 );
+    hoistOne( aux,  wxT( "Aux" ),  5, 0 );
+    // Active Bar gets its OWN dedicated top row (its own AUI layer, below the Standard + selectors
+    // rows, just above the tab strip).  All of its flat tool icons fit on that full-width row, so
+    // every tool stays visible — no dropdowns, no ">>" chevron, nothing clipped.
+    hoistOne( activeBar, wxT( "Active" ), 4, 0 );
+
+    editorMgr.Update();                          // editor canvas reflows into the freed rows
+    m_hoistedToolbars.push_back( { idx, main, aux, activeBar, nullptr, nullptr } );
+    m_auimgr.Update();
+    syncShellToolbarToActiveTab();
+#endif
+}
+
+
+void KICAD_MANAGER_FRAME::restoreEditorTopToolbar( EDA_BASE_FRAME* aEditor )
+{
+#ifdef __WXMSW__
+    if( !aEditor )
+        return;
+
+    for( auto it = m_hoistedToolbars.begin(); it != m_hoistedToolbars.end(); ++it )
+    {
+        if( it->editorId != aEditor->GetId() )
+            continue;
+
+        wxAuiManager& editorMgr = aEditor->GetAuiManager();
+
+        // Reverse hoistOne(): pull from the shell AUI, reparent back to the editor, and re-dock
+        // into the editor's own AUI at the same home (name/dock/layer/orientation) it came from.
+        auto restoreTop = [&]( ACTION_TOOLBAR* tb, const wxString& name, int layer )
+        {
+            if( !tb )
+                return;
+
+            if( m_auimgr.GetPane( tb ).IsOk() )
+                m_auimgr.DetachPane( tb );
+
+            tb->Reparent( aEditor );
+            tb->SetAuiManager( &editorMgr );
+            editorMgr.AddPane( tb, EDA_PANE().HToolbar().Name( name ).Top().Layer( layer ) );
+        };
+
+        // The side rails were laid out horizontal for the top band — re-dock them on their original
+        // edge so a standalone (undocked) editor looks normal.  Docking them in a .Left()/.Right()
+        // (VToolbar) dock makes wxAuiManager re-orient them vertical again (SetOrientation is
+        // protected, so we rely on the dock direction rather than calling it directly).
+        auto restoreSide = [&]( ACTION_TOOLBAR* tb, const wxString& name, bool onLeft )
+        {
+            if( !tb )
+                return;
+
+            if( m_auimgr.GetPane( tb ).IsOk() )
+                m_auimgr.DetachPane( tb );
+
+            tb->Reparent( aEditor );
+            tb->SetAuiManager( &editorMgr );
+
+            if( onLeft )
+                editorMgr.AddPane( tb, EDA_PANE().VToolbar().Name( name ).Left() );
+            else
+                editorMgr.AddPane( tb, EDA_PANE().VToolbar().Name( name ).Right() );
+        };
+
+        restoreTop(  it->main,      wxT( "TopMainToolbar" ),  6 );
+        restoreTop(  it->aux,       wxT( "TopAuxToolbar" ),   4 );
+        restoreTop(  it->activeBar, wxT( "ActiveBarToolbar" ), 3 );
+        restoreSide( it->left,  wxT( "LeftToolbar" ),  true );
+        restoreSide( it->right, wxT( "RightToolbar" ), false );
+
+        m_hoistedToolbars.erase( it );
+        m_auimgr.Update();
+        editorMgr.Update();
+        return;
+    }
+#endif
+}
+
+
+void KICAD_MANAGER_FRAME::syncShellToolbarToActiveTab()
+{
+#ifdef __WXMSW__
+    if( m_hoistedToolbars.empty() )
+        return;
+
+    EDA_BASE_FRAME* active   = getActiveDockedEditorFrame();
+    const int       activeId = active ? active->GetId() : -1;
+    bool            changed  = false;
+
+    for( const HOISTED_EDITOR_TOOLBAR& h : m_hoistedToolbars )
+    {
+        const bool show = ( h.editorId == activeId );
+
+        for( ACTION_TOOLBAR* tb : { h.main, h.aux, h.activeBar, h.left, h.right } )
+        {
+            if( !tb )
+                continue;
+
+            wxAuiPaneInfo& pane = m_auimgr.GetPane( tb );
+
+            if( pane.IsOk() && pane.IsShown() != show )
+            {
+                pane.Show( show );
+                changed = true;
+            }
+        }
+    }
+
+    if( changed )
+        m_auimgr.Update();
 #endif
 }
 
@@ -2756,6 +3047,11 @@ bool KICAD_MANAGER_FRAME::DockEditorAsTab( KIWAY_PLAYER* aPlayer, const wxString
 
     // Mirror the just-docked editor's (now hidden) status bar into the shell footer.
     syncShellStatusBarToActiveTab();
+
+    // UnifiedToolbar: lift this editor's top toolbar out of the tab and dock it above the tab
+    // strip (Altium order).  No-op unless the flag is on; safe because the toolbar dispatches
+    // through a stored TOOL_MANAGER pointer, not window-tree events.
+    hoistEditorTopToolbar( dynamic_cast<EDA_BASE_FRAME*>( aPlayer ) );
 
     return true;
 #else

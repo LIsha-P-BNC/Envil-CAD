@@ -109,11 +109,13 @@ void ACTION_GROUP::SetDefaultAction( const TOOL_ACTION& aDefault )
 #define BUTTON_BORDER  FromDIP( 1 ) // The border on the sides of the buttons that touch other buttons
 
 
-// Anvil: Altium-style compact toolbar icon size (logical px).  Altium toolbars use ~16 px icons in
-// tight rows; stock KiCad defaults to 24.  When the modern (Altium) toolbar layout is on, force the
-// small size so rows/icons match Altium regardless of the saved Common icon-size setting; when it is
-// off, respect the user's Common setting.
-static constexpr int ANVIL_TOOLBAR_ICON_SIZE = 16;
+// Anvil: app-wide icon size target (px).  Every icon surface (toolbar, Active Bar, title-bar,
+// project tree) is calibrated to render at this glyph size so they all look identical.  The toolbar
+// renders ~1:1 (glyph px == this value); the title-bar widget needs +4 for its padding (see
+// kicad_manager_frame.cpp).  When the modern (Altium) layout is off, respect the user's Common
+// setting instead.
+static constexpr int ANVIL_UI_ICON_PX = 18;
+static constexpr int ANVIL_TOOLBAR_ICON_SIZE = ANVIL_UI_ICON_PX;
 
 static int anvilToolbarIconSize()
 {
@@ -121,6 +123,14 @@ static int anvilToolbarIconSize()
         return ANVIL_TOOLBAR_ICON_SIZE;
 
     return Pgm().GetCommonSettings()->m_Appearance.toolbar_icon_size;
+}
+
+
+int ACTION_TOOLBAR::getIconSize() const
+{
+    // A per-toolbar override (e.g. the Altium-style Active Bar) wins; otherwise use the shared
+    // Anvil/global size.
+    return m_iconSizeOverride > 0 ? m_iconSizeOverride : anvilToolbarIconSize();
 }
 
 
@@ -370,21 +380,43 @@ void ACTION_TOOLBAR::ApplyConfiguration( const TOOLBAR_CONFIGURATION& aConfig )
                 }
             }
 
-            std::unique_ptr<ACTION_GROUP> group = std::make_unique<ACTION_GROUP>( groupName, tools );
-
-            if( defaultTool )
-                group->SetDefaultAction( *defaultTool );
-
-            AddGroup( std::move( group ) );
-
-            // Look up and attach context menu if one is registered for this group
+            // Look up the context menu registered for this group (attached to each member below).
             auto menuFactory = TOOLBAR_CONTEXT_MENU_REGISTRY::GetGroupMenuFactory( groupName );
 
-            if( menuFactory && m_toolManager )
+            if( ADVANCED_CFG::GetCfg().m_AnvilFlatToolbars && !m_forceGrouped )
             {
-                // Register the menu for each action in the group
+                // Anvil: UNGROUP — add every member of the group as its OWN toolbar button (no ">>"
+                // group dropdown), so all tools are visible individually.  Each button keeps its own
+                // per-action context menu plus the group's context menu.
+                // (Skipped when m_forceGrouped is set, e.g. the compact Active Bar.)
                 for( const TOOL_ACTION* grpAction : tools )
-                    AddToolContextMenu( *grpAction, menuFactory( m_toolManager ) );
+                {
+                    Add( *grpAction );
+
+                    auto perTool = TOOLBAR_CONTEXT_MENU_REGISTRY::GetMenuFactory( grpAction->GetName() );
+
+                    if( perTool && m_toolManager )
+                        AddToolContextMenu( *grpAction, perTool( m_toolManager ) );
+
+                    if( menuFactory && m_toolManager )
+                        AddToolContextMenu( *grpAction, menuFactory( m_toolManager ) );
+                }
+            }
+            else
+            {
+                std::unique_ptr<ACTION_GROUP> group = std::make_unique<ACTION_GROUP>( groupName, tools );
+
+                if( defaultTool )
+                    group->SetDefaultAction( *defaultTool );
+
+                AddGroup( std::move( group ) );
+
+                // Register the group context menu for each action in the group
+                if( menuFactory && m_toolManager )
+                {
+                    for( const TOOL_ACTION* grpAction : tools )
+                        AddToolContextMenu( *grpAction, menuFactory( m_toolManager ) );
+                }
             }
 
             break;
@@ -465,9 +497,9 @@ void ACTION_TOOLBAR::Add( const TOOL_ACTION& aAction, bool aIsToggleEntry, bool 
                   wxS( "aIsCancellable requires aIsToggleEntry" ) );
 
     int toolId = aAction.GetUIId();
-    int iconSize = anvilToolbarIconSize();
+    int iconSize = getIconSize();
 
-    AddTool( toolId, wxEmptyString,
+    AddTool( toolId, m_showTextLabels ? aAction.GetFriendlyName() : wxString(),
              KiBitmapBundleDef( aAction.GetIcon(), iconSize ),
              KiDisabledBitmapBundleDef( aAction.GetIcon(), iconSize ),
              aIsToggleEntry ? wxITEM_CHECK : wxITEM_NORMAL,
@@ -482,9 +514,9 @@ void ACTION_TOOLBAR::Add( const TOOL_ACTION& aAction, bool aIsToggleEntry, bool 
 void ACTION_TOOLBAR::AddButton( const TOOL_ACTION& aAction )
 {
     int toolId = aAction.GetUIId();
-    int iconSize = anvilToolbarIconSize();
+    int iconSize = getIconSize();
 
-    AddTool( toolId, wxEmptyString,
+    AddTool( toolId, m_showTextLabels ? aAction.GetFriendlyName() : wxString(),
              KiBitmapBundleDef( aAction.GetIcon(), iconSize ),
              KiDisabledBitmapBundleDef( aAction.GetIcon(), iconSize ),
              wxITEM_NORMAL, aAction.GetButtonTooltip(), wxEmptyString, nullptr );
@@ -528,7 +560,7 @@ void ACTION_TOOLBAR::AddGroup( std::unique_ptr<ACTION_GROUP> aGroup )
 {
     int                groupId = aGroup->GetUIId();
     const TOOL_ACTION* defaultAction = aGroup->GetDefaultAction();
-    int                iconSize = anvilToolbarIconSize();
+    int                iconSize = getIconSize();
 
     wxASSERT( GetParent() );
     wxASSERT( defaultAction );
@@ -544,7 +576,7 @@ void ACTION_TOOLBAR::AddGroup( std::unique_ptr<ACTION_GROUP> aGroup )
     m_actionGroups[ groupId ] = std::move( aGroup );
 
     // Add the main toolbar item representing the group
-    AddTool( groupId, wxEmptyString,
+    AddTool( groupId, m_showTextLabels ? defaultAction->GetFriendlyName() : wxString(),
              KiBitmapBundleDef( defaultAction->GetIcon(), iconSize ),
              KiDisabledBitmapBundleDef( defaultAction->GetIcon(), iconSize ),
              isToggleEntry ? wxITEM_CHECK : wxITEM_NORMAL, wxEmptyString, wxEmptyString, nullptr );
@@ -601,7 +633,7 @@ void ACTION_TOOLBAR::doSelectAction( ACTION_GROUP* aGroup, const TOOL_ACTION& aA
     if( !item )
         return;
 
-    int iconSize = anvilToolbarIconSize();
+    int iconSize = getIconSize();
 
     // Update the item information
     item->SetShortHelp( aAction.GetButtonTooltip() );
@@ -1168,7 +1200,7 @@ void ACTION_TOOLBAR::onThemeChanged( wxSysColourChangedEvent &aEvent )
 
 void ACTION_TOOLBAR::RefreshBitmaps()
 {
-    int iconSize = anvilToolbarIconSize();
+    int iconSize = getIconSize();
 
     for( const std::pair<int, const TOOL_ACTION*> pair : m_toolActions )
     {

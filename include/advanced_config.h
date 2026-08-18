@@ -633,6 +633,20 @@ public:
     bool m_UnifiedStatusBar;
 
     /**
+     * Single-window shell: hoist the ACTIVE editor tab's top toolbar (the "Standard" toolbar +
+     * its aux row) OUT of the tab and into a shell strip ABOVE the editor tab bar, so the layout
+     * order matches Altium: Title -> Menu -> Toolbar -> Tabs -> Workspace.  When 0, each editor's
+     * top toolbar stays inside its tab (below the tab strip) as before.  Needs SingleWindowShell.
+     * Additive/reversible.  Tool dispatch is preserved because ACTION_TOOLBAR holds a direct
+     * pointer to the editor's TOOL_MANAGER, so reparenting the widget does not break its buttons.
+     *
+     * Setting name: "UnifiedToolbar"
+     * Valid values: 0 or 1
+     * Default value: 1 (ships ON; set 0 in kicad_advanced to opt out)
+     */
+    bool m_UnifiedToolbar;
+
+    /**
      * Enable option to load lib files with text editor.
      *
      * Setting name: "EnableLibWithText"
@@ -1171,17 +1185,42 @@ public:
     bool m_AnvilPurpleFrame;
 
     /**
-     * KiCad Next: recolor the toolbar/menu icon set from KiCad blue to the NEMI emerald hue at
-     * load time (a hue-selective remap in BITMAP_STORE::getImage), so Anvil has its own icon
-     * identity.  Semantic colours (red = delete/DRC, layer colours, warnings) are preserved.
-     * Additive/reversible: set 0 to fall back to the stock KiCad blue icons.  Applied at startup
-     * (already-built bitmap bundles are cached), so this is a restart-to-apply flag.
+     * KiCad Next: when ON, recolor the toolbar/menu icon set from KiCad blue to the NEMI emerald
+     * hue at load time (a hue-selective remap in BITMAP_STORE::getImage).  Ships OFF: Anvil's icon
+     * identity is now rich MULTI-COLOUR — the native full-colour palette for the general icon set
+     * plus custom multi-colour editor icons (icon_eeschema/pcbnew/etc.).  Set 1 to opt back into the
+     * single-emerald recolor.  Applied at startup (already-built bitmap bundles are cached), so this
+     * is a restart-to-apply flag.
      *
      * Setting name: "AnvilEmeraldIcons"
      * Valid values: 0 or 1
-     * Default value: 1 (ships ON)
+     * Default value: 0 (ships OFF — multi-colour)
      */
     bool m_AnvilEmeraldIcons;
+
+    /**
+     * Anvil: tooltip popup delay in milliseconds for toolbar/control hover names.  The OS default
+     * (~1s on Windows) feels sluggish when identifying toolbar icons; Anvil ships a snappier 200ms.
+     * 0 shows tooltips instantly; -1 keeps the OS default delay.
+     *
+     * Setting name: "AnvilTooltipDelay"
+     * Valid values: -1 to 5000
+     * Default value: 200
+     */
+    int m_AnvilTooltipDelayMs;
+
+    /**
+     * KiCad Next / Anvil: ungroup toolbar tool-groups into individual buttons.  KiCad packs related
+     * tools (route/via/tune, line/arc/rectangle/circle/polygon, dimensions, ...) into a single
+     * button with a ">>" group dropdown; when this is on, ApplyConfiguration() adds every group
+     * member as its OWN button instead, so all tools are visible at once with no group dropdowns.
+     * Additive/reversible: set 0 for the stock grouped toolbars.
+     *
+     * Setting name: "AnvilFlatToolbars"
+     * Valid values: 0 or 1
+     * Default value: 1 (ships ON)
+     */
+    bool m_AnvilFlatToolbars;
 
     /**
      * KiCad Next / Anvil: base point size for the application UI font (menus' dropdowns, side
@@ -1322,6 +1361,21 @@ public:
      * Default value: 11.0
      */
     double m_AnvilMenuFontPt;
+
+    /**
+     * Anvil: point size for the custom title-bar glyph buttons (save/undo/redo, +, gear,
+     * min/max/close).  At the app UI size (10pt) the caption glyphs read noticeably smaller
+     * than the 24px toolbar icons below them, so the title bar ships with a larger dedicated
+     * size.  0 (or less) falls back to tracking m_AnvilUiFontPt as before.
+     *
+     * Declared LAST in the struct on purpose: see the ABI note above — appending keeps every
+     * existing member's offset stable (only kicommon + the kicad shell read this).
+     *
+     * Setting name: "AnvilTitlebarGlyphPt"
+     * Valid values: a point size.  0 disables (track AnvilUiFontPt).
+     * Default value: 13.0
+     */
+    double m_AnvilTitlebarGlyphPt;
     ///@}
 
 private:

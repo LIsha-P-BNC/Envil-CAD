@@ -72,7 +72,8 @@ void PROJECT_TREE::LoadIcons()
     const int c_fileDefSize = 18;
     const int c_gitDefSize = 16;
 #else
-    const int c_fileDefSize = 22;
+    // Anvil: match the ~17px toolbar / title-bar / chrome icons (was 22 -> too big at ~20px).
+    const int c_fileDefSize = 18;
     const int c_gitDefSize = 16;
 #endif
 

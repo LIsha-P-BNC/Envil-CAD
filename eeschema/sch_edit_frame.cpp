@@ -579,6 +579,12 @@ SCH_EDIT_FRAME::SCH_EDIT_FRAME( KIWAY* aKiway, wxWindow* aParent ) :
     m_auimgr.AddPane( m_tbTopMain, EDA_PANE().HToolbar().Name( wxS( "TopMainToolbar" ) )
                       .Top().Layer( 6 ) );
 
+    // Altium-style Active Bar: the wiring/drawing tools, docked as a top row just above the canvas.
+    // Only created when the modern layout is on (see SCH_EDIT_TOOLBAR_SETTINGS::DefaultToolbarConfig).
+    if( m_tbActiveBar )
+        m_auimgr.AddPane( m_tbActiveBar, EDA_PANE().HToolbar().Name( wxS( "ActiveBarToolbar" ) )
+                          .Top().Layer( 4 ) );
+
     m_auimgr.AddPane( m_messagePanel, EDA_PANE().Messages().Name( wxS( "MsgPanel" ) )
                       .Bottom().Layer( 6 ) );
 

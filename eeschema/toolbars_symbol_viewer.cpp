@@ -43,6 +43,7 @@ std::optional<TOOLBAR_CONFIGURATION> SYMBOL_VIEWER_TOOLBAR_SETTINGS::DefaultTool
     case TOOLBAR_LOC::LEFT:
     case TOOLBAR_LOC::RIGHT:
     case TOOLBAR_LOC::TOP_AUX:
+    case TOOLBAR_LOC::ACTIVE_BAR:   // Active Bar is PCB-editor-only; no bar here.
         return std::nullopt;
 
     case TOOLBAR_LOC::TOP_MAIN:

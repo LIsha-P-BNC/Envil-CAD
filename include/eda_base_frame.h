@@ -253,6 +253,23 @@ public:
     WX_INFOBAR* GetInfoBar() { return m_infoBar; }
 
     /**
+     * Anvil single-window shell (UnifiedToolbar): expose the "Standard" top toolbar and its aux
+     * row so the shell can hoist them out of the editor tab and dock them above the tab strip
+     * (Altium order).  May be null before the toolbars are created / on frames that have none.
+     */
+    ACTION_TOOLBAR* GetTopMainToolbar() const { return m_tbTopMain; }
+    ACTION_TOOLBAR* GetTopAuxToolbar() const { return m_tbTopAux; }
+    ACTION_TOOLBAR* GetLeftToolbar() const { return m_tbLeft; }
+    ACTION_TOOLBAR* GetRightToolbar() const { return m_tbRight; }
+    ACTION_TOOLBAR* GetActiveBarToolbar() const { return m_tbActiveBar; }
+
+    /**
+     * Anvil: this frame's AUI manager, so the shell can DetachPane() the hoisted toolbars from
+     * the editor and re-dock them into the shell (and reverse it when the editor is undocked).
+     */
+    wxAuiManager& GetAuiManager() { return m_auimgr; }
+
+    /**
      * Show the #WX_INFOBAR displayed on the top of the canvas with a message and an error
      * icon on the left of the infobar, and an optional closebox to the right.
      *
@@ -940,6 +957,9 @@ private:
     ACTION_TOOLBAR*      m_tbTopAux;  // Additional tools under main toolbar
     ACTION_TOOLBAR*      m_tbRight;       // Drawing tools (typically on right edge of window)
     ACTION_TOOLBAR*      m_tbLeft;    // Options (typically on left edge of window)
+    ACTION_TOOLBAR*      m_tbActiveBar;   // Altium-style horizontal Active Bar at top of design
+                                          // space (only populated by editors that define it, e.g.
+                                          // the PCB editor)
 
     std::map<std::string, ACTION_TOOLBAR_CONTROL_FACTORY> m_toolbarControlFactories;
 };

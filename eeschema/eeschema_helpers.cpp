@@ -51,7 +51,10 @@ void EESCHEMA_HELPERS::SetSchEditFrame( SCH_EDIT_FRAME* aSchEditFrame )
 SCHEMATIC* EESCHEMA_HELPERS::LoadSchematic( const wxString& aFileName, bool aSetActive,
                                             bool aForceDefaultProject, PROJECT* aProject, bool aCalculateConnectivity )
 {
-    if( aFileName.EndsWith( FILEEXT::KiCadSchematicFileExtension ) )
+    // Anvil: .anvil_sch is the native s-expression schematic (same format as .kicad_sch) —
+    // without this, kicad-cli sch commands fell through to the legacy loader and failed.
+    if( aFileName.EndsWith( FILEEXT::KiCadSchematicFileExtension )
+            || aFileName.EndsWith( FILEEXT::AnvilSchematicFileExtension ) )
         return LoadSchematic( aFileName, SCH_IO_MGR::SCH_KICAD, aSetActive, aForceDefaultProject,
                               aProject, aCalculateConnectivity );
     else if( aFileName.EndsWith( FILEEXT::LegacySchematicFileExtension ) )

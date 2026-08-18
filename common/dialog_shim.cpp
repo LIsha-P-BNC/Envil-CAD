@@ -323,6 +323,33 @@ void DIALOG_SHIM::finishDialogSettings()
     // must be called from the constructor of derived classes,
     // when all widgets are initialized, and therefore their size fixed
 
+    // Anvil: plain wxGrid seeds its cell/label fonts from wxSystemSettings, ignoring the
+    // themed dialog font — leaving grids as the last off-theme text in dialogs.  Walk the
+    // child tree and re-seed every grid from the dialog's (themed) font face.
+    if( !ADVANCED_CFG::GetCfg().m_AnvilUiFontFace.IsEmpty() )
+    {
+        std::function<void( wxWindow* )> themeGrids =
+                [&]( wxWindow* aWin )
+                {
+                    if( wxGrid* grid = dynamic_cast<wxGrid*>( aWin ) )
+                    {
+                        wxFont cellFont  = grid->GetDefaultCellFont();
+                        wxFont labelFont = grid->GetLabelFont();
+
+                        cellFont.SetFaceName( GetFont().GetFaceName() );
+                        labelFont.SetFaceName( GetFont().GetFaceName() );
+
+                        grid->SetDefaultCellFont( cellFont );
+                        grid->SetLabelFont( labelFont );
+                    }
+
+                    for( wxWindow* child : aWin->GetChildren() )
+                        themeGrids( child );
+                };
+
+        themeGrids( this );
+    }
+
     // SetSizeHints fixes the minimal size of sizers in the dialog
     // (SetSizeHints calls Fit(), so no need to call it)
     GetSizer()->SetSizeHints( this );

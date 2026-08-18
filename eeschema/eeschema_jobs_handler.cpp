@@ -185,6 +185,12 @@ SCHEMATIC* EESCHEMA_JOBS_HANDLER::getSchematic( const wxString& aPath )
         {
             wxFileName path = project.GetProjectFullName();
             path.SetExt( FILEEXT::KiCadSchematicFileExtension );
+
+            // Anvil: an .anvil_pro project's schematic is <name>.anvil_sch — prefer it when
+            // the .kicad_sch guess does not exist on disk.
+            if( !path.FileExists() )
+                path.SetExt( FILEEXT::AnvilSchematicFileExtension );
+
             path.MakeAbsolute();
             schPath = path.GetFullPath();
         }

@@ -49,42 +49,44 @@ std::optional<TOOLBAR_CONFIGURATION> FOOTPRINT_EDIT_TOOLBAR_SETTINGS::DefaultToo
     case TOOLBAR_LOC::TOP_AUX:
         return std::nullopt;
 
-    case TOOLBAR_LOC::LEFT:
-        // Modern (classic-Altium) preset: the left edge hosts the drawing tools, in
-        // Place-menu order.  The display toggles it replaces surface in the View menu
-        // (modern layout) and the Preferences dialog.
-        if( ADVANCED_CFG::GetCfg().m_ModernToolbarLayout )
+    case TOOLBAR_LOC::ACTIVE_BAR:
+        // Altium-style Active Bar (modern layout only): the footprint drawing tools, in Place-menu
+        // order, docked as a horizontal bar at the top of the design space.  In the classic layout
+        // these tools live on the RIGHT toolbar instead, so there is no Active Bar.
+        if( !ADVANCED_CFG::GetCfg().m_ModernToolbarLayout )
+            return std::nullopt;
+
         {
-            config.AppendGroup( TOOLBAR_GROUP_CONFIG( _( "Selection modes" ) )
-                  .AddAction( ACTIONS::selectSetRect )
-                  .AddAction( ACTIONS::selectSetLasso ) );
+            // Compact Altium-style Active Bar: pad + grouped Draw / Dimension / Measure buttons.
+            config.AppendGroup( TOOLBAR_GROUP_CONFIG( _( "Select" ) )
+                                .AddAction( ACTIONS::selectSetRect )
+                                .AddAction( ACTIONS::selectSetLasso ) );
 
             config.AppendSeparator()
                   .AppendAction( PCB_ACTIONS::placePad )
-                  .AppendAction( PCB_ACTIONS::drawRuleArea );
-
-            config.AppendSeparator()
-                  .AppendAction( PCB_ACTIONS::drawLine )
-                  .AppendAction( PCB_ACTIONS::drawArc )
-                  .WithContextMenu(
-                          []( TOOL_MANAGER* aToolMgr )
-                          {
-                              PCB_SELECTION_TOOL* selTool = aToolMgr->GetTool<PCB_SELECTION_TOOL>();
-                              auto menu = std::make_unique<ACTION_MENU>( false, selTool );
-                              menu->Add( ACTIONS::pointEditorArcKeepCenter, ACTION_MENU::CHECK );
-                              menu->Add( ACTIONS::pointEditorArcKeepEndpoint, ACTION_MENU::CHECK );
-                              menu->Add( ACTIONS::pointEditorArcKeepRadius, ACTION_MENU::CHECK );
-                              return menu;
-                          } )
-                  .AppendAction( PCB_ACTIONS::drawRectangle )
-                  .AppendAction( PCB_ACTIONS::drawCircle )
-                  .AppendAction( PCB_ACTIONS::drawPolygon )
-                  .AppendAction( PCB_ACTIONS::drawBezier )
-                  .AppendAction( PCB_ACTIONS::placeReferenceImage )
-                  .AppendAction( PCB_ACTIONS::placeText )
-                  .AppendAction( PCB_ACTIONS::drawTextBox )
-                  .AppendAction( PCB_ACTIONS::drawTable )
-                  .AppendGroup( TOOLBAR_GROUP_CONFIG( _( "Dimension objects" ) )
+                  .AppendGroup( TOOLBAR_GROUP_CONFIG( _( "Draw" ) )
+                                .AddAction( PCB_ACTIONS::drawLine )
+                                .AddAction( PCB_ACTIONS::drawArc )
+                                .AddAction( PCB_ACTIONS::drawRectangle )
+                                .AddAction( PCB_ACTIONS::drawCircle )
+                                .AddAction( PCB_ACTIONS::drawPolygon )
+                                .AddAction( PCB_ACTIONS::drawBezier )
+                                .AddAction( PCB_ACTIONS::placeReferenceImage )
+                                .AddAction( PCB_ACTIONS::placeText )
+                                .AddAction( PCB_ACTIONS::drawTextBox )
+                                .AddAction( PCB_ACTIONS::drawTable )
+                                .AddAction( PCB_ACTIONS::drawRuleArea )
+                                .AddContextMenu(
+                                        []( TOOL_MANAGER* aToolMgr )
+                                        {
+                                            PCB_SELECTION_TOOL* selTool = aToolMgr->GetTool<PCB_SELECTION_TOOL>();
+                                            auto menu = std::make_unique<ACTION_MENU>( false, selTool );
+                                            menu->Add( ACTIONS::pointEditorArcKeepCenter, ACTION_MENU::CHECK );
+                                            menu->Add( ACTIONS::pointEditorArcKeepEndpoint, ACTION_MENU::CHECK );
+                                            menu->Add( ACTIONS::pointEditorArcKeepRadius, ACTION_MENU::CHECK );
+                                            return menu;
+                                        } ) )
+                  .AppendGroup( TOOLBAR_GROUP_CONFIG( _( "Dimension" ) )
                                 .AddAction( PCB_ACTIONS::drawOrthogonalDimension )
                                 .AddAction( PCB_ACTIONS::drawAlignedDimension )
                                 .AddAction( PCB_ACTIONS::drawCenterDimension )
@@ -93,13 +95,21 @@ std::optional<TOOLBAR_CONFIGURATION> FOOTPRINT_EDIT_TOOLBAR_SETTINGS::DefaultToo
                   .AppendAction( ACTIONS::deleteTool );
 
             config.AppendSeparator()
-                  .AppendAction( PCB_ACTIONS::placePoint )
-                  .AppendAction( PCB_ACTIONS::setAnchor )
-                  .AppendAction( ACTIONS::gridSetOrigin )
-                  .AppendAction( ACTIONS::measureTool );
+                  .AppendGroup( TOOLBAR_GROUP_CONFIG( _( "Measure and origins" ) )
+                                .AddAction( ACTIONS::measureTool )
+                                .AddAction( PCB_ACTIONS::placePoint )
+                                .AddAction( PCB_ACTIONS::setAnchor )
+                                .AddAction( ACTIONS::gridSetOrigin ) );
 
             break;
         }
+
+    case TOOLBAR_LOC::LEFT:
+        // Classic preset: the left edge is the options / display-toggle toolbar.  In the modern
+        // (Altium) layout the left edge is empty — the drawing tools moved to the Active Bar and
+        // the display toggles moved into the View menu / Preferences dialog.
+        if( ADVANCED_CFG::GetCfg().m_ModernToolbarLayout )
+            return std::nullopt;
 
         config.AppendAction( ACTIONS::toggleGrid )
               .WithContextMenu(

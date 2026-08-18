@@ -143,22 +143,32 @@ std::optional<TOOLBAR_CONFIGURATION> PCB_EDIT_TOOLBAR_SETTINGS::DefaultToolbarCo
     // clang-format off
     switch( aToolbar )
     {
-    case TOOLBAR_LOC::LEFT:
-        // Modern (classic-Altium) preset: the left edge hosts the Routing / Drawing toolbar —
-        // the board tools, in Route + Place menu order.  The display toggles it replaces
-        // surface in the View menu (modern layout) and the Preferences dialog.
-        if( ADVANCED_CFG::GetCfg().m_ModernToolbarLayout )
+    case TOOLBAR_LOC::ACTIVE_BAR:
+        // Altium-style Active Bar (modern layout only): the board Routing / Drawing tools, in
+        // Route + Place menu order, docked as a horizontal bar at the top of the design space
+        // (just above the canvas).  In the classic layout these tools live on the RIGHT toolbar
+        // instead, so there is no Active Bar there.
+        if( !ADVANCED_CFG::GetCfg().m_ModernToolbarLayout )
+            return std::nullopt;
+
         {
-            config.AppendGroup( TOOLBAR_GROUP_CONFIG( _( "Selection modes" ) )
+            // Compact Altium-style Active Bar: the board tools collapse into a few multi-function
+            // buttons.  Each group shows its last-used tool and reveals the rest on click-hold, so
+            // the whole set stays a short strip (fits next to the selectors) instead of ~30 flat
+            // buttons that overflow.
+            config.AppendGroup( TOOLBAR_GROUP_CONFIG( _( "Select" ) )
                                 .AddAction( ACTIONS::selectSetRect )
-                                .AddAction( ACTIONS::selectSetLasso ) )
-                  .AppendAction( PCB_ACTIONS::localRatsnestTool );
+                                .AddAction( ACTIONS::selectSetLasso )
+                                .AddAction( PCB_ACTIONS::localRatsnestTool ) );
 
             config.AppendSeparator()
                   .AppendAction( PCB_ACTIONS::placeFootprint )
-                  .AppendGroup( TOOLBAR_GROUP_CONFIG( _( "Track routing tools" ) )
+                  .AppendGroup( TOOLBAR_GROUP_CONFIG( _( "Route" ) )
                                 .AddAction( PCB_ACTIONS::routeSingleTrack )
                                 .AddAction( PCB_ACTIONS::routeDiffPair )
+                                .AddAction( PCB_ACTIONS::tuneSingleTrack )
+                                .AddAction( PCB_ACTIONS::tuneDiffPair )
+                                .AddAction( PCB_ACTIONS::tuneSkew )
                                 .AddContextMenu(
                                     []( TOOL_MANAGER* aMgr ) -> std::unique_ptr<ACTION_MENU>
                                     {
@@ -174,28 +184,25 @@ std::optional<TOOLBAR_CONFIGURATION> PCB_EDIT_TOOLBAR_SETTINGS::DefaultToolbarCo
 
                                         return menu;
                                     } ) )
-                  .AppendGroup( TOOLBAR_GROUP_CONFIG( _( "Track tuning tools" ) )
-                                .AddAction( PCB_ACTIONS::tuneSingleTrack )
-                                .AddAction( PCB_ACTIONS::tuneDiffPair )
-                                .AddAction( PCB_ACTIONS::tuneSkew ) )
                   .AppendAction( PCB_ACTIONS::drawVia )
-                  .AppendAction( PCB_ACTIONS::drawZone )
-                  .WithContextMenu(
-                      []( TOOL_MANAGER* aMgr ) -> std::unique_ptr<ACTION_MENU>
-                      {
-                          PCB_SELECTION_TOOL* selTool = aMgr->GetTool<PCB_SELECTION_TOOL>();
-                          std::unique_ptr<ACTION_MENU> menu =
-                                  std::make_unique<ACTION_MENU>( false, selTool );
+                  .AppendGroup( TOOLBAR_GROUP_CONFIG( _( "Zone" ) )
+                                .AddAction( PCB_ACTIONS::drawZone )
+                                .AddAction( PCB_ACTIONS::drawRuleArea )
+                                .AddContextMenu(
+                                    []( TOOL_MANAGER* aMgr ) -> std::unique_ptr<ACTION_MENU>
+                                    {
+                                        PCB_SELECTION_TOOL* selTool = aMgr->GetTool<PCB_SELECTION_TOOL>();
+                                        std::unique_ptr<ACTION_MENU> menu =
+                                                std::make_unique<ACTION_MENU>( false, selTool );
 
-                          menu->Add( PCB_ACTIONS::zoneFillAll );
-                          menu->Add( PCB_ACTIONS::zoneUnfillAll );
+                                        menu->Add( PCB_ACTIONS::zoneFillAll );
+                                        menu->Add( PCB_ACTIONS::zoneUnfillAll );
 
-                          return menu;
-                      } )
-                  .AppendAction( PCB_ACTIONS::drawRuleArea );
+                                        return menu;
+                                    } ) );
 
             config.AppendSeparator()
-                  .AppendGroup( TOOLBAR_GROUP_CONFIG( _( "Graphics" ) )
+                  .AppendGroup( TOOLBAR_GROUP_CONFIG( _( "Draw" ) )
                                 .AddAction( PCB_ACTIONS::drawLine )
                                 .AddAction( PCB_ACTIONS::drawArc )
                                 .AddAction( PCB_ACTIONS::drawRectangle )
@@ -207,7 +214,7 @@ std::optional<TOOLBAR_CONFIGURATION> PCB_EDIT_TOOLBAR_SETTINGS::DefaultToolbarCo
                                 .AddAction( PCB_ACTIONS::drawTextBox )
                                 .AddAction( PCB_ACTIONS::drawTable )
                                 .AddAction( PCB_ACTIONS::placeBarcode ) )
-                  .AppendGroup( TOOLBAR_GROUP_CONFIG( _( "Dimension objects" ) )
+                  .AppendGroup( TOOLBAR_GROUP_CONFIG( _( "Dimension" ) )
                                 .AddAction( PCB_ACTIONS::drawOrthogonalDimension )
                                 .AddAction( PCB_ACTIONS::drawAlignedDimension )
                                 .AddAction( PCB_ACTIONS::drawCenterDimension )
@@ -216,14 +223,21 @@ std::optional<TOOLBAR_CONFIGURATION> PCB_EDIT_TOOLBAR_SETTINGS::DefaultToolbarCo
                   .AppendAction( ACTIONS::deleteTool );
 
             config.AppendSeparator()
-                  .AppendGroup( TOOLBAR_GROUP_CONFIG( _( "PCB origins and points" ) )
+                  .AppendGroup( TOOLBAR_GROUP_CONFIG( _( "Measure and origins" ) )
+                                .AddAction( ACTIONS::measureTool )
+                                .AddAction( PCB_ACTIONS::placePoint )
                                 .AddAction( ACTIONS::gridSetOrigin )
-                                .AddAction( PCB_ACTIONS::drillOrigin ) )
-                  .AppendAction( PCB_ACTIONS::placePoint )
-                  .AppendAction( ACTIONS::measureTool );
+                                .AddAction( PCB_ACTIONS::drillOrigin ) );
 
             break;
         }
+
+    case TOOLBAR_LOC::LEFT:
+        // Classic preset: the left edge is the options / display-toggle toolbar.  In the modern
+        // (Altium) layout the left edge is empty — the drawing tools moved to the Active Bar and
+        // the display toggles moved into the View menu / Preferences dialog.
+        if( ADVANCED_CFG::GetCfg().m_ModernToolbarLayout )
+            return std::nullopt;
 
         config.AppendAction( ACTIONS::toggleGrid )
               .WithContextMenu(

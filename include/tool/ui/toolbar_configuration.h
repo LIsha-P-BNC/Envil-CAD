@@ -267,7 +267,10 @@ enum class TOOLBAR_LOC
     LEFT = 0,       ///< Toolbar on the left side of the canvas
     RIGHT,          ///< Toolbar on the right side of the canvas
     TOP_MAIN,       ///< Toolbar on the top of the canvas
-    TOP_AUX         ///< Toolbar on the top of the canvas
+    TOP_AUX,        ///< Toolbar on the top of the canvas
+    ACTIVE_BAR      ///< Altium-style horizontal "Active Bar" at the top of the design space
+                    ///< (appended at the end to keep the integer serialization keys of the
+                    ///< existing values stable).
 };
 
 class KICOMMON_API TOOLBAR_SETTINGS : public JSON_SETTINGS

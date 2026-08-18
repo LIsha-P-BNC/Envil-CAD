@@ -34,6 +34,7 @@ std::optional<TOOLBAR_CONFIGURATION> DISPLAY_FOOTPRINTS_TOOLBAR_SETTINGS::Defaul
     // Currently, no top aux or right toolbars
     case TOOLBAR_LOC::RIGHT:
     case TOOLBAR_LOC::TOP_AUX:
+    case TOOLBAR_LOC::ACTIVE_BAR:   // Active Bar is PCB-editor-only; no bar here.
         return std::nullopt;
 
     case TOOLBAR_LOC::LEFT:

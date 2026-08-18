@@ -66,37 +66,48 @@ std::optional<TOOLBAR_CONFIGURATION> SCH_EDIT_TOOLBAR_SETTINGS::DefaultToolbarCo
     case TOOLBAR_LOC::TOP_AUX:
         return std::nullopt;
 
-    case TOOLBAR_LOC::LEFT:
-        // Modern (classic-Altium) preset: the left edge hosts the Wiring toolbar — the
-        // schematic drawing tools, in Place-menu order.  The display toggles it replaces
-        // surface in the View menu (modern layout) and the Preferences dialog.
-        if( ADVANCED_CFG::GetCfg().m_ModernToolbarLayout )
+    case TOOLBAR_LOC::ACTIVE_BAR:
+        // Altium-style Active Bar (modern layout only): the schematic Wiring / drawing tools, in
+        // Place-menu order, docked as a horizontal bar at the top of the design space.  In the
+        // classic layout these tools live on the RIGHT toolbar instead, so there is no Active Bar.
+        if( !ADVANCED_CFG::GetCfg().m_ModernToolbarLayout )
+            return std::nullopt;
+
         {
-            config.AppendGroup( TOOLBAR_GROUP_CONFIG( _( "Selection modes" ) )
+            // Compact Altium-style Active Bar: schematic tools collapse into a few multi-function
+            // buttons (last-used shown, rest on click-hold) so the strip stays short.
+            config.AppendGroup( TOOLBAR_GROUP_CONFIG( _( "Select" ) )
                                 .AddAction( ACTIONS::selectSetRect )
-                                .AddAction( ACTIONS::selectSetLasso ) )
-                  .AppendAction( SCH_ACTIONS::highlightNetTool );
+                                .AddAction( ACTIONS::selectSetLasso )
+                                .AddAction( SCH_ACTIONS::highlightNetTool ) );
 
             config.AppendSeparator()
-                  .AppendAction( SCH_ACTIONS::placeSymbol )
-                  .AppendAction( SCH_ACTIONS::placePower )
-                  .AppendAction( SCH_ACTIONS::drawWire )
-                  .AppendAction( SCH_ACTIONS::drawBus )
-                  .AppendAction( SCH_ACTIONS::placeBusWireEntry )
-                  .AppendAction( SCH_ACTIONS::placeJunction )
-                  .AppendAction( SCH_ACTIONS::placeNoConnect );
+                  .AppendGroup( TOOLBAR_GROUP_CONFIG( _( "Symbol" ) )
+                                .AddAction( SCH_ACTIONS::placeSymbol )
+                                .AddAction( SCH_ACTIONS::placePower ) )
+                  .AppendGroup( TOOLBAR_GROUP_CONFIG( _( "Wire" ) )
+                                .AddAction( SCH_ACTIONS::drawWire )
+                                .AddAction( SCH_ACTIONS::drawBus )
+                                .AddAction( SCH_ACTIONS::placeBusWireEntry )
+                                .AddAction( SCH_ACTIONS::placeJunction )
+                                .AddAction( SCH_ACTIONS::placeNoConnect ) )
+                  .AppendGroup( TOOLBAR_GROUP_CONFIG( _( "Label" ) )
+                                .AddAction( SCH_ACTIONS::placeLabel )
+                                .AddAction( SCH_ACTIONS::placeGlobalLabel )
+                                .AddAction( SCH_ACTIONS::placeClassLabel )
+                                .AddAction( SCH_ACTIONS::placeHierLabel ) )
+                  .AppendGroup( TOOLBAR_GROUP_CONFIG( _( "Sheet" ) )
+                                .AddAction( SCH_ACTIONS::drawSheet )
+                                .AddAction( SCH_ACTIONS::placeSheetPin )
+                                .AddAction( SCH_ACTIONS::drawRuleArea ) );
+
+            // Anvil: connectivity / net tools on the Active Bar (Net Navigator + Sync Sheet Pins)
+            config.AppendSeparator()
+                  .AppendAction( SCH_ACTIONS::showNetNavigator )
+                  .AppendAction( SCH_ACTIONS::syncAllSheetsPins );
 
             config.AppendSeparator()
-                  .AppendAction( SCH_ACTIONS::placeLabel )
-                  .AppendAction( SCH_ACTIONS::placeGlobalLabel )
-                  .AppendAction( SCH_ACTIONS::placeClassLabel )
-                  .AppendAction( SCH_ACTIONS::placeHierLabel )
-                  .AppendAction( SCH_ACTIONS::drawSheet )
-                  .AppendAction( SCH_ACTIONS::placeSheetPin )
-                  .AppendAction( SCH_ACTIONS::drawRuleArea );
-
-            config.AppendSeparator()
-                  .AppendGroup( TOOLBAR_GROUP_CONFIG( _( "Text and graphics" ) )
+                  .AppendGroup( TOOLBAR_GROUP_CONFIG( _( "Draw" ) )
                                 .AddAction( SCH_ACTIONS::placeSchematicText )
                                 .AddAction( SCH_ACTIONS::drawTextBox )
                                 .AddAction( SCH_ACTIONS::drawTable )
@@ -110,6 +121,13 @@ std::optional<TOOLBAR_CONFIGURATION> SCH_EDIT_TOOLBAR_SETTINGS::DefaultToolbarCo
 
             break;
         }
+
+    case TOOLBAR_LOC::LEFT:
+        // Classic preset: the left edge is the options / display-toggle toolbar.  In the modern
+        // (Altium) layout the left edge is empty — the drawing tools moved to the Active Bar and
+        // the display toggles moved into the View menu / Preferences dialog.
+        if( ADVANCED_CFG::GetCfg().m_ModernToolbarLayout )
+            return std::nullopt;
 
         config.AppendAction( ACTIONS::toggleGrid )
               .WithContextMenu(
@@ -167,7 +185,8 @@ std::optional<TOOLBAR_CONFIGURATION> SCH_EDIT_TOOLBAR_SETTINGS::DefaultToolbarCo
         config.AppendGroup( TOOLBAR_GROUP_CONFIG( _( "Selection modes" ) )
                             .AddAction( ACTIONS::selectSetRect )
                             .AddAction( ACTIONS::selectSetLasso ) )
-              .AppendAction( SCH_ACTIONS::highlightNetTool );
+              .AppendAction( SCH_ACTIONS::highlightNetTool )
+              .AppendAction( SCH_ACTIONS::showNetNavigator );
 
         config.AppendSeparator()
               .AppendAction( SCH_ACTIONS::placeSymbol )

@@ -221,6 +221,12 @@ FOOTPRINT_EDIT_FRAME::FOOTPRINT_EDIT_FRAME( KIWAY* aKiway, wxWindow* aParent ) :
     m_auimgr.AddPane( m_tbTopMain, EDA_PANE().HToolbar().Name( "TopMainToolbar" )
                       .Top().Layer( 6 ) );
 
+    // Altium-style Active Bar: the footprint drawing tools, docked as a top row just above the
+    // canvas.  Only created when the modern layout is on (see FOOTPRINT_EDIT_TOOLBAR_SETTINGS).
+    if( m_tbActiveBar )
+        m_auimgr.AddPane( m_tbActiveBar, EDA_PANE().HToolbar().Name( "ActiveBarToolbar" )
+                          .Top().Layer( 4 ) );
+
     m_auimgr.AddPane( m_messagePanel, EDA_PANE().Messages().Name( "MsgPanel" )
                       .Bottom().Layer( 6 ) );
 
