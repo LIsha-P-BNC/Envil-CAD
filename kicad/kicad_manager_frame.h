@@ -98,6 +98,7 @@ public:
 
     void OnOpenFileInTextEditor( wxCommandEvent& event );
     void OnEditAdvancedCfg( wxCommandEvent& event );
+    void OnAnvilSignOut( wxCommandEvent& event );
 
     /// Anvil "Vibrant Purple & Indigo" theme: repaint the shell's own chrome (AUI dock area,
     /// editor/side tab strips, project tree, launcher, status bar) to match the frame theme.

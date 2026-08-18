@@ -55,6 +55,8 @@
 #include <settings/kicad_settings.h>
 #include <settings/settings_manager.h>
 #include <paths.h>
+#include <anvil_auth/anvil_auth.h>
+#include <dialogs/dialog_anvil_login.h>
 
 #include <kiplatform/app.h>
 #include <kiplatform/environment.h>
@@ -399,6 +401,32 @@ bool PGM_SINGLE_TOP::OnPgmInit()
     // Create the API server thread once the app event loop exists
     m_api_server = std::make_unique<KICAD_API_SERVER>();
 #endif
+
+    // Anvil sign-in gate: standalone editors get the same email-OTP login as the project
+    // manager shell, shown before any editor window exists.  Cancelling means "don't start".
+    if( !ANVIL_AUTH::IsLoggedIn() )
+    {
+        // See the matching gate in kicad.cpp: the dialog is the only top-level window here,
+        // so destroying it would trip wxWidgets' "last window closed => quit" rule and kill
+        // the app before the editor frame exists.  Suspend that rule across the gate.
+        const bool exitOnDelete = App().GetExitOnFrameDelete();
+        App().SetExitOnFrameDelete( false );
+
+        int loginResult;
+
+        {
+            DIALOG_ANVIL_LOGIN loginDlg( nullptr );
+            loginResult = loginDlg.ShowModal();
+        }
+
+        App().SetExitOnFrameDelete( exitOnDelete );
+
+        if( loginResult != wxID_OK )
+        {
+            OnPgmExit();
+            return false;
+        }
+    }
 
     // Use KIWAY to create a top window, which registers its existence also.
     // "TOP_FRAME" is a macro that is passed on compiler command line from CMake,

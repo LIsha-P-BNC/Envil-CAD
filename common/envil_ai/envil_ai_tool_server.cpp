@@ -33,10 +33,21 @@ ENVIL_AI_TOOL_SERVER::ENVIL_AI_TOOL_SERVER( KIWAY* aKiway, wxWindow* aParent ) :
         if( portStr.ToLong( &p ) && p > 0 && p < 65536 )
             m_port = (int) p;
     }
+
+    // Bound once for the object's lifetime so that repeated Start()/Stop() cycles (driven by
+    // the AnvilCAD MCP menu) never stack duplicate handlers.
+    Bind( wxEVT_SOCKET, &ENVIL_AI_TOOL_SERVER::onServerEvent, this, ID_ENVIL_SOCK_SERVER );
+    Bind( wxEVT_SOCKET, &ENVIL_AI_TOOL_SERVER::onClientEvent, this, ID_ENVIL_SOCK_CLIENT );
 }
 
 
 ENVIL_AI_TOOL_SERVER::~ENVIL_AI_TOOL_SERVER()
+{
+    Stop();
+}
+
+
+void ENVIL_AI_TOOL_SERVER::Stop()
 {
     for( wxSocketBase* sock : m_clients )
     {
@@ -48,18 +59,24 @@ ENVIL_AI_TOOL_SERVER::~ENVIL_AI_TOOL_SERVER()
     }
 
     m_clients.clear();
+    m_rxAccum.clear();
 
     if( m_server )
     {
         m_server->Notify( false );
         m_server->Destroy();
         m_server = nullptr;
+
+        wxLogTrace( wxS( "ENVIL" ), wxS( "Envil AI tool server stopped" ) );
     }
 }
 
 
 bool ENVIL_AI_TOOL_SERVER::Start()
 {
+    if( m_server )
+        return true;    // already listening
+
     wxIPV4address addr;
     addr.Hostname( wxS( "127.0.0.1" ) );        // loopback only — never exposed off-box
     addr.Service( m_port );
@@ -78,9 +95,6 @@ bool ENVIL_AI_TOOL_SERVER::Start()
     m_server->SetEventHandler( *this, ID_ENVIL_SOCK_SERVER );
     m_server->SetNotify( wxSOCKET_CONNECTION_FLAG );
     m_server->Notify( true );
-
-    Bind( wxEVT_SOCKET, &ENVIL_AI_TOOL_SERVER::onServerEvent, this, ID_ENVIL_SOCK_SERVER );
-    Bind( wxEVT_SOCKET, &ENVIL_AI_TOOL_SERVER::onClientEvent, this, ID_ENVIL_SOCK_CLIENT );
 
     wxLogTrace( wxS( "ENVIL" ), wxS( "Envil AI tool server listening on 127.0.0.1:%d" ),
                 m_port );

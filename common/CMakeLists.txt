@@ -283,6 +283,9 @@ set( KICOMMON_SRCS
     netclass.cpp
     notifications_manager.cpp
     page_info.cpp
+    anvil_auth/anvil_auth.cpp
+    anvil_auth/anvil_auth_config.cpp
+    dialogs/dialog_anvil_login.cpp
     oauth/oauth_loopback_server.cpp
     oauth/oauth_pkce.cpp
     oauth/oauth_session.cpp

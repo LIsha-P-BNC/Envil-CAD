@@ -56,10 +56,14 @@
 #include <vector>
 
 #include <wx/menu.h>
+#include <wx/msgdlg.h>
 #include <wx/window.h>
 
 
 static std::function<void( EDA_BASE_FRAME* )> s_windowMenuActivator;
+
+// AnvilCAD MCP menu hooks; registered by the shell (which owns the MCP socket server).
+static EDA_BASE_FRAME::MCP_MENU_CONTROLLER s_mcpMenuController;
 
 
 bool EDA_BASE_FRAME::UseUnifiedMenuBar()
@@ -79,6 +83,12 @@ bool EDA_BASE_FRAME::UseModernMenuLayout()
 void EDA_BASE_FRAME::SetWindowMenuActivator( std::function<void( EDA_BASE_FRAME* )> aActivator )
 {
     s_windowMenuActivator = std::move( aActivator );
+}
+
+
+void EDA_BASE_FRAME::SetMcpMenuController( MCP_MENU_CONTROLLER aController )
+{
+    s_mcpMenuController = std::move( aController );
 }
 
 
@@ -201,6 +211,106 @@ private:
     std::map<int, EDA_BASE_FRAME*> m_targets;
 };
 
+
+/**
+ * The "AnvilCAD MCP" menu: Start / Stop the process-wide MCP socket through the controller
+ * hooks the shell registered.  Item enable-state and the status line are refreshed each time
+ * the menu is opened, so they always reflect whether the server is currently listening.
+ */
+class MCP_MENU : public ACTION_MENU
+{
+public:
+    MCP_MENU( TOOL_INTERACTIVE* aTool, EDA_BASE_FRAME* aOwner ) :
+            ACTION_MENU( false, aTool ),
+            m_owner( aOwner )
+    {
+        SetTitle( _( "AnvilCAD MCP" ) );
+
+        m_startItem = Append( wxID_ANY, _( "Start MCP Connection" ) );
+        m_stopItem  = Append( wxID_ANY, _( "Stop MCP Connection" ) );
+        AppendSeparator();
+        m_statusItem = Append( wxID_ANY, _( "Status: unknown" ) );
+        m_statusItem->Enable( false );
+
+        // Same routing as WINDOW_MENU: item commands are handled by the menu itself, while
+        // menubar open events arrive at the owning frame.
+        Bind( wxEVT_MENU, &MCP_MENU::onCommand, this );
+        m_owner->Bind( wxEVT_MENU_OPEN, &MCP_MENU::onMenuOpen, this );
+
+        refresh();
+    }
+
+    ~MCP_MENU() override
+    {
+        if( m_owner )
+            m_owner->Unbind( wxEVT_MENU_OPEN, &MCP_MENU::onMenuOpen, this );
+    }
+
+protected:
+    void update() override
+    {
+        refresh();
+    }
+
+private:
+    void onMenuOpen( wxMenuEvent& aEvent )
+    {
+        if( aEvent.GetMenu() == this )
+            refresh();
+
+        aEvent.Skip();
+    }
+
+    void refresh()
+    {
+        bool running = s_mcpMenuController.isRunning && s_mcpMenuController.isRunning();
+        int  port    = s_mcpMenuController.port ? s_mcpMenuController.port() : 0;
+
+        m_startItem->Enable( !running );
+        m_stopItem->Enable( running );
+
+        if( running )
+            m_statusItem->SetItemLabel( wxString::Format( _( "Status: running on 127.0.0.1:%d" ),
+                                                          port ) );
+        else
+            m_statusItem->SetItemLabel( _( "Status: stopped" ) );
+    }
+
+    void onCommand( wxCommandEvent& aEvent )
+    {
+        if( aEvent.GetId() == m_startItem->GetId() )
+        {
+            if( s_mcpMenuController.start && !s_mcpMenuController.start() )
+            {
+                int port = s_mcpMenuController.port ? s_mcpMenuController.port() : 0;
+
+                wxMessageBox( wxString::Format( _( "Could not start the MCP connection: "
+                                                   "port %d is already in use." ),
+                                                port ),
+                              _( "AnvilCAD MCP" ), wxICON_ERROR | wxOK, m_owner );
+            }
+
+            refresh();
+        }
+        else if( aEvent.GetId() == m_stopItem->GetId() )
+        {
+            if( s_mcpMenuController.stop )
+                s_mcpMenuController.stop();
+
+            refresh();
+        }
+        else
+        {
+            aEvent.Skip();
+        }
+    }
+
+    EDA_BASE_FRAME* m_owner;
+    wxMenuItem*     m_startItem;
+    wxMenuItem*     m_stopItem;
+    wxMenuItem*     m_statusItem;
+};
+
 } // namespace
 
 
@@ -275,6 +385,11 @@ void EDA_BASE_FRAME::buildCommonMenuBarFrom( EDA_BASE_FRAME* aSource )
 
     if( modern )
         menuBar->Append( new WINDOW_MENU( tool, this ), _( "&Window" ) );
+
+    // AnvilCAD MCP is process-wide, so it appears in every tool's menu bar — but only when
+    // the shell has registered a controller (standalone editors have no MCP server).
+    if( s_mcpMenuController.start )
+        menuBar->Append( new MCP_MENU( tool, this ), _( "AnvilCAD MCP" ) );
 
     // Help is identical for every frame and already shared.
     aSource->AddStandardHelpMenu( menuBar );
