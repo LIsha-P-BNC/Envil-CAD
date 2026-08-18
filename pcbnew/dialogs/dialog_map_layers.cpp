@@ -1,5 +1,5 @@
 /*
- * This program source code file is part of KiCad, a free EDA CAD application.
+ * This program source code file is part of Anvil, a free EDA CAD application.
  *
  * Copyright (C) 2020 Roberto Fernandez Bautista <roberto.fer.bau@gmail.com>
  * Copyright The KiCad Developers, see AUTHORS.txt for contributors.
@@ -57,7 +57,7 @@ const INPUT_LAYER_DESC* DIALOG_MAP_LAYERS::GetLayerDescription( const wxString& 
 
 PCB_LAYER_ID DIALOG_MAP_LAYERS::GetSelectedLayerID()
 {
-    // First check if there is a KiCad element selected
+    // First check if there is a Anvil element selected
     wxString selectedKiCadLayerName;
     long     itemIndex = -1;
 
@@ -74,7 +74,7 @@ PCB_LAYER_ID DIALOG_MAP_LAYERS::GetSelectedLayerID()
     // There should only be one selected (or none) as the list is set with wxLC_SINGLE_SEL style
     wxASSERT_MSG( ( m_kicad_layers_list->GetNextItem( itemIndex, wxLIST_NEXT_ALL,
                                                       wxLIST_STATE_SELECTED ) ) == wxNOT_FOUND,
-                  wxT( "There are more than one KiCad layer selected (unexpected)" ) );
+                  wxT( "There are more than one Anvil layer selected (unexpected)" ) );
 
     for( int layer = 0; layer < PCB_LAYER_ID_COUNT; ++layer )
     {
@@ -250,7 +250,7 @@ DIALOG_MAP_LAYERS::DIALOG_MAP_LAYERS( wxWindow* aParent, const std::vector<INPUT
 
     wxListItem kicadLayersHeader;
     kicadLayersHeader.SetId( 0 );
-    kicadLayersHeader.SetText( _( "KiCad Layer" ) );
+    kicadLayersHeader.SetText( _( "Anvil Layer" ) );
     kicadLayersHeader.SetWidth( kicadMaxTextWidth + 5 );
     m_kicad_layers_list->InsertColumn( 0, kicadLayersHeader );
 
@@ -275,7 +275,7 @@ DIALOG_MAP_LAYERS::DIALOG_MAP_LAYERS( wxWindow* aParent, const std::vector<INPUT
     // Auto select the first item to improve ease-of-use
     m_unmatched_layers_list->SetItemState( 0, wxLIST_STATE_SELECTED, wxLIST_STATE_SELECTED );
 
-    // Load the KiCad Layer names
+    // Load the Anvil Layer names
     row = 0;
     LSEQ kicadLayersSeq = kiCadLayers.UIOrder();
 

@@ -1,5 +1,5 @@
 /*
- * This program source code file is part of KiCad, a free EDA CAD application.
+ * This program source code file is part of Anvil, a free EDA CAD application.
  *
  * Copyright The KiCad Developers, see AUTHORS.txt for contributors.
  *
@@ -171,7 +171,7 @@ public:
      * Helper function to get a list of fonts for fontconfig to add to the library.
      *
      * This is necessary because EMBEDDED_FILES lives in common at the moment and
-     * fontconfig is in libkicommon.  This will create the cache files in the KiCad
+     * fontconfig is in libkicommon.  This will create the cache files in the Anvil
      * cache directory (if they do not already exist) and return the temp files names
      */
     const std::vector<wxString>* UpdateFontFiles();

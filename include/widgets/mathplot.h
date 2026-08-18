@@ -930,7 +930,7 @@ public:
     struct MouseWheelActionSet
     {
         /* If this bundled wxMathPlot implementation is to remain single-header and not dependent
-         * on any part of KiCad, then the SIM_MOUSE_WHEEL_ACTION_SET struct must be duplicated
+         * on any part of Anvil, then the SIM_MOUSE_WHEEL_ACTION_SET struct must be duplicated
          * here. SIM_PLOT_TAB::convertMouseWheelActions is used to convert from
          * SIM_MOUSE_WHEEL_ACTION_SET to mpWindow::MouseWheelActionSet. */
 

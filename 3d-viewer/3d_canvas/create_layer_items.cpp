@@ -1,5 +1,5 @@
 /*
- * This program source code file is part of KiCad, a free EDA CAD application.
+ * This program source code file is part of Anvil, a free EDA CAD application.
  *
  * Copyright (C) 2015-2016 Mario Luzeiro <mrluzeiro@ua.pt>
  * Copyright (C) 2023 CERN
@@ -216,7 +216,7 @@ void BOARD_ADAPTER::createLayers( REPORTER* aStatusReporter )
 
     // Build Copper layers
     // Based on:
-    //    https://github.com/KiCad/kicad-source-mirror/blob/master/3d-viewer/3d_draw.cpp#L692
+    //    https://github.com/Anvil/kicad-source-mirror/blob/master/3d-viewer/3d_draw.cpp#L692
 
 #ifdef PRINT_STATISTICS_3D_VIEWER
     int64_t stats_startCopperLayersTime = GetRunningMicroSecs();
@@ -1315,7 +1315,7 @@ void BOARD_ADAPTER::createLayers( REPORTER* aStatusReporter )
 
     // Build Tech layers
     // Based on:
-    //    https://github.com/KiCad/kicad-source-mirror/blob/master/3d-viewer/3d_draw.cpp#L1059
+    //    https://github.com/Anvil/kicad-source-mirror/blob/master/3d-viewer/3d_draw.cpp#L1059
     if( aStatusReporter )
         aStatusReporter->Report( _( "Build Tech layers" ) );
 

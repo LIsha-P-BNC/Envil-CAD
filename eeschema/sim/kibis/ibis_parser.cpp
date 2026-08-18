@@ -1,5 +1,5 @@
 /*
- * This program source code file is part of KiCad, a free EDA CAD application.
+ * This program source code file is part of Anvil, a free EDA CAD application.
  *
  * Copyright (C) 2022 Fabien Corona f.corona<at>laposte.net
  * Copyright The KiCad Developers, see AUTHORS.txt for contributors.
@@ -35,7 +35,7 @@
 #include <sstream>
 #include <cstring> //for memcmp
 #include <iterator>
-#include <locale_io.h> // KiCad header
+#include <locale_io.h> // Anvil header
 #include <wx/log.h>
 
 // _() is used here to mark translatable strings in IBIS_REPORTER::Report()

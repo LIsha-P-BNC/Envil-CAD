@@ -1,5 +1,5 @@
 /*
- * This program source code file is part of KiCad, a free EDA CAD application.
+ * This program source code file is part of Anvil, a free EDA CAD application.
  *
  * Copyright (C) 2016 Cirilo Bernardo <cirilo.bernardo@gmail.com>
  * Copyright The KiCad Developers, see AUTHORS.txt for contributors.
@@ -23,7 +23,7 @@
  */
 
 /*
- * This plugin implements a STEP/IGES model renderer for KiCad via OCE
+ * This plugin implements a STEP/IGES model renderer for Anvil via OCE
  */
 
 #include <wx/filename.h>

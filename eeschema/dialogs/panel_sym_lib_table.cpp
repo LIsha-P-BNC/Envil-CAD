@@ -1,5 +1,5 @@
 /*
- * This program source code file is part of KiCad, a free EDA CAD application.
+ * This program source code file is part of Anvil, a free EDA CAD application.
  *
  * Copyright (C) 2017 Wayne Stambaugh <stambaughw@gmail.com>
  * Copyright (C) 2021 CERN
@@ -76,7 +76,7 @@ struct SUPPORTED_FILE_TYPE
 
 
 /**
- * Special menu ID for folder-based KiCad symbol library format.
+ * Special menu ID for folder-based Anvil symbol library format.
  * This ID is offset from SCH_FILE_T values to distinguish folder mode from file mode.
  */
 static constexpr int FIRST_MENU_ID = 1000;
@@ -393,7 +393,7 @@ PANEL_SYM_LIB_TABLE::PANEL_SYM_LIB_TABLE( DIALOG_EDIT_LIBRARY_TABLES* aParent, P
         browseMenu->Bind( wxEVT_COMMAND_MENU_SELECTED, &PANEL_SYM_LIB_TABLE::browseLibrariesHandler, this,
                           type + FIRST_MENU_ID );
 
-        // Add folder-based entry right after KiCad file-based entry
+        // Add folder-based entry right after Anvil file-based entry
         if( type == SCH_IO_MGR::SCH_KICAD )
         {
             wxString folderEntry = SCH_IO_MGR::ShowType( SCH_IO_MGR::SCH_KICAD );
@@ -507,12 +507,12 @@ void PANEL_SYM_LIB_TABLE::browseLibrariesHandler( wxCommandEvent& event )
     // We are bound both to the menu and button with this one handler
     if( event.GetEventType() == wxEVT_BUTTON )
     {
-        // Default to KiCad file format when clicking the button directly
+        // Default to Anvil file format when clicking the button directly
         fileType = SCH_IO_MGR::SCH_KICAD;
     }
     else if( event.GetId() == ID_PANEL_SYM_LIB_KICAD_FOLDER )
     {
-        // Special case for folder-based KiCad library
+        // Special case for folder-based Anvil library
         fileType = SCH_IO_MGR::SCH_KICAD;
         selectingFolder = true;
     }
@@ -771,19 +771,19 @@ void PANEL_SYM_LIB_TABLE::onConvertLegacyLibraries( wxCommandEvent& event )
 
     if( legacyRows.size() <= 0 )
     {
-        wxMessageBox( _( "Select one or more rows containing libraries to save as current KiCad format." ) );
+        wxMessageBox( _( "Select one or more rows containing libraries to save as current Anvil format." ) );
         return;
     }
     else
     {
         if( legacyRows.size() == 1 )
         {
-            msg.Printf( _( "Save '%s' as current KiCad format (*.kicad_sym) and replace legacy entry in table?" ),
+            msg.Printf( _( "Save '%s' as current Anvil format (*.kicad_sym) and replace legacy entry in table?" ),
                         cur_grid()->GetCellValue( legacyRows[0], COL_NICKNAME ) );
         }
         else
         {
-            msg.Printf( _( "Save %d libraries as current KiCad format (*.kicad_sym) and replace legacy entries "
+            msg.Printf( _( "Save %d libraries as current Anvil format (*.kicad_sym) and replace legacy entries "
                            "in table?" ),
                         (int) legacyRows.size() );
         }
@@ -938,7 +938,7 @@ void PANEL_SYM_LIB_TABLE::populateEnvironReadOnlyTable()
     }
 
     // Make sure this special environment variable shows up even if it was
-    // not used yet.  It is automatically set by KiCad to the directory holding
+    // not used yet.  It is automatically set by Anvil to the directory holding
     // the current project.
     unique.insert( PROJECT_VAR_NAME );
     unique.insert( ENV_VAR::GetVersionedEnvVarName( wxS( "SYMBOL_DIR" ) ) );

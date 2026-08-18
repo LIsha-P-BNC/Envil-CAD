@@ -113,7 +113,7 @@ void GRAPHICS_IMPORTER_BUFFER::ImportTo( GRAPHICS_IMPORTER& aImporter )
     boundingBox.SetSize( boundingBox.GetSize().x * aImporter.GetScale().x,
                          boundingBox.GetSize().y * aImporter.GetScale().y );
 
-    // Check that the scaled graphics fit in the KiCad numeric limits
+    // Check that the scaled graphics fit in the Anvil numeric limits
     if( boundingBox.GetSize().x * aImporter.GetMillimeterToIuFactor()
                 > std::numeric_limits<int>::max()
       || boundingBox.GetSize().y * aImporter.GetMillimeterToIuFactor()
@@ -128,7 +128,7 @@ void GRAPHICS_IMPORTER_BUFFER::ImportTo( GRAPHICS_IMPORTER& aImporter )
         return;
     }
     // They haven't set the import offset, so we set it to the bounding box origin to keep
-    // the graphics in the KiCad drawing area.
+    // the graphics in the Anvil drawing area.
     else if( aImporter.GetImportOffsetMM() == VECTOR2D( 0, 0 ) )
     {
         double iuFactor = aImporter.GetMillimeterToIuFactor();
@@ -191,7 +191,7 @@ void GRAPHICS_IMPORTER_BUFFER::ImportTo( GRAPHICS_IMPORTER& aImporter )
 }
 
 // converts a single SVG-style polygon (multiple outlines, hole detection based on orientation,
-// custom fill rule) to a format that can be digested by KiCad (single outline, fractured).
+// custom fill rule) to a format that can be digested by Anvil (single outline, fractured).
 static void convertPolygon( std::list<std::unique_ptr<IMPORTED_SHAPE>>& aShapes,
                             std::vector<IMPORTED_POLYGON*>&             aPaths,
                             GRAPHICS_IMPORTER::POLY_FILL_RULE           aFillRule,

@@ -132,7 +132,7 @@ public:
     }
 
     /**
-     * @param aColor is one of KiCad's palette colors.
+     * @param aColor is one of Anvil's palette colors.
      * @see EDA_COLOR_T
      */
     COLOR4D( EDA_COLOR_T aColor );

@@ -1,5 +1,5 @@
 /*
- * This program source code file is part of KiCad, a free EDA CAD application.
+ * This program source code file is part of Anvil, a free EDA CAD application.
  *
  * Copyright Quilter
  * Copyright The KiCad Developers, see AUTHORS.txt for contributors.
@@ -240,7 +240,7 @@ struct std::hash<LAYER_INFO>
 /**
  * Map of the pre-set class:subclass pairs to standard layers.
  *
- * Allegro doesn't really have a neat mapping onto KiCad layers. In theory, we could use the Films to
+ * Allegro doesn't really have a neat mapping onto Anvil layers. In theory, we could use the Films to
  * map things that actually end up on the silkscreen layer (films can pick things out by class:subclass),
  * but that would be quite fiddly and would fail if the films weren't configured right.
  */
@@ -279,7 +279,7 @@ static const std::unordered_map<LAYER_INFO, PCB_LAYER_ID> s_LayerKiMap = {
 };
 
 /**
- * Names for custom KiCad layers that correspond to pre-defined Allegro layers.
+ * Names for custom Anvil layers that correspond to pre-defined Allegro layers.
  *
  * Multiple class:subclasses can share a layer name, in which case, they will share a layer.
  *
@@ -514,8 +514,8 @@ static wxString layerInfoDisplayName( const LAYER_INFO& aLayerInfo )
 
 
 /**
- * Some layers map to KiCad rule areas (zones) - for example a package keepout
- * on ALL maps to a rule area in KiCad.
+ * Some layers map to Anvil rule areas (zones) - for example a package keepout
+ * on ALL maps to a rule area in Anvil.
  *
  * Keepins are bit trickier, but they're still rule areas and might need
  * custom DRC rules.
@@ -587,14 +587,14 @@ LAYER_INFO expectLayerFromBlock( const BLOCK_BASE& aBlock )
 
 
 /**
- * Class to handle the mapping for Allegro CLASS/SUBCLASS idiom to KiCad layers.
+ * Class to handle the mapping for Allegro CLASS/SUBCLASS idiom to Anvil layers.
  */
 class ALLEGRO::LAYER_MAPPER
 {
     /**
      * Represents the information found in a single entry of a layer list.
      *
-     * Will eventually become a KiCad layer.
+     * Will eventually become a Anvil layer.
      */
     struct CUSTOM_LAYER
     {
@@ -713,7 +713,7 @@ public:
         }
 
         // The layers that maybe lump together multiple Allegro class:subclasses
-        // into a single, named, KiCad layer
+        // into a single, named, Anvil layer
         for( const auto& [layerName, kiLayer] : m_MappedOptionalLayers )
         {
             INPUT_LAYER_DESC desc;
@@ -786,7 +786,7 @@ public:
             if( IsUserLayer( layerId ) )
                 userLayers++;
 
-            wxLogTrace( traceAllegroBuilder, "Mapping Allegro layer '%s' to KiCad layer '%s' (%d)", name,
+            wxLogTrace( traceAllegroBuilder, "Mapping Allegro layer '%s' to Anvil layer '%s' (%d)", name,
                         m_board.GetLayerName( layerId ), layerId );
 
             m_board.SetLayerName( layerId, name );
@@ -835,7 +835,7 @@ public:
             }
         }
 
-        // Now, there may be layers that map to custom layers in KiCad, but are fixed in Allegro
+        // Now, there may be layers that map to custom layers in Anvil, but are fixed in Allegro
         // (perhaps, DFA_BOUND_TOP), which means we won't find them in the layer lists.
         // We add them if we encounter them, with the names defined.
         if( s_OptionalFixedMappings.count( aLayerInfo ) )
@@ -873,7 +873,7 @@ public:
 
     /**
      * Allegro puts more graphics than just the polygon on PBT/B, but we don't want to always make a static
-     * mapping, because some things on PBT/B _do_ belong to the courtyard layer in KiCad (polygons).
+     * mapping, because some things on PBT/B _do_ belong to the courtyard layer in Anvil (polygons).
      *
      * Use this function to create/choose a user layer instead.
      */
@@ -900,7 +900,7 @@ public:
     }
 
     /**
-     * Record a specific class:subclass layer as mapping to some KiCad user layer, with a given name
+     * Record a specific class:subclass layer as mapping to some Anvil user layer, with a given name
      *
      * Usually, you don't need this as they are registered as needed based on layers found in the board,
      * but sometimes you need to override the default mapping, say when you detect that the
@@ -995,7 +995,7 @@ private:
     /**
      * Create or find a mapped layer with a given name, but not specifically bound to a specific class:subclass.
      *
-     * This is useful when some items on a class:subclass need to be placed on a KiCad layer other than the usual
+     * This is useful when some items on a class:subclass need to be placed on a Anvil layer other than the usual
      * mapping (non-polygon PLACE_BOUND_TOP items, for example)
      */
     PCB_LAYER_ID mapCustomLayerByName( const wxString& aLayerName )
@@ -1036,7 +1036,7 @@ private:
     std::unordered_map<LAYER_INFO, PCB_LAYER_ID> m_customLayerToKiMap;
 
     /**
-     * This is a map of optional, Allegro layers that we have mapped to KiCad layers with given names.
+     * This is a map of optional, Allegro layers that we have mapped to Anvil layers with given names.
      *
      * This is done by name, because multiple class:subclass pairs may share the same name.
      */
@@ -1099,7 +1099,7 @@ BOARD_BUILDER::BOARD_BUILDER( const BRD_DB& aRawBoard, BOARD& aBoard, REPORTER& 
 
 /**
  * Filled zones have their own outline and the fill itself comes from
- * a bunch of "related" spaces. To convert this to a KiCad-ish ZONE,
+ * a bunch of "related" spaces. To convert this to a Anvil-ish ZONE,
  * we need to chop out only the bit of the wider filled zone that applies
  * to the outline (i.e. intersection).
  *
@@ -1337,9 +1337,9 @@ void BOARD_BUILDER::createNets()
 
         wxString netName = m_brdDb.GetString( netBlk.m_NetName );
 
-        // Allegro allows unnamed nets. KiCad's NETINFO_LIST matches nets by name, and all
+        // Allegro allows unnamed nets. Anvil's NETINFO_LIST matches nets by name, and all
         // empty-named nets would collapse to the unconnected net (code 0). Generate a unique
-        // name so each Allegro net gets its own KiCad net code.
+        // name so each Allegro net gets its own Anvil net code.
         if( netName.IsEmpty() )
             netName = wxString::Format( wxS( "Net_%d" ), netCode );
 
@@ -1864,7 +1864,7 @@ static std::unordered_set<LAYER_INFO> ScanForLayers( const BRD_DB& aDb )
 
 void BOARD_BUILDER::setupLayers()
 {
-    wxLogTrace( traceAllegroBuilder, "Setting up layer mapping from Allegro to KiCad" );
+    wxLogTrace( traceAllegroBuilder, "Setting up layer mapping from Allegro to Anvil" );
 
     const auto& layerMap = m_brdDb.m_Header->m_LayerMap;
 
@@ -2082,8 +2082,8 @@ std::unique_ptr<PCB_TEXT> BOARD_BUILDER::buildPcbText( const BLK_0x30_STR_WRAPPE
 
     VECTOR2I textPos = scale( VECTOR2I{ aStrWrapper.m_CoordsX, aStrWrapper.m_CoordsY } );
 
-    // KiCad's stroke font has a different baseline than Allegro's, so apply a vertical offset to compensate.
-    // The exact offset is a bit of guesswork based on visually matching Allegro and KiCad text, but the
+    // Anvil's stroke font has a different baseline than Allegro's, so apply a vertical offset to compensate.
+    // The exact offset is a bit of guesswork based on visually matching Allegro and Anvil text, but the
     // stoke font itself isn't the same anyway, so we can't be 100% here.
     VECTOR2I textFontOffset = VECTOR2I{ 0, -( scale( fontDef->m_CharHeight ) * 45 ) / 100 };
     RotatePoint( textFontOffset, textAngle );
@@ -2549,8 +2549,8 @@ const BLK_0x07_COMPONENT_INST* BOARD_BUILDER::getFpInstRef( const BLK_0x2D_FOOTP
 std::vector<std::unique_ptr<BOARD_ITEM>> BOARD_BUILDER::buildPadItems( const BLK_0x1C_PADSTACK& aPadstack,
                                                                        FOOTPRINT& aFp, const wxString& aPadName, int aNetcode )
 {
-    // Not all Allegro PADSTACKS can be represented by a single KiCad pad. For example, the
-    // paste and mask layers can have completely independent shapes in Allegro, but in KiCad that
+    // Not all Allegro PADSTACKS can be represented by a single Anvil pad. For example, the
+    // paste and mask layers can have completely independent shapes in Allegro, but in Anvil that
     // would require a separate aperture pad.
     // Also if there are multiple drills, we will need to make a pad for each
     std::vector<std::unique_ptr<BOARD_ITEM>> padItems;
@@ -2995,7 +2995,7 @@ std::vector<std::unique_ptr<BOARD_ITEM>> BOARD_BUILDER::buildPadItems( const BLK
 
         // All fixed slots are technical layers (solder mask, paste mask, film mask,
         // assembly variant, etc). Custom mask expansion extraction is not yet implemented;
-        // KiCad's default pad-matches-mask behavior applies.
+        // Anvil's default pad-matches-mask behavior applies.
         wxLogTrace( traceAllegroBuilder,
                     "Fixed padstack slot %zu: type=%d, W=%d, H=%d",
                     i, static_cast<int>( psComp.m_Type ), psComp.m_W, psComp.m_H );
@@ -3050,7 +3050,7 @@ std::unique_ptr<FOOTPRINT> BOARD_BUILDER::buildFootprint( const BLK_0x2D_FOOTPRI
     // Allegro stores placed instance data in board-absolute form: bottom-side
     // components already have shapes on bottom layers with bottom-side positions.
     // Allegro stores placed footprints in board-absolute form with final layers.
-    // KiCad stores footprints in canonical front-side form and uses Flip() to
+    // Anvil stores footprints in canonical front-side form and uses Flip() to
     // mirror both positions and layers to the back side.
     //
     // Move back-layer items to their front-side counterpart so that fp->Flip()
@@ -3123,7 +3123,7 @@ std::unique_ptr<FOOTPRINT> BOARD_BUILDER::buildFootprint( const BLK_0x2D_FOOTPRI
             // Visible silkscreen refdes updates the built-in REFERENCE field.
             PCB_FIELD* const refDes = fp->GetField( FIELD_T::REFERENCE );
 
-            // KiCad netlisting requires non-digit + digit annotation.
+            // Anvil netlisting requires non-digit + digit annotation.
             if( !text->GetText().IsEmpty() && !wxIsalpha( text->GetText()[0] ) )
                 text->SetText( wxString( "UNK" ) + text->GetText() );
 
@@ -3131,7 +3131,7 @@ std::unique_ptr<FOOTPRINT> BOARD_BUILDER::buildFootprint( const BLK_0x2D_FOOTPRI
         }
         else if( textClass == LAYER_INFO::CLASS::REF_DES && isAssembly )
         {
-            // Assembly refdes becomes a user field with the KiCad reference variable
+            // Assembly refdes becomes a user field with the Anvil reference variable
             PCB_FIELD* field = new PCB_FIELD( *text, FIELD_T::USER, wxS( "Reference" ) );
             field->SetText( wxS( "${REFERENCE}" ) );
             field->SetVisible( false );
@@ -3232,7 +3232,7 @@ std::unique_ptr<FOOTPRINT> BOARD_BUILDER::buildFootprint( const BLK_0x2D_FOOTPRI
                 {
                     PCB_SHAPE& shape = static_cast<PCB_SHAPE&>( *item );
 
-                    // But in KiCad, courtyards are usually not filled even if they come in as "areas"
+                    // But in Anvil, courtyards are usually not filled even if they come in as "areas"
                     if( shape.GetLayer() != F_CrtYd && shape.GetLayer() != B_CrtYd )
                     {
                         shape.SetFilled( true );
@@ -3275,7 +3275,7 @@ std::unique_ptr<FOOTPRINT> BOARD_BUILDER::buildFootprint( const BLK_0x2D_FOOTPRI
         const wxString padName = m_brdDb.GetString( padInfo->m_NameStrId );
 
         // 0x0D coordinates and rotation are in the footprint's local (unrotatesinced) space.
-        // Use SetFPRelativePosition/Orientation to let KiCad handle the transform to
+        // Use SetFPRelativePosition/Orientation to let Anvil handle the transform to
         // board-absolute coordinates (rotating by FP orientation and adding FP position).
         VECTOR2I  padLocalPos = scale( VECTOR2I{ padInfo->m_CoordsX, padInfo->m_CoordsY } );
         EDA_ANGLE padLocalRot = fromMillidegrees( padInfo->m_Rotation );
@@ -3512,7 +3512,7 @@ void BOARD_BUILDER::createTracks()
             {
                 const uint8_t connType = connItemBlock->GetBlockType();
 
-                // One connected item can be multiple KiCad objects, e.g.
+                // One connected item can be multiple Anvil objects, e.g.
                 // 0x05 track -> list of segments/arcs
                 std::vector<std::unique_ptr<BOARD_ITEM>> newItemList;
 
@@ -4095,7 +4095,7 @@ std::unique_ptr<ZONE> BOARD_BUILDER::buildZone( const BLOCK_BASE&               
         zone->SetDoNotAllowFootprints( isPackageKeepout );
 
         // Zones don't have native keepin functions, so we leave a note for the user here
-        // Later, we could consider adding a custom DRC rule for this (or KiCad could add native keepin
+        // Later, we could consider adding a custom DRC rule for this (or Anvil could add native keepin
         // zone support)
         if( isRouteKeepin )
             zone->SetZoneName( "Route Keepin" );
@@ -4383,7 +4383,7 @@ void BOARD_BUILDER::createZones()
 
     // Merge zones with identical polygons and same net into multi-layer zones.
     // Allegro often defines the same zone outline on multiple copper layers (e.g.
-    // a ground pour spanning all layers). KiCad represents this as a single zone
+    // a ground pour spanning all layers). Anvil represents this as a single zone
     // with multiple fill layers.
     //
     // Rule areas (keepouts) can also merge.
@@ -4525,7 +4525,7 @@ void BOARD_BUILDER::applyZoneFills()
 
     // Unmatched ETCH shapes are either standalone copper polygons or dynamic copper
     // (teardrops/fillets). On V172+ boards, m_Unknown2 bit 12 (0x1000) marks auto-generated
-    // dynamic copper that maps to KiCad teardrop zones. Shapes without this flag are genuine
+    // dynamic copper that maps to Anvil teardrop zones. Shapes without this flag are genuine
     // standalone copper imported as filled PCB_SHAPE.
     int copperShapeCount = 0;
     int teardropCount = 0;

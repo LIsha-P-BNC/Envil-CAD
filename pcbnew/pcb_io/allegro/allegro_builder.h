@@ -1,5 +1,5 @@
 /*
- * This program source code file is part of KiCad, a free EDA CAD application.
+ * This program source code file is part of Anvil, a free EDA CAD application.
  *
  * Copyright Quilter
  * Copyright The KiCad Developers, see AUTHORS.txt for contributors.
@@ -51,7 +51,7 @@ namespace ALLEGRO
 class LAYER_MAPPER;
 
 /**
- * Class that builds a KiCad board from a BRD_DB
+ * Class that builds a Anvil board from a BRD_DB
  * (= FILE_HEADER + STRINGS + OBJECTS + bookkeeping)
  */
 class BOARD_BUILDER
@@ -253,7 +253,7 @@ private:
     // Cached list of font defs in the 0x36 node
     std::vector<const BLK_0x36_DEF_TABLE::FontDef_X08*> m_fontDefList;
 
-    // Cached list of KiCad nets corresponding to Allegro 0x1B NET keys
+    // Cached list of Anvil nets corresponding to Allegro 0x1B NET keys
     std::unordered_map<uint32_t, NETINFO_ITEM*> m_netCache;
 
     struct ZoneFillEntry

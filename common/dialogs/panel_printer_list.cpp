@@ -1,5 +1,5 @@
 /*
- * This program source code file is part of KiCad, a free EDA CAD application.
+ * This program source code file is part of Anvil, a free EDA CAD application.
  *
  * Copyright (C) Jean-Pierre Charras, jp.charras at wanadoo.fr
  * Copyright (C) KiCad Developers, see AUTHORS.TXT for contributors.

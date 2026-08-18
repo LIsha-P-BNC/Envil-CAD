@@ -1,5 +1,5 @@
 /*
- * This program source code file is part of KiCad, a free EDA CAD application.
+ * This program source code file is part of Anvil, a free EDA CAD application.
  *
  * Copyright (C) 2022 Mark Roszko <mark.roszko@gmail.com>
  * Copyright The KiCad Developers, see AUTHORS.txt for contributors.
@@ -27,12 +27,12 @@
 CLI::PCB_EXPORT_HPGL_COMMAND::PCB_EXPORT_HPGL_COMMAND() :
         PCB_EXPORT_BASE_COMMAND( "hpgl", IO_TYPE::FILE, IO_TYPE::DIRECTORY )
 {
-    m_argParser.add_description( UTF8STDSTR( _( "No longer supported as of KiCad 10.0." ) ) );
+    m_argParser.add_description( UTF8STDSTR( _( "No longer supported as of Anvil 10.0." ) ) );
 }
 
 
 int CLI::PCB_EXPORT_HPGL_COMMAND::doPerform( KIWAY& aKiway )
 {
-    wxFprintf( stderr, _( "Plotting to HPGL is no longer supported as of KiCad 10.0.\n" ) );
+    wxFprintf( stderr, _( "Plotting to HPGL is no longer supported as of Anvil 10.0.\n" ) );
     return EXIT_CODES::ERR_ARGS;
 }

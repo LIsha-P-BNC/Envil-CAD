@@ -1,5 +1,5 @@
 /*
- * This program source code file is part of KiCad, a free EDA CAD application.
+ * This program source code file is part of Anvil, a free EDA CAD application.
  *
  * Copyright (C) 2020 Thomas Pointhuber <thomas.pointhuber@gmx.at>
  * Copyright The KiCad Developers, see AUTHORS.txt for contributors.
@@ -241,7 +241,7 @@ ASCH_PIN::ASCH_PIN( const std::map<wxString, wxString>& aProps ) :
     int pfrac = ALTIUM_PROPS_UTILS::ReadInt( aProps, "PINLENGTH_FRAC", 0 );
     pinlength = Altium2KiCadUnit( p, pfrac );
 
-    // this code calculates the location as required by KiCad without rounding error attached
+    // this code calculates the location as required by Anvil without rounding error attached
     int kicadX     = x;
     int kicadXfrac = xfrac;
     int kicadY     = y;
@@ -304,7 +304,7 @@ ASCH_BORDER_INTERFACE::ASCH_BORDER_INTERFACE( const std::map<wxString, wxString>
 {
     LineWidth = ReadKiCadUnitFrac( aProps, "LINEWIDTH" );
 
-    // Altium line width 0 means hairline.  Since KiCad doesn't have a hairline, we
+    // Altium line width 0 means hairline.  Since Anvil doesn't have a hairline, we
     // represent it as a 1 mil line.
     if( LineWidth == 0 )
         LineWidth = schIUScale.MilsToIU( 1 );

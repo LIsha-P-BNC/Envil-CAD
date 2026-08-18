@@ -1,5 +1,5 @@
 /*
- * This program source code file is part of KiCad, a free EDA CAD application.
+ * This program source code file is part of Anvil, a free EDA CAD application.
  *
  * Copyright (C) 2017 CERN
  * Copyright The KiCad Developers, see AUTHORS.txt for contributors.
@@ -62,12 +62,12 @@
 
 
 // Eagle schematic axes are aligned with x increasing left to right and Y increasing bottom to top
-// KiCad schematic axes are aligned with x increasing left to right and Y increasing top to bottom.
+// Anvil schematic axes are aligned with x increasing left to right and Y increasing top to bottom.
 
 using namespace std;
 
 /**
- * Map of EAGLE pin type values to KiCad pin type values
+ * Map of EAGLE pin type values to Anvil pin type values
  */
 static const std::map<wxString, ELECTRICAL_PINTYPE> pinDirectionsMap = {
     { wxT( "sup" ),    ELECTRICAL_PINTYPE::PT_POWER_IN },
@@ -158,7 +158,7 @@ void SCH_IO_EAGLE::loadLayerDefs( const std::vector<std::unique_ptr<ELAYER>>& aL
     for( const std::unique_ptr<ELAYER>& elayer : aLayers )
     {
         /**
-         * Layers in KiCad schematics are not actually layers, but abstract groups mainly used to
+         * Layers in Anvil schematics are not actually layers, but abstract groups mainly used to
          * decide item colors.
          *
          * <layers>
@@ -201,7 +201,7 @@ SCH_LAYER_ID SCH_IO_EAGLE::kiCadLayer( int aEagleLayer )
 }
 
 
-// Return the KiCad symbol orientation based on eagle rotation degrees.
+// Return the Anvil symbol orientation based on eagle rotation degrees.
 static SYMBOL_ORIENTATION_T kiCadComponentRotation( float eagleDegrees )
 {
     int roti = int( eagleDegrees );
@@ -441,7 +441,7 @@ SCH_SHEET* SCH_IO_EAGLE::LoadSchematicFile( const wxString& aFileName, SCHEMATIC
         LIBRARY_TABLE_ROW& row = table->InsertRow();
         row.SetNickname( getLibName() );
         row.SetURI( libTableUri );
-        row.SetType( "KiCad" );
+        row.SetType( "Anvil" );
 
         table->Save();
 
@@ -1080,7 +1080,7 @@ void SCH_IO_EAGLE::loadModuleInstance( const std::unique_ptr<EMODULEINST>& aModu
 
     std::unique_ptr<SCH_SHEET> newSheet = std::make_unique<SCH_SHEET>( currentSheet, pos, size );
 
-    // The Eagle module for this instance (SCH_SCREEN in KiCad) may have already been loaded.
+    // The Eagle module for this instance (SCH_SCREEN in Anvil) may have already been loaded.
     SCH_SCREEN* newScreen = nullptr;
     SCH_SCREENS schFiles( m_rootSheet );
 
@@ -1165,7 +1165,7 @@ void SCH_IO_EAGLE::loadModuleInstance( const std::unique_ptr<EMODULEINST>& aModu
             else
                 pinType = LABEL_FLAG_SHAPE::L_UNSPECIFIED;
 
-            // KiCad does not support passive, power, open collector, or no-connect sheet
+            // Anvil does not support passive, power, open collector, or no-connect sheet
             // pins that Eagle ports support.  They are set to unspecified to minimize
             // ERC issues.
         }
@@ -1594,7 +1594,7 @@ SCH_ITEM* SCH_IO_EAGLE::loadWire( const std::unique_ptr<EWIRE>& aWire, SEG& endp
         arc->SetCenter( center );
         arc->SetStart( start );
 
-        // KiCad rotates the other way.
+        // Anvil rotates the other way.
         arc->SetArcAngleAndEnd( -EDA_ANGLE( *aWire->curve, DEGREES_T ), true );
         arc->SetLayer( kiCadLayer( aWire->layer ) );
         arc->SetStroke( STROKE_PARAMS( aWire->width.ToSchUnits(), LINE_STYLE::SOLID ) );
@@ -1707,7 +1707,7 @@ SCH_TEXT* SCH_IO_EAGLE::loadLabel( const std::unique_ptr<ELABEL>& aLabel,
                 else
                     type = LABEL_SHAPE::LABEL_PASSIVE;
 
-                // KiCad does not support passive, power, open collector, or no-connect sheet
+                // Anvil does not support passive, power, open collector, or no-connect sheet
                 // pins that Eagle ports support.  They are set to unspecified to minimize
                 // ERC issues.
                 label->SetLabelShape( type );
@@ -1936,13 +1936,13 @@ void SCH_IO_EAGLE::loadInstance( const std::unique_ptr<EINSTANCE>& aInstance,
     if( reference.find_last_not_of( wxT( "0123456789" ) ) == ( reference.Length()-1 ) )
         reference.Append( wxT( "0" ) );
 
-    // EAGLE allows references to be single digits.  This breaks KiCad netlisting, which requires
+    // EAGLE allows references to be single digits.  This breaks Anvil netlisting, which requires
     // parts to have non-digit + digit annotation.  If the reference begins with a number,
     // we prepend 'UNK' (unknown) for the symbol designator
     if( reference.find_first_not_of( wxT( "0123456789" ) ) != 0 )
         reference.Prepend( wxT( "UNK" ) );
 
-    // EAGLE allows designator to start with # but that is used in KiCad
+    // EAGLE allows designator to start with # but that is used in Anvil
     // for symbols which do not have a footprint
     if( aInstance->part.find_first_not_of( wxT( "#" ) ) != 0 )
         reference.Prepend( wxT( "UNK" ) );
@@ -2056,7 +2056,7 @@ void SCH_IO_EAGLE::loadInstance( const std::unique_ptr<EINSTANCE>& aInstance,
     }
 
     // Eagle has a brain dead module reference scheme where the module names separated by colons
-    // are prefixed to the symbol references.  This will get blown away in KiCad the first time
+    // are prefixed to the symbol references.  This will get blown away in Anvil the first time
     // any annotation is performed.  It is required for the initial synchronization between the
     // schematic and the board.
     wxString refPrefix;
@@ -2116,7 +2116,7 @@ EAGLE_LIBRARY* SCH_IO_EAGLE::loadLibrary( const ELIBRARY* aLibrary, EAGLE_LIBRAR
             if( edevice->package )
                 aEagleLibrary->package[symbolName] = edevice->package.Get();
 
-            // Create KiCad symbol.
+            // Create Anvil symbol.
             std::unique_ptr<LIB_SYMBOL> libSymbol = std::make_unique<LIB_SYMBOL>( symbolName );
 
             // Process each gate in the deviceset for this device.
@@ -2461,7 +2461,7 @@ SCH_ITEM* SCH_IO_EAGLE::loadSymbolWire( std::unique_ptr<LIB_SYMBOL>& aSymbol,
         arc->SetCenter( center );
         arc->SetStart( begin );
 
-        // KiCad rotates the other way.
+        // Anvil rotates the other way.
         arc->SetArcAngleAndEnd( -EDA_ANGLE( *aWire->curve, DEGREES_T ), true );
         arc->SetUnit( aGateNumber );
 
@@ -2709,7 +2709,7 @@ void SCH_IO_EAGLE::loadFieldAttributes( SCH_FIELD* aField, const SCH_TEXT* aText
 void SCH_IO_EAGLE::adjustNetLabels()
 {
     // Eagle supports detached labels, so a label does not need to be placed on a wire
-    // to be associated with it. KiCad needs to move them, so the labels actually touch the
+    // to be associated with it. Anvil needs to move them, so the labels actually touch the
     // corresponding wires.
 
     // Sort the intersection points to speed up the search process
@@ -3532,7 +3532,7 @@ wxString SCH_IO_EAGLE::translateEagleBusName( const wxString& aEagleName ) const
         wxString member = tokenizer.GetNextToken();
 
         // In Eagle, overbar text is automatically stopped at the end of the net name, even when
-        // that net name is part of a bus definition.  In KiCad, we don't (currently) do that, so
+        // that net name is part of a bus definition.  In Anvil, we don't (currently) do that, so
         // if there is an odd number of overbar markers in this net name, we need to append one
         // to close it out before appending the space.
 

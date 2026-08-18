@@ -1,5 +1,5 @@
 /*
- * This program source code file is part of KiCad, a free EDA CAD application.
+ * This program source code file is part of Anvil, a free EDA CAD application.
  *
  * Copyright The KiCad Developers, see AUTHORS.txt for contributors.
  *
@@ -33,7 +33,7 @@
 
 // lowercase or pretty case depending on platform
 #if defined( __WXMAC__ ) || defined( __WXMSW__ )
-#define KICAD_PATH_STR wxT( "KiCad" )
+#define KICAD_PATH_STR wxT( "Anvil" )
 #else
 #define KICAD_PATH_STR  wxT( "kicad" )
 #endif
@@ -185,17 +185,17 @@ public:
     /**
      * OSX specific function GetOSXKicadUserDataDir
      *
-     * @return The macOS specific user data directory for KiCad.
+     * @return The macOS specific user data directory for Anvil.
      */
     static wxString GetOSXKicadUserDataDir();
 
     /**
-     * @return The macOS specific machine data directory for KiCad
+     * @return The macOS specific machine data directory for Anvil
      */
     static wxString GetOSXKicadMachineDataDir();
 
     /**
-     * @return The macOS specific bundle data directory for KiCad
+     * @return The macOS specific bundle data directory for Anvil
      */
     static wxString GetOSXKicadDataDir();
 #endif
@@ -214,7 +214,7 @@ public:
 #endif
 
     /**
-     * Return the user configuration path used to store KiCad's configuration files.
+     * Return the user configuration path used to store Anvil's configuration files.
      *
      * @see calculateUserSettingsPath
      *
@@ -234,7 +234,7 @@ public:
      * - The result of the call to wxStandardPaths::GetUserConfigDir() with ".config" appended
      *   as required on Linux builds.
      *
-     * @param aIncludeVer will append the current KiCad version if true (default)
+     * @param aIncludeVer will append the current Anvil version if true (default)
      * @param aUseEnv will prefer the base path found in the KICAD_CONFIG_DIR if found (default)
      * @return A string containing the config path for Kicad
      */
@@ -255,7 +255,7 @@ private:
 #ifdef _WIN32
     /**
      * Gets the root of the kicad install on Windows specifically.
-     * KiCad on Windows has a pseudo posix folder structure contained in its installed folder
+     * Anvil on Windows has a pseudo posix folder structure contained in its installed folder
      * This retrieves that root for usage in other methods
      */
     static wxString getWindowsKiCadRoot();

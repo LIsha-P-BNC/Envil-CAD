@@ -1,5 +1,5 @@
 /*
- * This program source code file is part of KiCad, a free EDA CAD application.
+ * This program source code file is part of Anvil, a free EDA CAD application.
  *
  * Copyright (C) 2020 Thomas Pointhuber <thomas.pointhuber@gmx.at>
  * Copyright The KiCad Developers, see AUTHORS.txt for contributors.
@@ -453,7 +453,7 @@ ALIBRARY::ALIBRARY( ALTIUM_BINARY_PARSER& aReader )
     {
         wxString originalName = l.name;
 
-        // Ensure that layer names are unique in KiCad
+        // Ensure that layer names are unique in Anvil
         for( int ii = 2; !layerNames.insert( l.name ).second; ii++ )
             l.name = wxString::Format( wxT( "%s %d" ), originalName, ii );
     }
@@ -483,7 +483,7 @@ ABOARD6::ABOARD6( ALTIUM_BINARY_PARSER& aReader )
     {
         wxString originalName = l.name;
 
-        // Ensure that layer names are unique in KiCad
+        // Ensure that layer names are unique in Anvil
         for( int ii = 2; !layerNames.insert( l.name ).second; ii++ )
             l.name = wxString::Format( wxT( "%s %d" ), originalName, ii );
     }
@@ -1216,7 +1216,7 @@ ATEXT6::ATEXT6( ALTIUM_BINARY_PARSER& aReader, std::map<uint32_t, wxString>& aSt
     position = aReader.ReadVector2IPos();
     height   = aReader.ReadKicadUnit();
     strokefonttype = static_cast<STROKE_FONT_TYPE>( aReader.Read<uint16_t>() );
-    // TODO: The Serif font type doesn't match well with KiCad, we should replace it with a better match
+    // TODO: The Serif font type doesn't match well with Anvil, we should replace it with a better match
 
     rotation     = aReader.Read<double>();
     isMirrored   = aReader.Read<uint8_t>() != 0;

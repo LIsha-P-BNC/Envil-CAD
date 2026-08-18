@@ -1,5 +1,5 @@
 /*
- * This program source code file is part of KiCad, a free EDA CAD application.
+ * This program source code file is part of Anvil, a free EDA CAD application.
  *
  * Copyright (C) 2014 SoftPLC Corporation, Dick Hollenbeck <dick@softplc.com>
  * Copyright (C) 2010 Jean-Pierre Charras, jp.charras at wanadoo.fr
@@ -911,7 +911,7 @@ inline bool IsDCodeLayer( int aLayer )
 }
 
 
-/// Converts KiCad copper layer enum to an ordinal between the front and back layers.
+/// Converts Anvil copper layer enum to an ordinal between the front and back layers.
 inline size_t CopperLayerToOrdinal( PCB_LAYER_ID aLayer )
 {
     wxCHECK( IsCopperLayer( aLayer ), 0 );

@@ -1,5 +1,5 @@
 /*
- * This program source code file is part of KiCad, a free EDA CAD application.
+ * This program source code file is part of Anvil, a free EDA CAD application.
  *
  * Copyright (C) 2013 Jean-Pierre Charras, jp.charras at wanadoo.fr
  * Copyright (C) 2008 Wayne Stambaugh <stambaughw@gmail.com>
@@ -262,7 +262,7 @@ SYMBOL_EDIT_FRAME::SYMBOL_EDIT_FRAME( KIWAY* aKiway, wxWindow* aParent ) :
     if( m_settings->m_LibWidth > 0 )
         SetAuiPaneSize( m_auimgr, m_auimgr.GetPane( "LibraryTree" ), m_settings->m_LibWidth, -1 );
 
-    // KiCad Next single-window shell: when this frame is going to be docked as a tab,
+    // Anvil Next single-window shell: when this frame is going to be docked as a tab,
     // the manager shell (KICAD_MANAGER_FRAME::DockEditorAsTab) shows it *after*
     // reparenting it inside the tab.  Showing it here would flash a floating top-level
     // Symbol Editor window during construction — and keep it floating for the whole of
@@ -1481,7 +1481,7 @@ void SYMBOL_EDIT_FRAME::storeCurrentSymbol()
 
 bool SYMBOL_EDIT_FRAME::doAutoSave()
 {
-    // KiCad Next / Anvil: VSCode-style autosave to the REAL .kicad_sym library (not the
+    // Anvil Next / Anvil: VSCode-style autosave to the REAL .kicad_sym library (not the
     // .history snapshot) so the AI backend, which reads the live library file, observes
     // the user's manual symbol edits automatically.  Only writes a modified symbol that
     // lives in a writable, file-based library; a symbol pulled from the schematic or a
@@ -2129,7 +2129,7 @@ bool SYMBOL_EDIT_FRAME::replaceLibTableEntry( const wxString& aLibNickname, cons
     wxString normalizedPath = NormalizePath( aLibFile, &envVars, projectPath );
 
     row->SetURI( normalizedPath );
-    row->SetType( "KiCad" );
+    row->SetType( "Anvil" );
 
     bool success = true;
 

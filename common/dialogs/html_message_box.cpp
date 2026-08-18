@@ -1,5 +1,5 @@
 /*
- * This program source code file is part of KiCad, a free EDA CAD application.
+ * This program source code file is part of Anvil, a free EDA CAD application.
  *
  * Copyright (C) 2014 Jean-Pierre Charras, jp.charras at wanadoo.fr
  * Copyright The KiCad Developers, see AUTHORS.txt for contributors.
@@ -183,7 +183,7 @@ void HTML_MESSAGE_BOX::OnHTMLLinkClicked( wxHtmlLinkEvent& event )
 {
     wxString href = event.GetLinkInfo().GetHref();
 
-    if( href.StartsWith( wxS( "https://go.kicad.org/docs" ) ) )
+    if( href.StartsWith( wxS( "https://go.anvilcad.com/docs" ) ) )
     {
         href.Replace( wxS( "GetMajorMinorVersion" ), GetMajorMinorVersion() );
     }
@@ -252,7 +252,7 @@ void HTML_MESSAGE_BOX::OnCharHook( wxKeyEvent& aEvent )
         if( wxTheClipboard->Open() )
         {
             wxTheClipboard->SetData( new wxTextDataObject( m_htmlWindow->SelectionToText() ) );
-            wxTheClipboard->Flush(); // Allow data to be available after closing KiCad
+            wxTheClipboard->Flush(); // Allow data to be available after closing Anvil
             wxTheClipboard->Close();
         }
 

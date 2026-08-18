@@ -1,5 +1,5 @@
 /*
- * This program source code file is part of KiCad, a free EDA CAD application.
+ * This program source code file is part of Anvil, a free EDA CAD application.
  *
  * Copyright (C) 2023 Jon Evans <jon@craftyjon.com>
  * Copyright The KiCad Developers, see AUTHORS.txt for contributors.
@@ -109,7 +109,7 @@ void PANEL_PLUGIN_SETTINGS::updateApiStatusText()
         m_stApiStatus->SetLabel( wxEmptyString );
     }
 #else
-    m_stApiStatus->SetLabel( _( "This installation of KiCad does not have API support enabled." ) );
+    m_stApiStatus->SetLabel( _( "This installation of Anvil does not have API support enabled." ) );
 #endif
 }
 
@@ -118,7 +118,7 @@ void PANEL_PLUGIN_SETTINGS::validatePythonInterpreter()
 {
     if( !m_cbEnableApi->GetValue() )
     {
-        m_stPythonStatus->SetLabel( _( "KiCad API is not enabled; external Python plugins will "
+        m_stPythonStatus->SetLabel( _( "Anvil API is not enabled; external Python plugins will "
                                        "not be available" ) );
         return;
     }

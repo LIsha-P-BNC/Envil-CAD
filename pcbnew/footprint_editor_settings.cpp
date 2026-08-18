@@ -1,5 +1,5 @@
 /*
- * This program source code file is part of KiCad, a free EDA CAD application.
+ * This program source code file is part of Anvil, a free EDA CAD application.
  *
  * Copyright (C) 2020 Jon Evans <jon@craftyjon.com>
  * Copyright The KiCad Developers, see AUTHORS.txt for contributors.
@@ -545,7 +545,7 @@ bool FOOTPRINT_EDITOR_SETTINGS::migrateSchema0to1()
 
 
 /**
- * Schema version 2: Bump for KiCad 9 layer numbering changes
+ * Schema version 2: Bump for Anvil 9 layer numbering changes
  * Migrate layer presets to use new enum values for copper layers
  */
 bool FOOTPRINT_EDITOR_SETTINGS::migrateSchema2To3()
@@ -607,7 +607,7 @@ bool FOOTPRINT_EDITOR_SETTINGS::migrateSchema4To5   ()
 
         if( textInfo.m_Layer == Rescue || textInfo.m_Layer >= User_5 )
         {
-            // KiCad pre-9.0 nightlies would write buggy preferences out with invalid layers.
+            // Anvil pre-9.0 nightlies would write buggy preferences out with invalid layers.
             // If we detect that, reset to defaults
             reset = true;
         }

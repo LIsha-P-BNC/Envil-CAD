@@ -1,5 +1,5 @@
 /*
- * This program source code file is part of KiCad, a free EDA CAD application.
+ * This program source code file is part of Anvil, a free EDA CAD application.
  *
  * Copyright (C) 2020 Roberto Fernandez Bautista <roberto.fer.bau@gmail.com>
  * Copyright The KiCad Developers, see AUTHORS.txt for contributors.
@@ -441,7 +441,7 @@ public:
     };
 
     /**
-     * @brief A shape of copper in the component footprint. For KiCad import, this could
+     * @brief A shape of copper in the component footprint. For Anvil import, this could
      * be converted to a custom shaped pad (as long as AssociatedPadIDs is not empty)
      */
     struct COMPONENT_COPPER : PARSER
@@ -1018,7 +1018,7 @@ public:
             bool  Unrouted = false; ///< Instead of a ROUTE, the CONNECTION might have an
                                     ///< "UNROUTE" token. This appears to indicate that
                                     ///< the connection is made via a power plane layer
-                                    ///< as opposed to a route (track in KiCad terms)
+                                    ///< as opposed to a route (track in Anvil terms)
 
             LAYER_ID UnrouteLayerID = wxEmptyString; ///< See Unrouted member variable.
             TRUNK_ID TrunkID;                        ///< TRUNKREF Statements
@@ -1222,7 +1222,7 @@ public:
     PARTS       Parts;
     LAYOUT      Layout;
 
-    int KiCadUnitMultiplier; ///<Use this value to convert units in this CPA file to KiCad units
+    int KiCadUnitMultiplier; ///<Use this value to convert units in this CPA file to Anvil units
 
 private:
     XNODE* m_rootNode; // Currently parsed root node

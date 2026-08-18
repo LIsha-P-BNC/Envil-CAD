@@ -1,5 +1,5 @@
 /*
- * This program source code file is part of KiCad, a free EDA CAD application.
+ * This program source code file is part of Anvil, a free EDA CAD application.
  *
  * Copyright The KiCad Developers, see AUTHORS.txt for contributors.
  *
@@ -352,7 +352,7 @@ bool DIALOG_TABLECELL_PROPERTIES::TransferDataFromWindow()
         // On macOS CTRL+Enter produces '\r' instead of '\n' regardless of EOL setting
         text.Replace( "\r", "\n" );
 #elif defined( __WINDOWS__ )
-        // On Windows, a new line is coded as \r\n.  We use only \n in KiCad files and in
+        // On Windows, a new line is coded as \r\n.  We use only \n in Anvil files and in
         // drawing routines so strip the \r char.
         text.Replace( "\r", "" );
 #endif

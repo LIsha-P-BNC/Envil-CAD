@@ -1,5 +1,5 @@
 /*
- * This program source code file is part of KiCad, a free EDA CAD application.
+ * This program source code file is part of Anvil, a free EDA CAD application.
  *
  * Copyright (C) 2023 Jon Evans <jon@craftyjon.com>
  * Copyright The KiCad Developers, see AUTHORS.txt for contributors.
@@ -216,7 +216,7 @@ long PYTHON_MANAGER::ExecuteSync( const std::vector<wxString>& aArgs,
 
 wxString PYTHON_MANAGER::FindPythonInterpreter()
 {
-    // First, attempt to use a Python we distribute with KiCad
+    // First, attempt to use a Python we distribute with Anvil
 #if defined( __WINDOWS__ )
     wxFileName pythonExe = FindKicadFile( "pythonw.exe" );
 

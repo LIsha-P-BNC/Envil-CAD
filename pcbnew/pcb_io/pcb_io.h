@@ -134,7 +134,7 @@ public:
 
     /**
      * Return a container with the cached library footprints generated in the last call to
-     * #Load. This function is intended to be used ONLY by the non-KiCad board importers for the
+     * #Load. This function is intended to be used ONLY by the non-Anvil board importers for the
      * purpose of obtaining the footprint library of the design and creating a project-specific
      * library.
      *

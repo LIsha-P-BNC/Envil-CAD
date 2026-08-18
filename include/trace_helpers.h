@@ -1,5 +1,5 @@
 /*
- * This program source code file is part of KiCad, a free EDA CAD application.
+ * This program source code file is part of Anvil, a free EDA CAD application.
  *
  * Copyright (C) 2018 Wayne Stambaugh <stambaughw@gmail.com>
  * Copyright The KiCad Developers, see AUTHORS.txt for contributors.
@@ -43,7 +43,7 @@
  *
  * wxWidgets provides trace control of debug messages using the WXTRACE environment variable.
  * This section defines the strings passed to WXTRACE to for debug output control of various
- * sections of the KiCad code.  See the wxWidgets <a href="http://docs.wxwidgets.org/3.0/
+ * sections of the Anvil code.  See the wxWidgets <a href="http://docs.wxwidgets.org/3.0/
  * group__group__funcmacro__log.html#ga947e317db477914c12b13c4534867ec9"> wxLogTrace </a>
  * documentation for more information.
  */
@@ -122,7 +122,7 @@ extern KICOMMON_API const wxChar* const traceSchPlugin;
 extern KICOMMON_API const wxChar* const traceSchLegacyPlugin;
 
 /**
- * Flag to enable KiCad PCB plugin debug output.
+ * Flag to enable Anvil PCB plugin debug output.
  *
  * Use "KICAD_PCB_PLUGIN" to enable.
  */

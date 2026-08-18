@@ -1,5 +1,5 @@
 /*
- * This program source code file is part of KiCad, a free EDA CAD application.
+ * This program source code file is part of Anvil, a free EDA CAD application.
  *
  * Copyright (C) 2020-2021 Roberto Fernandez Bautista <roberto.fer.bau@gmail.com>
  * Copyright The KiCad Developers, see AUTHORS.txt for contributors.
@@ -130,9 +130,9 @@ public:
      * The default CADSTAR font uses y=5 as the starting point for capital letters, leaving space
      * for the tails of letters such as "g", "p", "y", "q", etc.
      *
-     * The font height in CADSTAR corresponds to the full 24 point height. In KiCad it only
+     * The font height in CADSTAR corresponds to the full 24 point height. In Anvil it only
      * corresponds to the height above the guide line, meaning the overall text height will be
-     * larger in KiCad.
+     * larger in Anvil.
      */
     static const double TXT_HEIGHT_RATIO;
 
@@ -166,8 +166,8 @@ public:
     };
 
     /**
-     * Map between CADSTAR fields and KiCad text variables. This is used as a lookup table when
-     * parsing CADSTAR text fields. Most variables have a similar name in KiCad as in CADSTAR.
+     * Map between CADSTAR fields and Anvil text variables. This is used as a lookup table when
+     * parsing CADSTAR text fields. Most variables have a similar name in Anvil as in CADSTAR.
      */
     static const std::map<TEXT_FIELD_NAME, wxString> CADSTAR_TO_KICAD_FIELDS;
 
@@ -182,7 +182,7 @@ public:
         std::map<wxString, wxString> FilenamesToTextMap;
 
         /**
-         * KiCad doesn't support hyperlinks but we use this map to display warning messages
+         * Anvil doesn't support hyperlinks but we use this map to display warning messages
          * after import. First element = Display Text. Second element = Hyperlink
          */
         std::map<wxString, wxString> TextToHyperlinksMap;
@@ -206,7 +206,7 @@ public:
     };
 
     /**
-     * Replaces CADSTAR fields for the equivalent in KiCad and stores the field values
+     * Replaces CADSTAR fields for the equivalent in Anvil and stores the field values
      * in \a aParserContext.
      *
      * @param aTextString Text string to parse.
@@ -996,7 +996,7 @@ public:
                                                           ///< displayed will be Identifier
                                                           ///< (subnode="PINNAME")
                                                           ///< This seems to be equivalent to "Pin
-                                                          ///< Number" in KiCad.
+                                                          ///< Number" in Anvil.
                 wxString Label = wxEmptyString;           ///< This Can be empty (subnode=
                                                           ///< "PINLABEL")
                                                           ///< From CADSTAR Help: "Pin
@@ -1011,7 +1011,7 @@ public:
                                                           ///< Pin Swaps are Back Annotated to the
                                                           ///< Schematic design."
                                                           ///< This seems to be equivalent to "Pin
-                                                          ///< Name" in KiCad.
+                                                          ///< Name" in Anvil.
                 wxString Signal = wxEmptyString;          ///< Usually for Power/Ground pins,
                                                           ///< (subnode="PINSIGNAL")
                 GATE_ID     TerminalGate;                 ///< (subnode="PINTERM", param0)
@@ -1403,10 +1403,10 @@ public:
     }
 
     /**
-     * Convert a string with CADSTAR overbar characters to equivalent in KiCad.
+     * Convert a string with CADSTAR overbar characters to equivalent in Anvil.
      *
      * @param aCadstarString Input string
-     * @return KiCad string with overbar characters
+     * @return Anvil string with overbar characters
      */
     static wxString HandleTextOverbar( wxString aCadstarString );
 
@@ -1415,7 +1415,7 @@ public:
      *
      * Assumes that the provided text element has been initialised with a position and orientation.
      *
-     * @param aKiCadTextItem a KiCad item to correct
+     * @param aKiCadTextItem a Anvil item to correct
      */
     static void FixTextPositionNoAlignment( EDA_TEXT* aKiCadTextItem );
 

@@ -336,7 +336,7 @@ add_compile_definitions( $<$<CONFIG:Debug>:DEBUG> )
 # Add option to add user directories for linker, if any
 link_directories( ${LINK_DIRECTORIES_PATH} )
 
-set( KICAD_CONFIG_DIR "kicad" CACHE STRING "Location of user specific KiCad config files" )
+set( KICAD_CONFIG_DIR "anvil" CACHE STRING "Location of user specific KiCad config files" )
 mark_as_advanced( KICAD_CONFIG_DIR )
 add_compile_definitions( KICAD_CONFIG_DIR=${KICAD_CONFIG_DIR} )
 
@@ -691,14 +691,14 @@ if( NOT APPLE )
 
     # Do not make these variables "PATH" b/c cmake will truncate them and we need the full path
     if( NOT IS_ABSOLUTE ${CMAKE_INSTALL_DATADIR} )
-        set( KICAD_DATA ${CMAKE_INSTALL_PREFIX}/${CMAKE_INSTALL_DATADIR}/kicad
+        set( KICAD_DATA ${CMAKE_INSTALL_PREFIX}/${CMAKE_INSTALL_DATADIR}/anvil
             CACHE STRING "Location of KiCad data files." )
-        set( KICAD_DOCS ${CMAKE_INSTALL_PREFIX}/${CMAKE_INSTALL_DATADIR}/doc/kicad
+        set( KICAD_DOCS ${CMAKE_INSTALL_PREFIX}/${CMAKE_INSTALL_DATADIR}/doc/anvil
             CACHE STRING "Location of KiCad documentation files." )
     else()
-        set( KICAD_DATA ${CMAKE_INSTALL_DATADIR}/kicad
+        set( KICAD_DATA ${CMAKE_INSTALL_DATADIR}/anvil
             CACHE STRING "Location of KiCad data files." )
-        set( KICAD_DOCS ${CMAKE_INSTALL_DATADIR}/doc/kicad
+        set( KICAD_DOCS ${CMAKE_INSTALL_DATADIR}/doc/anvil
             CACHE STRING "Location of KiCad documentation files." )
     endif()
 

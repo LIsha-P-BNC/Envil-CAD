@@ -1,5 +1,5 @@
 /*
- * This program source code file is part of KiCad, a free EDA CAD application.
+ * This program source code file is part of Anvil, a free EDA CAD application.
  *
  * Copyright (C) 2017 Jon Evans <jon@craftyjon.com>
  * Copyright The KiCad Developers, see AUTHORS.txt for contributors.
@@ -124,7 +124,7 @@ int GERBVIEW_CONTROL::ExportToPcbnew( const TOOL_EVENT& aEvent )
     wxString fileDialogName( NAMELESS_PROJECT + wxT( "." ) + FILEEXT::KiCadPcbFileExtension );
     wxString     path = m_frame->GetMruPath();
 
-    wxFileDialog filedlg( m_frame, _( "Export as KiCad Board File" ), path, fileDialogName,
+    wxFileDialog filedlg( m_frame, _( "Export as Anvil Board File" ), path, fileDialogName,
                           FILEEXT::PcbFileWildcard(), wxFD_SAVE | wxFD_OVERWRITE_PROMPT );
 
     KIPLATFORM::UI::AllowNetworkFileSystems( &filedlg );

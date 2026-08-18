@@ -1,5 +1,5 @@
 /*
- * This program source code file is part of KiCad, a free EDA CAD application.
+ * This program source code file is part of Anvil, a free EDA CAD application.
  *
  * Copyright The KiCad Developers, see AUTHORS.txt for contributors.
  *
@@ -26,7 +26,7 @@
 /**
  * This class was created to handle importing ellipses from other file formats that support them
  * natively.  The storage format and API may need to be refactored before this is used as part of a
- * potential future native KiCad ellipse.
+ * potential future native Anvil ellipse.
  */
 
 template <typename NumericType>

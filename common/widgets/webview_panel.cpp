@@ -1,5 +1,5 @@
 /*
- * This program source code file is part of KiCad, a free EDA CAD application.
+ * This program source code file is part of Anvil, a free EDA CAD application.
  *
  * Copyright The KiCad Developers, see AUTHORS.txt for contributors.
  *
@@ -89,7 +89,7 @@ WEBVIEW_PANEL::WEBVIEW_PANEL( wxWindow* aParent, wxWindowID aId, const wxPoint& 
     browser->RegisterHandler( wxSharedPtr<wxWebViewHandler>( new wxWebViewArchiveHandler( "wxfs" ) ) );
     browser->RegisterHandler( wxSharedPtr<wxWebViewHandler>( new wxWebViewFSHandler( "memory" ) ) );
 #endif
-    browser->SetUserAgent( wxString::Format( "KiCad/%s WebView/%s", GetMajorMinorPatchVersion(), wxGetOsDescription() ) );
+    browser->SetUserAgent( wxString::Format( "Anvil/%s WebView/%s", GetMajorMinorPatchVersion(), wxGetOsDescription() ) );
     browser->Create( this, wxID_ANY, wxEmptyString, wxDefaultPosition, wxDefaultSize );
     sizer->Add( browser, 1, wxEXPAND );
     SetSizer( sizer );

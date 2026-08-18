@@ -1,5 +1,5 @@
 /*
- * This program source code file is part of KiCad, a free EDA CAD application.
+ * This program source code file is part of Anvil, a free EDA CAD application.
  *
  * Copyright (C) 2020 Thomas Pointhuber <thomas.pointhuber@gmx.at>
  * Copyright The KiCad Developers, see AUTHORS.txt for contributors.
@@ -171,7 +171,7 @@ static void SetLibShapeLine( const ASCH_BORDER_INTERFACE& elem, SCH_SHAPE* shape
 
     // In Altium libraries, you cannot change the width of the pins.  So, to match pin width,
     // if the line width of other elements is the default pin width (10 mil), we set the width
-    // to the KiCad default pin width ( represented by 0 )
+    // to the Anvil default pin width ( represented by 0 )
     if( elem.LineWidth == 2540 )
         stroke.SetWidth( 0 );
     else
@@ -402,7 +402,7 @@ SCH_SHEET* SCH_IO_ALTIUM::LoadSchematicProject( SCHEMATIC* aSchematic, const std
 
         // If not found, try case-insensitive search by checking all loaded screens.
         // Compare base names only (without extension) since Altium uses .SchDoc/.SCHDOC
-        // while KiCad uses .kicad_sch
+        // while Anvil uses .kicad_sch
         if( !existingScreen )
         {
             SCH_SCREENS allScreens( m_rootSheet );
@@ -431,7 +431,7 @@ SCH_SHEET* SCH_IO_ALTIUM::LoadSchematicProject( SCHEMATIC* aSchematic, const std
         SCH_SCREEN* screen = new SCH_SCREEN( m_schematic );
         sheet->SetScreen( screen );
 
-        // Convert to KiCad project-relative path with .kicad_sch extension
+        // Convert to Anvil project-relative path with .kicad_sch extension
         kicad_fn.SetExt( FILEEXT::KiCadSchematicFileExtension );
         kicad_fn.SetPath( aSchematic->Project().GetProjectPath() );
 
@@ -478,7 +478,7 @@ SCH_SHEET* SCH_IO_ALTIUM::LoadSchematicProject( SCHEMATIC* aSchematic, const std
         SCH_SHEET* sheetPtr = sheet.release();
         currentScreen->Append( sheetPtr );
 
-        // Use the KiCad path for the map key since screen filenames use KiCad paths
+        // Use the Anvil path for the map key since screen filenames use Anvil paths
         sheets[kicad_fn.GetFullPath()] = sheetPtr;
 
         x += 2;
@@ -912,7 +912,7 @@ void SCH_IO_ALTIUM::CreateAliases()
         // harness name, then the nets inside the harness will be named harnessname.netname.
         // However, if there is no harness name, the nets will be named just netname.
 
-        // KiCad bus labels need some special handling to be recognized as bus labels
+        // Anvil bus labels need some special handling to be recognized as bus labels
         if( label && !label->GetText().StartsWith( wxT( "{" ) ) )
             label->SetText( label->GetText() + wxT( "{" ) + harness.m_name + wxT( "}" ) );
 
@@ -2139,7 +2139,7 @@ void SetTextPositioning( EDA_TEXT* text, ASCH_LABEL_JUSTIFICATION justification,
 }
 
 
-// Altium text orientation and justification are in absolute (page) coordinates. KiCad stores
+// Altium text orientation and justification are in absolute (page) coordinates. Anvil stores
 // field text properties relative to the parent symbol and applies the symbol's transform at
 // render time. This function adjusts the field's stored text angle and justification to
 // compensate for the symbol's orientation so that the final rendered appearance matches the
@@ -2151,7 +2151,7 @@ void AdjustFieldForSymbolOrientation( SCH_FIELD* aField, const ASCH_SYMBOL& aSym
 {
     bool isHorizontal = aField->GetTextAngle().IsHorizontal();
 
-    // Altium orientation 0 (RIGHTWARDS) maps to KiCad SYM_ORIENT_90 (CCW). To compensate,
+    // Altium orientation 0 (RIGHTWARDS) maps to Anvil SYM_ORIENT_90 (CCW). To compensate,
     // apply CW 90-degree rotation to text properties. Per SCH_FIELD::Rotate(), CW rotation
     // of horizontal text flips justification; CW rotation of vertical text does not.
     if( aSymbol.orientation == 0 )
@@ -2164,7 +2164,7 @@ void AdjustFieldForSymbolOrientation( SCH_FIELD* aField, const ASCH_SYMBOL& aSym
 
         aField->SetTextAngle( isHorizontal ? ANGLE_VERTICAL : ANGLE_HORIZONTAL );
     }
-    // Altium orientation 1 (UPWARDS) maps to KiCad SYM_ORIENT_180 (two CCW rotations). The
+    // Altium orientation 1 (UPWARDS) maps to Anvil SYM_ORIENT_180 (two CCW rotations). The
     // transform [-1,0,0,-1] negates both X and Y, flipping horizontal justification. Apply
     // one correction for the full 180 degrees regardless of text angle.
     else if( aSymbol.orientation == 1 )
@@ -2172,7 +2172,7 @@ void AdjustFieldForSymbolOrientation( SCH_FIELD* aField, const ASCH_SYMBOL& aSym
         aField->SetHorizJustify(
                 static_cast<GR_TEXT_H_ALIGN_T>( -aField->GetHorizJustify() ) );
     }
-    // Altium orientation 2 (LEFTWARDS) maps to KiCad SYM_ORIENT_270 (CW). To compensate,
+    // Altium orientation 2 (LEFTWARDS) maps to Anvil SYM_ORIENT_270 (CW). To compensate,
     // apply CCW 90-degree rotation to text properties. Per SCH_FIELD::Rotate(), CCW rotation
     // of vertical text flips justification; CCW rotation of horizontal text does not.
     else if( aSymbol.orientation == 2 )
@@ -2185,10 +2185,10 @@ void AdjustFieldForSymbolOrientation( SCH_FIELD* aField, const ASCH_SYMBOL& aSym
 
         aField->SetTextAngle( isHorizontal ? ANGLE_VERTICAL : ANGLE_HORIZONTAL );
     }
-    // Altium orientation 3 (DOWNWARDS) maps to KiCad SYM_ORIENT_0 (identity). No rotation
+    // Altium orientation 3 (DOWNWARDS) maps to Anvil SYM_ORIENT_0 (identity). No rotation
     // compensation needed.
 
-    // Mirror-Y in KiCad negates the X component of the bounding box, which effectively
+    // Mirror-Y in Anvil negates the X component of the bounding box, which effectively
     // flips horizontal justification. Compensate so the rendered text matches Altium.
     if( aSymbol.isMirrored )
     {
@@ -2198,7 +2198,7 @@ void AdjustFieldForSymbolOrientation( SCH_FIELD* aField, const ASCH_SYMBOL& aSym
 }
 
 
-// Altium text in symbols uses absolute orientation, but KiCad applies the symbol's transform
+// Altium text in symbols uses absolute orientation, but Anvil applies the symbol's transform
 // to library body items via OrientAndMirrorSymbolItems at render time. This function pre-
 // compensates the stored text angle and justification so that after the render-time transform,
 // the final appearance matches the original Altium layout. Position is not adjusted here
@@ -4827,7 +4827,7 @@ void SCH_IO_ALTIUM::ParseLibDesignator( const std::map<wxString, wxString>& aPro
         if( emptyRef )
             refField.SetText( wxT( "X" ) );
         else
-            refField.SetText( elem.text.BeforeLast( '?' ) ); // remove the '?' at the end for KiCad-style
+            refField.SetText( elem.text.BeforeLast( '?' ) ); // remove the '?' at the end for Anvil-style
 
         refField.SetPosition( elem.location );
         SetTextPositioning( &refField, elem.justification, elem.orientation );
@@ -4977,7 +4977,7 @@ void SCH_IO_ALTIUM::ParseLibParameter( const std::map<wxString, wxString>& aProp
 
     // If ownerindex is populated, this is parameter belongs to a subelement (e.g. pin).
     // Ignore for now.
-    // TODO: Update this when KiCad supports parameters for any object
+    // TODO: Update this when Anvil supports parameters for any object
     if( elem.ownerindex != ALTIUM_COMPONENT_NONE )
         return;
 

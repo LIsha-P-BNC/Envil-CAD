@@ -1,5 +1,5 @@
 /*
- * This program source code file is part of KiCad, a free EDA CAD application.
+ * This program source code file is part of Anvil, a free EDA CAD application.
  *
  * Copyright The KiCad Developers, see AUTHORS.txt for contributors.
  *
@@ -245,7 +245,7 @@ bool DESIGN_BLOCK_PANE::AddDesignBlockLibrary( const wxString& aDialogTitle, con
 
     wxString type = DESIGN_BLOCK_IO_MGR::ShowType( lib_type );
 
-    // KiCad lib is our default guess.  So it might not have the .kicad_blocks extension
+    // Anvil lib is our default guess.  So it might not have the .kicad_blocks extension
     // In this case, the extension is part of the library name
     if( lib_type == DESIGN_BLOCK_IO_MGR::KICAD_SEXP && fn.GetExt() != FILEEXT::KiCadDesignBlockLibPathExtension )
         libName = fn.GetFullName();

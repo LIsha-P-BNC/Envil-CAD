@@ -151,7 +151,7 @@ public:
     /**
      * Insert \n characters into text to ensure that no lines are wider than \a aColumnWidth.
      *
-     * This is a highly simplified line-breaker.  KiCad is an EDA tool, not a word processor.
+     * This is a highly simplified line-breaker.  Anvil is an EDA tool, not a word processor.
      *
      * -# It breaks only on spaces.  If you type a word wider than the column width then you get
      *    overflow.

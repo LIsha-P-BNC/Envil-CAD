@@ -1,5 +1,5 @@
 /*
- * This program source code file is part of KiCad, a free EDA CAD application.
+ * This program source code file is part of Anvil, a free EDA CAD application.
  *
  * Copyright (C) 2013-2016 CERN
  * Copyright The KiCad Developers, see AUTHORS.txt for contributors.
@@ -196,7 +196,7 @@ protected:
      * will hide the item when the scale is less than 0.1 - i.e. smaller than the
      * threshold.
      *
-     * Because even at zoom 1.0, 1mm in KiCad may not be exactly 1mm on a physical
+     * Because even at zoom 1.0, 1mm in Anvil may not be exactly 1mm on a physical
      * screen, the threshold may not be exact in practice.
      */
     static double lodScaleForThreshold( const KIGFX::VIEW* aView, int aWhatIu, int aThresholdIu );

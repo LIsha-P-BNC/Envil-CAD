@@ -1,5 +1,5 @@
 /*
- * This program source code file is part of KiCad, a free EDA CAD application.
+ * This program source code file is part of Anvil, a free EDA CAD application.
  *
  * Copyright The KiCad Developers, see AUTHORS.txt for contributors.
  *
@@ -304,7 +304,7 @@ bool LOCAL_HISTORY::commitInBackground( const wxString& aProjectPath, const wxSt
     }
 
     git_signature* rawSig = nullptr;
-    git_signature_now( &rawSig, "KiCad", "noreply@kicad.org" );
+    git_signature_now( &rawSig, "Anvil", "noreply@anvilcad.com" );
     std::unique_ptr<git_signature, decltype( &git_signature_free )> sig( rawSig, &git_signature_free );
 
     git_commit* parent = nullptr;
@@ -406,12 +406,12 @@ bool LOCAL_HISTORY::Init( const wxString& aProjectPath )
 
             if( f.IsOpened() )
             {
-                f.Write( wxS( "KiCad Local History Directory\n"
+                f.Write( wxS( "Anvil Local History Directory\n"
                               "=============================\n\n"
                               "This directory contains automatic snapshots of your project files.\n"
-                              "KiCad periodically saves copies of your work here, allowing you to\n"
+                              "Anvil periodically saves copies of your work here, allowing you to\n"
                               "recover from accidental changes or data loss.\n\n"
-                              "You can browse and restore previous versions through KiCad's\n"
+                              "You can browse and restore previous versions through Anvil's\n"
                               "File > Local History menu.\n\n"
                               "To disable this feature:\n"
                               "  Preferences > Common > Project Backup > Enable automatic backups\n\n"
@@ -570,7 +570,7 @@ static SNAPSHOT_COMMIT_RESULT commitSnapshotWithLock( git_repository* repo, git_
     std::unique_ptr<git_tree, decltype( &git_tree_free )> tree( rawTree, &git_tree_free );
 
     git_signature* rawSig = nullptr;
-    git_signature_now( &rawSig, "KiCad", "noreply@kicad.org" );
+    git_signature_now( &rawSig, "Anvil", "noreply@anvilcad.com" );
     std::unique_ptr<git_signature, decltype( &git_signature_free )> sig( rawSig,
                                                                          &git_signature_free );
 
@@ -884,7 +884,7 @@ bool LOCAL_HISTORY::CommitDuplicateOfLastSave( const wxString& aProjectPath, con
     }
 
     git_signature* sigRaw = nullptr;
-    git_signature_now( &sigRaw, "KiCad", "noreply@kicad.org" );
+    git_signature_now( &sigRaw, "Anvil", "noreply@anvilcad.com" );
     std::unique_ptr<git_signature, decltype( &git_signature_free )> sig( sigRaw, &git_signature_free );
 
     wxString msg = aMessage.IsEmpty() ? wxS("Discard unsaved ") + aFileType : aMessage;
@@ -1769,7 +1769,7 @@ bool recordRestoreInHistory( git_repository* aRepo, git_commit* aCommit, git_tre
     git_time_t t = git_commit_time( aCommit );
     wxDateTime dt( (time_t) t );
     git_signature* sig = nullptr;
-    git_signature_now( &sig, "KiCad", "noreply@kicad.org" );
+    git_signature_now( &sig, "Anvil", "noreply@anvilcad.com" );
     git_commit* parent = nullptr;
     git_oid parent_id;
 

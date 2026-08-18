@@ -1,5 +1,5 @@
 /*
- * This program source code file is part of KiCad, a free EDA CAD application.
+ * This program source code file is part of Anvil, a free EDA CAD application.
  *
  * Copyright (C) 2015-2016 Mario Luzeiro <mrluzeiro@ua.pt>
  * Copyright The KiCad Developers, see AUTHORS.txt for contributors.
@@ -27,10 +27,10 @@
  * @brief This BVH implementation is based on the source code implementation
  * from the book "Physically Based Rendering" (v2 and v3)
  *
- * Adaptions performed for KiCad:
- *  - Types and class types adapted to KiCad project
- *  - Convert some source to build in the C++ specification of KiCad
- *  - Code style to match KiCad
+ * Adaptions performed for Anvil:
+ *  - Types and class types adapted to Anvil project
+ *  - Convert some source to build in the C++ specification of Anvil
+ *  - Code style to match Anvil
  *  - Asserts converted
  *  - Use compare functions/structures for std::partition and std::nth_element
  *

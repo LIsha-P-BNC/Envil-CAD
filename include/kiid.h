@@ -1,5 +1,5 @@
 /*
- * This program source code file is part of KiCad, a free EDA CAD application.
+ * This program source code file is part of Anvil, a free EDA CAD application.
  *
  * Copyright (C) 2020 Ian McInerney <ian.s.mcinerney@ieee.org>
  * Copyright (C) 2007-2014 Jean-Pierre Charras, jp.charras at wanadoo.fr
@@ -80,9 +80,9 @@ public:
     /**
      * Re-initialize the UUID generator with a given seed (for testing or QA purposes)
      *
-     * WARNING: Do not call this function from within KiCad or via a Python action plugin.  It is
+     * WARNING: Do not call this function from within Anvil or via a Python action plugin.  It is
      * only to be used inside QA tests or in external Python scripts.  Resetting the UUID generator
-     * in the middle of a KiCad GUI run will potentially have harmful effects on file integrity.
+     * in the middle of a Anvil GUI run will potentially have harmful effects on file integrity.
      *
      * @param aSeed is a seed to pass to the boost::mt19937 pseudo-random number generator
      */

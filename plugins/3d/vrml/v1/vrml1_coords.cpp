@@ -1,5 +1,5 @@
 /*
- * This program source code file is part of KiCad, a free EDA CAD application.
+ * This program source code file is part of Anvil, a free EDA CAD application.
  *
  * Copyright (C) 2016 Cirilo Bernardo <cirilo.bernardo@gmail.com>
  * Copyright The KiCad Developers, see AUTHORS.txt for contributors.
@@ -135,7 +135,7 @@ bool WRL1COORDS::Read( WRLPROC& proc, WRL1BASE* aTopNode )
         return false;
     }
 
-    // assuming legacy KiCad expectation of 1U = 0.1 inch,
+    // assuming legacy Anvil expectation of 1U = 0.1 inch,
     // convert to mm to meet the expectations of the SG structure
     std::vector< WRLVEC3F >::iterator sP = points.begin();
     std::vector< WRLVEC3F >::iterator eP = points.end();

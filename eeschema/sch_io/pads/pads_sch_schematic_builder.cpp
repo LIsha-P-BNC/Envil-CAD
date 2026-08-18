@@ -1,5 +1,5 @@
 /*
- * This program source code file is part of KiCad, a free EDA CAD application.
+ * This program source code file is part of Anvil, a free EDA CAD application.
  *
  * Copyright (C) 2025 KiCad Developers, see AUTHORS.txt for contributors.
  *
@@ -554,7 +554,7 @@ void PADS_SCH_SCHEMATIC_BUILDER::ApplyFieldSettings( SCH_SYMBOL*           aSymb
                 field->SetVisible( isRefOrValue ? attr.visible : false );
 
             // PADS field positions are in CAEDECAL coordinates (pre-mirror).
-            // KiCad applies the symbol transform to field positions, so
+            // Anvil applies the symbol transform to field positions, so
             // pre-compensate X for mirrored-Y symbols.
             int fx = toKiCadUnits( attr.position.x );
 

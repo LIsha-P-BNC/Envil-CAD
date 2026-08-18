@@ -1,5 +1,5 @@
 /*
- * This program source code file is part of KiCad, a free EDA CAD application.
+ * This program source code file is part of Anvil, a free EDA CAD application.
  *
  * Copyright (C) 2012 CERN.
  * Copyright The KiCad Developers, see AUTHORS.txt for contributors.
@@ -332,17 +332,17 @@ public:
         // but to be pure, a plugin should not assume that it will always be linked
         // with the core of the Pcbnew code. (Might someday be a DLL/DSO.)  Besides,
         // file extension policy should be controlled by the plugin.
-        return IO_BASE::IO_FILE_DESC( _HKI( "KiCad printed circuit board files" ), { "anvil_pcb", "kicad_pcb" } );
+        return IO_BASE::IO_FILE_DESC( _HKI( "Anvil printed circuit board files" ), { "anvil_pcb", "kicad_pcb" } );
     }
 
     const IO_BASE::IO_FILE_DESC GetLibraryFileDesc() const override
     {
-        return IO_BASE::IO_FILE_DESC( _HKI( "KiCad footprint file" ), { "anvil_mod", "kicad_mod" } );
+        return IO_BASE::IO_FILE_DESC( _HKI( "Anvil footprint file" ), { "anvil_mod", "kicad_mod" } );
     }
 
     const IO_BASE::IO_FILE_DESC GetLibraryDesc() const override
     {
-        return IO_BASE::IO_FILE_DESC( _HKI( "KiCad footprint files" ), {}, { "anvil_mod", "kicad_mod" }, false );
+        return IO_BASE::IO_FILE_DESC( _HKI( "Anvil footprint files" ), {}, { "anvil_mod", "kicad_mod" }, false );
     }
 
     void SetQueryUserCallback( std::function<bool( wxString aTitle, int aIcon, wxString aMessage,

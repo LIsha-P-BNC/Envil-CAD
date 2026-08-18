@@ -1,5 +1,5 @@
 /*
- * This program source code file is part of KiCad, a free EDA CAD application.
+ * This program source code file is part of Anvil, a free EDA CAD application.
  *
  * Copyright (C) 2018 Jean-Pierre Charras, jp.charras at wanadoo.fr
  * Copyright (C) 2007-2012 SoftPLC Corporation, Dick Hollenbeck <dick@softplc.com>
@@ -225,7 +225,7 @@ public:
      */
 
     /**
-     * \defgroup ext_family Anvil/KiCad extension-family helpers
+     * \defgroup ext_family Anvil/Anvil extension-family helpers
      *
      * "Foreign family" = kicad_* extensions; "native family" = anvil_* extensions.
      * All comparisons are case-insensitive. These are the single source of truth for

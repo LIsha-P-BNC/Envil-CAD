@@ -1,5 +1,5 @@
 /*
- * This program source code file is part of KiCad, a free EDA CAD application.
+ * This program source code file is part of Anvil, a free EDA CAD application.
  *
  * Copyright (C) 2018 Jean-Pierre Charras, jap.charras at wanadoo.fr
  * Copyright The KiCad Developers, see AUTHORS.txt for contributors.
@@ -114,7 +114,7 @@ protected:
 
     void doReCreateMenuBar() override;
 
-    // KiCad Next unified menu bar (see EDA_BASE_FRAME::buildCommonMenuBar()).
+    // Anvil Next unified menu bar (see EDA_BASE_FRAME::buildCommonMenuBar()).
     TOOL_INTERACTIVE* getCurrentMenuTool() override;
     void buildFileMenu( ACTION_MENU* aMenu ) override;
     void buildViewMenu( ACTION_MENU* aMenu ) override;

@@ -1,5 +1,5 @@
 /*
- * This program source code file is part of KiCad, a free EDA CAD application.
+ * This program source code file is part of Anvil, a free EDA CAD application.
  *
  * Copyright The KiCad Developers, see AUTHORS.txt for contributors.
  *
@@ -335,10 +335,10 @@ wxImage BITMAP_STORE::getImage( BITMAPS aBitmapId, int aHeight )
 
 void BITMAP_STORE::recolorToAnvilTheme( wxImage& aImage ) const
 {
-    // Hue-selective remap: shift KiCad-blue pixels to the NEMI emerald hue, keeping their
+    // Hue-selective remap: shift Anvil-blue pixels to the NEMI emerald hue, keeping their
     // saturation and value so anti-aliased edges move cleanly and semantic colours (red = delete,
     // layer colours, warnings) and greys are left untouched.  wx HSV values are fractions [0,1].
-    //   KiCad primary blue #1A81C4 -> hue ~0.567;  NEMI Signal Emerald #10A37E -> hue ~0.458.
+    //   Anvil primary blue #1A81C4 -> hue ~0.567;  NEMI Signal Emerald #10A37E -> hue ~0.458.
     constexpr double BLUE_HUE_LO = 0.528;   // ~190 deg
     constexpr double BLUE_HUE_HI = 0.611;   // ~220 deg
     constexpr double EMERALD_HUE = 0.458;   // ~165 deg (#10A37E)

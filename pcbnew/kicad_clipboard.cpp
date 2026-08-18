@@ -1,5 +1,5 @@
 /*
- * This program source code file is part of KiCad, a free EDA CAD application.
+ * This program source code file is part of Anvil, a free EDA CAD application.
  *
  * Copyright The KiCad Developers, see AUTHORS.TXT for contributors.
  * @author Kristoffer Ödmark
@@ -543,7 +543,7 @@ BOARD* CLIPBOARD_IO::LoadBoard( const wxString& aFileName, BOARD* aAppendToMe,
     if( item->Type() != PCB_T )
     {
         // The parser loaded something that was valid, but wasn't a board.
-        THROW_PARSE_ERROR( _( "Clipboard content is not KiCad compatible" ), parser.CurSource(),
+        THROW_PARSE_ERROR( _( "Clipboard content is not Anvil compatible" ), parser.CurSource(),
                            parser.CurLine(), parser.CurLineNumber(), parser.CurOffset() );
     }
     else

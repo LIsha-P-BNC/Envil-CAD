@@ -1,5 +1,5 @@
 /*
- * This program source code file is part of KiCad, a free EDA CAD application.
+ * This program source code file is part of Anvil, a free EDA CAD application.
  *
  * Copyright The KiCad Developers, see AUTHORS.txt for contributors.
  *
@@ -39,7 +39,7 @@ namespace ENV_VAR
 {
     /**
      * Determine if an environment variable is "predefined", i.e. if the
-     * name of the variable is special to KiCad, and isn't just a user-specified
+     * name of the variable is special to Anvil, and isn't just a user-specified
      * substitution name.
      *
      * @param  aEnvVar the variable to check.
@@ -58,7 +58,7 @@ namespace ENV_VAR
     KICOMMON_API void GetEnvVarAutocompleteTokens( wxArrayString* aVars );
 
     /**
-     * Construct a versioned environment variable based on this KiCad major version.
+     * Construct a versioned environment variable based on this Anvil major version.
      *
      * @param aBaseName is the suffix, like TEMPLATE_DIR.
      * @return an environment variable name, like KICAD8_TEMPLATE_DIR.

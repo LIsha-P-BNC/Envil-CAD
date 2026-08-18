@@ -1,5 +1,5 @@
 /*
- * This program source code file is part of KiCad, a free EDA CAD application.
+ * This program source code file is part of Anvil, a free EDA CAD application.
  *
  * Copyright The KiCad Developers, see AUTHORS.txt for contributors.
  *
@@ -169,9 +169,9 @@ protected:
 
 
 /**
- * Read the KiCad legacy and the old Orcad netlist formats.
+ * Read the Anvil legacy and the old Orcad netlist formats.
  *
- * The KiCad legacy netlist format was derived directly from an old Orcad netlist format.  The
+ * The Anvil legacy netlist format was derived directly from an old Orcad netlist format.  The
  * primary difference is the header was changed so this reader can read both formats.
  */
 class LEGACY_NETLIST_READER : public NETLIST_READER
@@ -253,7 +253,7 @@ public:
 
 
 /**
- * Read the new s-expression based KiCad netlist format.
+ * Read the new s-expression based Anvil netlist format.
  */
 class KICAD_NETLIST_READER : public NETLIST_READER
 {

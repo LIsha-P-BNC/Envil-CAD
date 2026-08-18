@@ -1,5 +1,5 @@
 /*
- * This program source code file is part of KiCad, a free EDA CAD application.
+ * This program source code file is part of Anvil, a free EDA CAD application.
  *
  * Copyright (C) 2011-2012 SoftPLC Corporation, Dick Hollenbeck <dick@softplc.com>
  * Copyright The KiCad Developers, see AUTHORS.txt for contributors.
@@ -100,6 +100,10 @@ PCB_IO_MGR::PCB_FILE_T PCB_IO_MGR::EnumFromStr( const wxString& aType )
 {
     if( aType == LIBRARY_TABLE_ROW::TABLE_TYPE_NAME )
         return PCB_IO_MGR::NESTED_TABLE;
+
+    // Backward-compat: legacy library tables may use the old "KiCad" type name.
+    if( aType.CmpNoCase( wxT( "KiCad" ) ) == 0 )
+        return PCB_IO_MGR::KICAD_SEXP;
 
     const auto& plugins = PLUGIN_REGISTRY::Instance()->AllPlugins();
 
@@ -274,7 +278,7 @@ bool PCB_IO_MGR::ConvertLibrary( const std::map<std::string, UTF8>& aOldFileProp
 // clang-format off
 static PCB_IO_MGR::REGISTER_PLUGIN registerKicadPlugin(
         PCB_IO_MGR::KICAD_SEXP,
-        wxT( "KiCad" ),
+        wxT( "Anvil" ),
         []() -> PCB_IO* { return new PCB_IO_KICAD_SEXPR; } );
 
 static PCB_IO_MGR::REGISTER_PLUGIN registerLegacyPlugin(
@@ -282,7 +286,7 @@ static PCB_IO_MGR::REGISTER_PLUGIN registerLegacyPlugin(
         wxT( "Legacy" ),
         []() -> PCB_IO* { return new PCB_IO_KICAD_LEGACY; } );
 
-// Keep non-KiCad plugins in alphabetical order
+// Keep non-Anvil plugins in alphabetical order
 
 static PCB_IO_MGR::REGISTER_PLUGIN registerAllegroPlugin(
     PCB_IO_MGR::ALLEGRO,

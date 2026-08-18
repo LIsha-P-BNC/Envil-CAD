@@ -1,5 +1,5 @@
 /*
- * This program source code file is part of KiCad, a free EDA CAD application.
+ * This program source code file is part of Anvil, a free EDA CAD application.
  *
  * Copyright (C) 2015, 2016 Cirilo Bernardo <cirilo.bernardo@gmail.com>
  * Copyright The KiCad Developers, see AUTHORS.TXT for contributors.
@@ -24,7 +24,7 @@
 
 /*
  * Description:
- *  This plugin implements the legacy KiCad VRML1/VRML2 and X3D parsers
+ *  This plugin implements the legacy Anvil VRML1/VRML2 and X3D parsers
  *  The plugin will invoke a VRML1 or VRML2 parser depending on the
  *  identifying information in the file header:
  *

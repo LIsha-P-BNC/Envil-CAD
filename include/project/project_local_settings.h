@@ -1,5 +1,5 @@
 /*
- * This program source code file is part of KiCad, a free EDA CAD application.
+ * This program source code file is part of Anvil, a free EDA CAD application.
  *
  * Copyright (C) 2020 CERN
  * Copyright The KiCad Developers, see AUTHORS.txt for contributors.
@@ -159,7 +159,7 @@ public:
     wxString m_GitRepoType;
     wxString m_GitSSHKey;
 
-    /// If true, KiCad will not use Git integration for this project even if a .git directory exists
+    /// If true, Anvil will not use Git integration for this project even if a .git directory exists
     bool m_GitIntegrationDisabled;
 
 private:

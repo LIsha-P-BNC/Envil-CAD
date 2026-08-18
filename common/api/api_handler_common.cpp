@@ -1,5 +1,5 @@
 /*
- * This program source code file is part of KiCad, a free EDA CAD application.
+ * This program source code file is part of Anvil, a free EDA CAD application.
  *
  * Copyright (C) 2023 Jon Evans <jon@craftyjon.com>
  * Copyright The KiCad Developers, see AUTHORS.txt for contributors.
@@ -411,7 +411,7 @@ HANDLER_RESULT<OpenDocumentResponse> API_HANDLER_COMMON::handleOpenDocument(
     {
         ApiResponseStatus e;
         e.set_status( ApiStatusCode::AS_UNIMPLEMENTED );
-        e.set_error_message( "OpenDocument is not available in this KiCad mode" );
+        e.set_error_message( "OpenDocument is not available in this Anvil mode" );
         return tl::unexpected( e );
     }
 
@@ -426,7 +426,7 @@ HANDLER_RESULT<Empty> API_HANDLER_COMMON::handleCloseDocument(
     {
         ApiResponseStatus e;
         e.set_status( ApiStatusCode::AS_UNIMPLEMENTED );
-        e.set_error_message( "CloseDocument is not available in this KiCad mode" );
+        e.set_error_message( "CloseDocument is not available in this Anvil mode" );
         return tl::unexpected( e );
     }
 

@@ -1,5 +1,5 @@
 /*
- * This program source code file is part of KiCad, a free EDA CAD application.
+ * This program source code file is part of Anvil, a free EDA CAD application.
  *
  * Copyright The KiCad Developers, see AUTHORS.txt for contributors.
  *
@@ -66,7 +66,7 @@
 
 // a wxAssertHandler_t function to filter wxWidgets alert messages when reading/writing a file
 // when switching the locale to LC_NUMERIC, "C"
-// It is used in class LOCALE_IO to hide a useless (in KiCad) wxWidgets alert message
+// It is used in class LOCALE_IO to hide a useless (in Anvil) wxWidgets alert message
 void KiAssertFilter( const wxString &file, int line,
                      const wxString &func, const wxString &cond,
                      const wxString &msg)

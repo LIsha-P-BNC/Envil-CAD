@@ -1,5 +1,5 @@
 /*
- * This program source code file is part of KiCad, a free EDA CAD application.
+ * This program source code file is part of Anvil, a free EDA CAD application.
  *
  * Copyright (C) 2016-2022 CERN
  * Copyright The KiCad Developers, see AUTHORS.txt for contributors.
@@ -482,7 +482,7 @@ void NGSPICE::init_dll()
         m_dll.Unload();
 
     // Extra effort to find libngspice
-    // @todo Shouldn't we be using the normal KiCad path searching mechanism here?
+    // @todo Shouldn't we be using the normal Anvil path searching mechanism here?
     wxFileName dllFile( "", NGSPICE_DLL_FILE );
 #if defined(__WINDOWS__)
   #if defined( _MSC_VER )
@@ -934,7 +934,7 @@ long __stdcall NGSPICE::sehHandler( _EXCEPTION_POINTERS* aException )
     if( s_currentInstance )
         s_currentInstance->m_error = true;
 
-    // Best-effort termination of the crashing thread to keep KiCad alive.
+    // Best-effort termination of the crashing thread to keep Anvil alive.
     if( aException->ExceptionRecord->ExceptionCode == EXCEPTION_STACK_OVERFLOW )
         TerminateThread( GetCurrentThread(), 1 );
     else

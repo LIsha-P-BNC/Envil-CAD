@@ -1,5 +1,5 @@
 /*
- * This program source code file is part of KiCad, a free EDA CAD application.
+ * This program source code file is part of Anvil, a free EDA CAD application.
  *
  * Copyright (C) 2014 Jean-Pierre Charras, jp.charras at wanadoo.fr
  * Copyright The KiCad Developers, see AUTHORS.txt for contributors.
@@ -40,7 +40,7 @@ static const wxString HOSTNAME( wxT( "localhost" ) );
  * No message queuing, if a message is in flight when another is posted with Send(), the
  * second is just dropped.  This is a workaround for "non-blocking" sockets not always being
  * non-blocking, especially on Windows.  It is kept fairly simple and not exposed to the
- * outside world because it should be replaced in a future KiCad version with a real message
+ * outside world because it should be replaced in a future Anvil version with a real message
  * queue of some sort, and unified with the Kiway messaging system.
  */
 class ASYNC_SOCKET_HOLDER

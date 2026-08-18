@@ -1,7 +1,7 @@
 #ifndef PCB_PLOT_PARAMS_H_
 #define PCB_PLOT_PARAMS_H_
 /*
- * This program source code file is part of KiCad, a free EDA CAD application.
+ * This program source code file is part of Anvil, a free EDA CAD application.
  *
  * Copyright The KiCad Developers, see AUTHORS.txt for contributors.
  *

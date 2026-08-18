@@ -1,5 +1,5 @@
 /*
- * This program source code file is part of KiCad, a free EDA CAD application.
+ * This program source code file is part of Anvil, a free EDA CAD application.
  *
  * Copyright The KiCad Developers, see AUTHORS.txt for contributors.
  *
@@ -147,14 +147,14 @@ private:
     // Coordinate transformation
     // -----------------------------------------------------------------------
 
-    /// gEDA coordinates are mils with Y-up. KiCad uses 100nm IU with Y-down.
+    /// gEDA coordinates are mils with Y-up. Anvil uses 100nm IU with Y-down.
     /// During parsing we store raw gEDA coordinates, then post-process to flip Y.
     static constexpr int MILS_TO_IU = 254;
 
-    /// Convert a gEDA distance in mils to KiCad IU.
+    /// Convert a gEDA distance in mils to Anvil IU.
     int toKiCadDist( int aMils ) const;
 
-    /// Apply the Y-flip and scale to transform gEDA coords to KiCad.
+    /// Apply the Y-flip and scale to transform gEDA coords to Anvil.
     /// Call only after m_maxY has been computed in the post-processing pass.
     VECTOR2I toKiCad( int aGedaX, int aGedaY ) const;
 
@@ -233,7 +233,7 @@ private:
     /// create SCH_SYMBOL, apply transforms and attributes, and emit to screen.
     void flushPendingComponent();
 
-    /// Import a gEDA hierarchical sub-schematic as a KiCad SCH_SHEET.
+    /// Import a gEDA hierarchical sub-schematic as a Anvil SCH_SHEET.
     /// Called when a component has a source= attribute.
     void importHierarchicalSheet( const wxString& aSourceFile );
 
@@ -246,20 +246,20 @@ private:
     /// Create a fallback rectangular symbol when the .sym file is not found.
     std::unique_ptr<LIB_SYMBOL> createFallbackSymbol( const wxString& aBasename );
 
-    /// Map gEDA angle (0/90/180/270) + mirror to KiCad symbol orientation.
+    /// Map gEDA angle (0/90/180/270) + mirror to Anvil symbol orientation.
     int toKiCadOrientation( int aAngle, int aMirror ) const;
 
-    /// Derive the KiCad import library name from the schematic file.
+    /// Derive the Anvil import library name from the schematic file.
     wxString getLibName() const;
 
     // -----------------------------------------------------------------------
     // Style mapping
     // -----------------------------------------------------------------------
 
-    /// Map gEDA dashstyle (0-4) to KiCad LINE_STYLE.
+    /// Map gEDA dashstyle (0-4) to Anvil LINE_STYLE.
     static LINE_STYLE toLineStyle( int aDashStyle );
 
-    /// Map gEDA filltype (0-4) to KiCad FILL_T.
+    /// Map gEDA filltype (0-4) to Anvil FILL_T.
     static FILL_T toFillType( int aFillType );
 
     // -----------------------------------------------------------------------
@@ -334,7 +334,7 @@ private:
 
     std::vector<NET_ATTR_RECORD> m_netAttrRecords;
 
-    /// Parsed bus segment in KiCad coordinates with gEDA ripper direction.
+    /// Parsed bus segment in Anvil coordinates with gEDA ripper direction.
     struct BUS_SEGMENT
     {
         VECTOR2I start;

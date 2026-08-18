@@ -1,5 +1,5 @@
 /*
- * This program source code file is part of KiCad, a free EDA CAD application.
+ * This program source code file is part of Anvil, a free EDA CAD application.
  *
  * Copyright (C) 2017 CERN
  * Copyright The KiCad Developers, see AUTHORS.txt for contributors.
@@ -59,7 +59,7 @@ struct EAGLE_LIBRARY
     std::map<wxString, std::unique_ptr<LIB_SYMBOL>> KiCadSymbols;
 
     /**
-     * Map Eagle gate unit number (which are strings) to KiCad library symbol unit number.
+     * Map Eagle gate unit number (which are strings) to Anvil library symbol unit number.
      *
      * The look up name is #EDEVICE name + #EDEVICE name + #EGATE name separated by underscores.
      * Hashing would be faster but it would be nearly impossible to debug so use string look up
@@ -185,10 +185,10 @@ private:
     void adjustNetLabels();
 
     /**
-     * Translate an Eagle-style bus name into one that is KiCad-compatible.
+     * Translate an Eagle-style bus name into one that is Anvil-compatible.
      *
      * For vector buses such as A[7..0] this has no impact.  For group buses, we translate from
-     * Eagle-style to KiCad-style.
+     * Eagle-style to Anvil-style.
      *
      * @param aEagleName is the name of the bus from the Eagle schematic
      */
@@ -265,7 +265,7 @@ private:
 
     std::unordered_map<wxString, bool> m_userValue; ///< deviceset/@uservalue for device.
 
-    IO_RELEASER<SCH_IO>                m_pi;                ///< PI to create KiCad symbol library.
+    IO_RELEASER<SCH_IO>                m_pi;                ///< PI to create Anvil symbol library.
 
     int                                m_sheetIndex;
     std::map<wxString, int>            m_netCounts;

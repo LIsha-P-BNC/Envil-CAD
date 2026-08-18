@@ -1,5 +1,5 @@
 /*
- * This program source code file is part of KiCad, a free EDA CAD application.
+ * This program source code file is part of Anvil, a free EDA CAD application.
  *
  * Copyright (C) 2014 SoftPLC Corporation, Dick Hollenbeck <dick@softplc.com>
  * Copyright The KiCad Developers, see AUTHORS.TXT for contributors.
@@ -42,7 +42,7 @@
  * another.</li>
  *
  * <li>The use of a number of separately linked DSOs closely resembles the original
- * KiCad program design, consisting of Eeschema and Pcbnew. But it also allows
+ * Anvil program design, consisting of Eeschema and Pcbnew. But it also allows
  * separate compilation and linking of those two DSOs without a ton of inter-DSO
  * dependencies and common data structures. Linking smaller, purpose specific DSOs
  * is thought to be better for maintenance simplicity than a large single link
@@ -61,7 +61,7 @@
  *
  * </ol>
  *
- * All KiCad source code is UTF8 encoded by law, so make sure your editor is set
+ * All Anvil source code is UTF8 encoded by law, so make sure your editor is set
  * as such!  As such, it is OK to use UTF8 characters:
  *
  * ┏ ┗ ┓ ┛ ━ ┃
@@ -146,11 +146,11 @@ class LOCAL_HISTORY;
  * Implement a participant in the KIWAY alchemy.
  *
  * KIWAY is a minimalistic software bus for communications between various DLLs/DSOs
- * (DSOs) within the same KiCad process.  It makes it possible to call between DSOs
+ * (DSOs) within the same Anvil process.  It makes it possible to call between DSOs
  * without having to link them together.  Most all calls are via virtual functions
  * which means C++ vtables are used to hold function pointers and eliminate the need
  * to link to specific object code libraries.  There is one KIWAY in the launching
- * portion of the process for each open KiCad project.  Each project has its own KIWAY.
+ * portion of the process for each open Anvil project.  Each project has its own KIWAY.
  * Within a KIWAY is an actual PROJECT data structure.  A KIWAY also facilitates
  * communicating between DSOs on the topic of the project in question.
  */
@@ -287,7 +287,7 @@ struct KIFACE
 
 
 /**
- * KiCad Next single-window shell bridge.
+ * Anvil Next single-window shell bridge.
  *
  * Implemented by the manager shell (KICAD_MANAGER_FRAME) so any KIFACE (eeschema, pcbnew,
  * …) can ask the shell to re-host a freshly created editor frame as a docked tab instead
@@ -324,7 +324,7 @@ public:
 
 /**
  * A minimalistic software bus for communications between various DLLs/DSOs (DSOs) within
- * the same KiCad process.
+ * the same Anvil process.
  *
  * It makes it possible to call between DSOs without having to link them together, and
  * without having to link to the top process module which houses the KIWAY(s).  More
@@ -337,10 +337,10 @@ public:
  * speeding development and encouraging clearly defined interface design.  Unlike Microsoft
  * COM, which is a multi-vendor design supporting DLL's built at various points in time,
  * the KIWAY alchemy is single project, with all components being built at the same time.
- * So one should expect solid compatibility between all KiCad components, as long at they
+ * So one should expect solid compatibility between all Anvil components, as long at they
  * are compiled at the same time.
  * <p>
- * There is one KIWAY in the launching portion of the process for each open KiCad project.
+ * There is one KIWAY in the launching portion of the process for each open Anvil project.
  * Each project has its own KIWAY.  Available to each KIWAY is an actual PROJECT data
  * structure.  If you have a KIWAY, you can get to the PROJECT using #KIWAY::Prj().
  * <p>
@@ -378,7 +378,7 @@ public:
      */
     static FACE_T KifaceType( FRAME_T aFrameType );
 
-    // If you change the vtable, recompile all of KiCad.
+    // If you change the vtable, recompile all of Anvil.
 
     /**
      * Return the KIFACE* given a FACE_T.
@@ -583,7 +583,7 @@ private:
 
     wxFrame*        m_top;      // Usually m_top is the Project manager
 
-    // KiCad Next single-window shell: the manager shell registers itself here (when the
+    // Anvil Next single-window shell: the manager shell registers itself here (when the
     // SingleWindowShell flag is on) so editor KIFACEs can dock newly opened sibling
     // editors as tabs via DockPlayer().  Null in every other configuration → callers fall
     // back to floating the frame, so the legacy behaviour is untouched.

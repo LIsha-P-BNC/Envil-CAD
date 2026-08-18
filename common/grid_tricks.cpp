@@ -1,5 +1,5 @@
 /*
- * This program source code file is part of KiCad, a free EDA CAD application.
+ * This program source code file is part of Anvil, a free EDA CAD application.
  *
  * Copyright (C) 2012 SoftPLC Corporation, Dick Hollenbeck <dick@softplc.com>
  * Copyright The KiCad Developers, see AUTHORS.txt for contributors.
@@ -948,7 +948,7 @@ void GRID_TRICKS::cutcopy( bool doCopy, bool doDelete )
     if( doCopy )
     {
         wxTheClipboard->SetData( new wxTextDataObject( txt ) );
-        wxTheClipboard->Flush(); // Allow data to be available after closing KiCad
+        wxTheClipboard->Flush(); // Allow data to be available after closing Anvil
         wxTheClipboard->Close();
     }
 

@@ -1,5 +1,5 @@
 /*
- * This program source code file is part of KiCad, a free EDA CAD application.
+ * This program source code file is part of Anvil, a free EDA CAD application.
  *
  * Copyright The KiCad Developers, see AUTHORS.txt for contributors.
  * @author Jon Evans <jon@craftyjon.com>
@@ -315,7 +315,7 @@ private:
 
             row.SetNickname( nickname );
             row.SetURI( libPath );
-            row.SetType( wxT( "KiCad" ) );
+            row.SetType( wxT( "Anvil" ) );
             row.SetDescription( _( "Added by Plugin and Content Manager" ) );
             m_modified.insert( aTable );
         }
@@ -420,8 +420,8 @@ bool LIBRARY_MANAGER::CreateGlobalTable( LIBRARY_TABLE_TYPE aType, bool aPopulat
     {
         LIBRARY_TABLE_ROW& chained = table.InsertRow();
         chained.SetType( LIBRARY_TABLE_ROW::TABLE_TYPE_NAME );
-        chained.SetNickname( wxT( "KiCad" ) );
-        chained.SetDescription( _( "KiCad Default Libraries" ) );
+        chained.SetNickname( wxT( "Anvil" ) );
+        chained.SetDescription( _( "Anvil Default Libraries" ) );
         chained.SetURI( defaultLib.GetFullPath() );
     }
 
@@ -641,7 +641,7 @@ void LIBRARY_MANAGER::selfHealGlobalTable( LIBRARY_TABLE_TYPE aType )
         LIBRARY_TABLE_ROW& row = table.InsertRow();
         row.SetNickname( entry.nickname );
         row.SetURI( envToken + wxT( "/" ) + entry.fullname );
-        row.SetType( wxT( "KiCad" ) );
+        row.SetType( wxT( "Anvil" ) );
         row.SetDescription( wxEmptyString );
     }
 

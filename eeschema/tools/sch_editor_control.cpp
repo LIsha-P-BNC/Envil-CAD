@@ -1,5 +1,5 @@
 /*
- * This program source code file is part of KiCad, a free EDA CAD application.
+ * This program source code file is part of Anvil, a free EDA CAD application.
  *
  * Copyright (C) 2019-2023 CERN
  * Copyright The KiCad Developers, see AUTHORS.txt for contributors.
@@ -1713,7 +1713,7 @@ bool SCH_EDITOR_CONTROL::doCopy( bool aUseDuplicateClipboard )
         {
             wxDataObjectComposite* data = new wxDataObjectComposite();
 
-            // Add KiCad data
+            // Add Anvil data
             wxCustomDataObject* kicadObj = new wxCustomDataObject( wxDataFormat( "application/kicad" ) );
             kicadObj->SetData( prettyData.size(), prettyData.data() );
             data->Add( kicadObj );
@@ -1764,7 +1764,7 @@ bool SCH_EDITOR_CONTROL::doCopy( bool aUseDuplicateClipboard )
             data->Add( new wxTextDataObject( wxString::FromUTF8( prettyData ) ) );
 
             result &= wxTheClipboard->SetData( data );
-            result &= wxTheClipboard->Flush(); // Allow data to be available after closing KiCad
+            result &= wxTheClipboard->Flush(); // Allow data to be available after closing Anvil
             wxTheClipboard->Close();
         }
     }
@@ -2049,7 +2049,7 @@ int SCH_EDITOR_CONTROL::Paste( const TOOL_EVENT& aEvent )
 
     // Priority for paste:
     // 1. application/kicad format (handled by GetClipboardUTF8 which checks this first)
-    // 2. Text data that can be parsed as KiCad S-expressions
+    // 2. Text data that can be parsed as Anvil S-expressions
     // 3. Bitmap/image data (fallback only if no valid text content)
     if( aEvent.IsAction( &ACTIONS::duplicate ) )
         content = m_duplicateClipboard;
@@ -3067,7 +3067,7 @@ int SCH_EDITOR_CONTROL::DrawSheetOnClipboard( const TOOL_EVENT& aEvent )
             AddTransparentImageToClipboardData( data, image );
 
             wxTheClipboard->SetData( data );
-            wxTheClipboard->Flush(); // Allow data to be available after closing KiCad
+            wxTheClipboard->Flush(); // Allow data to be available after closing Anvil
             wxTheClipboard->Close();
         }
     }

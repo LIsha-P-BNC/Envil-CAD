@@ -1,5 +1,5 @@
 /*
- * This program source code file is part of KiCad, a free EDA CAD application.
+ * This program source code file is part of Anvil, a free EDA CAD application.
  *
  * Copyright (C) 2016 Mario Luzeiro <mrluzeiro@ua.pt>
  * Copyright (C) 2015 Cirilo Bernardo <cirilo.bernardo@gmail.com>
@@ -346,7 +346,7 @@ void PANEL_PREVIEW_3D_MODEL::SetSelectedModel( int idx )
         zscale->ChangeValue( formatScaleValue( modelInfo.m_Scale.z ) );
 
         // Rotation is stored in the file as positive-is-CW, but we use positive-is-CCW in the GUI
-        // to match the rest of KiCad
+        // to match the rest of Anvil
         xrot->ChangeValue( formatRotationValue( -modelInfo.m_Rotation.x ) );
         yrot->ChangeValue( formatRotationValue( -modelInfo.m_Rotation.y ) );
         zrot->ChangeValue( formatRotationValue( -modelInfo.m_Rotation.z ) );
@@ -393,7 +393,7 @@ void PANEL_PREVIEW_3D_MODEL::updateOrientation( wxCommandEvent &event )
                                                                           evaluateTextCtrl( zscale->GetValue() ) );
 
         // Rotation is stored in the file as positive-is-CW, but we use positive-is-CCW in the GUI
-        // to match the rest of KiCad
+        // to match the rest of Anvil
         modelInfo->m_Rotation.x = -rotationFromString( evaluateTextCtrl( xrot->GetValue() ) );
         modelInfo->m_Rotation.y = -rotationFromString( evaluateTextCtrl( yrot->GetValue() ) );
         modelInfo->m_Rotation.z = -rotationFromString( evaluateTextCtrl( zrot->GetValue() ) );

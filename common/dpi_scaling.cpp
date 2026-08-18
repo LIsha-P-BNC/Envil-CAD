@@ -1,5 +1,5 @@
 /*
- * This program source code file is part of KiCad, a free EDA CAD application.
+ * This program source code file is part of Anvil, a free EDA CAD application.
  *
  * Copyright The KiCad Developers, see AUTHORS.TXT for contributors.
  *
@@ -27,7 +27,7 @@
 double DPI_SCALING::GetMaxScaleFactor()
 {
     // displays with higher than 4.0 DPI are not really going to be useful
-    // for KiCad (even an 8k display would be effectively only ~1080p at 4x)
+    // for Anvil (even an 8k display would be effectively only ~1080p at 4x)
     return 6.0;
 }
 

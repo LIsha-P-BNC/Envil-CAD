@@ -1,5 +1,5 @@
 /*
- * This program source code file is part of KiCad, a free EDA CAD application.
+ * This program source code file is part of Anvil, a free EDA CAD application.
  *
  * Copyright (C) 2015 Jean-Pierre Charras, jp.charras at wanadoo.fr
  * Copyright (C) 2014 Dick Hollenbeck, dick@softplc.com
@@ -124,7 +124,7 @@ public:
      * library symbols are cached in the schematic file), a dummy library symbol is substituted
      * for the missing symbol as an indicator that something is amiss.  The dummy symbol cannot
      * be edited so a check for this symbol must be performed before attempting to edit the
-     * library symbol with the library editor or it will crash KiCad.
+     * library symbol with the library editor or it will crash Anvil.
      *
      * @see LIB_SYMBOL::GetDummy()
      *

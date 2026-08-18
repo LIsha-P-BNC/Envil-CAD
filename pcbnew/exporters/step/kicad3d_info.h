@@ -1,5 +1,5 @@
 /*
- * This program source code file is part of KiCad, a free EDA CAD application.
+ * This program source code file is part of Anvil, a free EDA CAD application.
  *
  * Copyright (C) 2025 Mark Roszko <mark.roszko@gmail.com>
  * Copyright The KiCad Developers, see AUTHORS.txt for contributors.
@@ -38,7 +38,7 @@ enum class KICAD3D_MODEL_TYPE
 
 
 /**
- * This is an internal KiCad use attribute to add additional markup to a opencascade
+ * This is an internal Anvil use attribute to add additional markup to a opencascade
  * document for internal processing
  */
 class KICAD3D_INFO : public TDF_Attribute

@@ -1,5 +1,5 @@
 /*
- * This program source code file is part of KiCad, a free EDA CAD application.
+ * This program source code file is part of Anvil, a free EDA CAD application.
  *
  * Copyright (C) 2014 Jean-Pierre Charras, jp.charras at wanadoo.fr
  * Copyright The KiCad Developers, see AUTHORS.txt for contributors.
@@ -44,14 +44,14 @@ static const wxFileTypeInfo EDAfallbacks[] =
     wxFileTypeInfo( wxT( "text/html" ),
                     wxT( "wxhtml %s" ),
                     wxT( "wxhtml %s" ),
-                    wxT( "html document (from KiCad)" ),
+                    wxT( "html document (from Anvil)" ),
                     wxT( "htm" ),
                     wxT( "html" ),wxNullPtr ),
 
     wxFileTypeInfo( wxT( "application/sch" ),
                     wxT( "eeschema %s" ),
                     wxT( "eeschema -p %s" ),
-                    wxT( "sch document (from KiCad)" ),
+                    wxT( "sch document (from Anvil)" ),
                     wxT( "sch" ),
                     wxT( "SCH" ), wxNullPtr ),
 

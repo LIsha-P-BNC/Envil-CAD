@@ -1,5 +1,5 @@
 /*
- * This program source code file is part of KiCad, a free EDA CAD application.
+ * This program source code file is part of Anvil, a free EDA CAD application.
  *
  * Copyright (C) 2022 Mark Roszko <mark.roszko@gmail.com>
  * Copyright The KiCad Developers, see AUTHORS.txt for contributors.
@@ -50,7 +50,7 @@ public:
         ALL_LAYERS_ONE_FILE,
         ///< "Single Document" mode
         ONE_PAGE_PER_LAYER_ONE_FILE,
-        ///< The most traditional output mode KiCad has had
+        ///< The most traditional output mode Anvil has had
         ALL_LAYERS_SEPARATE_FILE
     };
 

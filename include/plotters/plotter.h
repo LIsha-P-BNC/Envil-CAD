@@ -1,5 +1,5 @@
 /*
- * This program source code file is part of KiCad, a free EDA CAD application.
+ * This program source code file is part of Anvil, a free EDA CAD application.
  *
  * Copyright (C) 2016 Jean-Pierre Charras, jp.charras at wanadoo.fr
  * Copyright The KiCad Developers, see AUTHORS.txt for contributors.
@@ -288,7 +288,7 @@ public:
     /**
      * Generic fallback: Cubic Bezier curve rendered as a polyline.
      *
-     * In KiCad the bezier curves have 4 control points: start ctrl1 ctrl2 end
+     * In Anvil the bezier curves have 4 control points: start ctrl1 ctrl2 end
      */
     virtual void BezierCurve( const VECTOR2I& aStart, const VECTOR2I& aControl1,
                               const VECTOR2I& aControl2, const VECTOR2I& aEnd,

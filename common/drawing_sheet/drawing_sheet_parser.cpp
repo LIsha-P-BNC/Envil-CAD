@@ -1,5 +1,5 @@
 /*
- * This program source code file is part of KiCad, a free EDA CAD application.
+ * This program source code file is part of Anvil, a free EDA CAD application.
  *
  * Copyright (C) 1992-2013 Jean-Pierre Charras <jp.charras at wanadoo.fr>.
  * Copyright The KiCad Developers, see AUTHORS.txt for contributors.
@@ -982,7 +982,7 @@ bool DS_DATA_MODEL::LoadDrawingSheet( const wxString& aFullFileName, wxString* a
         {
             // EmptySheetName() is a marker, not a path: importers store it for a design that
             // already draws its own frame and title block. Treating it as a missing file and
-            // falling back to the default sheet is what put KiCad's title block on top of the
+            // falling back to the default sheet is what put Anvil's title block on top of the
             // imported one, and it did so silently -- the import looked right until reload.
             // Both marker spellings are honoured: older projects carry the kicad_wks one.
             wxString markerName = wxFileName( aFullFileName ).GetFullName();

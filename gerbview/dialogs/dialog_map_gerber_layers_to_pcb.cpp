@@ -1,5 +1,5 @@
 /*
- * This program source code file is part of KiCad, a free EDA CAD application.
+ * This program source code file is part of Anvil, a free EDA CAD application.
  *
  * Copyright The KiCad Developers, see AUTHORS.txt for contributors.
  *
@@ -162,7 +162,7 @@ void DIALOG_MAP_GERBER_LAYERS_TO_PCB::initDialog()
         // Gerber layer is mapped to.  All layers initially default to
         // "Do NotExport" (which corresponds to UNSELECTED_LAYER).  Whenever
         // a layer is set to "Do Not Export" it's displayed in blue.  When a
-        // user selects a specific KiCad layer to map to, it's displayed in
+        // user selects a specific Anvil layer to map to, it's displayed in
         // magenta which indicates it will be exported.
         item_ID = ID_TEXT_0 + ii;
 
@@ -199,14 +199,14 @@ void DIALOG_MAP_GERBER_LAYERS_TO_PCB::initDialog()
         m_layersList[ii] = text;
     }
 
-    // If the user has never stored any Gerber to KiCad layer mapping,
+    // If the user has never stored any Gerber to Anvil layer mapping,
     // then disable the button to retrieve it
     if( config->m_GerberToPcbLayerMapping.size() == 0 )
         m_buttonRetrieve->Enable( false );
 
     std::vector<int> gerber2KicadMapping;
 
-    // See how many of the loaded Gerbers can be mapped to KiCad layers automatically
+    // See how many of the loaded Gerbers can be mapped to Anvil layers automatically
     int numMappedGerbers = findKnownGerbersLoaded( gerber2KicadMapping );
 
     if( numMappedGerbers > 0 )
@@ -241,7 +241,7 @@ void DIALOG_MAP_GERBER_LAYERS_TO_PCB::initDialog()
                     m_layersList[ii]->SetLabel( LSET::Name( PCB_LAYER_ID( currLayer ) ) );
                     m_layersList[ii]->SetForegroundColour( wxColour( 255, 0, 128 ) );
 
-                    // Set the layer internally to the matching KiCad layer
+                    // Set the layer internally to the matching Anvil layer
                     m_layersLookUpTable[ii] = currLayer;
                 }
             }
@@ -453,7 +453,7 @@ int DIALOG_MAP_GERBER_LAYERS_TO_PCB::findKnownGerbersLoaded( std::vector<int>& a
     // http://www.ucamco.com/files/downloads/file/81/the_gerber_file_format_specification.pdf
     numKnownGerbers += findNumX2GerbersLoaded( aGerber2KicadMapping );
 
-    // Finally, check if any of the loaded Gerbers use the KiCad naming conventions
+    // Finally, check if any of the loaded Gerbers use the Anvil naming conventions
     numKnownGerbers += findNumKiCadGerbersLoaded( aGerber2KicadMapping );
 
     // The last option is to match using just the file extension
@@ -469,7 +469,7 @@ int DIALOG_MAP_GERBER_LAYERS_TO_PCB::findNumAltiumGerbersLoaded( std::vector<int
     // The next comment preserves initializer formatting below it
     // clang-format off
     // This map contains the known Altium file extensions for Gerbers that we care about,
-    // along with their corresponding KiCad layer
+    // along with their corresponding Anvil layer
     std::map<wxString, PCB_LAYER_ID> altiumExt{
         { wxT( "GTL" ), F_Cu },      // Top copper
         { wxT( "G1" ), In1_Cu },     // Inner layers 1 - 30
@@ -551,7 +551,7 @@ int DIALOG_MAP_GERBER_LAYERS_TO_PCB::findNumAltiumGerbersLoaded( std::vector<int
 
             if( it != altiumExt.end() )
             {
-                // We got a match, so store the KiCad layer number.  We verify it's set to
+                // We got a match, so store the Anvil layer number.  We verify it's set to
                 // "UNSELECTED_LAYER" in case the passed vector already had entries
                 // matched to other known Gerber files.   This will preserve them.
 
@@ -566,7 +566,7 @@ int DIALOG_MAP_GERBER_LAYERS_TO_PCB::findNumAltiumGerbersLoaded( std::vector<int
 
     // Return number of Altium Gerbers we found.  Each index in the passed vector corresponds to
     // a loaded Gerber layer, and the entry will contain the index to the matching
-    // KiCad layer for Altium Gerbers, or "UNSELECTED_LAYER" for the rest.
+    // Anvil layer for Altium Gerbers, or "UNSELECTED_LAYER" for the rest.
     return numAltiumMatches;
 }
 
@@ -575,8 +575,8 @@ int DIALOG_MAP_GERBER_LAYERS_TO_PCB::findNumKiCadGerbersLoaded( std::vector<int>
 {
     // The next comment preserves initializer formatting below it
     // clang-format off
-    // This map contains the known KiCad suffixes used for Gerbers that we care about,
-    // along with their corresponding KiCad layer
+    // This map contains the known Anvil suffixes used for Gerbers that we care about,
+    // along with their corresponding Anvil layer
     std::map<wxString, PCB_LAYER_ID> kicadLayers
     {
         { "-F_Cu",        F_Cu },
@@ -638,7 +638,7 @@ int DIALOG_MAP_GERBER_LAYERS_TO_PCB::findNumKiCadGerbersLoaded( std::vector<int>
 
     std::map<wxString, PCB_LAYER_ID>::iterator it;
 
-    int numKicadMatches = 0; // Assume we won't find KiCad Gerbers
+    int numKicadMatches = 0; // Assume we won't find Anvil Gerbers
 
     GERBER_FILE_IMAGE_LIST* images = m_Parent->GetGerberLayout()->GetImagesList();
 
@@ -655,7 +655,7 @@ int DIALOG_MAP_GERBER_LAYERS_TO_PCB::findNumKiCadGerbersLoaded( std::vector<int>
     if( aGerber2KicadMapping.size() == 0 )
         aGerber2KicadMapping.assign( m_gerberActiveLayersCount, UNSELECTED_LAYER );
 
-    // Loop through all loaded Gerbers looking for any with KiCad specific layer names
+    // Loop through all loaded Gerbers looking for any with Anvil specific layer names
     for( int ii = 0; ii < m_gerberActiveLayersCount; ii++ )
     {
         if( images->GetGbrImage( ii ) )
@@ -665,9 +665,9 @@ int DIALOG_MAP_GERBER_LAYERS_TO_PCB::findNumKiCadGerbersLoaded( std::vector<int>
 
             wxString layerName = fn.GetName();
 
-            // To create Gerber file names, KiCad appends a suffix consisting of a "-" and the
+            // To create Gerber file names, Anvil appends a suffix consisting of a "-" and the
             // name of the layer to the project name.  We need to isolate the suffix if present
-            // and see if it's a known KiCad layer name.  Start by looking for the last "-" in
+            // and see if it's a known Anvil layer name.  Start by looking for the last "-" in
             // the file name.
             int dashPos = layerName.Find( '-', true );
 
@@ -677,12 +677,12 @@ int DIALOG_MAP_GERBER_LAYERS_TO_PCB::findNumKiCadGerbersLoaded( std::vector<int>
             if( dashPos != wxNOT_FOUND )
                 suffix = layerName.Right( layerName.length() - dashPos );
 
-            // Check if the string we've isolated matches any known KiCad layer names
+            // Check if the string we've isolated matches any known Anvil layer names
             it = kicadLayers.find( suffix );
 
             if( it != kicadLayers.end() )
             {
-                // We got a match, so store the KiCad layer number.  We verify it's set to
+                // We got a match, so store the Anvil layer number.  We verify it's set to
                 // "UNSELECTED_LAYER" in case the passed vector already had entries
                 // matched to other known Gerber files.  This will preserve them.
 
@@ -695,9 +695,9 @@ int DIALOG_MAP_GERBER_LAYERS_TO_PCB::findNumKiCadGerbersLoaded( std::vector<int>
         }
     }
 
-    // Return number of KiCad Gerbers we found.  Each index in the passed vector corresponds to
+    // Return number of Anvil Gerbers we found.  Each index in the passed vector corresponds to
     // a loaded Gerber layer, and the entry will contain the index to the matching
-    // KiCad layer for KiCad Gerbers, or "UNSELECTED_LAYER" for the rest.
+    // Anvil layer for Anvil Gerbers, or "UNSELECTED_LAYER" for the rest.
     return numKicadMatches;
 }
 
@@ -706,8 +706,8 @@ int DIALOG_MAP_GERBER_LAYERS_TO_PCB::findNumX2GerbersLoaded( std::vector<int>& a
 {
     // The next comment preserves initializer formatting below it
     // clang-format off
-    // This map contains the known KiCad X2 "File Function" values used for Gerbers that we
-    // care about, along with their corresponding KiCad layer
+    // This map contains the known Anvil X2 "File Function" values used for Gerbers that we
+    // care about, along with their corresponding Anvil layer
     std::map<wxString, PCB_LAYER_ID> kicadLayers
     {
         { wxT( "Top" ),   F_Cu },
@@ -760,7 +760,7 @@ int DIALOG_MAP_GERBER_LAYERS_TO_PCB::findNumX2GerbersLoaded( std::vector<int>& a
 
     std::map<wxString, PCB_LAYER_ID>::iterator it;
 
-    int numKicadMatches = 0; // Assume we won't find KiCad Gerbers
+    int numKicadMatches = 0; // Assume we won't find Anvil Gerbers
 
     wxString mapThis;
 
@@ -814,7 +814,7 @@ int DIALOG_MAP_GERBER_LAYERS_TO_PCB::findNumX2GerbersLoaded( std::vector<int>& a
 
                 if( it != kicadLayers.end() )
                 {
-                    // We got a match, so store the KiCad layer number.  We verify it's set to
+                    // We got a match, so store the Anvil layer number.  We verify it's set to
                     // "UNSELECTED_LAYER" in case the passed vector already had entries
                     // matched to other known Gerber files.   This will preserve them.
 

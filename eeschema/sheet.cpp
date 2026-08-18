@@ -1,5 +1,5 @@
 /*
- * This program source code file is part of KiCad, a free EDA CAD application.
+ * This program source code file is part of Anvil, a free EDA CAD application.
  *
  * Copyright (C) 2015 Jean-Pierre Charras, jp.charras at wanadoo.fr
  * Copyright The KiCad Developers, see AUTHORS.txt for contributors.
@@ -950,7 +950,7 @@ void SCH_EDIT_FRAME::DrawCurrentSheetToClipboard()
             // This data objects are held by the clipboard, so do not delete them in the app.
             wxBitmapDataObject* clipbrd_data = new wxBitmapDataObject( image );
             wxTheClipboard->SetData( clipbrd_data );
-            wxTheClipboard->Flush(); // Allow data to be available after closing KiCad
+            wxTheClipboard->Flush(); // Allow data to be available after closing Anvil
             wxTheClipboard->Close();
         }
     }

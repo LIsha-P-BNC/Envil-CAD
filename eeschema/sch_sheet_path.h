@@ -1,5 +1,5 @@
 /*
- * This program source code file is part of KiCad, a free EDA CAD application.
+ * This program source code file is part of Anvil, a free EDA CAD application.
  *
  * Copyright (C) 2017 Jean-Pierre Charras, jp.charras at wanadoo.fr
  * Copyright (C) 2011 Wayne Stambaugh <stambaughw@gmail.com>
@@ -170,7 +170,7 @@ struct SCH_SHEET_INSTANCE
 /**
  * @defgroup hierarchical_schematics Hierarchical Schematics
  *
- * KiCad supports nesting schematics hierarchically to simplify the creation of complex
+ * Anvil supports nesting schematics hierarchically to simplify the creation of complex
  * schematics designs.  A hierarchical schematic uses hierarchical sheets (#SCH_SHEET objects)
  * to reference a given schematic file (#SCH_SCREEN objects).  Each #SCH_SHEET corresponds to
  * a schematic file handled by a #SCH_SCREEN object.  A #SCH_SCREEN object contains schematic
@@ -184,7 +184,7 @@ struct SCH_SHEET_INSTANCE
  * how a given subsheet is selected. #SCH_SHEET objects share the same #SCH_SCREEN object if
  * they have the same schematic file.
  *
- * In KiCad each #SCH_SYMBOL and #SCH_SHEET receives a UUID when created.  These UUIDs are
+ * In Anvil each #SCH_SYMBOL and #SCH_SHEET receives a UUID when created.  These UUIDs are
  * chained together to form #SCH_SHEET_PATH objects that allow access of instance data in the
  * hierarchy.  The sheet paths have the form /ROOT_SHEET_UUID/SHEET_UUID/SUB_SHEET_UUID/...
  *

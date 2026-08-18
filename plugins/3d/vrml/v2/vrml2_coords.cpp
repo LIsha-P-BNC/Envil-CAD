@@ -1,5 +1,5 @@
 /*
- * This program source code file is part of KiCad, a free EDA CAD application.
+ * This program source code file is part of Anvil, a free EDA CAD application.
  *
  * Copyright (C) 2016 Cirilo Bernardo <cirilo.bernardo@gmail.com>
  * Copyright The KiCad Developers, see AUTHORS.txt for contributors.
@@ -144,7 +144,7 @@ bool WRL2COORDS::Read( WRLPROC& proc, WRL2BASE* aTopNode )
         return false;
     }
 
-    // For legacy KiCad VRML files (1U = 0.1 inch), convert to mm.
+    // For legacy Anvil VRML files (1U = 0.1 inch), convert to mm.
     // For PCBnew exports with top-level scale, skip conversion as coordinates are already correct.
     if( aTopNode->GetApplyUnitConversion() )
     {

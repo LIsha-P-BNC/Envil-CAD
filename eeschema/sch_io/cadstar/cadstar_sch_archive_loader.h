@@ -1,5 +1,5 @@
 /*
- * This program source code file is part of KiCad, a free EDA CAD application.
+ * This program source code file is part of Anvil, a free EDA CAD application.
  *
  * Copyright (C) 2020-2021 Roberto Fernandez Bautista <roberto.fer.bau@gmail.com>
  * Copyright The KiCad Developers, see AUTHORS.txt for contributors.
@@ -20,7 +20,7 @@
 
 /**
  * @file cadstar_sch_archive_loader.h
- * @brief Loads a csa file into a KiCad SCHEMATIC object
+ * @brief Loads a csa file into a Anvil SCHEMATIC object
  */
 
 #ifndef CADSTAR_SCH_ARCHIVE_LOADER_H_
@@ -91,7 +91,7 @@ public:
 
 
     /**
-     * @brief Loads a CADSTAR Schematic Archive file into the KiCad SCHEMATIC object given
+     * @brief Loads a CADSTAR Schematic Archive file into the Anvil SCHEMATIC object given
      * @param aSchematic Schematic to add the design onto
      * @param aRootSheet Root sheet to add the design onto
      */
@@ -105,7 +105,7 @@ private:
 
     /**
      * Map between a terminal ID in a symbol definition to the pin number that should
-     * be imported into KiCad.
+     * be imported into Anvil.
      */
     typedef std::map<TERMINAL_ID, wxString> TERMINAL_TO_PINNUM_MAP;
 
@@ -119,18 +119,18 @@ private:
 
     /**
      * Required for calculating the offset to apply to the Cadstar design so that it fits
-     * in the KiCad canvas
+     * in the Anvil canvas
      */
     VECTOR2I m_designCenter;
 
-    std::map<LAYER_ID, SCH_SHEET*>         m_sheetMap;    ///< Cadstar->KiCad Sheets
-    std::map<BLOCK_PIN_ID, SCH_HIERLABEL*> m_sheetPinMap; ///< Cadstar->KiCad Sheet Pins
-    std::map<PART_ID, LIB_SYMBOL*>         m_partMap;     ///< Cadstar->KiCad Parts
-    std::map<SYMBOL_ID, SCH_SYMBOL*>       m_powerSymMap; ///< Cadstar->KiCad Power Symbols
-    std::map<wxString, LIB_SYMBOL*>        m_powerSymLibMap;  ///< NetName->KiCad Power Lib Symbol
-    std::map<SYMBOL_ID, SCH_GLOBALLABEL*>  m_globalLabelsMap; ///< Cadstar->KiCad Global Labels
-    std::map<BUS_ID, std::shared_ptr<BUS_ALIAS>> m_busesMap;  ///< Cadstar->KiCad Buses
-    std::map<PART_ID, TERMINAL_TO_PINNUM_MAP> m_pinNumsMap; ///< Cadstar Part->KiCad Pin number map
+    std::map<LAYER_ID, SCH_SHEET*>         m_sheetMap;    ///< Cadstar->Anvil Sheets
+    std::map<BLOCK_PIN_ID, SCH_HIERLABEL*> m_sheetPinMap; ///< Cadstar->Anvil Sheet Pins
+    std::map<PART_ID, LIB_SYMBOL*>         m_partMap;     ///< Cadstar->Anvil Parts
+    std::map<SYMBOL_ID, SCH_SYMBOL*>       m_powerSymMap; ///< Cadstar->Anvil Power Symbols
+    std::map<wxString, LIB_SYMBOL*>        m_powerSymLibMap;  ///< NetName->Anvil Power Lib Symbol
+    std::map<SYMBOL_ID, SCH_GLOBALLABEL*>  m_globalLabelsMap; ///< Cadstar->Anvil Global Labels
+    std::map<BUS_ID, std::shared_ptr<BUS_ALIAS>> m_busesMap;  ///< Cadstar->Anvil Buses
+    std::map<PART_ID, TERMINAL_TO_PINNUM_MAP> m_pinNumsMap; ///< Cadstar Part->Anvil Pin number map
     std::map<SYMDEF_ID, PINNUM_TO_TERMINAL_MAP> m_symDefTerminalsMap;
 
     /**
@@ -144,7 +144,7 @@ private:
     std::map<wxString, SYMDEF_ID> m_DefaultSymDefNamesCache;
 
     /**
-     * Cadstar->KiCad Lib Symbols loaded so far. Note that in CADSTAR each symbol represents just a
+     * Cadstar->Anvil Lib Symbols loaded so far. Note that in CADSTAR each symbol represents just a
      * gate, so the LIB_SYMBOLs contained here are not imported directly - they are just an interim
      * step.
      */
@@ -259,7 +259,7 @@ private:
     PART::DEFINITION::PIN getPartDefinitionPin( const PART& aCadstarPart, const GATE_ID& aGateID,
                                                 const TERMINAL_ID& aTerminalID );
 
-    //Helper Functions for obtaining individual elements as KiCad elements:
+    //Helper Functions for obtaining individual elements as Anvil elements:
     ELECTRICAL_PINTYPE getKiCadPinType( const CADSTAR_PIN_TYPE& aPinType );
 
     int             getKiCadUnitNumberFromGate( const GATE_ID& aCadstarGateID );

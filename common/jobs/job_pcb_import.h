@@ -1,5 +1,5 @@
 /*
- * This program source code file is part of KiCad, a free EDA CAD application.
+ * This program source code file is part of Anvil, a free EDA CAD application.
  *
  * Copyright The KiCad Developers, see AUTHORS.txt for contributors.
  *
@@ -24,7 +24,7 @@
 #include "job.h"
 
 /**
- * Job to import a non-KiCad PCB file to KiCad format.
+ * Job to import a non-Anvil PCB file to Anvil format.
  *
  * Supports importing from PADS, Altium, Eagle, and other formats supported
  * by the PCB_IO plugins.

@@ -1,5 +1,5 @@
 /*
- * This program source code file is part of KiCad, a free EDA CAD application.
+ * This program source code file is part of Anvil, a free EDA CAD application.
  *
  * Copyright (C) 1992-2012 Lorenzo Marcantonio, l.marcantonio@logossrl.com
  * Copyright The KiCad Developers, see AUTHORS.txt for contributors.
@@ -1919,7 +1919,7 @@ bool PDF_PLOTTER::EndPlot()
 
     fmt::print( m_outputFile,
                 "<<\n"
-                "/Producer (KiCad PDF)\n"
+                "/Producer (Anvil PDF)\n"
                 "/CreationDate ({})\n"
                 "/Creator {}\n"
                 "/Title {}\n"

@@ -1,5 +1,5 @@
 /*
- * This program source code file is part of KiCad, a free EDA CAD application.
+ * This program source code file is part of Anvil, a free EDA CAD application.
  *
  * Copyright (C) 2024 Mike Williams <mike@mikebwilliams.com>
  * Copyright The KiCad Developers, see AUTHORS.txt for contributors.
@@ -38,7 +38,7 @@ public:
     enum DESIGN_BLOCK_FILE_T
     {
         DESIGN_BLOCK_FILE_UNKNOWN = 0, ///< 0 is not a legal menu id on Mac
-        KICAD_SEXP,                    ///< S-expression KiCad file format.
+        KICAD_SEXP,                    ///< S-expression Anvil file format.
 
         FILE_TYPE_NONE,
         NESTED_TABLE
@@ -50,7 +50,7 @@ public:
     static DESIGN_BLOCK_FILE_T GuessPluginTypeFromLibPath( const wxString& aLibPath, int aCtl = 0 );
 
     /**
-     * Convert a design block library to the latest KiCad format.
+     * Convert a design block library to the latest Anvil format.
      */
     static bool ConvertLibrary( std::map<std::string, UTF8>* aOldFileProps,
                                 const wxString& aOldFilePath, const wxString& aNewFilePath );
@@ -60,7 +60,7 @@ public:
 class KICOMMON_API DESIGN_BLOCK_IO : public IO_BASE
 {
 public:
-    DESIGN_BLOCK_IO() : IO_BASE( wxS( "KiCad" ) ) {}
+    DESIGN_BLOCK_IO() : IO_BASE( wxS( "Anvil" ) ) {}
 
     const IO_BASE::IO_FILE_DESC GetLibraryDesc() const override;
     long long                   GetLibraryTimestamp( const wxString& aLibraryPath ) const;

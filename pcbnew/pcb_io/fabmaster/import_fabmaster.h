@@ -1,5 +1,5 @@
 /*
- * This program source code file is part of KiCad, a free EDA CAD application.
+ * This program source code file is part of Anvil, a free EDA CAD application.
  *
  * Copyright The KiCad Developers, see AUTHORS.txt for contributors.
  * Author: Seth Hillbrand <seth@kipro-pcb.com>
@@ -259,7 +259,7 @@ private:
                              ///<! width is GRAPHIC_DATA_8
         bool clockwise;      ///<! GRAPHIC_DATA_9
 
-        SHAPE_ARC result;    ///<! KiCad-style arc representation
+        SHAPE_ARC result;    ///<! Anvil-style arc representation
     };
 
     struct GRAPHIC_RECTANGLE : public GRAPHIC_ITEM

@@ -1,5 +1,5 @@
 /*
- * This program source code file is part of KiCad, a free EDA CAD application.
+ * This program source code file is part of Anvil, a free EDA CAD application.
  *
  * Copyright (C) 2018 Jean-Pierre Charras, jp.charras at wanadoo.fr
  * Copyright (C) 2013 SoftPLC Corporation, Dick Hollenbeck <dick@softplc.com>
@@ -305,7 +305,7 @@ PCB_EDIT_FRAME::PCB_EDIT_FRAME( KIWAY* aKiway, wxWindow* aParent ) :
     m_designBlocksPane = new PCB_DESIGN_BLOCK_PANE( this, nullptr, m_designBlockHistoryList );
 
     // AI Chat Panel — wrapped in try/catch so PCB editor loads even if WebView fails.
-    // KiCad Next: when the project-manager shell owns ONE common AI panel (CommonAiPanel +
+    // Anvil Next: when the project-manager shell owns ONE common AI panel (CommonAiPanel +
     // SingleWindowShell), this editor builds NO chat panel of its own — only the shell's.
     // The AI_IPC_CLIENT below is still created so the backend's revert/open_file broadcast
     // keeps refreshing this board while the shell hosts the chat surface.
@@ -345,7 +345,7 @@ PCB_EDIT_FRAME::PCB_EDIT_FRAME( KIWAY* aKiway, wxWindow* aParent ) :
         }
 
         // Search for chat.html in priority order:
-        // 1. KiCad stock data path (works for both installed and KICAD_RUN_FROM_BUILD_DIR)
+        // 1. Anvil stock data path (works for both installed and KICAD_RUN_FROM_BUILD_DIR)
         // 2. Exe directory (build output: pcbnew sits next to ai_chat/)
         // 3. wxStandardPaths resources dir (fallback)
         wxString chatHtmlFound;
@@ -382,7 +382,7 @@ PCB_EDIT_FRAME::PCB_EDIT_FRAME( KIWAY* aKiway, wxWindow* aParent ) :
         {
             wxString fileUrl = wxT( "file:///" ) + chatHtmlFound;
             fileUrl.Replace( wxT( "\\" ), wxT( "/" ) );
-            // app=pcbnew tells the chat panel which KiCad editor it
+            // app=pcbnew tells the chat panel which Anvil editor it
             // lives inside, so the Python backend filters its tool list
             // (PCB-only verbs, no schematic build) and emits a PCB
             // page_summary card on hello. Without this hint, the chat
@@ -711,7 +711,7 @@ PCB_EDIT_FRAME::PCB_EDIT_FRAME( KIWAY* aKiway, wxWindow* aParent ) :
     }
 
     m_auimgr.AddPane( m_propertiesPanel, EDA_PANE().Name( PropertiesPaneName() )
-                      // Altium arrangement: Properties docks on the right (classic KiCad = left).
+                      // Altium arrangement: Properties docks on the right (classic Anvil = left).
                       .Direction( ADVANCED_CFG::GetCfg().m_ModernMenuLayout ? wxAUI_DOCK_RIGHT
                                                                             : wxAUI_DOCK_LEFT )
                       .Layer( 5 )
@@ -2803,7 +2803,7 @@ int PCB_EDIT_FRAME::TestStandalone()
     if( !frame )
         return -1;
 
-    // KiCad Next single-window shell: a schematic editor parked on a background tab is fully
+    // Anvil Next single-window shell: a schematic editor parked on a background tab is fully
     // loaded even though IsShownOnScreen() is false there.  Treat "already a hosted tab" as
     // "already open" so the netlist fetch never re-opens (and reverts) it.
     KIFACE_TAB_HOST* tabHost = Kiway().GetTabHost();
@@ -2861,7 +2861,7 @@ bool PCB_EDIT_FRAME::FetchNetlistFromSchematic( NETLIST& aNetlist,
     {
         DisplayErrorMessage( this, _( "Cannot update the PCB because PCB editor is opened in "
                                       "stand-alone mode. In order to create or update PCBs from "
-                                      "schematics, you must launch the KiCad project manager and "
+                                      "schematics, you must launch the Anvil project manager and "
                                       "create a project." ) );
         return false;       // Not in standalone mode
     }
@@ -2896,7 +2896,7 @@ bool PCB_EDIT_FRAME::FetchNetlistFromSchematic( NETLIST& aNetlist,
         wxString extra_info = e.Problem() + wxT( " : " ) + e.What() + wxT( " at " ) + e.Where();
 
         DisplayErrorMessage( this, _( "Received an error while reading netlist.  Please "
-                                      "report this issue to the KiCad team using the menu "
+                                      "report this issue to the Anvil team using the menu "
                                       "Help->Report Bug."), extra_info );
         return false;
     }
@@ -3998,7 +3998,7 @@ void PCB_EDIT_FRAME::OnEditItemRequest( BOARD_ITEM* aItem )
 
 bool PCB_EDIT_FRAME::DoAutoSave()
 {
-    // KiCad Next / Anvil: VSCode-style autosave to the REAL .kicad_pcb (not the .history
+    // Anvil Next / Anvil: VSCode-style autosave to the REAL .kicad_pcb (not the .history
     // snapshot) so the AI backend, which reads the live board file, observes the user's manual
     // edits automatically — the Cursor way.  addToHistory=false (no snapshot) and
     // aChangeProject=false (don't rewrite project metadata); only writes a modified, writable,

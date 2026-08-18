@@ -1,5 +1,5 @@
 /*
- * This program source code file is part of KiCad, a free EDA CAD application.
+ * This program source code file is part of Anvil, a free EDA CAD application.
  *
  * Copyright (C) 2018 Jean-Pierre Charras, jp.charras at wanadoo.fr
  * Copyright The KiCad Developers, see AUTHORS.txt for contributors.
@@ -312,7 +312,7 @@ protected:
 
     void doReCreateMenuBar() override;
 
-    // KiCad Next unified menu bar (see EDA_BASE_FRAME::buildCommonMenuBar()).
+    // Anvil Next unified menu bar (see EDA_BASE_FRAME::buildCommonMenuBar()).
     TOOL_INTERACTIVE* getCurrentMenuTool() override;
     void buildFileMenu( ACTION_MENU* aMenu ) override;
     void buildEditMenu( ACTION_MENU* aMenu ) override;
@@ -328,7 +328,7 @@ protected:
      * Load the netlist file built on the fly by Eeschema and loads footprint libraries from
      * fp lib tables.
      *
-     * @param aNetlist is the netlist from Eeschema in KiCad s-expr format.
+     * @param aNetlist is the netlist from Eeschema in Anvil s-expr format.
      * (see CVPCB_MAINFRAME::KiwayMailIn() to know how to get this netlist)
      */
     bool readNetListAndFpFiles( const std::string& aNetlist );
@@ -336,7 +336,7 @@ protected:
     /**
      * Read the netlist (.net) file built on the fly by Eeschema.
      *
-     * @param aNetlist is the netlist buffer filled by Eeschema, in KiCad s-expr format.
+     * @param aNetlist is the netlist buffer filled by Eeschema, in Anvil s-expr format.
      * It is the same netlist as the .net file created by Eeschema.
      * (This method is called by readNetListAndFpFiles)
      */

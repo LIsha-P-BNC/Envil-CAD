@@ -1,5 +1,5 @@
 /*
- * This program source code file is part of KiCad, a free EDA CAD application.
+ * This program source code file is part of Anvil, a free EDA CAD application.
  *
  * Copyright (C) 2022 Mikolaj Wielgus
  * Copyright (C) 2022 CERN
@@ -1028,10 +1028,10 @@ bool SIM_MODEL::InferSimModel( T& aSymbol, std::vector<SCH_FIELD>* aFields, bool
     // SPICE notation is case-insensitive and locale-insensitve.  This means it uses "Meg" for
     // mega (as both 'M' and 'm' must mean milli), and "." (always) for a decimal separator.
     //
-    // KiCad's GUI uses the SI-standard 'M' for mega and 'm' for milli, and a locale-dependent
+    // Anvil's GUI uses the SI-standard 'M' for mega and 'm' for milli, and a locale-dependent
     // decimal separator.
     //
-    // KiCad's Sim.* fields are in-between, using SI notation but a fixed decimal separator.
+    // Anvil's Sim.* fields are in-between, using SI notation but a fixed decimal separator.
     //
     // So where does that leave inferred value fields?  Behavioural models must be passed in
     // straight, because we don't (at present) know how to parse them.
@@ -1055,7 +1055,7 @@ bool SIM_MODEL::InferSimModel( T& aSymbol, std::vector<SCH_FIELD>* aFields, bool
     auto convertNotation =
             [&]( const wxString& units ) -> wxString
             {
-                /// KiCad Spice PEGTL only handles ASCII
+                /// Anvil Spice PEGTL only handles ASCII
                 /// Although these two look the same, they are U+03BC and U+00B5
                 if( units == wxS( "µ" ) || units == wxS( "μ" ) )
                     return wxS( "u" );

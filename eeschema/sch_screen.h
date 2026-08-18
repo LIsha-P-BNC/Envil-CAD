@@ -1,5 +1,5 @@
 /*
- * This program source code file is part of KiCad, a free EDA CAD application.
+ * This program source code file is part of Anvil, a free EDA CAD application.
  *
  * Copyright (C) 2009 Jean-Pierre Charras, jaen-pierre.charras@gipsa-lab.inpg.com
  * Copyright The KiCad Developers, see AUTHORS.txt for contributors.
@@ -200,7 +200,7 @@ public:
      *
      * @param aScreen is the screen to append to this one.
      * @return false if there are any duplicate sheet names or any hierarchy recursion issues the
-     *         calling this method or KiCad will crash.
+     *         calling this method or Anvil will crash.
      */
     void Append( SCH_SCREEN* aScreen );
 

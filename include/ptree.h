@@ -1,5 +1,5 @@
 /*
- * This program source code file is part of KiCad, a free EDA CAD application.
+ * This program source code file is part of Anvil, a free EDA CAD application.
  *
  * Copyright (C) 2013 SoftPLC Corporation, Dick Hollenbeck <dick@softplc.com>
  * Copyright The KiCad Developers, see AUTHORS.txt for contributors.
@@ -26,7 +26,7 @@
 #define PTREE_H_
 
 /*
-Implement "KiCad s-expression" support for boost::property_tree's ptree, the 8
+Implement "Anvil s-expression" support for boost::property_tree's ptree, the 8
 bit string version of property_tree. The ram resident structure of the ptree is
 mostly compatible with one created using the xml_parser from
 boost::property_tree, with slight differences in the way atoms are stored. The
@@ -54,11 +54,11 @@ typedef const PTREE                         CPTREE;
 typedef boost::property_tree::ptree_error   PTREE_ERROR;
 
 /**
- * Fill an empty #PTREE with information from a KiCad s-expression stream.
+ * Fill an empty #PTREE with information from a Anvil s-expression stream.
  *
  * Use a #DSNLEXER with an empty keyword table as @a aLexer.  Useful for parsing s-expression
  * files or strings of arbitrary grammars, say from a file or clipboard.  The s-expression
- * must be "KiCad compatible".  See Documentation/s-expressions.txt for this KiCad compatible
+ * must be "Anvil compatible".  See Documentation/s-expressions.txt for this Anvil compatible
  * definition (it is the non-specctra mode).  And also see in tools/property_tree.cpp for
  * example usage.
  *

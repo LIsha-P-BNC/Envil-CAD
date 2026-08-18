@@ -1,5 +1,5 @@
 /*
- * This program source code file is part of KiCad, a free EDA CAD application.
+ * This program source code file is part of Anvil, a free EDA CAD application.
  *
  * Copyright (C) 2014 Jean-Pierre Charras, jp.charras at wanadoo.fr
  * Copyright (C) 2008 Wayne Stambaugh <stambaughw@gmail.com>
@@ -73,7 +73,7 @@ public:
     bool IsContentModified() const override;
 
     /**
-     * KiCad Next / Anvil: autosave the edited symbol to its REAL .kicad_sym library
+     * Anvil Next / Anvil: autosave the edited symbol to its REAL .kicad_sym library
      * (not the .history snapshot) when the AnvilAutoSaveRealFile advanced flag is on, so
      * the AI backend sees manual library edits without a Ctrl+S.  Silent no-op for
      * symbols pulled from the schematic and for read-only libraries.
@@ -421,7 +421,7 @@ protected:
 
     void doReCreateMenuBar() override;
 
-    // KiCad Next unified menu bar (see EDA_BASE_FRAME::buildCommonMenuBar()).
+    // Anvil Next unified menu bar (see EDA_BASE_FRAME::buildCommonMenuBar()).
     TOOL_INTERACTIVE* getCurrentMenuTool() override;
     void buildFileMenu( ACTION_MENU* aMenu ) override;
     void buildEditMenu( ACTION_MENU* aMenu ) override;
@@ -517,7 +517,7 @@ private:
     /**
      * Add \a aLibFile to the symbol library table defined by \a aScope.
      *
-     * @note The library defined by \a aLibFile must be a KiCad (s-expression) library.
+     * @note The library defined by \a aLibFile must be a Anvil (s-expression) library.
      *
      * @param aLibFile is the full path and file name of the symbol library to add to the table.
      * @param aScope defines if \a aLibFile is added to the global or project library table.
@@ -529,7 +529,7 @@ private:
     /**
      * Replace the file path of the symbol library table entry \a aLibNickname with \a aLibFile.
      *
-     * @note The library defined by \a aLibFile must be a KiCad (s-expression) library.
+     * @note The library defined by \a aLibFile must be a Anvil (s-expression) library.
      *
      * @param aLibNickmane is the nickname of an existing library table entry.
      * @param aLibFile is the full path and file name of the symbol library to replace in the

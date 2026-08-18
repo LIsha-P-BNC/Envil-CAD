@@ -1,5 +1,5 @@
 /*
-* This program source code file is part of KiCad, a free EDA CAD application.
+* This program source code file is part of Anvil, a free EDA CAD application.
 *
 * Copyright (C) 2020 Mark Roszko <mark.roszko@gmail.com>
 * Copyright The KiCad Developers, see AUTHORS.txt for contributors.
@@ -322,7 +322,7 @@ bool KIPLATFORM::APP::IsOperatingSystemUnsupported()
              || PYTHON_VERSION_MAJOR > 3 )
     // Python 3.8 switched to Windows 8+ API, we do not support Windows 7 and will not
     // attempt to hack around it. A normal user will never get here because the Python DLL
-    // is missing dependencies - and because it is not dynamically loaded, KiCad will not even
+    // is missing dependencies - and because it is not dynamically loaded, Anvil will not even
     // start without patching Python or its WinAPI dependency. This is just to create a nag dialog
     // for those who run patched Python and prevent them from submitting bug reports.
     return !IsWindows8OrGreater();

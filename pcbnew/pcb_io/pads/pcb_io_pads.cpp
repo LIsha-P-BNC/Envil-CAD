@@ -1,5 +1,5 @@
 /*
- * This program source code file is part of KiCad, a free EDA CAD application.
+ * This program source code file is part of Anvil, a free EDA CAD application.
  *
  * Copyright (C) 2025 KiCad Developers, see AUTHORS.txt for contributors.
  *
@@ -85,7 +85,7 @@ const IO_BASE::IO_FILE_DESC PCB_IO_PADS::GetBoardFileDesc() const
 
 const IO_BASE::IO_FILE_DESC PCB_IO_PADS::GetLibraryDesc() const
 {
-    // PADS ASCII doesn't really support libraries in the KiCad sense,
+    // PADS ASCII doesn't really support libraries in the Anvil sense,
     // but we must implement this.
     return IO_FILE_DESC( "PADS ASCII Library", { "asc" } );
 }
@@ -372,8 +372,8 @@ void PCB_IO_PADS::loadFootprints()
         footprint->SetPosition( VECTOR2I( partCoordScaler( pads_part.location.x, true ),
                                            partCoordScaler( pads_part.location.y, false ) ) );
 
-        // Both PADS and KiCad use counter-clockwise positive rotation convention.
-        // The Y-axis flip (PADS Y-up vs KiCad Y-down) does not affect rotation direction,
+        // Both PADS and Anvil use counter-clockwise positive rotation convention.
+        // The Y-axis flip (PADS Y-up vs Anvil Y-down) does not affect rotation direction,
         // so we use the PADS rotation value directly for both top and bottom layer parts.
         // For bottom-layer parts, the subsequent Flip() call handles the layer change and
         // adjusts the orientation appropriately.
@@ -470,7 +470,7 @@ void PCB_IO_PADS::loadFootprints()
                 EDA_ANGLE part_orient( pads_part.rotation, DEGREES_T );
                 RotatePoint( offset, part_orient );
 
-                // PADS text anchor differs from KiCad by a small offset along the
+                // PADS text anchor differs from Anvil by a small offset along the
                 // reading direction. Shift left (toward text start) to compensate.
                 EDA_ANGLE textAngle = EDA_ANGLE( attr.orientation, DEGREES_T ) + part_orient;
                 VECTOR2I textShift( -ADVANCED_CFG::GetCfg().m_PadsTextAnchorOffsetNm, 0 );
@@ -547,7 +547,7 @@ void PCB_IO_PADS::loadFootprints()
 
         applyAttributes( pads_part.attributes, partScaler );
 
-        // PADS "Part Type" maps to KiCad Value field. Hide it since it typically
+        // PADS "Part Type" maps to Anvil Value field. Hide it since it typically
         // shows the part type name which is not useful on fabrication layers.
         footprint->Value().SetVisible( false );
 
@@ -593,7 +593,7 @@ void PCB_IO_PADS::loadFootprints()
                                         PAD* pad, PCB_LAYER_ID kicad_layer,
                                         const EDA_ANGLE& part_orient ) {
                 const std::string& shape = layer_def.shape;
-                // In PADS, sizeA is height (Y) and sizeB is width (X), opposite of KiCad convention
+                // In PADS, sizeA is height (Y) and sizeB is width (X), opposite of Anvil convention
                 VECTOR2I size( std::max( decalScaler( layer_def.sizeB ), m_minObjectSize ),
                                std::max( decalScaler( layer_def.sizeA ), m_minObjectSize ) );
 
@@ -774,7 +774,7 @@ void PCB_IO_PADS::loadFootprints()
                     // Pre-scan copper layers to detect whether the pad needs
                     // per-layer shapes.  In PADS, layer -2 is top copper and
                     // layer -1 is bottom copper, and they can have different
-                    // shapes (e.g. square on top, round on bottom).  KiCad's
+                    // shapes (e.g. square on top, round on bottom).  Anvil's
                     // PADSTACK in NORMAL mode stores a single shape for all
                     // layers, so we must switch to FRONT_INNER_BACK when the
                     // front and back shapes differ.
@@ -851,7 +851,7 @@ void PCB_IO_PADS::loadFootprints()
 
                         // RT/ST are thermal relief spoke patterns for plane layers.
                         // RA/SA are anti-pad (clearance) shapes for plane layers.
-                        // KiCad computes thermal reliefs from zone settings, so skip
+                        // Anvil computes thermal reliefs from zone settings, so skip
                         // these to avoid overwriting the actual pad shape.  However,
                         // the presence of RT/ST indicates this pad should have thermal
                         // relief rather than a solid connection to copper pours.
@@ -885,7 +885,7 @@ void PCB_IO_PADS::loadFootprints()
                         {
                             // For non-copper layers, check if they're mask/paste layers.
                             // PADS pad stacks can include explicit solder mask and paste
-                            // mask entries that must be preserved in KiCad.
+                            // mask entries that must be preserved in Anvil.
                             // layer_def.layer > 0 skips the copper sentinels -2 (top)
                             // and -1 (bottom), which mapPadsLayer already resolved above.
                             PCB_LAYER_ID tech_layer = getMappedLayer( layer_def.layer );
@@ -1333,7 +1333,7 @@ void PCB_IO_PADS::loadTexts()
         EDA_ANGLE textAngle( pads_text.rotation, DEGREES_T );
         text->SetTextAngle( textAngle );
 
-        // PADS text anchor differs from KiCad by a small offset along the
+        // PADS text anchor differs from Anvil by a small offset along the
         // reading direction. Shift left (toward text start) to compensate.
         VECTOR2I pos( scaleCoord( pads_text.location.x, true ),
                       scaleCoord( pads_text.location.y, false ) );
@@ -1825,7 +1825,7 @@ void PCB_IO_PADS::loadZones()
     };
 
     // PADS uses lower numbers = higher priority (priority 1 fills on top),
-    // while KiCad uses higher numbers = higher priority.
+    // while Anvil uses higher numbers = higher priority.
     int maxPriority = 0;
 
     for( const auto& pour_def : pours )
@@ -2865,7 +2865,7 @@ void PCB_IO_PADS::loadBoardSetup()
         stackup.RemoveAll();
         stackup.BuildDefaultStackupList( &bds, copperLayerCount );
 
-        // Build a map from KiCad PCB_LAYER_ID to PADS LAYER_INFO for copper layers
+        // Build a map from Anvil PCB_LAYER_ID to PADS LAYER_INFO for copper layers
         std::map<PCB_LAYER_ID, const PADS_IO::LAYER_INFO*> copperInfoMap;
 
         for( const auto* li : copperLayerInfos )

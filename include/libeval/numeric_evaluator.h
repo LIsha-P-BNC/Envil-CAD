@@ -1,5 +1,5 @@
 /*
- * This file is part of KiCad, a free EDA CAD application.
+ * This file is part of Anvil, a free EDA CAD application.
  * Derived from libeval, a simple math expression evaluator.
  *
  * Copyright (C) 2017 Michael Geselbracht, mgeselbracht3@gmail.com

@@ -1,5 +1,5 @@
 /*
- * This program source code file is part of KiCad, a free EDA CAD application.
+ * This program source code file is part of Anvil, a free EDA CAD application.
  *
  * Copyright (C) 2018 Jean_Pierre Charras <jp.charras at wanadoo.fr>
  * Copyright (C) 2015 SoftPLC Corporation, Dick Hollenbeck <dick@softplc.com>
@@ -563,7 +563,7 @@ void EXCELLON_WRITER::writeEXCELLONHeader( const DRILL_SPAN& aSpan, TYPE_FILE aH
     {
         // The next lines in EXCELLON files are comments:
         wxString msg;
-        msg << wxT( "KiCad " ) << GetBuildVersion();
+        msg << wxT( "Anvil " ) << GetBuildVersion();
 
         fmt::print( m_file, "; DRILL file {} date {}\n",
                             TO_UTF8( msg ), TO_UTF8( GetISO8601CurrentDateTime() ) );

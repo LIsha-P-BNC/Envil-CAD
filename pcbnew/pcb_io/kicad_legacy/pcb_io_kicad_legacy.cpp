@@ -1,5 +1,5 @@
 /*
- * This program source code file is part of KiCad, a free EDA CAD application.
+ * This program source code file is part of Anvil, a free EDA CAD application.
  *
  * Copyright (C) 2007-2012 SoftPLC Corporation, Dick Hollenbeck <dick@softplc.com>
  * Copyright (C) 2019 Jean-Pierre Charras, jp.charras@wanadoo.fr
@@ -1395,7 +1395,7 @@ void PCB_IO_KICAD_LEGACY::loadPAD( FOOTPRINT* aFootprint )
 
             // mypadnumber is LATIN1/CRYLIC for BOARD_FORMAT_VERSION 1, but for
             // BOARD_FORMAT_VERSION 2, it is UTF8 from disk.
-            // Moving forward padnumbers will be in UTF8 on disk, as are all KiCad strings on disk.
+            // Moving forward padnumbers will be in UTF8 on disk, as are all Anvil strings on disk.
             char        mypadnumber[50];
 
             data = line + SZ( "Sh" ) + 1;   // +1 skips trailing whitespace
@@ -1435,7 +1435,7 @@ void PCB_IO_KICAD_LEGACY::loadPAD( FOOTPRINT* aFootprint )
 
             if( m_loading_format_version == 1 )
             {
-                // add 8 bit bytes, file format 1 was KiCad font type byte,
+                // add 8 bit bytes, file format 1 was Anvil font type byte,
                 // simply promote those 8 bit bytes up into UNICODE. (subset of LATIN1)
                 const unsigned char* cp = (unsigned char*) mypadnumber;
 
@@ -3350,7 +3350,7 @@ bool PCB_IO_KICAD_LEGACY::IsLibraryWritable( const wxString& aLibraryPath )
 }
 
 
-PCB_IO_KICAD_LEGACY::PCB_IO_KICAD_LEGACY() : PCB_IO( wxS( "KiCad-Legacy" ) ),
+PCB_IO_KICAD_LEGACY::PCB_IO_KICAD_LEGACY() : PCB_IO( wxS( "Anvil-Legacy" ) ),
     m_cu_count( 16 ),               // for FootprintLoad()
     m_progressReporter( nullptr ),
     m_lastProgressLine( 0 ),

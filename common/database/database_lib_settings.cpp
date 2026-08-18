@@ -1,5 +1,5 @@
 /*
-* This program source code file is part of KiCad, a free EDA CAD application.
+* This program source code file is part of Anvil, a free EDA CAD application.
 *
 * Copyright (C) 2022 Jon Evans <jon@craftyjon.com>
 * Copyright The KiCad Developers, see AUTHORS.TXT for contributors.
@@ -67,7 +67,7 @@ DATABASE_LIB_SETTINGS::DATABASE_LIB_SETTINGS( const std::string& aFilename ) :
             "libraries",
             [&]() -> nlohmann::json
             {
-                // TODO: implement this; libraries are read-only from KiCad at the moment
+                // TODO: implement this; libraries are read-only from Anvil at the moment
                 return {};
             },
             [&]( const nlohmann::json aObj )

@@ -1,5 +1,5 @@
 /*
- * This program source code file is part of KiCad, a free EDA CAD application.
+ * This program source code file is part of Anvil, a free EDA CAD application.
  *
  * Copyright The KiCad Developers, see AUTHORS.txt for contributors.
  *
@@ -24,7 +24,7 @@
 /**
  * @file menubar_common.cpp
  *
- * KiCad Next: the shared "common" top menu-bar assembler.
+ * Anvil Next: the shared "common" top menu-bar assembler.
  *
  * Instead of every frame building its own menu bar from scratch in doReCreateMenuBar(), the
  * unified path builds a single canonical menu bar and lets each frame populate only the menus
@@ -106,7 +106,7 @@ void EDA_BASE_FRAME::ActivateWindowMenuTarget( EDA_BASE_FRAME* aFrame )
 namespace
 {
 /**
- * The modern layout's Window menu: lists every open KiCad frame and activates the chosen one
+ * The modern layout's Window menu: lists every open Anvil frame and activates the chosen one
  * (raise in multi-window mode, tab selection in the single-window shell).  The item list is
  * rebuilt each time the menu is opened, so it always reflects the current window set.
  */

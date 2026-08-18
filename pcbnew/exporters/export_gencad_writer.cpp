@@ -1,5 +1,5 @@
 /*
- * This program source code file is part of KiCad, a free EDA CAD application.
+ * This program source code file is part of Anvil, a free EDA CAD application.
  *
  * Copyright The KiCad Developers, see AUTHORS.txt for contributors.
  *
@@ -886,7 +886,7 @@ bool GENCAD_EXPORTER::createHeaderInfoData()
     fmt::print( m_file, "GENCAD 1.4\n" );
 
     // Please note: GenCAD syntax requires quoted strings if they can contain spaces
-    fmt::print( m_file, "USER \"KiCad {}\"\n", GetBuildVersion() );
+    fmt::print( m_file, "USER \"Anvil {}\"\n", GetBuildVersion() );
 
     fmt::print( m_file, "DRAWING \"{}\"\n", m_board->GetFileName() );
 

@@ -1,5 +1,5 @@
 /*
- * This program source code file is part of KiCad, a free EDA CAD application.
+ * This program source code file is part of Anvil, a free EDA CAD application.
  *
  * Copyright (C) 2019 CERN
  * Copyright The KiCad Developers, see AUTHORS.txt for contributors.
@@ -3274,7 +3274,7 @@ void SCH_SELECTION_TOOL::ZoomFitCrossProbeBBox( const BOX2I& aBBox )
         compRatioBent = lut.front().second; // Small symbol default is first entry
     }
 
-    // This is similar to the original KiCad code that scaled the zoom to make sure symbols were
+    // This is similar to the original Anvil code that scaled the zoom to make sure symbols were
     // visible on screen.  It's simply a ratio of screen size to symbol size, and its job is to
     // zoom in to make the component fullscreen.  Earlier in the code the symbol BBox is given a
     // 20% margin to add some breathing room.  We compare the height of this enlarged symbol bbox
@@ -3284,20 +3284,20 @@ void SCH_SELECTION_TOOL::ZoomFitCrossProbeBBox( const BOX2I& aBBox )
     screenSize.y = std::max( 10.0, screenSize.y );
     double ratio = std::max( -1.0, fabs( bbSize.y / screenSize.y ) );
 
-    // Original KiCad code for how much to scale the zoom
+    // Original Anvil code for how much to scale the zoom
     double kicadRatio = std::max( fabs( bbSize.x / screenSize.x ),
                                   fabs( bbSize.y / screenSize.y ) );
 
     // If the width of the part we're probing is bigger than what the screen width will be after
-    // the zoom, then punt and use the KiCad zoom algorithm since it guarantees the part's width
+    // the zoom, then punt and use the Anvil zoom algorithm since it guarantees the part's width
     // will be encompassed within the screen.
     if( bbSize.x > screenSize.x * ratio * compRatioBent )
     {
-        // Use standard KiCad zoom for parts too wide to fit on screen/
+        // Use standard Anvil zoom for parts too wide to fit on screen/
         ratio = kicadRatio;
-        compRatioBent = 1.0; // Reset so we don't modify the "KiCad" ratio
+        compRatioBent = 1.0; // Reset so we don't modify the "Anvil" ratio
         wxLogTrace( "CROSS_PROBE_SCALE",
-                    "Part TOO WIDE for screen.  Using normal KiCad zoom ratio: %1.5f", ratio );
+                    "Part TOO WIDE for screen.  Using normal Anvil zoom ratio: %1.5f", ratio );
     }
 
     // Now that "compRatioBent" holds our final scaling factor we apply it to the original

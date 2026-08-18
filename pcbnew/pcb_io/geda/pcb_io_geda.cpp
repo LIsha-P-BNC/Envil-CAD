@@ -1,5 +1,5 @@
 /*
- * This program source code file is part of KiCad, a free EDA CAD application.
+ * This program source code file is part of Anvil, a free EDA CAD application.
  *
  * Copyright (C) 2012 Wayne Stambaugh <stambaughw@gmail.com>
  * Copyright The KiCad Developers, see AUTHORS.txt for contributors.
@@ -553,7 +553,7 @@ FOOTPRINT* GPCB_FPL_CACHE::parseFOOTPRINT( LINE_READER* aLineReader )
                 int clearance = static_cast<int>( parseInt( parameters[7], conv_unit ) );
                 // One of gEDA's oddities is that clearance between pad and polygon
                 // is given as the gap on both sides of the pad together, so for
-                // KiCad it has to halfed.
+                // Anvil it has to halfed.
                 pad->SetLocalClearance( clearance / 2 );
 
                 // In GEDA, the mask value is the size of the hole in this
@@ -643,7 +643,7 @@ FOOTPRINT* GPCB_FPL_CACHE::parseFOOTPRINT( LINE_READER* aLineReader )
                 int clearance = static_cast<int>( parseInt( parameters[5], conv_unit ) );
                 // One of gEDA's oddities is that clearance between pad and polygon
                 // is given as the gap on both sides of the pad together, so for
-                // KiCad it has to halfed.
+                // Anvil it has to halfed.
                 pad->SetLocalClearance( clearance / 2 );
 
                 // In GEDA, the mask value is the size of the hole in this

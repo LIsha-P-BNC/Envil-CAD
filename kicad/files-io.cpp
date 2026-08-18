@@ -1,5 +1,5 @@
 /*
- * This program source code file is part of KiCad, a free EDA CAD application.
+ * This program source code file is part of Anvil, a free EDA CAD application.
  *
  * Copyright (C) 2004-2015 Jean-Pierre Charras
  * Copyright The KiCad Developers, see AUTHORS.txt for contributors.
@@ -39,7 +39,7 @@
 
 void KICAD_MANAGER_FRAME::OnFileHistory( wxCommandEvent& event )
 {
-    wxString filename = GetFileFromHistory( event.GetId(), _( "KiCad project file" ) );
+    wxString filename = GetFileFromHistory( event.GetId(), _( "Anvil project file" ) );
 
     if( !filename.IsEmpty() )
         LoadProject( wxFileName( filename ) );

@@ -1,5 +1,5 @@
 /*
- * This program source code file is part of KiCad, a free EDA CAD application.
+ * This program source code file is part of Anvil, a free EDA CAD application.
  *
  * Copyright (C) 2026 KiCad Developers, see AUTHORS.txt for contributors.
  *
@@ -42,7 +42,7 @@ namespace PADS_IO { class BINARY_PARSER; }
  * This plugin reads the native binary format used by PADS Layout, which is
  * distinct from the ASCII export format handled by PCB_IO_PADS. The binary
  * parser populates the same intermediate PADS_IO structs, and this wrapper
- * converts them to KiCad objects using the same patterns as the ASCII importer.
+ * converts them to Anvil objects using the same patterns as the ASCII importer.
  */
 class PCB_IO_PADS_BINARY : public PCB_IO, public LAYER_MAPPABLE_PLUGIN
 {

@@ -82,7 +82,7 @@ public:
 protected:
     void doReCreateMenuBar() override;
 
-    // KiCad Next unified menu bar (see EDA_BASE_FRAME::buildCommonMenuBar()).
+    // Anvil Next unified menu bar (see EDA_BASE_FRAME::buildCommonMenuBar()).
     TOOL_INTERACTIVE* getCurrentMenuTool() override;
     void buildFileMenu( ACTION_MENU* aMenu ) override;
     void buildPreferencesMenu( ACTION_MENU* aMenu ) override;

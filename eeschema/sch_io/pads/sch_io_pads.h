@@ -1,5 +1,5 @@
 /*
- * This program source code file is part of KiCad, a free EDA CAD application.
+ * This program source code file is part of Anvil, a free EDA CAD application.
  *
  * Copyright (C) 2025 KiCad Developers, see AUTHORS.txt for contributors.
  *
@@ -34,7 +34,7 @@ class LIB_SYMBOL;
  * A #SCH_IO derivation for loading PADS Logic schematic files.
  *
  * PADS Logic exports schematic designs as ASCII text files that can be parsed
- * and converted to KiCad schematic format.
+ * and converted to Anvil schematic format.
  */
 class SCH_IO_PADS : public SCH_IO
 {

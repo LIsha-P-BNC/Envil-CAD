@@ -1,5 +1,5 @@
 /*
- * This program source code file is part of KiCad, a free EDA CAD application.
+ * This program source code file is part of Anvil, a free EDA CAD application.
  *
  * Copyright (C) 2019-2023 CERN
  * Copyright The KiCad Developers, see AUTHORS.txt for contributors.
@@ -409,7 +409,7 @@ int SCH_DRAWING_TOOLS::PlaceSymbol( const TOOL_EVENT& aEvent )
                     libSymbol->SetLocalPower();
                     wxString keywords = libSymbol->GetKeyWords();
 
-                    // Adjust the KiCad library default fields to match the new power symbol type
+                    // Adjust the Anvil library default fields to match the new power symbol type
                     if( keywords.Contains( wxT( "global power" ) ) )
                     {
                         keywords.Replace( wxT( "global power" ), wxT( "local power" ) );
@@ -427,7 +427,7 @@ int SCH_DRAWING_TOOLS::PlaceSymbol( const TOOL_EVENT& aEvent )
                 else if( !libSymbol->IsGlobalPower()
                          && cfg->m_Drawing.new_power_symbols == POWER_SYMBOLS::GLOBAL )
                 {
-                    // We do not currently have local power symbols in the KiCad library, so
+                    // We do not currently have local power symbols in the Anvil library, so
                     // don't update any fields
                     libSymbol->SetGlobalPower();
                 }

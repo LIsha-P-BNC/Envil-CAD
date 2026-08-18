@@ -1,5 +1,5 @@
 /*
- * This program source code file is part of KiCad, a free EDA CAD application.
+ * This program source code file is part of Anvil, a free EDA CAD application.
  *
  * Copyright The KiCad Developers, see AUTHORS.txt for contributors.
  *
@@ -70,7 +70,7 @@ enum class KICOMMON_API FORMAT_MODE
 };
 
 /**
- * Pretty-prints s-expression text according to KiCad format rules
+ * Pretty-prints s-expression text according to Anvil format rules
  *
  * Formatting rules:
  * - All extra (non-indentation) whitespace is trimmed

@@ -1,5 +1,5 @@
 /*
- * This program source code file is part of KiCad, a free EDA CAD application.
+ * This program source code file is part of Anvil, a free EDA CAD application.
  *
  * Copyright (C) 2019 Jean-Pierre Charras, jp.charras at wanadoo.fr
  * Copyright The KiCad Developers, see AUTHORS.txt for contributors.
@@ -400,7 +400,7 @@ void DIALOG_BOM::OnEditGenerator( wxCommandEvent& event )
     if( !editorname.IsEmpty() )
         ExecuteFile( editorname, pluginFile );
     else
-        wxMessageBox( _( "No text editor selected in KiCad.  Please choose one." ) );
+        wxMessageBox( _( "No text editor selected in Anvil.  Please choose one." ) );
 }
 
 

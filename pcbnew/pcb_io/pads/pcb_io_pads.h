@@ -1,5 +1,5 @@
 /*
- * This program source code file is part of KiCad, a free EDA CAD application.
+ * This program source code file is part of Anvil, a free EDA CAD application.
  *
  * Copyright (C) 2025 KiCad Developers, see AUTHORS.txt for contributors.
  *
@@ -115,7 +115,7 @@ private:
     void        clearLoadingState();
 
     // Persistent state
-    std::map<wxString, PCB_LAYER_ID>            m_layer_map;      ///< PADS layer names to KiCad layers
+    std::map<wxString, PCB_LAYER_ID>            m_layer_map;      ///< PADS layer names to Anvil layers
 
     // Loading state -- valid only during LoadBoard, cleared by clearLoadingState()
     BOARD*                                      m_loadBoard = nullptr;

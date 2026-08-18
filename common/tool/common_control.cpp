@@ -1,5 +1,5 @@
 /*
- * This program source code file is part of KiCad, a free EDA CAD application.
+ * This program source code file is part of Anvil, a free EDA CAD application.
  *
  * Copyright (C) 2014-2016 CERN
  * Copyright The KiCad Developers, see AUTHORS.txt for contributors.
@@ -47,9 +47,9 @@
 #include <tools/kicad_manager_actions.h>
 #include <confirm.h>
 
-#define URL_GET_INVOLVED wxS( "https://go.kicad.org/contribute/" )
-#define URL_DONATE wxS( "https://go.kicad.org/app-donate" )
-#define URL_DOCUMENTATION wxS( "https://go.kicad.org/docs/" )
+#define URL_GET_INVOLVED wxS( "https://go.anvilcad.com/contribute/" )
+#define URL_DONATE wxS( "https://go.anvilcad.com/app-donate" )
+#define URL_DOCUMENTATION wxS( "https://go.anvilcad.com/docs/" )
 
 
 /// URL to launch a new issue with pre-populated description
@@ -292,7 +292,7 @@ int COMMON_CONTROL::ShowHelp( const TOOL_EVENT& aEvent )
     wxString helpFile;
     wxString msg;
 
-    // the URL of help files is "https://go.kicad.org/docs/<version>/<language>/<name>/"
+    // the URL of help files is "https://go.anvilcad.com/docs/<version>/<language>/<name>/"
     const wxString baseUrl = URL_DOCUMENTATION + GetMajorMinorVersion() + wxT( "/" )
                              + Pgm().GetLocale()->GetName().BeforeLast( '_' ) + wxT( "/" );
 
@@ -300,11 +300,11 @@ int COMMON_CONTROL::ShowHelp( const TOOL_EVENT& aEvent )
      * or the full specific doc
      * if event id is wxID_INDEX, we want the document for beginners.
      * else the specific doc file (its name is in Kiface().GetHelpFileName())
-     * The document for beginners is the same for all KiCad utilities
+     * The document for beginners is the same for all Anvil utilities
      */
     if( aEvent.IsAction( &ACTIONS::gettingStarted ) )
     {
-        // List of possible names for Getting Started in KiCad
+        // List of possible names for Getting Started in Anvil
         const wxChar* names[2] = {
                 wxT( "getting_started_in_kicad" ),
                 wxT( "Getting_Started_in_KiCad" )
@@ -323,7 +323,7 @@ int COMMON_CONTROL::ShowHelp( const TOOL_EVENT& aEvent )
         if( !helpFile )
         {
             msg = wxString::Format( _( "Help file '%s' or\n'%s' could not be found.\n"
-                                       "Do you want to access the KiCad online help?" ),
+                                       "Do you want to access the Anvil online help?" ),
                                     names[0], names[1] );
             KICAD_MESSAGE_DIALOG dlg( nullptr, msg, _( "File Not Found" ),
                                       wxYES_NO | wxNO_DEFAULT | wxCANCEL );
@@ -343,7 +343,7 @@ int COMMON_CONTROL::ShowHelp( const TOOL_EVENT& aEvent )
         if( !helpFile )
         {
             msg = wxString::Format( _( "Help file '%s' could not be found.\n"
-                                       "Do you want to access the KiCad online help?" ),
+                                       "Do you want to access the Anvil online help?" ),
                                     base_name );
             KICAD_MESSAGE_DIALOG dlg( nullptr, msg, _( "File Not Found" ),
                                       wxYES_NO | wxNO_DEFAULT | wxCANCEL );
@@ -381,9 +381,9 @@ int COMMON_CONTROL::GetInvolved( const TOOL_EVENT& aEvent )
     {
         wxString msg;
         msg.Printf( _( "Could not launch the default browser.\n"
-                       "For information on how to help the KiCad project, visit %s" ),
+                       "For information on how to help the Anvil project, visit %s" ),
                     URL_GET_INVOLVED );
-        wxMessageBox( msg, _( "Get involved with KiCad" ), wxOK, m_frame );
+        wxMessageBox( msg, _( "Get involved with Anvil" ), wxOK, m_frame );
     }
 
     return 0;
@@ -396,9 +396,9 @@ int COMMON_CONTROL::Donate( const TOOL_EVENT& aEvent )
     {
         wxString msg;
         msg.Printf( _( "Could not launch the default browser.\n"
-                       "To donate to the KiCad project, visit %s" ),
+                       "To donate to the Anvil project, visit %s" ),
                     URL_DONATE );
-        wxMessageBox( msg, _( "Donate to KiCad" ), wxOK, m_frame );
+        wxMessageBox( msg, _( "Donate to Anvil" ), wxOK, m_frame );
     }
 
     return 0;

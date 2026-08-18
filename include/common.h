@@ -1,5 +1,5 @@
 /*
- * This program source code file is part of KiCad, a free EDA CAD application.
+ * This program source code file is part of Anvil, a free EDA CAD application.
  *
  * Copyright (C) 2014-2020 Jean-Pierre Charras, jp.charras at wanadoo.fr
  * Copyright (C) 2007-2015 SoftPLC Corporation, Dick Hollenbeck <dick@softplc.com>
@@ -47,7 +47,7 @@ class REPORTER;
 /**
  * Return the help file's full path.
  *
- * Return the full path and name (including extension) of the given KiCad help file. It is expected
+ * Return the full path and name (including extension) of the given Anvil help file. It is expected
  * to be found in a subfolder help/\<_LANG_\>/ in one of the system paths. Supported file types are
  * *.html and *.pdf. If no such file is available for the current locale, an attempt to find the
  * English version is made. The search order for \<_LANG_\> is: 1) canonical form (e.g., "fr_FR"),

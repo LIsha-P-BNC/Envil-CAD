@@ -1,5 +1,5 @@
 /*
- * This program source code file is part of KiCad, a free EDA CAD application.
+ * This program source code file is part of Anvil, a free EDA CAD application.
  *
  * Copyright (C) 2015 Mark Roszko <mark.roszko@gmail.com>
  * Copyright The KiCad Developers, see AUTHORS.txt for contributors.
@@ -56,7 +56,7 @@
 #endif
 
 /**
- * Simple wrapper class to call curl_global_init and curl_global_cleanup for KiCad.
+ * Simple wrapper class to call curl_global_init and curl_global_cleanup for Anvil.
  */
 class KICOMMON_API KICAD_CURL
 {

@@ -1,5 +1,5 @@
 /*
- * This program source code file is part of KiCad, a free EDA CAD application.
+ * This program source code file is part of Anvil, a free EDA CAD application.
  *
  * Copyright (C) 2020 BeagleBoard Foundation
  * Copyright The KiCad Developers, see AUTHORS.txt for contributors.
@@ -815,7 +815,7 @@ bool FABMASTER::assignLayers()
 
     for( const auto& [layer_name, fabmaster_layer] : layers )
     {
-        wxLogTrace( traceFabmaster, wxT( "Layer %s -> KiCad layer %d" ), layer_name,
+        wxLogTrace( traceFabmaster, wxT( "Layer %s -> Anvil layer %d" ), layer_name,
                     fabmaster_layer.layerid );
     }
 
@@ -2396,7 +2396,7 @@ bool FABMASTER::loadFootprints( BOARD* aBoard )
             fp->SetPosition( VECTOR2I( src->x, src->y ) );
             fp->SetOrientationDegrees( -src->rotate );
 
-            // KiCad netlisting requires parts to have non-digit + digit annotation.
+            // Anvil netlisting requires parts to have non-digit + digit annotation.
             // If the reference begins with a number, we prepend 'UNK' (unknown) for the source
             // designator
             wxString reference = src->refdes;

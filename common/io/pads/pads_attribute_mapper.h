@@ -1,5 +1,5 @@
 /*
- * This program source code file is part of KiCad, a free EDA CAD application.
+ * This program source code file is part of Anvil, a free EDA CAD application.
  *
  * Copyright The KiCad Developers, see AUTHORS.txt for contributors.
  *
@@ -24,11 +24,11 @@
 #include <string>
 
 /**
- * Maps PADS attribute names to KiCad field names.
+ * Maps PADS attribute names to Anvil field names.
  *
- * PADS uses different attribute names than KiCad for standard fields.
- * This class provides mapping from PADS names to KiCad-compatible names,
- * and identifies which attributes correspond to standard KiCad fields
+ * PADS uses different attribute names than Anvil for standard fields.
+ * This class provides mapping from PADS names to Anvil-compatible names,
+ * and identifies which attributes correspond to standard Anvil fields
  * (Reference, Value, Footprint) versus custom user fields.
  */
 class PADS_ATTRIBUTE_MAPPER
@@ -37,22 +37,22 @@ public:
     PADS_ATTRIBUTE_MAPPER();
 
     /**
-     * Get the KiCad field name for a PADS attribute.
+     * Get the Anvil field name for a PADS attribute.
      *
      * For known PADS attributes (like "Ref.Des.", "Part Type"), returns
-     * the corresponding KiCad field name. For unknown attributes, returns
+     * the corresponding Anvil field name. For unknown attributes, returns
      * the original name unchanged.
      *
      * @param aPadsAttr The PADS attribute name.
-     * @return The corresponding KiCad field name.
+     * @return The corresponding Anvil field name.
      */
     std::string GetKiCadFieldName( const std::string& aPadsAttr ) const;
 
     /**
-     * Check if a PADS attribute maps to a standard KiCad field.
+     * Check if a PADS attribute maps to a standard Anvil field.
      *
      * Standard fields are Reference, Value, and Footprint. These are
-     * handled specially in KiCad and exist on every footprint.
+     * handled specially in Anvil and exist on every footprint.
      *
      * @param aPadsAttr The PADS attribute name.
      * @return True if this is a standard field (Reference, Value, Footprint).
@@ -87,18 +87,18 @@ public:
      * Add or override a custom attribute mapping.
      *
      * @param aPadsAttr The PADS attribute name.
-     * @param aKiCadField The KiCad field name to map to.
+     * @param aKiCadField The Anvil field name to map to.
      */
     void AddMapping( const std::string& aPadsAttr, const std::string& aKiCadField );
 
     /**
      * Get all custom mappings.
      *
-     * @return Map of PADS attribute names to KiCad field names.
+     * @return Map of PADS attribute names to Anvil field names.
      */
     const std::map<std::string, std::string>& GetMappings() const { return m_customMappings; }
 
-    // Standard KiCad field names
+    // Standard Anvil field names
     static constexpr const char* FIELD_REFERENCE = "Reference";
     static constexpr const char* FIELD_VALUE = "Value";
     static constexpr const char* FIELD_FOOTPRINT = "Footprint";

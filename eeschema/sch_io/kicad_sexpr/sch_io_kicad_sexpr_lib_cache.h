@@ -1,5 +1,5 @@
 /*
- * This program source code file is part of KiCad, a free EDA CAD application.
+ * This program source code file is part of Anvil, a free EDA CAD application.
  *
  * Copyright The KiCad Developers, see AUTHORS.txt for contributors.
  *
@@ -32,7 +32,7 @@ class LINE_READER;
 class SCH_IO_KICAD_SEXPR;
 
 /**
- * A cache assistant for the KiCad s-expression symbol libraries.
+ * A cache assistant for the Anvil s-expression symbol libraries.
  */
 class SCH_IO_KICAD_SEXPR_LIB_CACHE : public SCH_IO_LIB_CACHE
 {

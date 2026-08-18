@@ -1,5 +1,5 @@
 /*
- * This program source code file is part of KiCad, a free EDA CAD application.
+ * This program source code file is part of Anvil, a free EDA CAD application.
  *
  * Copyright (C) 2015 Chris Pavlina <pavlina.chris@gmail.com>
  * Copyright The KiCad Developers, see AUTHORS.txt for contributors.
@@ -26,7 +26,7 @@
 #define _LIB_CACHE_RESCUE_H_
 
 /* This code handles the case where an old schematic was made before
- * various changes were made, either to KiCad or to the libraries, and
+ * various changes were made, either to Anvil or to the libraries, and
  * the project needs to be recovered. The function of note is a member
  * of SCH_EDIT_FRAME, defined thus:
  *

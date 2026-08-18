@@ -1,5 +1,5 @@
 /*
- * This program source code file is part of KiCad, a free EDA CAD application.
+ * This program source code file is part of Anvil, a free EDA CAD application.
  *
  * Copyright The KiCad Developers, see AUTHORS.txt for contributors.
  *
@@ -49,7 +49,7 @@ bool validateSymbolPayload( const std::vector<uint8_t>& aPayload, const wxString
 
     if( payload.find( "(kicad_symbol_lib" ) == std::string_view::npos )
     {
-        aError = _( "Downloaded symbol payload was not a KiCad symbol library." );
+        aError = _( "Downloaded symbol payload was not a Anvil symbol library." );
         return false;
     }
 

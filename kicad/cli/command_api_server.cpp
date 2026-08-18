@@ -1,5 +1,5 @@
 /*
- * This program source code file is part of KiCad, a free EDA CAD application.
+ * This program source code file is part of Anvil, a free EDA CAD application.
  *
  * Copyright The KiCad Developers, see AUTHORS.txt for contributors.
  * @author Jon Evans <jon@craftyjon.com>
@@ -47,7 +47,7 @@ void apiServerSignalHandler( int )
 CLI::API_SERVER_COMMAND::API_SERVER_COMMAND() :
         COMMAND( "api-server" )
 {
-    m_argParser.add_description( UTF8STDSTR( _( "Run the KiCad IPC API server in headless mode" ) ) );
+    m_argParser.add_description( UTF8STDSTR( _( "Run the Anvil IPC API server in headless mode" ) ) );
 
     m_argParser.add_argument( ARG_PATH )
             .default_value( std::string() )
@@ -331,7 +331,7 @@ int CLI::API_SERVER_COMMAND::doPerform( KIWAY& aKiway )
     server->SetReadyToReply( true );
 
     wxString listenPath = wxString::FromUTF8( server->SocketPath() );
-    wxFprintf( stdout, "KiCad API server listening at %s\n", listenPath );
+    wxFprintf( stdout, "Anvil API server listening at %s\n", listenPath );
 
     auto oldSigInt = std::signal( SIGINT, apiServerSignalHandler );
 #ifdef SIGTERM

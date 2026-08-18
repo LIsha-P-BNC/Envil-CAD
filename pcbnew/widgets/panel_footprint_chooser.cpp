@@ -1,5 +1,5 @@
 /*
- * This program source code file is part of KiCad, a free EDA CAD application.
+ * This program source code file is part of Anvil, a free EDA CAD application.
  *
  * Copyright (C) 2014 Henner Zeller <h.zeller@acm.org>
  * Copyright (C) 2023 CERN
@@ -384,7 +384,7 @@ void PANEL_FOOTPRINT_CHOOSER::OnDetailsCharHook( wxKeyEvent& e )
         if( wxTheClipboard->Open() )
         {
             wxTheClipboard->SetData( new wxTextDataObject( txt ) );
-            wxTheClipboard->Flush(); // Allow data to be available after closing KiCad
+            wxTheClipboard->Flush(); // Allow data to be available after closing Anvil
             wxTheClipboard->Close();
         }
     }

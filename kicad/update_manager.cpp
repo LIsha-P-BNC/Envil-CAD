@@ -1,5 +1,5 @@
 /*
- * This program source code file is part of KiCad, a free EDA CAD application.
+ * This program source code file is part of Anvil, a free EDA CAD application.
  *
  * Copyright (C) 2023 Mark Roszko <mark.roszko@gmail.com>
  * Copyright The KiCad Developers, see AUTHORS.txt for contributors.
@@ -78,7 +78,7 @@ struct UPDATE_RESPONSE
 NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE( UPDATE_RESPONSE, version, release_date, details_url,
                                     downloads_url )
 
-#define UPDATE_QUERY_ENDPOINT wxS( "https://downloads.kicad.org/api/v1/update" )
+#define UPDATE_QUERY_ENDPOINT wxS( "https://downloads.anvilcad.com/api/v1/update" )
 
 
 UPDATE_MANAGER::UPDATE_MANAGER() : m_working( false )

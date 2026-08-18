@@ -1,5 +1,5 @@
 /*
- * This program source code file is part of KiCad, a free EDA CAD application.
+ * This program source code file is part of Anvil, a free EDA CAD application.
  *
  * Copyright (C) 2019 CERN
  * Copyright The KiCad Developers, see AUTHORS.txt for contributors.
@@ -1040,7 +1040,7 @@ SCH_SELECTION& SCH_MOVE_TOOL::prepareSelection( bool& aUnselect )
     }
 
     // Be sure that there is at least one item that we can move. If there's no selection try
-    // looking for the stuff under mouse cursor (i.e. KiCad old-style hover selection).
+    // looking for the stuff under mouse cursor (i.e. Anvil old-style hover selection).
     SCH_SELECTION& selection = m_selectionTool->RequestSelection( SCH_COLLECTOR::MovableItems, true );
     aUnselect = selection.IsHover();
 

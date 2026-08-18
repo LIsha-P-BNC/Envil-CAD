@@ -37,7 +37,7 @@ namespace
 static constexpr int MAX_SIMPLE_FONT_CODES = 256;
 
 // Build the stroked path for a glyph.
-// KiCad's internal stroke font glyph coordinates use an inverted Y axis relative to the
+// Anvil's internal stroke font glyph coordinates use an inverted Y axis relative to the
 // PDF coordinate system we are targeting here.  We therefore optionally flip Y so text
 // renders upright.  A slightly thicker default stroke width (4% of EM) is used to improve
 // legibility at typical plot zoom levels.
@@ -336,7 +336,7 @@ std::string PDF_STROKE_FONT_SUBSET::BuildToUnicodeCMap() const
     fmt::format_to( std::back_inserter( buffer ), "/CIDInit /ProcSet findresource begin\n" );
     fmt::format_to( std::back_inserter( buffer ), "12 dict begin\n" );
     fmt::format_to( std::back_inserter( buffer ), "begincmap\n" );
-    fmt::format_to( std::back_inserter( buffer ), "/CIDSystemInfo << /Registry (KiCad) /Ordering (StrokeFont) /Supplement 0 >> def\n" );
+    fmt::format_to( std::back_inserter( buffer ), "/CIDSystemInfo << /Registry (Anvil) /Ordering (StrokeFont) /Supplement 0 >> def\n" );
     fmt::format_to( std::back_inserter( buffer ), "/CMapName /{} def\n", m_cmapName );
     fmt::format_to( std::back_inserter( buffer ), "/CMapType 2 def\n" );
     fmt::format_to( std::back_inserter( buffer ), "1 begincodespacerange\n" );

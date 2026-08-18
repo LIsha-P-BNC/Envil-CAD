@@ -1,5 +1,5 @@
 /*
- * This program source code file is part of KiCad, a free EDA CAD application.
+ * This program source code file is part of Anvil, a free EDA CAD application.
  *
  * Copyright The KiCad Developers, see AUTHORS.txt for contributors.
  *
@@ -56,7 +56,7 @@ static constexpr int max_stack = 4096 * 4096;
 /**
  * List of known keys for advanced configuration options.
  *
- * Set these options in the file `kicad_advanced` in the KiCad configuration directory.
+ * Set these options in the file `kicad_advanced` in the Anvil configuration directory.
  */
 namespace AC_KEYS
 {
@@ -302,7 +302,7 @@ ADVANCED_CFG::ADVANCED_CFG()
     // Anvil ships the single-window shell with the Altium-style (modern) menu and toolbar
     // layout ON by default: an exe with no kicad_advanced file must show the product UI.
     // The kicad_advanced file remains an opt-OUT / debugging override (set any of these to 0
-    // to fall back to the classic KiCad behaviour).
+    // to fall back to the classic Anvil behaviour).
     m_UnifiedMenuBar = true;
     m_ModernMenuLayout = true;
     m_ModernToolbarLayout = true;

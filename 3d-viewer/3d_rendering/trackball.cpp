@@ -35,7 +35,7 @@
  * OpenGL(TM) is a trademark of Silicon Graphics, Inc.
  *
  * ====================================================================
- * Code in this file has been modified by the KiCad project.
+ * Code in this file has been modified by the Anvil project.
  * For modifications:
  * Copyright The KiCad Developers, see AUTHORS.txt for contributors.
  */

@@ -1,5 +1,5 @@
 /*
-* This program source code file is part of KiCad, a free EDA CAD application.
+* This program source code file is part of Anvil, a free EDA CAD application.
 *
 * Copyright The KiCad Developers, see AUTHORS.txt for contributors.
 *
@@ -105,7 +105,7 @@ const wxAuiPaneInfo& defaultPropertiesPaneInfo( wxWindow* aWindow )
             .FloatingPosition( aWindow->FromDIP( wxPoint( 50, 200 ) ) )
             .Show( true );
 
-    // Altium arrangement: Properties docks on the right (classic KiCad = left).
+    // Altium arrangement: Properties docks on the right (classic Anvil = left).
     if( ADVANCED_CFG::GetCfg().m_ModernMenuLayout )
         paneInfo.Right();
 
@@ -208,7 +208,7 @@ EESCHEMA_SETTINGS::EESCHEMA_SETTINGS() :
             &m_Appearance.print_sheet_reference, true ) );
 
     m_params.emplace_back( new PARAM<wxString>( "appearance.default_font",
-            &m_Appearance.default_font, "KiCad Font" ) );
+            &m_Appearance.default_font, "Anvil Font" ) );
 
     m_params.emplace_back( new PARAM<bool>( "appearance.show_hidden_pins",
             &m_Appearance.show_hidden_pins, false ) );

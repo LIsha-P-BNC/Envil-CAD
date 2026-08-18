@@ -67,7 +67,7 @@ static inline int iuToMils( int aIU )
 
 
 /// Snap a point to the nearest symbol pin within tolerance, so AI-drawn wire ends land
-/// exactly on pins (KiCad only bonds a wire to a pin at an exact-coincident endpoint).
+/// exactly on pins (Anvil only bonds a wire to a pin at an exact-coincident endpoint).
 static VECTOR2I snapToPin( SCH_EDIT_FRAME* aFrame, const VECTOR2I& aPt )
 {
     const int  tol = schIUScale.MilsToIU( 30 );   // < half the 50-mil grid
@@ -220,7 +220,7 @@ static json execAddWire( SCH_EDIT_FRAME* aFrame, const json& aInput )
         if( !p.is_array() || p.size() < 2 )
             return fail( "Each point must be [x_mils, y_mils]." );
 
-        // Snap each vertex to a nearby pin so wire ends bond exactly (KiCad needs the wire
+        // Snap each vertex to a nearby pin so wire ends bond exactly (Anvil needs the wire
         // endpoint coincident with the pin). Harmless when no pin is near.
         pts.push_back( snapToPin( aFrame, milsPt( p[0].get<int>(), p[1].get<int>() ) ) );
     }
@@ -244,7 +244,7 @@ static json execAddWire( SCH_EDIT_FRAME* aFrame, const json& aInput )
         ++segCount;
     }
 
-    // Auto-add junctions wherever these new wires need them — the same logic KiCad's own
+    // Auto-add junctions wherever these new wires need them — the same logic Anvil's own
     // wire tool uses (SCH_SCREEN::GetNeededJunctions). This is what bonds a stub that ENDS
     // on a rail (a T-intersection): the junction ties the stub end to the rail it crosses,
     // so the tap connects with a visible dot. Without this the AI's ERC loop could never

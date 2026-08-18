@@ -1,5 +1,5 @@
 /*
- * This program source code file is part of KiCad, a free EDA CAD application.
+ * This program source code file is part of Anvil, a free EDA CAD application.
  *
  * Copyright (C) 2020 Roberto Fernandez Bautista <roberto.fer.bau@gmail.com>
  * Copyright The KiCad Developers, see AUTHORS.txt for contributors.
@@ -58,7 +58,7 @@ public:
             const std::vector<INPUT_LAYER_DESC>& aInputLayerDescriptionVector );
 
     /**
-     * Register a different handler to be called when mapping of Cadstar to KiCad layers occurs.
+     * Register a different handler to be called when mapping of Cadstar to Anvil layers occurs.
      *
      * @param aLayerMappingHandler
      */

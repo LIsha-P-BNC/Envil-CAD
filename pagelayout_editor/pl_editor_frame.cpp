@@ -1,5 +1,5 @@
 /*
- * This program source code file is part of KiCad, a free EDA CAD application.
+ * This program source code file is part of Anvil, a free EDA CAD application.
  *
  * Copyright (C) 2013 CERN
  * Copyright The KiCad Developers, see AUTHORS.txt for contributors.
@@ -224,7 +224,7 @@ PL_EDITOR_FRAME::PL_EDITOR_FRAME( KIWAY* aKiway, wxWindow* aParent ) :
 #if 0       //start with empty layout
     DS_DATA_MODEL::GetTheInstance().AllowVoidList( true );
     DS_DATA_MODEL::GetTheInstance().ClearList();
-#else       // start with the default KiCad layout
+#else       // start with the default Anvil layout
     DS_DATA_MODEL::GetTheInstance().LoadDrawingSheet( wxEmptyString, nullptr );
 #endif
     OnNewDrawingSheet();

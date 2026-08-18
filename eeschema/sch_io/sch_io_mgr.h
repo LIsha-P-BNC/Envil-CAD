@@ -1,5 +1,5 @@
 /*
- * This program source code file is part of KiCad, a free EDA CAD application.
+ * This program source code file is part of Anvil, a free EDA CAD application.
  *
  * Copyright (C) 2016 CERN
  * Copyright The KiCad Developers, see AUTHORS.txt for contributors.
@@ -61,13 +61,13 @@ public:
         SCH_LEGACY,           ///< Legacy Eeschema file formats prior to s-expression.
         SCH_ALTIUM,           ///< Altium file format
         SCH_CADSTAR_ARCHIVE,  ///< CADSTAR Schematic Archive
-        SCH_DATABASE,         ///< KiCad database library
+        SCH_DATABASE,         ///< Anvil database library
         SCH_EAGLE,            ///< Autodesk Eagle file format
         SCH_EASYEDA,          ///< EasyEDA Std schematic file
         SCH_EASYEDAPRO,       ///< EasyEDA Pro archive
         SCH_GEDA,             ///< gEDA/gschem schematic format
         SCH_LTSPICE,          ///< LtSpice Schematic format
-        SCH_HTTP,             ///< KiCad HTTP library
+        SCH_HTTP,             ///< Anvil HTTP library
         SCH_PADS,             ///< PADS Logic schematic format
 
         // Add your schematic type here.
@@ -109,7 +109,7 @@ public:
     static SCH_FILE_T GuessPluginTypeFromSchPath( const wxString& aSchematicPath, int aCtl = 0 );
 
     /**
-     * Convert a schematic symbol library to the latest KiCad format
+     * Convert a schematic symbol library to the latest Anvil format
      */
     static bool ConvertLibrary( std::map<std::string, UTF8>* aOldFileProps, const wxString& aOldFilePath,
                                 const wxString& aNewFilepath );

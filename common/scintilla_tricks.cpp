@@ -1,5 +1,5 @@
 /*
- * This program source code file is part of KiCad, a free EDA CAD application.
+ * This program source code file is part of Anvil, a free EDA CAD application.
  *
  * Copyright The KiCad Developers, see AUTHORS.txt for contributors.
  *
@@ -160,7 +160,7 @@ bool isCtrlSlash( wxKeyEvent& aEvent )
 
     // However, we *are* checking Ctrl, so to assume any Shift+7 is a Ctrl-/ really only
     // disallows Ctrl+Shift+7 from doing something else, which is probably OK.  (This routine
-    // is only used in the Scintilla editor, not in the rest of KiCad.)
+    // is only used in the Scintilla editor, not in the rest of Anvil.)
 
     // The other main shifted location of / is over : (France and Belgium), so we'll sacrifice
     // Ctrl+Shift+: too.
@@ -412,7 +412,7 @@ void SCINTILLA_TRICKS::onCharHook( wxKeyEvent& aEvent )
 
         if( wxTheClipboard->Open() )
         {
-            wxTheClipboard->Flush(); // Allow data to be available after closing KiCad
+            wxTheClipboard->Flush(); // Allow data to be available after closing Anvil
             wxTheClipboard->Close();
         }
     }
@@ -422,7 +422,7 @@ void SCINTILLA_TRICKS::onCharHook( wxKeyEvent& aEvent )
 
         if( wxTheClipboard->Open() )
         {
-            wxTheClipboard->Flush(); // Allow data to be available after closing KiCad
+            wxTheClipboard->Flush(); // Allow data to be available after closing Anvil
             wxTheClipboard->Close();
         }
     }

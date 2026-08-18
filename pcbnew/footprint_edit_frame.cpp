@@ -1,5 +1,5 @@
 /*
- * This program source code file is part of KiCad, a free EDA CAD application.
+ * This program source code file is part of Anvil, a free EDA CAD application.
  *
  * Copyright (C) 2015 Jean-Pierre Charras, jp.charras at wanadoo.fr
  * Copyright (C) 2015 SoftPLC Corporation, Dick Hollenbeck <dick@softplc.com>
@@ -238,7 +238,7 @@ FOOTPRINT_EDIT_FRAME::FOOTPRINT_EDIT_FRAME( KIWAY* aKiway, wxWindow* aParent ) :
                       .MinSize( FromDIP( 250 ), FromDIP( 80 ) )
                       .BestSize( FromDIP( 250 ), -1 ) );
     m_auimgr.AddPane( m_propertiesPanel, EDA_PANE().Name( PropertiesPaneName() )
-                      // Altium arrangement: Properties docks on the right (classic KiCad = left).
+                      // Altium arrangement: Properties docks on the right (classic Anvil = left).
                       .Direction( ADVANCED_CFG::GetCfg().m_ModernMenuLayout ? wxAUI_DOCK_RIGHT
                                                                             : wxAUI_DOCK_LEFT )
                       .Layer( 3 )
@@ -322,7 +322,7 @@ FOOTPRINT_EDIT_FRAME::FOOTPRINT_EDIT_FRAME( KIWAY* aKiway, wxWindow* aParent ) :
     Bind( wxEVT_CHAR_HOOK, &TOOL_DISPATCHER::DispatchWxEvent, m_toolDispatcher );
 
     // Ensure the window is on top.
-    // KiCad Next single-window shell: when docked as a tab, the manager shell
+    // Anvil Next single-window shell: when docked as a tab, the manager shell
     // (DockEditorAsTab) shows the frame after reparenting it inside the tab.  Showing
     // it here would flash a floating top-level Footprint Editor during construction
     // before it snaps into the tab, so skip the self-show when the flag is on; the
@@ -391,7 +391,7 @@ bool FOOTPRINT_EDIT_FRAME::IsContentModified() const
 
 bool FOOTPRINT_EDIT_FRAME::doAutoSave()
 {
-    // KiCad Next / Anvil: VSCode-style autosave to the REAL footprint library (not the
+    // Anvil Next / Anvil: VSCode-style autosave to the REAL footprint library (not the
     // .history snapshot) so the AI backend, which reads the live library file, observes
     // the user's manual footprint edits automatically.  Only writes a modified footprint
     // that lives in a named, writable library; a footprint linked to the board, an

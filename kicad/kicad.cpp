@@ -1,5 +1,5 @@
 /*
- * This program source code file is part of KiCad, a free EDA CAD application.
+ * This program source code file is part of Anvil, a free EDA CAD application.
  *
  * Copyright (C) 2004-2015 Jean-Pierre Charras, jp.charras at wanadoo.fr
  * Copyright The KiCad Developers, see AUTHORS.txt for contributors.
@@ -24,7 +24,7 @@
 
 /**
  * @file kicad.cpp
- * Main KiCad project manager file.
+ * Main Anvil project manager file.
  */
 
 
@@ -108,7 +108,7 @@ PGM_KICAD& PgmTop()
 //
 // Transport is wxWidgets IPC (DDE on Windows) — no extra dependency, and self-contained to this
 // binary.  The channel name is derived from the running app name (not a hard-coded product
-// string) so it cannot collide with other KiCad-family executables and needs no config.
+// string) so it cannot collide with other Anvil-family executables and needs no config.
 // ---------------------------------------------------------------------------------------------
 
 static const wxString ANVIL_IPC_TOPIC = wxS( "open" );
@@ -125,7 +125,7 @@ static wxString anvilInstanceService()
 static wxString anvilInstanceService()
 {
     // Non-Windows wxIPC rides TCP, whose service must be a numeric port.  Derive a stable port
-    // from the app name (the same input the DDE path keys off) so distinct KiCad-family
+    // from the app name (the same input the DDE path keys off) so distinct Anvil-family
     // executables get distinct ports with no hard-coded product string or config.  FNV-1a, folded
     // into the IANA dynamic/private range (49152-65535).  Server bind and client connect both call
     // this, so they always agree on the port.
@@ -260,7 +260,7 @@ bool PGM_KICAD::OnPgmInit()
 
     static const wxCmdLineEntryDesc desc[] = {
         { wxCMD_LINE_OPTION, "f", "frame", "Frame to load", wxCMD_LINE_VAL_STRING, 0 },
-        { wxCMD_LINE_SWITCH, "n", "new", "New instance of KiCad, does not attempt to load previously open files",
+        { wxCMD_LINE_SWITCH, "n", "new", "New instance of Anvil, does not attempt to load previously open files",
           wxCMD_LINE_VAL_NONE, 0 },
 #ifndef __WXOSX__
         { wxCMD_LINE_SWITCH, nullptr, "software-rendering", "Use software rendering instead of OpenGL",
@@ -386,7 +386,7 @@ bool PGM_KICAD::OnPgmInit()
         {
             wxFileName fn( bases[i], wxEmptyString );
 
-            // Add KiCad template file path to search path list.
+            // Add Anvil template file path to search path list.
             fn.AppendDir( wxT( "template" ) );
 
             // Only add path if exists and can be read by the user.
@@ -583,7 +583,7 @@ bool PGM_KICAD::OnPgmInit()
                     }
                     else
                     {
-                        // A foreign (KiCad/legacy) argument routes to a modal import offer
+                        // A foreign (Anvil/legacy) argument routes to a modal import offer
                         // inside LoadProject; we're still before frame->Show(), so defer it
                         // until the frame is visible.
                         managerFrame->CallAfter( [managerFrame, fn]()

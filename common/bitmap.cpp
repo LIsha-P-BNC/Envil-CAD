@@ -1,5 +1,5 @@
 /*
- * This program source code file is part of KiCad, a free EDA CAD application.
+ * This program source code file is part of Anvil, a free EDA CAD application.
  *
  * Copyright (C) 2011 SoftPLC Corporation, Dick Hollenbeck <dick@softplc.com>
  * Copyright The KiCad Developers, see AUTHORS.txt for contributors.
@@ -136,7 +136,7 @@ int KiIconScale( wxWindow* aWindow )
     // For historical reasons, "4" here means unity (no scaling)
 
 #if defined( __WXMSW__)
-    // Basically don't try and scale within KiCad and let wx do its thing
+    // Basically don't try and scale within Anvil and let wx do its thing
     // with wx introducing bitmap bundles, it will auto scale automatically with dpi
     // the issue is, none of the scaling factors have any tie to system scaling
     // this means wx is actually going to scale again causing even more distorted icons

@@ -1,5 +1,5 @@
 /*
-* This program source code file is part of KiCad, a free EDA CAD application.
+* This program source code file is part of Anvil, a free EDA CAD application.
 *
 * Copyright (C) 2022 Mark Roszko <mark.roszko@gmail.com>
 * Copyright The KiCad Developers, see AUTHORS.txt for contributors.
@@ -26,7 +26,7 @@
 
 #include <memory>
 
-#define POLICY_KEY_ROOT "Software\\Policies\\KiCad\\KiCad"
+#define POLICY_KEY_ROOT "Software\\Policies\\Anvil\\Anvil"
 
 
 static wxRegKey* GetPolicyRegKey( wxString& aKey )

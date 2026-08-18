@@ -1,5 +1,5 @@
 /*
- * This program source code file is part of KiCad, a free EDA CAD application.
+ * This program source code file is part of Anvil, a free EDA CAD application.
  *
  * Copyright (C) 2026 KiCad Developers, see AUTHORS.txt for contributors.
  *
@@ -39,7 +39,7 @@ namespace PADS_IO
  * Parser for PADS binary PCB file format (.pcb).
  *
  * Reads the binary PADS file and populates the same intermediate structs as the
- * ASCII PARSER class, allowing the existing struct-to-KiCad conversion code to
+ * ASCII PARSER class, allowing the existing struct-to-Anvil conversion code to
  * be shared between both importers.
  *
  * Binary file structure:

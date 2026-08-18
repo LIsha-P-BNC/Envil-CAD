@@ -1,5 +1,5 @@
 /*
-* This program source code file is part of KiCad, a free EDA CAD application.
+* This program source code file is part of Anvil, a free EDA CAD application.
 *
 * Copyright The KiCad Developers, see AUTHORS.txt for contributors.
 *
@@ -287,7 +287,7 @@ public:
             m_taskRequestedToken = m_rtPM.PrintTaskRequested(
                     [this]( winrt::Windows::Foundation::IInspectable const& sender, winrt::Windows::Graphics::Printing::PrintTaskRequestedEventArgs const& e )
                     {
-                        auto task = e.Request().CreatePrintTask( L"KiCad PDF Print",
+                        auto task = e.Request().CreatePrintTask( L"Anvil PDF Print",
                                 [this]( winrt::Windows::Graphics::Printing::PrintTaskSourceRequestedArgs const& sourceRequestedArgs )
                                 {
                                     // Supply document source for preview

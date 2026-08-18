@@ -1,5 +1,5 @@
 /*
- * This program source code file is part of KiCad, a free EDA CAD application.
+ * This program source code file is part of Anvil, a free EDA CAD application.
  *
  * Copyright (C) 1992-2013 jp.charras at wanadoo.fr
  * Copyright (C) 2013 SoftPLC Corporation, Dick Hollenbeck <dick@softplc.com>
@@ -110,7 +110,7 @@ bool NETLIST_EXPORTER_SPICE::DoWriteNetlist( const wxString& aSimCommand, unsign
 
 void NETLIST_EXPORTER_SPICE::WriteHead( OUTPUTFORMATTER& aFormatter, unsigned aNetlistOptions )
 {
-    aFormatter.Print( 0, ".title KiCad schematic\n" );
+    aFormatter.Print( 0, ".title Anvil schematic\n" );
 }
 
 

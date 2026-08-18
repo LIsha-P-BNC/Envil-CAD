@@ -1,5 +1,5 @@
 /*
- * This program source code file is part of KiCad, a free EDA CAD application.
+ * This program source code file is part of Anvil, a free EDA CAD application.
  *
  * Copyright (C) 2019 Jean_Pierre Charras <jp.charras at wanadoo.fr>
  * Copyright The KiCad Developers, see AUTHORS.txt for contributors.
@@ -323,7 +323,7 @@ int PLACEFILE_GERBER_WRITER::CreatePlaceFile( const wxString& aFullFilename, PCB
 
 double PLACEFILE_GERBER_WRITER::mapRotationAngle( double aAngle, bool aIsFlipped )
 {
-    // Convert a KiCad footprint orientation to gerber rotation, depending on the layer
+    // Convert a Anvil footprint orientation to gerber rotation, depending on the layer
     // Gerber rotation is:
     // rot angle > 0 for rot CW, seen from Top side
     // same a Pcbnew for Top side

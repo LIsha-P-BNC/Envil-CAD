@@ -1,5 +1,5 @@
 /*
- * This program source code file is part of KiCad, a free EDA CAD application.
+ * This program source code file is part of Anvil, a free EDA CAD application.
  *
  * Copyright (C) 2023 Mark Roszko <mark.roszko@gmail.com>
  * Copyright The KiCad Developers, see AUTHORS.txt for contributors.
@@ -290,7 +290,7 @@ void NOTIFICATIONS_MANAGER::Load()
     if( wxGetEnv( wxT( "KICAD_TEST_NOTI" ), nullptr ) )
     {
         CreateOrUpdate( wxS( "test" ), wxS( "Test Notification" ), wxS( "Test please ignore" ),
-                        wxS( "https://kicad.org" ) );
+                        wxS( "https://anvilcad.com" ) );
     }
 }
 

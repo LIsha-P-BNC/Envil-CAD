@@ -1,5 +1,5 @@
 /*
- * This program source code file is part of KiCad, a free EDA CAD application.
+ * This program source code file is part of Anvil, a free EDA CAD application.
  *
  * Copyright (C) 2013-2014 Jean-Pierre Charras, jp.charras at wanadoo.fr
  * Copyright The KiCad Developers, see AUTHORS.txt for contributors.
@@ -75,7 +75,7 @@ public:
     void SetupDrawEnvironment( const PAGE_INFO& aPageInfo, double aMilsToIU );
 
     /**
-     * In KiCad applications, a drawing sheet is needed
+     * In Anvil applications, a drawing sheet is needed
      * So if the list is empty, a default drawing sheet is loaded, the first time it is drawn.
      * However, in drawing sheet editor an empty list is acceptable.
      * AllowVoidList allows or not the empty list
@@ -137,7 +137,7 @@ public:
      * sheet at all" rather than naming a file to load.
      *
      * Importers of foreign designs record this: an Altium sheet carries its own frame and
-     * title block as ordinary graphics, so drawing KiCad's on top gives two overlapping
+     * title block as ordinary graphics, so drawing Anvil's on top gives two overlapping
      * title blocks. No file of this name is ever created -- LoadDrawingSheet() recognises it
      * and empties the layout instead of falling back to the default sheet.
      */
@@ -145,7 +145,7 @@ public:
 
     /**
      * The marker's spelling before the anvil_* extension rename.  Projects written by
-     * older builds (and unconverted KiCad imports) still carry it; LoadDrawingSheet()
+     * older builds (and unconverted Anvil imports) still carry it; LoadDrawingSheet()
      * accepts both.
      */
     static const wxChar* LegacyEmptySheetName() { return wxT( "empty.kicad_wks" ); }

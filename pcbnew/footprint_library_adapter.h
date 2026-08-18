@@ -1,5 +1,5 @@
 /*
- * This program source code file is part of KiCad, a free EDA CAD application.
+ * This program source code file is part of Anvil, a free EDA CAD application.
  *
  * Copyright The KiCad Developers, see AUTHORS.txt for contributors.
  * @author Jon Evans <jon@craftyjon.com>
@@ -80,7 +80,7 @@ public:
      * Checks whether the library on disk has changed since it was last enumerated into
      * PreloadedFootprints and, if so, clears the stale cache and re-enumerates the library
      * synchronously.  This allows external changes such as git branch switches to be picked
-     * up without restarting KiCad.
+     * up without restarting Anvil.
      *
      * @param aNickname is the library to check and potentially refresh.
      */

@@ -1,5 +1,5 @@
 /*
- * This program source code file is part of KiCad, a free EDA CAD application.
+ * This program source code file is part of Anvil, a free EDA CAD application.
  *
  * Copyright (C) 2004-2015 Jean-Pierre Charras, jp.charras at wanadoo.fr
  * Copyright (C) 2008 Wayne Stambaugh <stambaughw@gmail.com>
@@ -81,13 +81,13 @@
 #include <winrt/base.h>
 #endif
 /**
- * Current list of languages supported by KiCad.
+ * Current list of languages supported by Anvil.
  *
  * @note Because this list is not created on the fly, wxTranslation
  * must be called when a language name must be displayed after translation.
  * Do not change this behavior, because m_Lang_Label is also used as key in config
  * N.B. Languages that are commented out have some translation existing but are
- * not sufficiently translated to list as valid translations in KiCad for release
+ * not sufficiently translated to list as valid translations in Anvil for release
  */
 #undef _
 #define _(s) s
@@ -388,7 +388,7 @@ bool PGM_BASE::InitPgm( bool aHeadless, bool aIsUnitTest )
     m_pgm_checker = std::make_unique<wxSingleInstanceChecker>();
     m_pgm_checker->Create( instanceCheckerName, instanceCheckerDir );
 
-    // Init KiCad environment
+    // Init Anvil environment
     // the environment variable KICAD (if exists) gives the kicad path:
     // something like set KICAD=d:\kicad
     bool isDefined = wxGetEnv( wxT( "KICAD" ), &m_kicad_env );
@@ -642,7 +642,7 @@ bool PGM_BASE::SetLanguage( wxString& aErrMsg, bool first_time )
         m_locale = new wxLocale;
         m_locale->Init( wxLANGUAGE_DEFAULT );
 
-        aErrMsg = _( "The KiCad language file for this language is not installed." );
+        aErrMsg = _( "The Anvil language file for this language is not installed." );
         return false;
     }
 
@@ -683,7 +683,7 @@ bool PGM_BASE::SetDefaultLanguage( wxString& aErrMsg )
         m_locale = new wxLocale;
         m_locale->Init();
 
-        aErrMsg = _( "The KiCad language file for this language is not installed." );
+        aErrMsg = _( "The Anvil language file for this language is not installed." );
         return false;
     }
 

@@ -1,5 +1,5 @@
 /*
- * This program source code file is part of KiCad, a free EDA CAD application.
+ * This program source code file is part of Anvil, a free EDA CAD application.
  *
  * Copyright The KiCad Developers, see AUTHORS.txt for contributors.
  *
@@ -118,22 +118,22 @@ double ParseDouble( const std::string& aStr, double aDefault = 0.0,
                     const std::string& aContext = {} );
 
 /**
- * Convert a PADS net name to KiCad format, handling inverted signal notation.
+ * Convert a PADS net name to Anvil format, handling inverted signal notation.
  *
  * PADS uses a "/" prefix to indicate inverted signals (e.g. "/RESET").
- * KiCad uses overbar notation "~{name}" for the same purpose.
+ * Anvil uses overbar notation "~{name}" for the same purpose.
  * Non-inverted names pass through unchanged.
  *
  * This function is shared between the PCB and schematic importers to ensure
  * both sides produce identical net names.
  *
  * @param aNetName Raw PADS net name.
- * @return Net name in KiCad notation.
+ * @return Net name in Anvil notation.
  */
 wxString ConvertInvertedNetName( const std::string& aNetName );
 
 /**
- * Convert a PADS line style integer to a KiCad LINE_STYLE enum value.
+ * Convert a PADS line style integer to a Anvil LINE_STYLE enum value.
  *
  * PADS stores line style as an unsigned int that should be interpreted as
  * a signed int8_t for mapping.

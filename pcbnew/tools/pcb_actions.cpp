@@ -1,5 +1,5 @@
 /*
- * This program source code file is part of KiCad, a free EDA CAD application.
+ * This program source code file is part of Anvil, a free EDA CAD application.
  *
  * Copyright (C) 2013-2023 CERN
  * Copyright The KiCad Developers, see AUTHORS.txt for contributors.
@@ -1212,7 +1212,7 @@ TOOL_ACTION PCB_ACTIONS::rescueAutosave( TOOL_ACTION_ARGS()
 TOOL_ACTION PCB_ACTIONS::openNonKicadBoard( TOOL_ACTION_ARGS()
         .Name( "pcbnew.EditorControl.openNonKicadBoard" )
         .Scope( AS_GLOBAL )
-        .FriendlyName( _( "Non-KiCad Board File..." ) )
+        .FriendlyName( _( "Non-Anvil Board File..." ) )
         .Tooltip( _( "Import board file from other applications" ) )
         .Icon( BITMAPS::import_brd_file ) );
 

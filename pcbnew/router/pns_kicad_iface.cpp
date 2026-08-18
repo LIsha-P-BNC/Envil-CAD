@@ -1639,7 +1639,7 @@ std::unique_ptr<PNS::VIA> PNS_KICAD_IFACE_BASE::syncVia( PCB_VIA* aVia )
      * the difference between its bottom layer and the bottom layer of the overall board (i.e. if
      * the via is a blind/buried via).  For this reason, PNS::VIA::STACK_MODE::FRONT_INNER_BACK
      * cannot be used for blind/buried vias.  This mode will always assume that the via's top layer
-     * is the "front" layer and the via's bottom layer is the "back" layer, but from KiCad's point
+     * is the "front" layer and the via's bottom layer is the "back" layer, but from Anvil's point
      * of view, at least at the moment, front/inner/back padstack mode is board-scoped, not
      * via-scoped, so a buried via would only use the inner layer size even if its padstack mode is
      * set to PADSTACK::MODE::FRONT_INNER_BACK and different sizes are defined for front or back.

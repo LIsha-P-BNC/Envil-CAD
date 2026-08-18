@@ -1,5 +1,5 @@
 /*
- * This program source code file is part of KiCad, a free EDA CAD application.
+ * This program source code file is part of Anvil, a free EDA CAD application.
  *
  * Copyright (C) 2017 Jean-Pierre Charras, jp.charras at wanadoo.fr
  * Copyright (C) 2009-2016 Wayne Stambaugh <stambaughw@verizon.net>
@@ -24,7 +24,7 @@
  */
 
 /**
- * @brief Common command IDs shared by more than one of the KiCad applications.
+ * @brief Common command IDs shared by more than one of the Anvil applications.
  *
  * Only place command IDs used in base window class event tables or shared
  * across multiple applications such as the zoom, grid, and language IDs.

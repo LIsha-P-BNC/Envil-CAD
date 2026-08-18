@@ -1,5 +1,5 @@
 /*
- * This program source code file is part of KiCad, a free EDA CAD application.
+ * This program source code file is part of Anvil, a free EDA CAD application.
  *
  * Copyright The KiCad Developers, see AUTHORS.txt for contributors.
  *
@@ -60,7 +60,7 @@ PCB_DESIGN_BLOCK_PREVIEW_WIDGET::PCB_DESIGN_BLOCK_PREVIEW_WIDGET( wxWindow* aPar
 
     // Do not display the grid: the look is not good for a small canvas area.
     // But mainly, due to some strange bug I (JPC) was unable to fix, the grid creates
-    // strange artifacts on Windows when Pcb is run from KiCad manager (but not in
+    // strange artifacts on Windows when Pcb is run from Anvil manager (but not in
     // stand alone...).
     m_preview->GetGAL()->SetGridVisibility( true );
 

@@ -1,6 +1,6 @@
 
 /*
- * This program source code file is part of KiCad, a free EDA CAD application.
+ * This program source code file is part of Anvil, a free EDA CAD application.
  *
  * Copyright (C) 2007-2011 SoftPLC Corporation, Dick Hollenbeck <dick@softplc.com>
  * Copyright The KiCad Developers, see AUTHORS.txt for contributors.
@@ -3885,7 +3885,7 @@ PARSER::PARSER( ELEM* aParent ) :
     via_rotate_first = true;
     generated_by_freeroute = false;
 
-    host_cad = "KiCad's Pcbnew";
+    host_cad = "Anvil's Pcbnew";
     wxString msg = GetBuildVersion();
     host_version = TO_UTF8(msg);
 }

@@ -1,5 +1,5 @@
 /*
- * This program source code file is part of KiCad, a free EDA CAD application.
+ * This program source code file is part of Anvil, a free EDA CAD application.
  *
  * Copyright (C) 2018 Jean-Pierre Charras, jp.charras at wanadoo.fr
  * Copyright The KiCad Developers, see AUTHORS.txt for contributors.
@@ -69,7 +69,7 @@ wxString GbrMakeCreationDateAttributeString( GBR_NC_STRING_FORMAT aFormat );
 
 /**
  * Build a project GUID using format RFC4122 Version 1 or 4 from the project name, because
- * a KiCad project has no specific GUID.
+ * a Anvil project has no specific GUID.
  *
  * RFC4122 is used mainly for its syntax, because fields have no meaning for Gerber files
  * and therefore the GUID generated has no meaning because it do not use any time and time

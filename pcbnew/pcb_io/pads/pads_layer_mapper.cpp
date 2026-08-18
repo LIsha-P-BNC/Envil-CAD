@@ -1,5 +1,5 @@
 /*
- * This program source code file is part of KiCad, a free EDA CAD application.
+ * This program source code file is part of Anvil, a free EDA CAD application.
  *
  * Copyright The KiCad Developers, see AUTHORS.txt for contributors.
  *
@@ -200,7 +200,7 @@ PADS_LAYER_TYPE PADS_LAYER_MAPPER::ParseLayerName( const std::string& aLayerName
 PCB_LAYER_ID PADS_LAYER_MAPPER::mapInnerCopperLayer( int aPadsLayer ) const
 {
     // PADS inner layers are numbered 2 through (m_copperLayerCount - 1)
-    // KiCad inner layers are In1_Cu, In2_Cu, etc. with IDs spaced by 2
+    // Anvil inner layers are In1_Cu, In2_Cu, etc. with IDs spaced by 2
     int innerIndex = aPadsLayer - 2;
 
     if( innerIndex < 0 )

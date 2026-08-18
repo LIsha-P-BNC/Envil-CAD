@@ -1,5 +1,5 @@
 /*
- * This program source code file is part of KiCad, a free EDA CAD application.
+ * This program source code file is part of Anvil, a free EDA CAD application.
  *
  * Copyright (C) 2012 Brian Sidebotham <brian.sidebotham@gmail.com>
  * Copyright The KiCad Developers, see AUTHORS.txt for contributors.
@@ -30,7 +30,7 @@
     Proposal
     --------
 
-    To add new project template functionality to KiCad to facilitate the easy setup of projects
+    To add new project template functionality to Anvil to facilitate the easy setup of projects
     which have common attributes such as pre-defined board outlines, connector positions,
     schematic elements, design rules, etc.
 
@@ -75,7 +75,7 @@
     Operation
     ---------
 
-    The KiCad File menu will be modified to change New from a menu item to a pop-out menu item, in
+    The Anvil File menu will be modified to change New from a menu item to a pop-out menu item, in
     the same manor as Open Recent. There will be two options on the pop-out menu:
 
     Blank -> Will act exactly the same as the current new menu item so that anyone who wishes to

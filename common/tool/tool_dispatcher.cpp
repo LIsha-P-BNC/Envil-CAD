@@ -1,5 +1,5 @@
 /*
- * This program source code file is part of KiCad, a free EDA CAD application.
+ * This program source code file is part of Anvil, a free EDA CAD application.
  *
  * Copyright (C) 2013 CERN
  * Copyright The KiCad Developers, see CHANGELOG.txt for contributors.
@@ -308,7 +308,7 @@ bool TOOL_DISPATCHER::handleMouseButton( wxEvent& aEvent, int aIndex, bool aMoti
  * Helper to know if a special key ( see key list ) should be captured.
  *
  * If the event can be skipped on Linux, the event must be passed to the GUI if they are not
- * used by KiCad, especially the wxEVENT_CHAR_HOOK, if it is not handled.  Some keys have a
+ * used by Anvil, especially the wxEVENT_CHAR_HOOK, if it is not handled.  Some keys have a
  * predefined action in wxWidgets so, even if not used, the even will be not skipped the unused
  * keys listed in isKeySpecialCode() will be not skipped.
  */
@@ -328,7 +328,7 @@ bool isKeySpecialCode( int aKeyCode )
 
 /**
  * Helper to know if a key should be managed by DispatchWxEvent() or if the event can be ignored
- * and skipped because the key is only a modifier that is not used alone in KiCad.
+ * and skipped because the key is only a modifier that is not used alone in Anvil.
  */
 static bool isKeyModifierOnly( int aKeyCode )
 {
@@ -400,7 +400,7 @@ std::optional<TOOL_EVENT> TOOL_DISPATCHER::GetToolEvent( wxKeyEvent* aKeyEvent, 
     int             key = aKeyEvent->GetKeyCode();
     int             unicode_key = aKeyEvent->GetUnicodeKey();
 
-    // This wxEVT_CHAR_HOOK event can be ignored: not useful in KiCad
+    // This wxEVT_CHAR_HOOK event can be ignored: not useful in Anvil
     if( isKeyModifierOnly( key ) )
     {
         aKeyEvent->Skip();
@@ -714,7 +714,7 @@ void TOOL_DISPATCHER::DispatchWxEvent( wxEvent& aEvent )
     }
 
     // pass the event to the GUI, it might still be interested in it
-    // Note wxEVT_CHAR_HOOK event is already skipped for special keys not used by KiCad
+    // Note wxEVT_CHAR_HOOK event is already skipped for special keys not used by Anvil
     // and wxEVT_LEFT_DOWN must be always Skipped.
     //
     // On OS X, key events are always meant to be caught.  An uncaught key event is assumed
@@ -725,7 +725,7 @@ void TOOL_DISPATCHER::DispatchWxEvent( wxEvent& aEvent )
     //
     // On Windows, avoid to call wxEvent::Skip for special keys because some keys
     // (PAGE_UP, PAGE_DOWN) have predefined actions (like move thumbtrack cursor), and we do
-    // not want these actions executed (most are handled by KiCad)
+    // not want these actions executed (most are handled by Anvil)
 
     if( !evt || type == wxEVT_LEFT_DOWN )
         aEvent.Skip();

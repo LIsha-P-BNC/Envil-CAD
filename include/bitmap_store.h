@@ -1,5 +1,5 @@
 /*
- * This program source code file is part of KiCad, a free EDA CAD application.
+ * This program source code file is part of Anvil, a free EDA CAD application.
  *
  * Copyright The KiCad Developers, see AUTHORS.txt for contributors.
  *
@@ -123,8 +123,8 @@ private:
     wxImage getImage( BITMAPS aBitmapId, int aHeight = -1 );
 
     /**
-     * Anvil: recolor a decoded icon from KiCad blue to the NEMI emerald hue in place.  A
-     * hue-selective remap — only pixels in the KiCad-blue window are shifted; semantic colours
+     * Anvil: recolor a decoded icon from Anvil blue to the NEMI emerald hue in place.  A
+     * hue-selective remap — only pixels in the Anvil-blue window are shifted; semantic colours
      * (red = delete/DRC, layer colours, warnings) and greys are left untouched.  Gated by the
      * AnvilEmeraldIcons advanced-config flag (m_anvilIcons).
      */
@@ -144,7 +144,7 @@ private:
 
     BITMAP_INFO::THEME m_theme;
 
-    /// Anvil: when true, icons are hue-remapped from KiCad blue to NEMI emerald in getImage().
+    /// Anvil: when true, icons are hue-remapped from Anvil blue to NEMI emerald in getImage().
     /// Read once from ADVANCED_CFG at construction (restart-to-apply; bundles are cached).
     bool m_anvilIcons = false;
 };

@@ -1,5 +1,5 @@
 /*
- * This program source code file is part of KiCad, a free EDA CAD application.
+ * This program source code file is part of Anvil, a free EDA CAD application.
  *
  * Copyright (C) 2022 Mark Roszko <mark.roszko@gmail.com>
  * Copyright The KiCad Developers, see AUTHORS.txt for contributors.
@@ -284,7 +284,7 @@ PCBNEW_JOBS_HANDLER::PCBNEW_JOBS_HANDLER( KIWAY* aKiway ) :
     Register( "hpgl",
               [&]( JOB* aJob )
               {
-                  m_reporter->Report( _( "Plotting to HPGL is no longer supported as of KiCad 10.0.\n" ),
+                  m_reporter->Report( _( "Plotting to HPGL is no longer supported as of Anvil 10.0.\n" ),
                                       RPT_SEVERITY_ERROR );
                   return CLI::EXIT_CODES::ERR_ARGS;
               },
@@ -296,7 +296,7 @@ PCBNEW_JOBS_HANDLER::PCBNEW_JOBS_HANDLER( KIWAY* aKiway ) :
                   wxCHECK( editFrame, false );
 
                   DisplayErrorMessage( editFrame,
-                                       _( "Plotting to HPGL is no longer supported as of KiCad 10.0." ) );
+                                       _( "Plotting to HPGL is no longer supported as of Anvil 10.0." ) );
                   return false;
               } );
     Register( "drill",
@@ -2144,7 +2144,7 @@ int PCBNEW_JOBS_HANDLER::JobExportFpUpgrade( JOB* aJob )
     }
     else if( fileType != PCB_IO_MGR::KICAD_SEXP )
     {
-        m_reporter->Report( _( "Output path must be specified to convert legacy and non-KiCad libraries\n" ),
+        m_reporter->Report( _( "Output path must be specified to convert legacy and non-Anvil libraries\n" ),
                             RPT_SEVERITY_ERROR );
 
         return CLI::EXIT_CODES::ERR_INVALID_OUTPUT_CONFLICT;
@@ -3043,7 +3043,7 @@ int PCBNEW_JOBS_HANDLER::JobImport( JOB* aJob )
             return CLI::EXIT_CODES::ERR_INVALID_INPUT_FILE;
         }
 
-        // Save as KiCad format
+        // Save as Anvil format
         IO_RELEASER<PCB_IO> kicadPlugin( PCB_IO_MGR::FindPlugin( PCB_IO_MGR::KICAD_SEXP ) );
         kicadPlugin->SaveBoard( outputPath, board );
 

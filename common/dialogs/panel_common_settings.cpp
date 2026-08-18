@@ -1,5 +1,5 @@
 /*
- * This program source code file is part of KiCad, a free EDA CAD application.
+ * This program source code file is part of Anvil, a free EDA CAD application.
  *
  * Copyright The KiCad Developers, see AUTHORS.txt for contributors.
  *
@@ -93,7 +93,7 @@ PANEL_COMMON_SETTINGS::PANEL_COMMON_SETTINGS( wxWindow* aParent ) :
 
         m_canvasScaleCtrl->SetToolTip( _( "Set the scale for the canvas."
                                           "\n\n"
-                                          "On high-DPI displays on some platforms, KiCad cannot determine the "
+                                          "On high-DPI displays on some platforms, Anvil cannot determine the "
                                           "scaling factor. In this case you may need to set this to a value to "
                                           "match your system's DPI scaling. 2.0 is a common value. "
                                           "\n\n"

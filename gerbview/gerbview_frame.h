@@ -1,5 +1,5 @@
 /*
- * This program source code file is part of KiCad, a free EDA CAD application.
+ * This program source code file is part of Anvil, a free EDA CAD application.
  *
  * Copyright (C) 2016 Jean-Pierre Charras, jp.charras at wanadoo.fr
  * Copyright (C) 2013 Wayne Stambaugh <stambaughw@gmail.com>
@@ -426,7 +426,7 @@ public:
      *
      * @param aDefaultLayer = Preselection (NB_PCB_LAYERS for "(Deselect)" layer)
      * @param aCopperLayerCount = number of copper layers
-     * @param aGerberName = Name of Gerber file to select KiCad layer for
+     * @param aGerberName = Name of Gerber file to select Anvil layer for
      * @return new layer value (NB_PCB_LAYERS when "(Deselect)" radiobutton selected),
      *                         or -1 if canceled
      */
@@ -455,7 +455,7 @@ protected:
     void setupUIConditions() override;
     void doReCreateMenuBar() override;
 
-    // KiCad Next unified menu bar (see EDA_BASE_FRAME::buildCommonMenuBar()).
+    // Anvil Next unified menu bar (see EDA_BASE_FRAME::buildCommonMenuBar()).
     TOOL_INTERACTIVE* getCurrentMenuTool() override;
     void buildFileMenu( ACTION_MENU* aMenu ) override;
     void buildViewMenu( ACTION_MENU* aMenu ) override;

@@ -1,5 +1,5 @@
 /*
- * This program source code file is part of KiCad, a free EDA CAD application.
+ * This program source code file is part of Anvil, a free EDA CAD application.
  *
  * Copyright (C) 2010 Jean-Pierre Charras, jp.charras@wanadoo.fr
  * Copyright The KiCad Developers, see AUTHORS.txt for contributors.
@@ -80,7 +80,7 @@ namespace PCB { struct IFACE; }     // KIFACE is in pcbnew.cpp
  * See also class PCB_BASE_FRAME(): Basic class for Pcbnew and GerbView.
  */
 /**
- * Convert a footprint library (Altium .PcbLib/.IntLib, Eagle .lbr, KiCad .pretty dir) into a
+ * Convert a footprint library (Altium .PcbLib/.IntLib, Eagle .lbr, Anvil .pretty dir) into a
  * native Anvil footprint library directory. Runs in pcbnew, where the PCB IO plugins live.
  *
  * @param aRequest "srcPath\ndestDir"
@@ -383,7 +383,7 @@ public:
     bool SaveBoard( bool aSaveAs = false, bool aSaveCopy = false );
 
     /**
-     * Load a KiCad board (.kicad_pcb) from \a aFileName.
+     * Load a Anvil board (.kicad_pcb) from \a aFileName.
      *
      * @param aFileSet hold the BOARD file to load, a vector of one element.
      * @param aCtl KICTL_ bits, one to indicate that an append of the board file
@@ -757,7 +757,7 @@ protected:
 
     void doReCreateMenuBar() override;
 
-    // KiCad Next unified menu bar (see EDA_BASE_FRAME::buildCommonMenuBar()).
+    // Anvil Next unified menu bar (see EDA_BASE_FRAME::buildCommonMenuBar()).
     TOOL_INTERACTIVE* getCurrentMenuTool() override;
     void buildFileMenu( ACTION_MENU* aMenu ) override;
     void buildEditMenu( ACTION_MENU* aMenu ) override;
@@ -922,7 +922,7 @@ private:
     long long          m_lastLoadedBoardMtime = 0;   // wxDateTime::GetTicks() (time_t), widened
     unsigned long long m_lastLoadedBoardSize  = 0;   // wxFileName::GetSize().GetValue()
 
-    const std::map<std::string, UTF8>* m_importProperties; // Properties used for non-KiCad import.
+    const std::map<std::string, UTF8>* m_importProperties; // Properties used for non-Anvil import.
 
     /**
      * Keep track of viewport so that track net labels can be adjusted when it changes.

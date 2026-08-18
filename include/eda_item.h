@@ -1,5 +1,5 @@
 /*
- * This program source code file is part of KiCad, a free EDA CAD application.
+ * This program source code file is part of Anvil, a free EDA CAD application.
  *
  * Copyright (C) 2013-2015 Jean-Pierre Charras, jp.charras at wanadoo.fr
  * Copyright (C) 2008-2015 SoftPLC Corporation, Dick Hollenbeck <dick@softplc.com>
@@ -94,7 +94,7 @@ typedef const INSPECTOR_FUNC& INSPECTOR;
 
 
 /**
- * A base class for most all the KiCad significant classes used in schematics and boards.
+ * A base class for most all the Anvil significant classes used in schematics and boards.
  */
 class EDA_ITEM : public KIGFX::VIEW_ITEM, public SERIALIZABLE
 {

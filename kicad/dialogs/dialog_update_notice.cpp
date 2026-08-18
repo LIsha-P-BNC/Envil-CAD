@@ -1,5 +1,5 @@
 /*
- * This program source code file is part of KiCad, a free EDA CAD application.
+ * This program source code file is part of Anvil, a free EDA CAD application.
  *
  * Copyright (C) 2023 Mark Roszko <mark.roszko@gmail.com>
  * Copyright The KiCad Developers, see AUTHORS.txt for contributors.
@@ -35,7 +35,7 @@ DIALOG_UPDATE_NOTICE::DIALOG_UPDATE_NOTICE( wxWindow* aWindow, const wxString& a
         m_detailsUrl( aDetailsUrl ),
         m_downloadsUrl( aDownloadsUrl )
 {
-    wxString msg = wxString::Format( _( "KiCad %s is now available (you have %s). Would you like to download it now?" ), aNewVersion, GetMajorMinorPatchVersion()  );
+    wxString msg = wxString::Format( _( "Anvil %s is now available (you have %s). Would you like to download it now?" ), aNewVersion, GetMajorMinorPatchVersion()  );
     m_messageLine2->SetLabelText( msg );
 
     Fit();

@@ -1,5 +1,5 @@
 /*
- * This program source code file is part of KiCad, a free EDA CAD application.
+ * This program source code file is part of Anvil, a free EDA CAD application.
  *
  * Copyright (C) 2017 Jean-Pierre Charras, jp.charras at wanadoo.fr
  * Copyright The KiCad Developers, see AUTHORS.txt for contributors.
@@ -24,7 +24,7 @@
 
 /**
  * @file plotter.cpp
- * @brief KiCad: Base of all the specialized plotters
+ * @brief Anvil: Base of all the specialized plotters
  * the class PLOTTER handle basic functions to plot schematic and boards
  * with different plot formats.
  *

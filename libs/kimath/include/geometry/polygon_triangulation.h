@@ -1,5 +1,5 @@
 /*
- * This program source code file is part of KiCad, a free EDA CAD application.
+ * This program source code file is part of Anvil, a free EDA CAD application.
  *
  * Copyright The KiCad Developers, see AUTHORS.TXT for contributors.
  *
@@ -618,7 +618,7 @@ private:
      * linked list.
      *
      * This function can be called recursively in the case of difficult polygons.  In cases
-     * where there is an intersection (not technically allowed by KiCad, but could exist in
+     * where there is an intersection (not technically allowed by Anvil, but could exist in
      * an edited file), we create a single triangle and remove both vertices before attempting
      * to.
      */

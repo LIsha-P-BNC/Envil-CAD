@@ -1,5 +1,5 @@
 /*
- * This program source code file is part of KiCad, a free EDA CAD application.
+ * This program source code file is part of Anvil, a free EDA CAD application.
  *
  * Copyright The KiCad Developers, see AUTHORS.txt for contributors.
  *
@@ -98,7 +98,7 @@ BOARD* PCB_IO_SOLIDWORKS::LoadBoard( const wxString& aFileName, BOARD* aAppendTo
              * 04A8F96E0E4C478C813AE57CACCD0F - Legacy text storage
              * 01F1BD1AA06E4D6A9D1ABF0BBFF4A4 - Fwd/Back compatibility messages
              *
-             * Not yet used by KiCad:
+             * Not yet used by Anvil:
              * 7C01505E39124E67BCCAB1883B8FB7 - Design Rule Checker Options6
              * 63B31A3709B54882BFA96424906BE8 - EmbeddedFonts6
              * 8B83C7E94C1D419B9B2D5505479820 - Pin Swap Options6

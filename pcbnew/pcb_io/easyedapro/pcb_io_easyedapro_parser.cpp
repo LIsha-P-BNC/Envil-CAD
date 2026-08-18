@@ -1,5 +1,5 @@
 /*
- * This program source code file is part of KiCad, a free EDA CAD application.
+ * This program source code file is part of Anvil, a free EDA CAD application.
  *
  * Copyright (C) 2023 Alex Shvartzkop <dudesuchamazing@gmail.com>
  * Copyright The KiCad Developers, see AUTHORS.txt for contributors.
@@ -645,7 +645,7 @@ std::unique_ptr<PAD> PCB_IO_EASYEDAPRO_PARSER::createPAD( FOOTPRINT*            
                 double deg = EDA_ANGLE( drill_dir, DEGREES_T ).Normalize90().AsDegrees();
 
                 if( std::abs( deg ) >= 45 )
-                    std::swap( drill.x, drill.y ); // KiCad doesn't support arbitrary hole direction
+                    std::swap( drill.x, drill.y ); // Anvil doesn't support arbitrary hole direction
 
                 if( holeShape == wxS( "SLOT" ) )
                 {

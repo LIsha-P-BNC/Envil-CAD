@@ -1,5 +1,5 @@
 /*
- * This program source code file is part of KiCad, a free EDA CAD application.
+ * This program source code file is part of Anvil, a free EDA CAD application.
  *
  * Copyright (C) 2019 CERN
  * Copyright The KiCad Developers, see AUTHORS.txt for contributors.
@@ -504,7 +504,7 @@ void IMPORT_PROJ_HELPER::GedaProjectHandler()
     {
         // Pass additional schematic files as a semicolon-delimited property so the
         // importer can create sub-sheets for each additional page within a single
-        // KiCad project hierarchy.
+        // Anvil project hierarchy.
         wxString additionalFiles;
 
         for( size_t i = 1; i < resolvedSchFiles.size(); i++ )
@@ -634,7 +634,7 @@ void IMPORT_PROJ_HELPER::ImportFiles( int aImportedSchFileType, int aImportedPcb
             // When importing a bare .sch file, pass the original source directory
             // so the importer can find symbols in subdirectories relative to the
             // gEDA / Lepton EDA schematic, even though the file may be copied to a new location
-            // for the KiCad project.
+            // for the Anvil project.
             wxString sourceDir = m_InputFile.GetPath();
             wxString symPaths = sourceDir;
 

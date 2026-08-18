@@ -1,5 +1,5 @@
 /*
- * This program source code file is part of KiCad, a free EDA CAD application.
+ * This program source code file is part of Anvil, a free EDA CAD application.
  *
  * Copyright (C) 2020 Jan Mrázek <email@honzamrazek.cz>
  * Copyright (C) 2020 Roberto Fernandez Bautista <roberto.fer.bau@gmail.com>
@@ -30,13 +30,13 @@
 #include <lset.h>
 
 /**
- * @brief Describes an imported layer and how it could be mapped to KiCad Layers
+ * @brief Describes an imported layer and how it could be mapped to Anvil Layers
  */
 struct INPUT_LAYER_DESC
 {
     wxString     Name;             ///< Imported layer name as displayed in original application.
-    LSET         PermittedLayers;  ///< KiCad layers that the imported layer can be mapped onto.
-    PCB_LAYER_ID AutoMapLayer;     ///< Best guess as to what the equivalent KiCad layer might be.
+    LSET         PermittedLayers;  ///< Anvil layers that the imported layer can be mapped onto.
+    PCB_LAYER_ID AutoMapLayer;     ///< Best guess as to what the equivalent Anvil layer might be.
     bool         Required;         ///< Should we require the layer to be assigned?
 
     INPUT_LAYER_DESC()
@@ -49,7 +49,7 @@ struct INPUT_LAYER_DESC
 };
 
 /**
- * @brief Pointer to a function that takes a map of source and KiCad layers
+ * @brief Pointer to a function that takes a map of source and Anvil layers
  * and returns a re-mapped version. If the re-mapped layer is UNDEFINED_LAYER,
  * then the source layer will not be imported
  */
@@ -64,7 +64,7 @@ class LAYER_MAPPABLE_PLUGIN
 public:
     /**
      * @brief Register a different handler to be called when mapping of input
-     * layers to KiCad layers occurs
+     * layers to Anvil layers occurs
      *
      * The function is marked as virtual, so the plugins can implement extra
      * logic (e.g., enable warnings or checks)

@@ -1,5 +1,5 @@
 /*
- * This program source code file is part of KiCad, a free EDA CAD application.
+ * This program source code file is part of Anvil, a free EDA CAD application.
  *
  * Copyright The KiCad Developers, see AUTHORS.txt for contributors.
  *
@@ -453,7 +453,7 @@ PCB_LAYER_ID SPRINT_LAYOUT_PARSER::mapLayer( uint8_t aSprintLayer ) const
 
 int SPRINT_LAYOUT_PARSER::sprintToKicadCoord( float aValue ) const
 {
-    // Sprint Layout uses 1/10000 mm, KiCad uses nanometers (1 nm = 1e-6 mm)
+    // Sprint Layout uses 1/10000 mm, Anvil uses nanometers (1 nm = 1e-6 mm)
     // 1/10000 mm = 100 nm
     double nm = static_cast<double>( aValue ) * 100.0;
 
@@ -466,7 +466,7 @@ int SPRINT_LAYOUT_PARSER::sprintToKicadCoord( float aValue ) const
 
 VECTOR2I SPRINT_LAYOUT_PARSER::sprintToKicadPos( float aX, float aY ) const
 {
-    // Sprint Layout uses Y-up (mathematical), KiCad uses Y-down (screen)
+    // Sprint Layout uses Y-up (mathematical), Anvil uses Y-down (screen)
     return VECTOR2I( sprintToKicadCoord( aX ), sprintToKicadCoord( -aY ) );
 }
 

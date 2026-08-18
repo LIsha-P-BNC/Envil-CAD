@@ -1,5 +1,5 @@
 /*
- * This program source code file is part of KiCad, a free EDA CAD application.
+ * This program source code file is part of Anvil, a free EDA CAD application.
  *
  * Copyright (C) 2007-2013 SoftPLC Corporation, Dick Hollenbeck <dick@softplc.com>
  * Copyright The KiCad Developers, see AUTHORS.txt for contributors.
@@ -735,7 +735,7 @@ L_read:
                                cur - start + curText.length() );
         }
     }
-    else    // is specctraMode, tests in this block should not occur in KiCad mode.
+    else    // is specctraMode, tests in this block should not occur in Anvil mode.
     {
         /*  get the dash out of a <pin_reference> which is embedded for example
             like:  U2-14 or "U2"-"14"

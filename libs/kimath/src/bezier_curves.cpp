@@ -1,5 +1,5 @@
 /*
- * This program source code file is part of KiCad, a free EDA CAD application.
+ * This program source code file is part of Anvil, a free EDA CAD application.
  *
  * Copyright The KiCad Developers, see AUTHORS.txt for contributors.
  *
@@ -608,7 +608,7 @@ void TransformEllipseToBeziers( const ELLIPSE<T>& aEllipse, std::vector<BEZIER<T
         arcAngle -= ANGLE_360;
 
     /*
-     * KiCad does not natively support ellipses or elliptical arcs.  So, we convert them to Bezier
+     * Anvil does not natively support ellipses or elliptical arcs.  So, we convert them to Bezier
      * splines as these are the nearest thing we have that represents them in a way that is both
      * editable and preserves their curvature accurately (enough).
      *

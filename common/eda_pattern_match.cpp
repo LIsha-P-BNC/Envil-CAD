@@ -1,5 +1,5 @@
 /*
- * This program source code file is part of KiCad, a free EDA CAD application.
+ * This program source code file is part of Anvil, a free EDA CAD application.
  *
  * Copyright (C) 2015-2017 Chris Pavlina <pavlina.chris@gmail.com>
  * Copyright The KiCad Developers, see AUTHORS.txt for contributors.
@@ -486,7 +486,7 @@ int EDA_COMBINED_MATCHER::ScoreTerms( std::vector<SEARCH_TERM>& aWeightedTerms )
         {
             term.Text = term.Text.MakeLower().Trim( false ).Trim( true );
 
-            // Don't cause KiCad to hang if someone accidentally pastes the PCB or schematic
+            // Don't cause Anvil to hang if someone accidentally pastes the PCB or schematic
             // into the search box.
             if( term.Text.Length() > 1000 )
                 term.Text = term.Text.Left( 1000 );

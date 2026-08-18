@@ -1,5 +1,5 @@
 /*
- * This program source code file is part of KiCad, a free EDA CAD application.
+ * This program source code file is part of Anvil, a free EDA CAD application.
  *
  * Copyright (C) 2020 Jon Evans <jon@craftyjon.com>
  * Copyright The KiCad Developers, see AUTHORS.txt for contributors.
@@ -39,7 +39,7 @@ using KIGFX::COLOR4D;
  * When users change color settings, they have the option of modifying the default scheme
  * or saving their changes to a new color scheme file.
  *
- * Each COLOR_SETTINGS defines all the settings used across all parts of KiCad, but it's not
+ * Each COLOR_SETTINGS defines all the settings used across all parts of Anvil, but it's not
  * necessary for the underlying theme file to contain all of them.  The color settings cascade,
  * so if a user chooses a non-default scheme for a certain application, and that non-default
  * scheme file is missing some color definitions, those will fall back to those from the "default"

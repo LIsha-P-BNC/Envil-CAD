@@ -1,5 +1,5 @@
 /*
- * This program source code file is part of KiCad, a free EDA CAD application.
+ * This program source code file is part of Anvil, a free EDA CAD application.
  *
  * Copyright (C) 2013 Jean-Pierre Charras, jp.charras at wanadoo.fr
  * Copyright (C) 2013 Wayne Stambaugh <stambaughw@gmail.com>
@@ -217,7 +217,7 @@ bool SCH_EDIT_FRAME::OpenProjectFiles( const std::vector<wxString>& aFileSet, in
 
     if( schFileType == SCH_IO_MGR::SCH_LEGACY )
     {
-        // Don't reload the symbol libraries if we are just launching Eeschema from KiCad again.
+        // Don't reload the symbol libraries if we are just launching Eeschema from Anvil again.
         // They are already saved in the kiface project object.
         if( differentProject || !Prj().GetElem( PROJECT::ELEM::LEGACY_SYMBOL_LIBS ) )
         {
@@ -258,8 +258,8 @@ bool SCH_EDIT_FRAME::OpenProjectFiles( const std::vector<wxString>& aFileSet, in
 
         if( schFileType == SCH_IO_MGR::SCH_FILE_T::SCH_FILE_UNKNOWN )
         {
-            msg.Printf( _( "'%s' is not a KiCad schematic file.\nUse File -> Import for "
-                           "non-KiCad schematic files." ),
+            msg.Printf( _( "'%s' is not a Anvil schematic file.\nUse File -> Import for "
+                           "non-Anvil schematic files." ),
                         fullFileName );
 
             progressReporter.Hide();
@@ -301,7 +301,7 @@ bool SCH_EDIT_FRAME::OpenProjectFiles( const std::vector<wxString>& aFileSet, in
 
                         wxString sheetPath = sheetFileName.GetFullPath();
 
-                        // Anvil/KiCad dual-extension: if the recorded sheet file is missing,
+                        // Anvil/Anvil dual-extension: if the recorded sheet file is missing,
                         // try the sibling extension before giving up.
                         if( !wxFileName::FileExists( sheetPath ) )
                         {
@@ -459,7 +459,7 @@ bool SCH_EDIT_FRAME::OpenProjectFiles( const std::vector<wxString>& aFileSet, in
                                 _( "An error was found when loading the schematic that has "
                                    "been automatically fixed.  Please save the schematic to "
                                    "repair the broken file or it may not be usable with other "
-                                   "versions of KiCad." ) );
+                                   "versions of Anvil." ) );
         }
 
         if( sheetList.AllSheetPageNumbersEmpty() )
@@ -669,7 +669,7 @@ bool SCH_EDIT_FRAME::OpenProjectFiles( const std::vector<wxString>& aFileSet, in
 
             m_infoBar->RemoveAllButtons();
             m_infoBar->AddCloseButton();
-            m_infoBar->ShowMessage( _( "This file was created by an older version of KiCad. "
+            m_infoBar->ShowMessage( _( "This file was created by an older version of Anvil. "
                                        "It will be converted to the new format when saved." ),
                                     wxICON_WARNING, WX_INFOBAR::MESSAGE_TYPE::OUTDATED_SAVE );
 
@@ -695,7 +695,7 @@ bool SCH_EDIT_FRAME::OpenProjectFiles( const std::vector<wxString>& aFileSet, in
             {
                 m_infoBar->RemoveAllButtons();
                 m_infoBar->AddCloseButton();
-                m_infoBar->ShowMessage( _( "This file was created by an older version of KiCad. "
+                m_infoBar->ShowMessage( _( "This file was created by an older version of Anvil. "
                                            "It will be converted to the new format when saved." ),
                                         wxICON_WARNING, WX_INFOBAR::MESSAGE_TYPE::OUTDATED_SAVE );
             }
@@ -901,7 +901,7 @@ void SCH_EDIT_FRAME::OnImportProject( wxCommandEvent& aEvent )
     for( const SCH_IO_MGR::SCH_FILE_T& fileType : SCH_IO_MGR::SCH_FILE_T_vector )
     {
         if( fileType == SCH_IO_MGR::SCH_KICAD || fileType == SCH_IO_MGR::SCH_LEGACY )
-            continue; // this is "Import non-KiCad schematic"
+            continue; // this is "Import non-Anvil schematic"
 
         IO_RELEASER<SCH_IO> pi( SCH_IO_MGR::FindPlugin( fileType ) );
 
@@ -1571,8 +1571,8 @@ bool SCH_EDIT_FRAME::importFile( const wxString& aFileName, int aFileType,
                     errorReporter.ShowModal();
                 }
 
-                // Non-KiCad schematics do not use a drawing-sheet (or if they do, it works
-                // differently to KiCad), so set it to an empty one.
+                // Non-Anvil schematics do not use a drawing-sheet (or if they do, it works
+                // differently to Anvil), so set it to an empty one.
                 DS_DATA_MODEL& drawingSheet = DS_DATA_MODEL::GetTheInstance();
                 drawingSheet.SetEmptyLayout();
 

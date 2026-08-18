@@ -1,5 +1,5 @@
 /*
- * This program source code file is part of KiCad, a free EDA CAD application.
+ * This program source code file is part of Anvil, a free EDA CAD application.
  *
  * Copyright (C) 2004 Jean-Pierre Charras, jaen-pierre.charras@gipsa-lab.inpg.com
  * Copyright The KiCad Developers, see AUTHORS.txt for contributors.
@@ -35,7 +35,7 @@
 
 void CVPCB_MAINFRAME::doReCreateMenuBar()
 {
-    // KiCad Next: build the shared common menu bar instead of the legacy one when enabled.
+    // Anvil Next: build the shared common menu bar instead of the legacy one when enabled.
     if( UseUnifiedMenuBar() )
     {
         buildCommonMenuBar();
@@ -93,7 +93,7 @@ void CVPCB_MAINFRAME::doReCreateMenuBar()
 }
 
 
-//================================ KiCad Next unified menu bar ================================
+//================================ Anvil Next unified menu bar ================================
 // The hooks reproduce the menus above so CvPcb joins the unified bar and the modern layout's
 // Window menu; in the modern layout the Preferences items fold into a Tools tail.
 

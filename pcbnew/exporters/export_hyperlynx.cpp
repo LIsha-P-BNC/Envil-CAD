@@ -1,5 +1,5 @@
 /*
- * This program source code file is part of KiCad, a free EDA CAD application.
+ * This program source code file is part of Anvil, a free EDA CAD application.
  *
  * Copyright (C) 2019 CERN
  * Copyright The KiCad Developers, see AUTHORS.txt for contributors.
@@ -375,7 +375,7 @@ bool HYPERLYNX_EXPORTER::writeStackupInfo()
         }
         else if( item->GetType() == BS_ITEM_TYPE_SOLDERMASK )
         {
-            // Soldermask uses its KiCad layer name directly (e.g., "F.Mask") rather than
+            // Soldermask uses its Anvil layer name directly (e.g., "F.Mask") rather than
             // a constructed name like core dielectrics, since these names are already unique.
             wxString maskLayerName = m_board->GetLayerName( item->GetBrdLayerId() );
             wxString material = item->GetMaterial( 0 );

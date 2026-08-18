@@ -1,5 +1,5 @@
 /*
- * This program source code file is part of KiCad, a free EDA CAD application.
+ * This program source code file is part of Anvil, a free EDA CAD application.
  *
  * Copyright (C) 2023 Andre F. K. Iwers <iwers11@gmail.com>
  * Copyright The KiCad Developers, see AUTHORS.txt for contributors.
@@ -73,7 +73,7 @@ public:
 
 private:
     // This is clunky but at the moment the only way to free the pointer after use without
-    // KiCad crashing.  At this point we can't use smart pointers as there is a problem with
+    // Anvil crashing.  At this point we can't use smart pointers as there is a problem with
     // the order of how things are deleted/freed
     std::unique_ptr<KICAD_CURL_EASY> createCurlEasyObject()
     {

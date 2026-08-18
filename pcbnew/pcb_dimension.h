@@ -1,5 +1,5 @@
 /*
- * This program source code file is part of KiCad, a free EDA CAD application.
+ * This program source code file is part of Anvil, a free EDA CAD application.
  *
  * Copyright (C) 2004 Jean-Pierre Charras, jaen-pierre.charras@gipsa-lab.inpg.com
  * Copyright The KiCad Developers, see AUTHORS.txt for contributors.
@@ -104,7 +104,7 @@ enum class DIM_TEXT_BORDER
  * - "feature points" are the points being measured by the dimension.  For an example, the start
  *   and end points of a line to be measured.  These are the first points picked when drawing a
  *   new dimension.  Dimensions can have one or more feature points: linear dimensions (the only
- *   type supported in KiCad 5 and earlier) have two feature points; leader dimensions have one;
+ *   type supported in Anvil 5 and earlier) have two feature points; leader dimensions have one;
  *   and ordinate dimensions can have in theory an unlimited number of feature points.
  *
  * - "feature lines" are lines that coincide with feature points.  Not all dimension types have
@@ -152,7 +152,7 @@ public:
 
     int GetMeasuredValue() const { return m_measuredValue; }
 
-    // KiCad normally calculates the measured value but some importers need to set it.
+    // Anvil normally calculates the measured value but some importers need to set it.
     void SetMeasuredValue( int aValue ) { m_measuredValue = aValue; }
 
     /**
@@ -388,7 +388,7 @@ protected:
 /**
  * For better understanding of the points that make a dimension:
  *
- * Note: historically KiCad called extension lines "feature lines", and also note that what we
+ * Note: historically Anvil called extension lines "feature lines", and also note that what we
  * call the "crossbar line" here is more commonly called the "dimension line"
  *
  *              Start (feature point 1)         End (feature point 2)

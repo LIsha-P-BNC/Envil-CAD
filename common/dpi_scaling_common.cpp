@@ -1,5 +1,5 @@
 /*
- * This program source code file is part of KiCad, a free EDA CAD application.
+ * This program source code file is part of Anvil, a free EDA CAD application.
  *
  * Copyright The KiCad Developers, see AUTHORS.TXT for contributors.
  *
@@ -44,7 +44,7 @@ const wxChar* const traceHiDpi = wxT( "KICAD_TRACE_HIGH_DPI" );
 
 
 /**
- * Get a user-configured scale factor from KiCad config file
+ * Get a user-configured scale factor from Anvil config file
  *
  * @return the scale factor, if set
  */

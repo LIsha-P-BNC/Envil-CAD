@@ -8,7 +8,7 @@
  * ADVANCED_CFG::m_ConfirmComponentPackage is enabled. Asks the user (a) whether
  * the part should be Through-Hole or Surface-Mount, and (b) which candidate
  * footprint -- gathered dynamically from the project's configured libraries via
- * the symbol's own FPFilters, same as the rest of KiCad -- should be assigned.
+ * the symbol's own FPFilters, same as the rest of Anvil -- should be assigned.
  */
 
 #ifndef ANVIL_DIALOG_PACKAGE_CONFIRM_H

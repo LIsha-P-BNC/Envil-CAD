@@ -1,5 +1,5 @@
 /*
- * This program source code file is part of KiCad, a free EDA CAD application.
+ * This program source code file is part of Anvil, a free EDA CAD application.
  *
  * Copyright (C) 2014 CERN
  * Copyright The KiCad Developers, see AUTHORS.TXT for contributors.
@@ -83,7 +83,7 @@ wxString SEARCH_STACK::FilenameWithRelativePathInSearchList(
         // Search for the shortest subpath within 'this':
         if( fn.MakeRelativeTo( base_dir( (*this)[kk], aBaseDir ) ) )
         {
-            if( fn.GetPathWithSep().StartsWith( wxT("..") ) )  // Path outside KiCad libs paths
+            if( fn.GetPathWithSep().StartsWith( wxT("..") ) )  // Path outside Anvil libs paths
                 continue;
 
             if( pathlen > fn.GetPath().Len() )    // A better (shortest) subpath is found

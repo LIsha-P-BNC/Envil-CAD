@@ -1,5 +1,5 @@
 /*
- * This program source code file is part of KiCad, a free EDA CAD application.
+ * This program source code file is part of Anvil, a free EDA CAD application.
  *
  * Copyright (C) 2020 Jon Evans <jon@craftyjon.com>
  * Copyright The KiCad Developers, see AUTHORS.txt for contributors.
@@ -53,7 +53,7 @@ public:
     ~SETTINGS_MANAGER();
 
     /**
-     * @return true if the settings directory for this version of KiCad exists and has at least a
+     * @return true if the settings directory for this version of Anvil exists and has at least a
      * common settings file (kicad_common.json).  Used to know whether or not the first-run wizard
      * needs to be shown.
      */
@@ -266,14 +266,14 @@ public:
     wxString GetPathForSettingsFile( JSON_SETTINGS* aSettings );
 
     /**
-     * Handle migration of the settings from previous KiCad versions.
+     * Handle migration of the settings from previous Anvil versions.
      *
      * @return true if migration was successful, false otherwise.
      */
     bool MigrateFromPreviousVersion( const wxString& aSourcePath );
 
     /**
-     * Retrieve the name of the most recent previous KiCad version that can be found in the
+     * Retrieve the name of the most recent previous Anvil version that can be found in the
      * user settings directory.
      *
      * For legacy versions (5.x, and 5.99 builds before this code was written), this will return
@@ -397,13 +397,13 @@ public:
     bool TriggerBackupIfNeeded( REPORTER& aReporter ) const;
 
     /**
-     * Check if a given path is probably a valid KiCad configuration directory.
+     * Check if a given path is probably a valid Anvil configuration directory.
      *
      * Actually it just checks if a file called "kicad_common" exists, because that's probably
      * good enough for now.
      *
      * @param aPath is the path to check.
-     * @return true if the path contains KiCad settings.
+     * @return true if the path contains Anvil settings.
      */
     static bool IsSettingsPathValid( const wxString& aPath );
 
@@ -420,8 +420,8 @@ public:
     static wxString GetToolbarSettingsPath();
 
     /**
-     * Parse the current KiCad build version and extracts the major and minor revision to use
-     * as the name of the settings directory for this KiCad version.
+     * Parse the current Anvil build version and extracts the major and minor revision to use
+     * as the name of the settings directory for this Anvil version.
      *
      * @return a string such as "5.1".
      */

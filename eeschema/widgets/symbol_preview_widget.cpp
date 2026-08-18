@@ -1,5 +1,5 @@
 /*
- * This program source code file is part of KiCad, a free EDA CAD application.
+ * This program source code file is part of Anvil, a free EDA CAD application.
  *
  * Copyright The KiCad Developers, see AUTHORS.txt for contributors.
  *
@@ -65,7 +65,7 @@ SYMBOL_PREVIEW_WIDGET::SYMBOL_PREVIEW_WIDGET( wxWindow* aParent, KIWAY* aKiway, 
 
     // Do not display the grid: the look is not good for a small canvas area.
     // But mainly, due to some strange bug I (JPC) was unable to fix, the grid creates
-    // strange artifacts on Windows when Eeschema is run from KiCad manager (but not in
+    // strange artifacts on Windows when Eeschema is run from Anvil manager (but not in
     // stand alone...).
     m_preview->GetGAL()->SetGridVisibility( false );
 

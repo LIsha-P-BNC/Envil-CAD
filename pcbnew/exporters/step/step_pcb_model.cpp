@@ -1,5 +1,5 @@
 /*
- * This program source code file is part of KiCad, a free EDA CAD application.
+ * This program source code file is part of Anvil, a free EDA CAD application.
  *
  * Copyright (C) 2022 Mark Roszko <mark.roszko@gmail.com>
  * Copyright (C) 2016 Cirilo Bernardo <cirilo.bernardo@gmail.com>
@@ -2909,7 +2909,7 @@ bool STEP_PCB_MODEL::WriteIGES( const wxString& aFileName )
     writer.SetNameMode( Standard_True );
     IGESData_GlobalSection header = writer.Model()->GlobalSection();
     header.SetFileName( new TCollection_HAsciiString( fn.GetFullName().ToAscii() ) );
-    header.SetSendName( new TCollection_HAsciiString( "KiCad electronic assembly" ) );
+    header.SetSendName( new TCollection_HAsciiString( "Anvil electronic assembly" ) );
     header.SetAuthorName( new TCollection_HAsciiString( Interface_Static::CVal( "write.iges.header.author" ) ) );
     header.SetCompanyName( new TCollection_HAsciiString( Interface_Static::CVal( "write.iges.header.company" ) ) );
     writer.Model()->SetGlobalSection( header );
@@ -3009,8 +3009,8 @@ bool STEP_PCB_MODEL::WriteSTEP( const wxString& aFileName, bool aOptimize, bool 
     // TODO: how to control and ensure consistency with IGES?
     hdr.SetAuthorValue( 1, new TCollection_HAsciiString( "Pcbnew" ) );
     hdr.SetOrganizationValue( 1, new TCollection_HAsciiString( "Kicad" ) );
-    hdr.SetOriginatingSystem( new TCollection_HAsciiString( "KiCad to STEP converter" ) );
-    hdr.SetDescriptionValue( 1, new TCollection_HAsciiString( "KiCad electronic assembly" ) );
+    hdr.SetOriginatingSystem( new TCollection_HAsciiString( "Anvil to STEP converter" ) );
+    hdr.SetDescriptionValue( 1, new TCollection_HAsciiString( "Anvil electronic assembly" ) );
 
     bool success = true;
 
@@ -3165,7 +3165,7 @@ bool STEP_PCB_MODEL::WriteXAO( const wxString& aFileName )
 
     // Based on Gmsh code
     file << "<?xml version=\"1.0\" encoding=\"UTF-8\"?>" << std::endl;
-    file << "<XAO version=\"1.0\" author=\"KiCad\">" << std::endl;
+    file << "<XAO version=\"1.0\" author=\"Anvil\">" << std::endl;
     file << "  <geometry name=\"" << fn.GetName() << "\">" << std::endl;
     file << "    <shape format=\"BREP\"><![CDATA[";
 #if OCC_VERSION_HEX < 0x070600
@@ -3559,7 +3559,7 @@ bool STEP_PCB_MODEL::getModelLocation( bool aBottom, const VECTOR2D& aPosition, 
     //    Top ? rotate on -Z
     // d. aPosition is applied
     //
-    // Note: Y axis is inverted in KiCad
+    // Note: Y axis is inverted in Anvil
 
     gp_Trsf lPos;
     lPos.SetTranslation( gp_Vec( aPosition.x, -aPosition.y, 0.0 ) );
@@ -3981,7 +3981,7 @@ bool STEP_PCB_MODEL::WriteGLTF( const wxString& aFileName )
     metadata.Add( TCollection_AsciiString( "source_pcb_file" ),
                   TCollection_ExtendedString( fn.GetFullName().wc_str() ) );
     metadata.Add( TCollection_AsciiString( "generator" ),
-                  TCollection_AsciiString( wxString::Format( wxS( "KiCad %s" ), GetSemanticVersion() ).ToAscii() ) );
+                  TCollection_AsciiString( wxString::Format( wxS( "Anvil %s" ), GetSemanticVersion() ).ToAscii() ) );
     metadata.Add( TCollection_AsciiString( "generated_at" ),
                   TCollection_AsciiString( GetISO8601CurrentDateTime().ToAscii() ) );
 
@@ -4052,7 +4052,7 @@ bool STEP_PCB_MODEL::WritePLY( const wxString& aFileName )
     metadata.Add( TCollection_AsciiString( "source_pcb_file" ),
                   TCollection_ExtendedString( fn.GetFullName().wc_str() ) );
     metadata.Add( TCollection_AsciiString( "generator" ),
-                  TCollection_AsciiString( wxString::Format( wxS( "KiCad %s" ),
+                  TCollection_AsciiString( wxString::Format( wxS( "Anvil %s" ),
                                                              GetSemanticVersion() ).ToAscii() ) );
     metadata.Add( TCollection_AsciiString( "generated_at" ),
                   TCollection_AsciiString( GetISO8601CurrentDateTime().ToAscii() ) );

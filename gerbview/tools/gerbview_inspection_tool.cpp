@@ -1,5 +1,5 @@
 /*
- * This program source code file is part of KiCad, a free EDA CAD application.
+ * This program source code file is part of Anvil, a free EDA CAD application.
  *
  * Copyright (C) 2017 Jon Evans <jon@craftyjon.com>
  * Copyright The KiCad Developers, see AUTHORS.txt for contributors.
@@ -180,7 +180,7 @@ int GERBVIEW_INSPECTION_TOOL::ShowSource( const TOOL_EVENT& aEvent )
         }
         else
         {
-            wxMessageBox( _( "No text editor selected in KiCad.  Please choose one." ) );
+            wxMessageBox( _( "No text editor selected in Anvil.  Please choose one." ) );
         }
     }
     else

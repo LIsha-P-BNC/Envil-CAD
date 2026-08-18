@@ -1,5 +1,5 @@
 /*
- * This program source code file is part of KiCad, a free EDA CAD application.
+ * This program source code file is part of Anvil, a free EDA CAD application.
  *
  * Copyright (C) 2015-2016 Cirilo Bernardo <cirilo.bernardo@gmail.com>
  * Copyright The KiCad Developers, see AUTHORS.txt for contributors.
@@ -68,7 +68,7 @@ public:
     bool Set3DConfigDir( const wxString& aConfigDir );
 
     /**
-     * Set the current KiCad project directory as the first entry in the model path list.
+     * Set the current Anvil project directory as the first entry in the model path list.
      *
      * @param[in]   aProjDir    current project directory.
      * @param[out]  flgChanged  optional, set to true if directory was changed.
@@ -138,7 +138,7 @@ public:
     bool ValidateFileName( const wxString& aFileName, bool& hasAlias ) const;
 
     /**
-     * Return a list of path environment variables local to KiCad.
+     * Return a list of path environment variables local to Anvil.
      *
      * This list always includes KICAD7_3DMODEL_DIR even if it is not defined locally.
      */

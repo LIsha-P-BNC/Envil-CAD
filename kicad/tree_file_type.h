@@ -1,5 +1,5 @@
 /*
- * This program source code file is part of KiCad, a free EDA CAD application.
+ * This program source code file is part of Anvil, a free EDA CAD application.
  *
  * Copyright The KiCad Developers, see AUTHORS.txt for contributors.
  *
@@ -25,7 +25,7 @@
 #ifndef TREE_FILE_TYPE_H
 #define TREE_FILE_TYPE_H
 
-// Identify the type of files handled by KiCad manager
+// Identify the type of files handled by Anvil manager
 //
 // When changing this enum  please verify (and perhaps update)
 // PROJECT_TREE_PANE::GetFileExt(), s_AllowedExtensionsToList[]

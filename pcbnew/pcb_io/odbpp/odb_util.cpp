@@ -1,5 +1,5 @@
 /*
- * This program source code file is part of KiCad, a free EDA CAD application.
+ * This program source code file is part of Anvil, a free EDA CAD application.
  *
  * Copyright The KiCad Developers, see AUTHORS.txt for contributors.
  * Author: SYSUEric <jzzhuang666@gmail.com>.
@@ -205,14 +205,14 @@ VECTOR2I GetShapePosition( const PCB_SHAPE& aShape )
 
     switch( aShape.GetShape() )
     {
-    // Rectangles in KiCad are mapped by their corner while ODBPP uses the center
+    // Rectangles in Anvil are mapped by their corner while ODBPP uses the center
     case SHAPE_T::RECTANGLE:
         pos = aShape.GetPosition()
               + VECTOR2I( aShape.GetRectangleWidth() / 2.0, aShape.GetRectangleHeight() / 2.0 );
         break;
-    // Both KiCad and ODBPP use the center of the circle
+    // Both Anvil and ODBPP use the center of the circle
     case SHAPE_T::CIRCLE:
-    // KiCad uses the exact points on the board
+    // Anvil uses the exact points on the board
     case SHAPE_T::POLY:
     case SHAPE_T::BEZIER:
     case SHAPE_T::SEGMENT:

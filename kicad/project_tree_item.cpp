@@ -1,5 +1,5 @@
 /*
- * This program source code file is part of KiCad, a free EDA CAD application.
+ * This program source code file is part of Anvil, a free EDA CAD application.
  *
  * Copyright The KiCad Developers, see AUTHORS.txt for contributors.
  *
@@ -23,7 +23,7 @@
 
 /**
  * @brief Class PROJECT_TREE_ITEM is a derived class from wxTreeItemData and
- * store info about a file or directory shown in the KiCad tree project files
+ * store info about a file or directory shown in the Anvil tree project files
  */
 
 
@@ -279,7 +279,7 @@ void PROJECT_TREE_ITEM::Activate( PROJECT_TREE_PANE* aTreePrjFrame )
 
             bool isInHierarchy = hierarchyFiles.count( fullFileName ) > 0;
 
-            // KiCad 10.99 projects can register additional TOP-LEVEL sheets in the project
+            // Anvil 10.99 projects can register additional TOP-LEVEL sheets in the project
             // file (no Sheetfile reference in the root schematic -- the Altium importer
             // produces exactly this). Treat any schematic living in the project directory
             // as part of the project so it navigates in the docked editor instead of

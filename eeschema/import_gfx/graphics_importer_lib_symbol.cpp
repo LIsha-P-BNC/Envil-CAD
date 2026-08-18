@@ -119,7 +119,7 @@ void GRAPHICS_IMPORTER_LIB_SYMBOL::AddArc( const VECTOR2D& aCenter, const VECTOR
 
     /**
      * We need to perform the rotation/conversion here while still using floating point values
-     * to avoid rounding errors when operating in integer space in KiCad
+     * to avoid rounding errors when operating in integer space in Anvil
      */
     VECTOR2D end = aStart;
     VECTOR2D mid = aStart;
@@ -129,7 +129,7 @@ void GRAPHICS_IMPORTER_LIB_SYMBOL::AddArc( const VECTOR2D& aCenter, const VECTOR
 
     arc->SetArcGeometry( MapCoordinate( aStart ), MapCoordinate( mid ), MapCoordinate( end ) );
 
-    // Ensure the arc can be handled by KiCad. Arcs with a too big radius cannot.
+    // Ensure the arc can be handled by Anvil. Arcs with a too big radius cannot.
     // The criteria used here is radius < MAX_INT / 2.
     // this is not perfect, but we do not know the exact final position of the arc, so
     // we cannot test the coordinate values, because the arc can be moved before being placed.

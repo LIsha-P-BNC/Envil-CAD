@@ -1,5 +1,5 @@
 /*
- * This program source code file is part of KiCad, a free EDA CAD application.
+ * This program source code file is part of Anvil, a free EDA CAD application.
  *
  * Copyright (C) 2023 Andre F. K. Iwers <iwers11@gmail.com>
  * Copyright The KiCad Developers, see AUTHORS.txt for contributors.
@@ -223,7 +223,7 @@ void SCH_IO_HTTP_LIB::ensureSettings( const wxString& aSettingsPath )
                 if( m_settings->getSupportedAPIVersion() != m_settings->m_Source.api_version )
                 {
                     THROW_IO_ERROR( wxString::Format( _( "HTTP library settings file %s uses API version %s, but "
-                                                         "KiCad requires version %s." ),
+                                                         "Anvil requires version %s." ),
                                                       aSettingsPath, m_settings->m_Source.api_version,
                                                       m_settings->getSupportedAPIVersion() ) );
                 }

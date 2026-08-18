@@ -52,7 +52,7 @@ namespace KIGFX
 /**
  * Abstract interface for drawing on a 2D-surface.
  *
- * The functions are optimized for drawing shapes of an EDA-program such as KiCad. Most methods
+ * The functions are optimized for drawing shapes of an EDA-program such as Anvil. Most methods
  * are abstract and need to be implemented by a lower layer, for example by a Cairo or OpenGL
  * implementation.  Almost all methods use world coordinates as arguments. The board design is
  * defined in world space units for drawing purposes these are transformed to screen units with

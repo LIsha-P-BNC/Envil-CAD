@@ -1,5 +1,5 @@
 /*
- * This program source code file is part of KiCad, a free EDA CAD application.
+ * This program source code file is part of Anvil, a free EDA CAD application.
  *
  * Copyright (C) 2019-2020 Thomas Pointhuber <thomas.pointhuber@gmx.at>
  * Copyright The KiCad Developers, see AUTHORS.txt for contributors.
@@ -39,7 +39,7 @@ int32_t ALTIUM_PROPS_UTILS::ConvertToKicadUnit( const double aValue )
 
     int32_t iu = KiROUND( std::clamp( aValue, -int_limit, int_limit ) * 2.54 );
 
-    // Altium's internal precision is 0.1uinch.  KiCad's is 1nm.  Round to nearest 10nm to clean
+    // Altium's internal precision is 0.1uinch.  Anvil's is 1nm.  Round to nearest 10nm to clean
     // up most rounding errors.  This allows lossless conversion of increments of 0.05mils and
     // 0.01um.
     return KiROUND( (double) iu / 10.0 ) * 10;

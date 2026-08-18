@@ -1,5 +1,5 @@
 /*
- * This program source code file is part of KiCad, a free EDA CAD application.
+ * This program source code file is part of Anvil, a free EDA CAD application.
  *
  * Copyright (C) 2016 Chris Pavlina <pavlina.chris@gmail.com>
  * Copyright The KiCad Developers, see AUTHORS.txt for contributors.
@@ -380,7 +380,7 @@ void WIDGET_HOTKEY_LIST::editItem( wxTreeListItem aItem, int aEditId )
 
         if( it != m_reservedHotkeys.end() )
         {
-            wxString msg = wxString::Format( _( "'%s' is a reserved hotkey in KiCad and cannot "
+            wxString msg = wxString::Format( _( "'%s' is a reserved hotkey in Anvil and cannot "
                                                 "be assigned." ),
                                              it->second );
 

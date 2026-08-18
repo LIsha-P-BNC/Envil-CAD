@@ -1,5 +1,5 @@
 /*
- * This program source code file is part of KiCad, a free EDA CAD application.
+ * This program source code file is part of Anvil, a free EDA CAD application.
  *
  * Copyright The KiCad Developers, see AUTHORS.txt for contributors.
  *
@@ -43,7 +43,7 @@ bool SaveClipboard( const std::string& aTextUTF8 )
         wxTheClipboard->SetData(
                 new wxTextDataObject( wxString( aTextUTF8.c_str(), wxConvUTF8 ) ) );
 
-        wxTheClipboard->Flush(); // Allow data to be available after closing KiCad
+        wxTheClipboard->Flush(); // Allow data to be available after closing Anvil
         wxTheClipboard->Close();
 
         return true;
@@ -95,7 +95,7 @@ bool SaveClipboard( const std::string& aTextUTF8, const std::vector<CLIPBOARD_MI
 
             // Add custom format data - note that on GTK, custom MIME types may not work
             // with all applications (they often become wxDF_PRIVATE internally), but they
-            // work for KiCad-to-KiCad transfers.
+            // work for Anvil-to-Anvil transfers.
             // We allocate and set data in a way that ensures the object is fully initialized.
             wxDataFormat format( entry.m_mimeType );
             wxCustomDataObject* custom = new wxCustomDataObject( format );
@@ -107,7 +107,7 @@ bool SaveClipboard( const std::string& aTextUTF8, const std::vector<CLIPBOARD_MI
         }
 
         wxTheClipboard->SetData( data );
-        wxTheClipboard->Flush(); // Allow data to be available after closing KiCad
+        wxTheClipboard->Flush(); // Allow data to be available after closing Anvil
         wxTheClipboard->Close();
 
         return true;
@@ -247,7 +247,7 @@ bool SaveTabularDataToClipboard( const std::vector<std::vector<wxString>>& aData
         // wxDF_PRIVATE, and wxDF_SYLK/DIF aren't mapped on GTK.
 
         wxTheClipboard->SetData( data );
-        wxTheClipboard->Flush(); // Allow data to be available after closing KiCad
+        wxTheClipboard->Flush(); // Allow data to be available after closing Anvil
         wxTheClipboard->Close();
 
         return true;

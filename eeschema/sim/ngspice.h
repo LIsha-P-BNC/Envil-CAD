@@ -1,5 +1,5 @@
 /*
- * This program source code file is part of KiCad, a free EDA CAD application.
+ * This program source code file is part of Anvil, a free EDA CAD application.
  *
  * Copyright (C) 2016-2022 CERN
  * Copyright The KiCad Developers, see AUTHORS.txt for contributors.
@@ -45,7 +45,7 @@ struct _EXCEPTION_POINTERS;
 
 // We have an issue here where NGSPICE incorrectly used bool for years
 // and defined it to be int when in C-mode.  We cannot adjust the function
-// signatures without re-writing sharedspice.h for KiCad.
+// signatures without re-writing sharedspice.h for Anvil.
 // Instead, we maintain status-quo for older NGSPICE versions (<=34) and
 // use the new signatures for newer versions
 #ifndef NGSPICE_PACKAGE_VERSION

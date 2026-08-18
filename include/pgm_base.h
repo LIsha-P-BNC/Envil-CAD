@@ -1,5 +1,5 @@
 /*
- * This program source code file is part of KiCad, a free EDA CAD application.
+ * This program source code file is part of Anvil, a free EDA CAD application.
  *
  * Copyright (C) 2004-2015 Jean-Pierre Charras, jp.charras at wanadoo.fr
  * Copyright (C) 2008-2015 Wayne Stambaugh <stambaughw@gmail.com>
@@ -75,7 +75,7 @@ struct KICOMMON_API LANGUAGE_DESCR
     /// wxWidgets locale identifier (See wxWidgets doc)
     int         m_WX_Lang_Identifier;
 
-    /// KiCad identifier used in menu selection (See id.h)
+    /// Anvil identifier used in menu selection (See id.h)
     int         m_KI_Lang_Identifier;
 
     /// Labels used in menus
@@ -87,12 +87,12 @@ struct KICOMMON_API LANGUAGE_DESCR
 
 
 /**
- * An array containing all the languages that KiCad supports.
+ * An array containing all the languages that Anvil supports.
  */
 KICOMMON_API extern LANGUAGE_DESCR LanguagesList[];
 
 /**
- * Container for data for KiCad programs.
+ * Container for data for Anvil programs.
  *
  * The functions are virtual so we can do cross module calls without linking to them.  This
  * used to be a wxApp derivative, but that is difficult under wxPython which shapes the wxApp.
@@ -224,10 +224,10 @@ public:
     bool SetDefaultLanguage( wxString& aErrMsg );
 
     /**
-     * Set in .m_language_id member the wxWidgets language identifier ID from the KiCad
+     * Set in .m_language_id member the wxWidgets language identifier ID from the Anvil
      * menu id (internal menu identifier).
      *
-     * @param menu_id The KiCad menuitem id (returned by Menu Event, when clicking on a
+     * @param menu_id The Anvil menuitem id (returned by Menu Event, when clicking on a
      *                 menu item)
      */
     virtual void SetLanguageIdentifier( int menu_id );
@@ -290,7 +290,7 @@ public:
     /**
      * Initialize this program.
      *
-     * Initialize the process in a KiCad standard way using some generalized techniques:
+     * Initialize the process in a Anvil standard way using some generalized techniques:
      *  - Default paths (help, libs, bin) and configuration file names
      *  - Language and locale
      *  - fonts

@@ -1,5 +1,5 @@
 /*
- * This program source code file is part of KiCad, a free EDA CAD application.
+ * This program source code file is part of Anvil, a free EDA CAD application.
  *
  * Copyright (C) 2012 SoftPLC Corporation, Dick Hollenbeck <dick@softplc.com>
  * Copyright The KiCad Developers, see AUTHORS.txt for contributors.
@@ -29,7 +29,7 @@ Pcbnew PLUGIN for Eagle 6.x XML *.brd and footprint format.
 
 XML parsing and converting:
 Getting line numbers and byte offsets from the source XML file is not
-possible using currently available XML libraries within KiCad project:
+possible using currently available XML libraries within Anvil project:
 wxXmlDocument and boost::property_tree.
 
 property_tree will give line numbers but no byte offsets, and only during
@@ -703,7 +703,7 @@ void PCB_IO_EAGLE::loadPlain( wxXmlNode* aGraphics )
                 PCB_SHAPE* shape = new PCB_SHAPE( m_board );
                 int        width = w.width.ToPcbUnits();
 
-                // KiCad cannot handle zero or negative line widths
+                // Anvil cannot handle zero or negative line widths
                 if( width <= 0 )
                     width = m_board->GetDesignSettings().GetLineThickness( layer );
 
@@ -722,7 +722,7 @@ void PCB_IO_EAGLE::loadPlain( wxXmlNode* aGraphics )
                     shape->SetShape( SHAPE_T::ARC );
                     shape->SetCenter( center );
                     shape->SetStart( start );
-                    shape->SetArcAngleAndEnd( -EDA_ANGLE( *w.curve, DEGREES_T ), true ); // KiCad rotates the other way
+                    shape->SetArcAngleAndEnd( -EDA_ANGLE( *w.curve, DEGREES_T ), true ); // Anvil rotates the other way
                 }
 
                 shape->SetLayer( layer );
@@ -753,7 +753,7 @@ void PCB_IO_EAGLE::loadPlain( wxXmlNode* aGraphics )
                 pcbtxt->SetTextSize( kicad_fontsize( t.size, textThickness ) );
                 pcbtxt->SetKeepUpright( false );
 
-                // Eagle's anchor is independent of text justification; KiCad's is not.
+                // Eagle's anchor is independent of text justification; Anvil's is not.
                 VECTOR2I eagleAnchor( kicad_x( t.x ), kicad_y( t.y ) );
                 int      align = t.align ? *t.align : ETEXT::BOTTOM_LEFT;
                 BOX2I    textbox = pcbtxt->GetBoundingBox();
@@ -1092,7 +1092,7 @@ void PCB_IO_EAGLE::loadPlain( wxXmlNode* aGraphics )
                     if( d.dimensionType )
                     {
                         // Eagle dimension graphic arms may have different lengths, but they look
-                        // incorrect in KiCad (the graphic is tilted). Make them even length in
+                        // incorrect in Anvil (the graphic is tilted). Make them even length in
                         // such case.
                         if( *d.dimensionType == wxT( "horizontal" ) )
                         {
@@ -1340,14 +1340,14 @@ void PCB_IO_EAGLE::loadElements( wxXmlNode* aElements )
 
         wxString reference = e.name;
 
-        // EAGLE allows references to be single digits.  This breaks KiCad
+        // EAGLE allows references to be single digits.  This breaks Anvil
         // netlisting, which requires parts to have non-digit + digit
         // annotation.  If the reference begins with a number, we prepend
         // 'UNK' (unknown) for the symbol designator.
         if( reference.find_first_not_of( "0123456789" ) != 0 )
             reference.Prepend( "UNK" );
 
-        // EAGLE allows designator to start with # but that is used in KiCad
+        // EAGLE allows designator to start with # but that is used in Anvil
         // for symbols which do not have a footprint
         if( reference.find_first_not_of( "#" ) != 0 )
             reference.Prepend( "UNK" );
@@ -1561,7 +1561,7 @@ ZONE* PCB_IO_EAGLE::loadPolygon( wxXmlNode* aPolyNode )
         vertex = vertex->GetNext();
     }
 
-    // According to Eagle's doc, by default, the orphans (islands in KiCad parlance)
+    // According to Eagle's doc, by default, the orphans (islands in Anvil parlance)
     // are always removed
     if( !p.orphans || !p.orphans.Get() )
         zone->SetIslandRemovalMode( ISLAND_REMOVAL_MODE::ALWAYS );
@@ -1930,7 +1930,7 @@ void PCB_IO_EAGLE::packageWire( FOOTPRINT* aFootprint, wxXmlNode* aTree ) const
         return;
     }
 
-    // KiCad cannot handle zero or negative line widths which apparently have meaning in Eagle.
+    // Anvil cannot handle zero or negative line widths which apparently have meaning in Eagle.
     if( width <= 0 )
     {
         BOARD* board = aFootprint->GetBoard();
@@ -1941,7 +1941,7 @@ void PCB_IO_EAGLE::packageWire( FOOTPRINT* aFootprint, wxXmlNode* aTree ) const
         }
         else
         {
-            // When loading footprint libraries, there is no board so use the default KiCad
+            // When loading footprint libraries, there is no board so use the default Anvil
             // line widths.
             switch( layer )
             {
@@ -1958,7 +1958,7 @@ void PCB_IO_EAGLE::packageWire( FOOTPRINT* aFootprint, wxXmlNode* aTree ) const
         }
     }
 
-    // FIXME: the cap attribute is ignored because KiCad can't create lines with flat ends.
+    // FIXME: the cap attribute is ignored because Anvil can't create lines with flat ends.
     PCB_SHAPE* dwg;
 
     if( !w.curve )
@@ -1975,7 +1975,7 @@ void PCB_IO_EAGLE::packageWire( FOOTPRINT* aFootprint, wxXmlNode* aTree ) const
 
         dwg->SetCenter( center );
         dwg->SetStart( start );
-        dwg->SetArcAngleAndEnd( -EDA_ANGLE( *w.curve, DEGREES_T ), true ); // KiCad rotates the other way
+        dwg->SetArcAngleAndEnd( -EDA_ANGLE( *w.curve, DEGREES_T ), true ); // Anvil rotates the other way
     }
 
     dwg->SetLayer( layer );
@@ -2945,7 +2945,7 @@ void PCB_IO_EAGLE::loadSignals( wxXmlNode* aSignals )
 
         if( zones.size() && !sawPad )
         {
-            // KiCad does not support an unconnected zone with its own non-zero netcode,
+            // Anvil does not support an unconnected zone with its own non-zero netcode,
             // but only when assigned netcode = 0 w/o a name...
             for( ZONE* zone : zones )
                 zone->SetNetCode( NETINFO_LIST::UNCONNECTED );

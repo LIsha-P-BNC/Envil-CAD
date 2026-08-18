@@ -1,5 +1,5 @@
 /*
- * This program source code file is part of KiCad, a free EDA CAD application.
+ * This program source code file is part of Anvil, a free EDA CAD application.
  *
  * Copyright (C) 2023 Andre F. K. Iwers <iwers11@gmail.com>
  * Copyright The KiCad Developers, see AUTHORS.txt for contributors.
@@ -64,7 +64,7 @@ bool HTTP_LIB_CONNECTION::validateHttpLibraryEndpoints()
 
         if( res.length() == 0 )
         {
-            m_lastError += wxString::Format( _( "KiCad received an empty response!" ) + "\n" );
+            m_lastError += wxString::Format( _( "Anvil received an empty response!" ) + "\n" );
         }
         else
         {

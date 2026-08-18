@@ -1,5 +1,5 @@
 /*
- * This program source code file is part of KiCad, a free EDA CAD application.
+ * This program source code file is part of Anvil, a free EDA CAD application.
  *
  * Copyright (C) 2023 Jon Evans <jon@craftyjon.com>
  * Copyright The KiCad Developers, see AUTHORS.txt for contributors.
@@ -155,7 +155,7 @@ void KICAD_API_SERVER::Start()
     if( ADVANCED_CFG::GetCfg().m_EnableAPILogging )
     {
         PATHS::EnsurePathExists( PATHS::GetLogsPath() );
-        log( fmt::format( "--- KiCad API server started at {} ---\n", SocketPath() ) );
+        log( fmt::format( "--- Anvil API server started at {} ---\n", SocketPath() ) );
     }
 
     wxLogTrace( traceApi, wxString::Format( "Server: listening at %s", SocketPath() ) );
@@ -207,7 +207,7 @@ void KICAD_API_SERVER::onApiRequest( std::string* aRequest )
     {
         ApiResponse notHandled;
         notHandled.mutable_status()->set_status( ApiStatusCode::AS_NOT_READY );
-        notHandled.mutable_status()->set_error_message( "KiCad is not ready to reply" );
+        notHandled.mutable_status()->set_error_message( "Anvil is not ready to reply" );
         m_server->Reply( notHandled.SerializeAsString() );
         log( "Got incoming request but was not yet ready to reply." );
         return;
@@ -258,7 +258,7 @@ void KICAD_API_SERVER::handleApiRequestString( std::string& aRequestString )
         error.mutable_header()->set_kicad_token( m_token );
         error.mutable_status()->set_status( ApiStatusCode::AS_TOKEN_MISMATCH );
         error.mutable_status()->set_error_message(
-                "the provided kicad_token did not match this KiCad instance's token" );
+                "the provided kicad_token did not match this Anvil instance's token" );
         m_server->Reply( error.SerializeAsString() );
 
         if( ADVANCED_CFG::GetCfg().m_EnableAPILogging )

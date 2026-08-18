@@ -1,5 +1,5 @@
 /*
- * This program source code file is part of KiCad, a free EDA CAD application.
+ * This program source code file is part of Anvil, a free EDA CAD application.
  *
  * Copyright (C) 2023 Roberto Fernandez Bautista <roberto.fer.bau@gmail.com>
  * Copyright The KiCad Developers, see AUTHORS.txt for contributors.
@@ -72,7 +72,7 @@ struct CADSTAR_PART_ENTRY
      * Map of pin identifiers to alphanumeric pin names.
      *
      * Pin names can be a maximum of 10 characters
-     * (Typically used for naming of BGA pads - equivalent to KiCad Pin Numbers)
+     * (Typically used for naming of BGA pads - equivalent to Anvil Pin Numbers)
      *
      * E.g: *PNM 1=A1 2=A2 3=A3 4=B1 5=B2 6=B3
      */
@@ -81,7 +81,7 @@ struct CADSTAR_PART_ENTRY
     /**
      * Map of pin identifiers to alphanumeric pin labels.
      *
-     * Equivalent to KiCad Pin Names
+     * Equivalent to Anvil Pin Names
      *
      * E.g: *PLB 1=STROBE 2=OFFSET 3=OFFSET 5=+ 6=+v
      */

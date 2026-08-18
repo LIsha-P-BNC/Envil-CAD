@@ -1,5 +1,5 @@
 /*
- * This program source code file is part of KiCad, a free EDA CAD application.
+ * This program source code file is part of Anvil, a free EDA CAD application.
  *
  * Copyright (C) 2022 Chetan Subhash Shinde<chetanshinde2001@gmail.com>
  * Copyright (C) 2023 CERN
@@ -20,7 +20,7 @@
  */
 
 /**
- * @brief Parses the datastructure produced by the LTSPICE_SCHEMATIC into a KiCad
+ * @brief Parses the datastructure produced by the LTSPICE_SCHEMATIC into a Anvil
  * schematic file.
  */
 

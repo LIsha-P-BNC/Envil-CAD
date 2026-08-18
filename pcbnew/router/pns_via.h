@@ -66,7 +66,7 @@ public:
         NORMAL,
 
         // The via can have three different sizes -- note that in this context, front means
-        // m_layers.Start() and back means m_layers.End(), which does not align with KiCad in the
+        // m_layers.Start() and back means m_layers.End(), which does not align with Anvil in the
         // case of blind/buried vias.  Using this STACK_MODE only makes sense for vias that extend
         // through the whole PCB
         FRONT_INNER_BACK,

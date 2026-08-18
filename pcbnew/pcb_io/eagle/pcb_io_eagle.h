@@ -1,5 +1,5 @@
 /*
- * This program source code file is part of KiCad, a free EDA CAD application.
+ * This program source code file is part of Anvil, a free EDA CAD application.
  *
  * Copyright (C) 2012 SoftPLC Corporation, Dick Hollenbeck <dick@softplc.com>
  * Copyright The KiCad Developers, see AUTHORS.txt for contributors.
@@ -193,15 +193,15 @@ private:
 
     void clear_cu_map();
 
-    /// Convert an Eagle distance to a KiCad distance.
+    /// Convert an Eagle distance to a Anvil distance.
     int kicad_y( const ECOORD& y ) const { return -y.ToPcbUnits(); }
     int kicad_x( const ECOORD& x ) const { return x.ToPcbUnits(); }
 
-    /// create a font size (fontz) from an eagle font size scalar and KiCad font thickness
+    /// create a font size (fontz) from an eagle font size scalar and Anvil font thickness
     VECTOR2I kicad_fontsize( const ECOORD& d, int aTextThickness ) const;
 
     /**
-     * Generate mapping between Eagle and KiCad layers.
+     * Generate mapping between Eagle and Anvil layers.
      *
      * @warning It is imperative that this gets called correctly because footprint libraries
      *          do not get remapped by the user on load.  Otherwise, Pcbnew will crash when
@@ -213,16 +213,16 @@ private:
      */
     void mapEagleLayersToKicad( bool aIsLibraryCache = false );
 
-    /// Convert an Eagle layer to a KiCad layer.
+    /// Convert an Eagle layer to a Anvil layer.
     PCB_LAYER_ID kicad_layer( int aLayer ) const;
 
     /**
-     * Get the default KiCad layer corresponding to an Eagle layer of the board,
+     * Get the default Anvil layer corresponding to an Eagle layer of the board,
      * a set of sensible layer mapping options and required flag
      *
      * @note The Eagle MILLING, TTEST, BTEST, and HOLES layers are set to #UNDEFINED_LAYER
      *       for historical purposes.  All other Eagle layers that do not directly map to
-     *       KiCad layers will be set to #UNDEFINED_LAYER when loading Eagle footprint
+     *       Anvil layers will be set to #UNDEFINED_LAYER when loading Eagle footprint
      *       libraries.  This should be addressed in the future because in some cases this
      *       will cause data loss.
      *
@@ -307,7 +307,7 @@ private:
     void packageCircle( FOOTPRINT* aFootprint, wxXmlNode* aTree ) const;
 
     /**
-     * @param aFootprint The KiCad footprint to which to assign the hole.
+     * @param aFootprint The Anvil footprint to which to assign the hole.
      * @param aTree The Eagle XML node that is of type "hole".
      * @param aCenter If true, center the hole in the footprint and offset the footprint position.
      */
@@ -323,12 +323,12 @@ private:
     typedef std::vector<ELAYER>     ELAYERS;
     typedef ELAYERS::const_iterator EITER;
 
-    int                              m_cu_map[17];     ///< map eagle to KiCad, cu layers only.
+    int                              m_cu_map[17];     ///< map eagle to Anvil, cu layers only.
     std::map<int, ELAYER>            m_eagleLayers;    ///< Eagle layer data stored by layer number
     std::map<wxString, int>          m_eagleLayersIds; ///< Eagle layer ids stored by layer name
-    std::map<wxString, PCB_LAYER_ID> m_layer_map;      ///< Map of Eagle layers to KiCad layers
+    std::map<wxString, PCB_LAYER_ID> m_layer_map;      ///< Map of Eagle layers to Anvil layers
 
-    ///< Eagle class number to KiCad netclass
+    ///< Eagle class number to Anvil netclass
     std::map<wxString, std::shared_ptr<NETCLASS>>  m_classMap;
 
     wxString                         m_customRules;

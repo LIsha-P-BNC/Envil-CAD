@@ -1,5 +1,5 @@
 /*
- * This program source code file is part of KiCad, a free EDA CAD application.
+ * This program source code file is part of Anvil, a free EDA CAD application.
  *
  * Copyright (C) 2013  Cirilo Bernardo
  * Copyright The KiCad Developers, see AUTHORS.txt for contributors.
@@ -60,8 +60,8 @@ static FILENAME_RESOLVER* resolver;
 static void idf_export_outline( BOARD* aPcb, IDF3_BOARD& aIDFBoard )
 {
     double scale = aIDFBoard.GetUserScale();
-    IDF_POINT sp, ep;                   // start and end points from KiCad item
-    std::list< IDF_SEGMENT* > lines;    // IDF intermediate form of KiCad graphical item
+    IDF_POINT sp, ep;                   // start and end points from Anvil item
+    std::list< IDF_SEGMENT* > lines;    // IDF intermediate form of Anvil graphical item
     IDF_OUTLINE* outline = nullptr;     // graphical items forming an outline or cutout
 
     // NOTE: IMPLEMENTATION
@@ -360,7 +360,7 @@ static void idf_export_footprint( BOARD* aPcb, FOOTPRINT* aFootprint, IDF3_BOARD
                 double dlength = pad->GetDrillSize().y * scale;
 
                 // NOTE: The orientation of footprints and pads have
-                // the opposite sense due to KiCad drawing on a
+                // the opposite sense due to Anvil drawing on a
                 // screen with a LH coordinate system
                 double angle = pad->GetOrientation().AsDegrees();
 
@@ -379,7 +379,7 @@ static void idf_export_footprint( BOARD* aPcb, FOOTPRINT* aFootprint, IDF3_BOARD
                     angle += 90.0;
                 }
 
-                // NOTE: KiCad measures a slot's length from end to end
+                // NOTE: Anvil measures a slot's length from end to end
                 // rather than between the centers of the arcs
                 dlength -= drill;
 
@@ -636,7 +636,7 @@ bool PCB_EDIT_FRAME::Export_IDF3( BOARD* aPcb, const wxString& aFullFileName,
     idfBoard.SetLibraryVersion( 0 );
 
     std::ostringstream ostr;
-    ostr << "KiCad " << TO_UTF8( GetBuildVersion() );
+    ostr << "Anvil " << TO_UTF8( GetBuildVersion() );
     idfBoard.SetIDFSource( ostr.str() );
 
     try

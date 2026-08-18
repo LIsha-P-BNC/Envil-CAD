@@ -1,5 +1,5 @@
 /*
- * This program source code file is part of KiCad, a free EDA CAD application.
+ * This program source code file is part of Anvil, a free EDA CAD application.
  *
  * Copyright (C) 2022 Mark Roszko <mark.roszko@gmail.com>
  * Copyright The KiCad Developers, see AUTHORS.txt for contributors.
@@ -93,7 +93,7 @@ CLI::PCB_EXPORT_GERBER_COMMAND::PCB_EXPORT_GERBER_COMMAND( const std::string& aN
             .metavar( "PRECISION" );
 
     m_argParser.add_argument( ARG_NO_PROTEL_EXTENSION )
-            .help( UTF8STDSTR( _( "Use KiCad Gerber file extension" ) ) )
+            .help( UTF8STDSTR( _( "Use Anvil Gerber file extension" ) ) )
             .flag();
 
     m_argParser.add_argument( ARG_CHECK_ZONES )

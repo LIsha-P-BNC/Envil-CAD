@@ -1,5 +1,5 @@
 /*
- * This program source code file is part of KiCad, a free EDA CAD application.
+ * This program source code file is part of Anvil, a free EDA CAD application.
  *
  * Copyright (C) 2014 CERN
  * Copyright The KiCad Developers, see AUTHORS.txt for contributors.
@@ -498,7 +498,7 @@ int BOARD_EDITOR_CONTROL::ExportNetlist( const TOOL_EVENT& aEvent )
     fn.SetExt( wxT( "pcb_net" ) );
 
     wxFileDialog dlg( m_frame, _( "Export Board Netlist" ), fn.GetPath(), fn.GetFullName(),
-                      _( "KiCad board netlist files" ) + AddFileExtListToFilter( { "pcb_net" } ),
+                      _( "Anvil board netlist files" ) + AddFileExtListToFilter( { "pcb_net" } ),
                       wxFD_SAVE | wxFD_OVERWRITE_PROMPT );
 
     dlg.SetExtraControlCreator( &LEGACYFILEDLG_NETLIST_OPTIONS::Create );
@@ -767,7 +767,7 @@ int BOARD_EDITOR_CONTROL::UpdateSchematicFromPCB( const TOOL_EVENT& aEvent )
     {
         DisplayErrorMessage( m_frame, _( "Cannot update schematic because Pcbnew is opened in "
                                          "stand-alone mode. In order to create or update PCBs "
-                                         "from schematics, you must launch the KiCad project "
+                                         "from schematics, you must launch the Anvil project "
                                          "manager and create a project." ) );
         return 0;
     }
@@ -855,7 +855,7 @@ int BOARD_EDITOR_CONTROL::ShowEeschema( const TOOL_EVENT& aEvent )
                     if( !frame )
                         return;
 
-                    // KiCad Next single-window shell: a schematic editor parked on a background
+                    // Anvil Next single-window shell: a schematic editor parked on a background
                     // tab is fully loaded even though IsShownOnScreen() is false there, so treat
                     // "already a hosted tab" as "already open" to avoid re-opening (reverting) it.
                     KIFACE_TAB_HOST* tabHost = boardFrame->Kiway().GetTabHost();

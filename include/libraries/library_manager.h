@@ -1,5 +1,5 @@
 /*
- * This program source code file is part of KiCad, a free EDA CAD application.
+ * This program source code file is part of Anvil, a free EDA CAD application.
  *
  * Copyright The KiCad Developers, see AUTHORS.txt for contributors.
  * @author Jon Evans <jon@craftyjon.com>
@@ -65,7 +65,7 @@ struct KICOMMON_API LIB_DATA
 
 /**
  * The interface used by the classes that actually can load IO plugins for the
- * different parts of KiCad and return concrete types (symbols, footprints, etc)
+ * different parts of Anvil and return concrete types (symbols, footprints, etc)
  */
 class KICOMMON_API LIBRARY_MANAGER_ADAPTER
 {

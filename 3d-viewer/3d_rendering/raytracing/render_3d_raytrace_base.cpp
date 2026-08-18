@@ -1,5 +1,5 @@
 /*
- * This program source code file is part of KiCad, a free EDA CAD application.
+ * This program source code file is part of Anvil, a free EDA CAD application.
  *
  * Copyright (C) 2015-2020 Mario Luzeiro <mrluzeiro@ua.pt>
  * Copyright The KiCad Developers, see AUTHORS.txt for contributors.
@@ -44,7 +44,7 @@
 
 #ifdef USE_SRGB_SPACE
 
-/// @todo This should be removed in future when KiCad supports a greater version of glm lib.
+/// @todo This should be removed in future when Anvil supports a greater version of glm lib.
 #define SRGB_GAMA 2.4f
 
 
@@ -312,7 +312,7 @@ void RENDER_3D_RAYTRACE_BASE::renderFinalColor( uint8_t* ptrPBO, const SFVEC4F& 
     SFVEC4F color = rgbColor;
 
 #ifdef USE_SRGB_SPACE
-    /// @note This should be used in future when the KiCad support a greater version of glm lib.
+    /// @note This should be used in future when the Anvil support a greater version of glm lib.
     // if( applyColorSpaceConversion )
     //    rgbColor = glm::convertLinearToSRGB( rgbColor );
 

@@ -1,5 +1,5 @@
 /*
- * This program source code file is part of KiCad, a free EDA CAD application.
+ * This program source code file is part of Anvil, a free EDA CAD application.
  *
  * Copyright The KiCad Developers, see AUTHORS.txt for contributors.
  *
@@ -723,7 +723,7 @@ wxString FormatBoardStatisticsJson( const BOARD_STATISTICS_DATA& aData, BOARD* a
 
     nlohmann::ordered_json metadata;
     metadata["date"] = GetISO8601CurrentDateTime();
-    metadata["generator"] = "KiCad " + GetBuildVersion();
+    metadata["generator"] = "Anvil " + GetBuildVersion();
     metadata["project"] = aProjectName;
     metadata["board_name"] = aBoardName;
     root["metadata"] = metadata;

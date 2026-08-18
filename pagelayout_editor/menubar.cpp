@@ -1,5 +1,5 @@
 /*
- * This program source code file is part of KiCad, a free EDA CAD application.
+ * This program source code file is part of Anvil, a free EDA CAD application.
  *
  * Copyright The KiCad Developers, see AUTHORS.txt for contributors.
  * Copyright (C) 2013-2019 CERN
@@ -40,7 +40,7 @@
 
 void PL_EDITOR_FRAME::doReCreateMenuBar()
 {
-    // KiCad Next: build the shared common menu bar instead of the legacy one when enabled.
+    // Anvil Next: build the shared common menu bar instead of the legacy one when enabled.
     if( UseUnifiedMenuBar() )
     {
         buildCommonMenuBar();
@@ -168,7 +168,7 @@ void PL_EDITOR_FRAME::doReCreateMenuBar()
 }
 
 
-//================================ KiCad Next unified menu bar ================================
+//================================ Anvil Next unified menu bar ================================
 // The following hooks reproduce the menus built above, but populate a menu supplied by the
 // shared EDA_BASE_FRAME::buildCommonMenuBar() orchestrator.  They are used only when the
 // m_UnifiedMenuBar advanced flag is set; otherwise the legacy doReCreateMenuBar() above runs.

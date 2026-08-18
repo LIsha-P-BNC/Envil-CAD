@@ -1,5 +1,5 @@
 /*
- * This program source code file is part of KiCad, a free EDA CAD application.
+ * This program source code file is part of Anvil, a free EDA CAD application.
  *
  * Copyright The KiCad Developers, see AUTHORS.txt for contributors.
  *
@@ -22,6 +22,6 @@
 
 // The "official" name of the building Kicad stroke font (always existing)
 // This is also a keyword, that cannot be translated
-#define KICAD_FONT_NAME wxT( "KiCad Font" )
+#define KICAD_FONT_NAME wxT( "Anvil Font" )
 
 #endif //KICAD_FONT_NAME_H

@@ -1,5 +1,5 @@
 /*
- * This program source code file is part of KiCad, a free EDA CAD application.
+ * This program source code file is part of Anvil, a free EDA CAD application.
  *
  * Copyright The KiCad Developers, see AUTHORS.txt for contributors.
  *
@@ -79,7 +79,7 @@ wxString ENV_VAR::GetVersionedEnvVarName( const wxString& aBaseName )
     int version = 0;
     std::tie(version, std::ignore, std::ignore) = GetMajorMinorPatchTuple();
 
-    return wxString::Format( "KICAD%d_%s", version, aBaseName );
+    return wxString::Format( "ANVIL%d_%s", version, aBaseName );
 }
 
 
@@ -117,7 +117,7 @@ static void initialiseEnvVarHelp( std::map<wxString, wxString>& aMap )
         _( "The base path of the locally installed symbol libraries." );
 
     aMap[ENV_VAR::GetVersionedEnvVarName( wxS( "TEMPLATE_DIR" ) )] =
-        _( "A directory containing project templates installed with KiCad." );
+        _( "A directory containing project templates installed with Anvil." );
 
     aMap[wxS( "KICAD_USER_TEMPLATE_DIR" )] =
         _( "Optional. Can be defined if you want to create your own project templates folder." );
@@ -126,16 +126,16 @@ static void initialiseEnvVarHelp( std::map<wxString, wxString>& aMap )
         _( "A directory containing 3rd party plugins, libraries and other downloadable content." );
 
     aMap[wxS( "KIPRJMOD" )] =
-        _( "Internally defined by KiCad (cannot be edited) and is set to the absolute path of the currently "
+        _( "Internally defined by Anvil (cannot be edited) and is set to the absolute path of the currently "
            "loaded project file.  This environment variable can be used to define files and paths relative "
            "to the currently loaded project.  For instance, ${KIPRJMOD}/libs/footprints.pretty can be "
            "defined as a folder containing a project specific footprint library named footprints.pretty." );
 
     aMap[ENV_VAR::GetVersionedEnvVarName( wxS( "SCRIPTING_DIR" ) )] =
-        _( "A directory containing system-wide scripts installed with KiCad." );
+        _( "A directory containing system-wide scripts installed with Anvil." );
 
     aMap[ENV_VAR::GetVersionedEnvVarName( wxS( "USER_SCRIPTING_DIR" ) )] =
-        _( "A directory containing user-specific scripts installed with KiCad." );
+        _( "A directory containing user-specific scripts installed with Anvil." );
 
     // Deprecated vars
 #define DEP( var ) wxString::Format( _( "Deprecated version of %s." ), var )

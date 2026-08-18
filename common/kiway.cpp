@@ -1,5 +1,5 @@
 /*
- * This program source code file is part of KiCad, a free EDA CAD application.
+ * This program source code file is part of Anvil, a free EDA CAD application.
  *
  * Copyright (C) 2014 SoftPLC Corporation, Dick Hollenbeck <dick@softplc.com>
  * Copyright The KiCad Developers, see AUTHORS.TXT for contributors.
@@ -274,8 +274,8 @@ KIFACE* KIWAY::KiFACE( FACE_T aFaceId, bool doLoad )
         {
             // Failure: error reporting UI was done via wxLogSysError().
             // No further reporting required here.  Apparently this is not true on all
-            // platforms and/or wxWidgets builds and KiCad will crash.  Throwing the exception
-            // here and catching it in the KiCad launcher resolves the crash issue.  See bug
+            // platforms and/or wxWidgets builds and Anvil will crash.  Throwing the exception
+            // here and catching it in the Anvil launcher resolves the crash issue.  See bug
             // report https://bugs.launchpad.net/kicad/+bug/1577786.
 
             msg.Printf( _( "Failed to load kiface library '%s'." ), dname );

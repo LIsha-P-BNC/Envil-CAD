@@ -1,5 +1,5 @@
 /*
- * This program source code file is part of KiCad, a free EDA CAD application.
+ * This program source code file is part of Anvil, a free EDA CAD application.
  *
  * Copyright (C) 2012 CERN
  * Copyright The KiCad Developers, see AUTHORS.txt for contributors.
@@ -935,7 +935,7 @@ FP_3DMODEL* PCB_IO_KICAD_SEXPR_PARSER::parse3DModel()
                 Expecting( T_xyz );
 
             /* Note:
-             * Prior to KiCad v5, model offset was designated by "at",
+             * Prior to Anvil v5, model offset was designated by "at",
              * and the units were in inches.
              * Now we use mm, but support reading of legacy files
              */
@@ -2161,7 +2161,7 @@ void PCB_IO_KICAD_SEXPR_PARSER::createOldLayerMapping( std::unordered_map< std::
 {
     // N.B. This mapping only includes Italian, Polish and French as they were the only languages
     // that mapped the layer names as of cc2022b1ac739aa673d2a0b7a2047638aa7a47b3 (kicad-i18n)
-    // when the bug was fixed in KiCad source.
+    // when the bug was fixed in Anvil source.
 
     // Italian
     aMap["Adesivo.Retro"] = "B.Adhes";
@@ -3574,7 +3574,7 @@ PCB_SHAPE* PCB_IO_KICAD_SEXPR_PARSER::parsePCB_SHAPE( BOARD_ITEM* aParent )
         }
     }
 
-    // Only filled shapes may have a zero line-width.  This is not permitted in KiCad but some
+    // Only filled shapes may have a zero line-width.  This is not permitted in Anvil but some
     // external tools can generate invalid files.
     if( stroke.GetWidth() <= 0 && !shape->IsAnyFill() )
     {
@@ -4490,7 +4490,7 @@ PCB_DIMENSION_BASE* PCB_IO_KICAD_SEXPR_PARSER::parseDIMENSION( BOARD_ITEM* aPare
 
         NeedRIGHT();
 
-        // Before parsing further, set default properites for old KiCad file
+        // Before parsing further, set default properites for old Anvil file
         // versions that didnt have these properties:
         dim->SetArrowDirection( DIM_ARROW_DIRECTION::OUTWARD );
     }

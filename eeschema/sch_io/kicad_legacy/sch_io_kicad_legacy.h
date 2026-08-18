@@ -1,5 +1,5 @@
 /*
- * This program source code file is part of KiCad, a free EDA CAD application.
+ * This program source code file is part of Anvil, a free EDA CAD application.
  *
  * Copyright (C) 2016 CERN
  * Copyright The KiCad Developers, see AUTHORS.txt for contributors.
@@ -71,13 +71,13 @@ public:
 
     const IO_BASE::IO_FILE_DESC GetSchematicFileDesc() const override
     {
-        return IO_BASE::IO_FILE_DESC( _HKI( "KiCad legacy schematic files" ),
+        return IO_BASE::IO_FILE_DESC( _HKI( "Anvil legacy schematic files" ),
                                       { FILEEXT::LegacySchematicFileExtension } );
     }
 
     const IO_BASE::IO_FILE_DESC GetLibraryDesc() const override
     {
-        return IO_BASE::IO_FILE_DESC( _HKI( "KiCad legacy symbol library files" ),
+        return IO_BASE::IO_FILE_DESC( _HKI( "Anvil legacy symbol library files" ),
                                       { FILEEXT::LegacySymbolLibFileExtension } );
     }
 

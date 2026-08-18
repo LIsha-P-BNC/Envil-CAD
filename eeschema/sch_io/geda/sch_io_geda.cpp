@@ -1,5 +1,5 @@
 /*
- * This program source code file is part of KiCad, a free EDA CAD application.
+ * This program source code file is part of Anvil, a free EDA CAD application.
  *
  * Copyright The KiCad Developers, see AUTHORS.txt for contributors.
  *
@@ -82,10 +82,10 @@ static constexpr int GEDA_DEFAULT_TEXT_SIZE_MILS = 50;
 static constexpr int DEFAULT_SYMBOL_SIZE_MILS = 200;
 
 /**
- * Convert gEDA overbar markup to KiCad syntax.
+ * Convert gEDA overbar markup to Anvil syntax.
  *
  * gEDA uses \_text\_ to indicate an overbar (text with a line above it).
- * KiCad uses ~{text}. Escaped backslashes (\\) become a literal backslash.
+ * Anvil uses ~{text}. Escaped backslashes (\\) become a literal backslash.
  */
 static wxString convertOverbars( const wxString& aInput )
 {
@@ -2123,7 +2123,7 @@ void SCH_IO_GEDA::parseText( const wxString& aLine, wxTextFile& aFile, size_t& a
 
     text->SetTextSize( VECTOR2I( textSize, textSize ) );
 
-    // gEDA allows arbitrary angles but KiCad text only supports orthogonal.
+    // gEDA allows arbitrary angles but Anvil text only supports orthogonal.
     // Snap to the nearest 90-degree increment.
     int normAngle = ( ( static_cast<int>( angle ) % 360 ) + 360 ) % 360;
     int snapped = ( ( normAngle + 45 ) / 90 ) * 90;
@@ -2409,7 +2409,7 @@ void SCH_IO_GEDA::parsePath( const wxString& aLine, wxTextFile& aFile, size_t& a
     wxStringTokenizer pathTok( pathData, wxT( " ,\t" ) );
 
     // For relative (lowercase) SVG commands, deltas are in gEDA mils (Y-up).
-    // Convert to KiCad IU (Y-down) by scaling X and negating+scaling Y.
+    // Convert to Anvil IU (Y-down) by scaling X and negating+scaling Y.
     auto relToAbs = [&]( long dx, long dy ) -> VECTOR2I
     {
         return currentPt + VECTOR2I( toKiCadDist( static_cast<int>( dx ) ),
@@ -3919,7 +3919,7 @@ void SCH_IO_GEDA::flushPendingComponent()
     if( !footprint.IsEmpty() )
         symbol->SetFootprintFieldText( footprint );
 
-    // Map documentation attribute to KiCad's native DATASHEET field
+    // Map documentation attribute to Anvil's native DATASHEET field
     wxString documentation = findAttr( m_pendingComp->attrs, wxT( "documentation" ) );
 
     if( !documentation.IsEmpty() )
@@ -3928,7 +3928,7 @@ void SCH_IO_GEDA::flushPendingComponent()
         dsField->SetText( documentation );
     }
 
-    // Map description attribute to KiCad's native DESCRIPTION field
+    // Map description attribute to Anvil's native DESCRIPTION field
     const GEDA_ATTR* descAttr = findAttrStruct( m_pendingComp->attrs, wxT( "description" ) );
 
     if( descAttr && !descAttr->value.IsEmpty() )
@@ -3989,7 +3989,7 @@ void SCH_IO_GEDA::flushPendingComponent()
     }
 
     // Track pin connection points for junction detection. Reverse-map the
-    // KiCad IU positions back to gEDA coordinates to match the wire endpoints.
+    // Anvil IU positions back to gEDA coordinates to match the wire endpoints.
     for( SCH_PIN* pin : libSym->GetPins() )
     {
         VECTOR2I pinPos = symbol->GetPinPhysicalPosition( pin );

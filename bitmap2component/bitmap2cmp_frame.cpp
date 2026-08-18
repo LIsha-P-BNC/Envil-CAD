@@ -253,7 +253,7 @@ void BITMAP2CMP_FRAME::OnClearFileHistory( wxCommandEvent& aEvent )
 
 void BITMAP2CMP_FRAME::doReCreateMenuBar()
 {
-    // KiCad Next: build the shared common menu bar instead of the legacy one when enabled.
+    // Anvil Next: build the shared common menu bar instead of the legacy one when enabled.
     if( UseUnifiedMenuBar() )
     {
         buildCommonMenuBar();
@@ -326,7 +326,7 @@ void BITMAP2CMP_FRAME::doReCreateMenuBar()
 }
 
 
-//================================ KiCad Next unified menu bar ================================
+//================================ Anvil Next unified menu bar ================================
 // The hooks reproduce the small menus above so the Image Converter joins the unified bar and
 // the modern layout's Window menu.  Like the calculator, its Preferences menu is kept as-is
 // by the assembler's safety net (no Tools menu to fold into).

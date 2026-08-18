@@ -1,5 +1,5 @@
 /*
- * This program source code file is part of KiCad, a free EDA CAD application.
+ * This program source code file is part of Anvil, a free EDA CAD application.
  *
  * Copyright (C) 2025 KiCad Developers, see AUTHORS.txt for contributors.
  *
@@ -4447,7 +4447,7 @@ void PARSER::parseSectionMISC( std::ifstream& aStream )
     // - DESIGN_RULES / RULE_SET (hierarchical design rules)
     // - ATTRIBUTES DICTIONARY (attribute type definitions)
     //
-    // We parse DIF_PAIR and NET_CLASS definitions as they're most relevant for KiCad.
+    // We parse DIF_PAIR and NET_CLASS definitions as they're most relevant for Anvil.
 
     std::string line;
     int braceDepth = 0;

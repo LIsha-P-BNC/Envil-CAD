@@ -1,5 +1,5 @@
 /*
- * This program source code file is part of KiCad, a free EDA CAD application.
+ * This program source code file is part of Anvil, a free EDA CAD application.
  *
  * Copyright (C) 2013 CERN
  * Copyright The KiCad Developers, see AUTHORS.txt for contributors.
@@ -276,7 +276,7 @@ bool PL_EDITOR_FRAME::LoadDrawingSheetFile( const wxString& aFullFileName )
         {
             m_infoBar->RemoveAllButtons();
             m_infoBar->AddCloseButton();
-            m_infoBar->ShowMessage( _( "This file was created by an older version of KiCad. "
+            m_infoBar->ShowMessage( _( "This file was created by an older version of Anvil. "
                                        "It will be converted to the new format when saved." ),
                                     wxICON_WARNING, WX_INFOBAR::MESSAGE_TYPE::OUTDATED_SAVE );
         }

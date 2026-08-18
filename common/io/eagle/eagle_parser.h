@@ -1,5 +1,5 @@
 /*
- * This program source code file is part of KiCad, a free EDA CAD application.
+ * This program source code file is part of Anvil, a free EDA CAD application.
  *
  * Copyright (C) 2012 SoftPLC Corporation, Dick Hollenbeck <dick@softplc.com>
  * Copyright The KiCad Developers, see AUTHORS.txt for contributors.
@@ -55,16 +55,16 @@ typedef std::unordered_map<wxString, wxXmlNode*> NODE_MAP;
 typedef std::map<wxString, EINSTANCE*> EINSTANCE_MAP;
 typedef std::map<wxString, std::unique_ptr<EPART>> EPART_MAP;
 
-/// Translates Eagle special characters to their counterparts in KiCad.
+/// Translates Eagle special characters to their counterparts in Anvil.
 wxString escapeName( const wxString& aNetName );
 
 /// Interprets special characters in Eagle text and converts them to KiCAD notation.
 wxString interpretText( const wxString& aText );
 
-/// Translates Eagle special text reference to a KiCad variable reference.
+/// Translates Eagle special text reference to a Anvil variable reference.
 bool substituteVariable( wxString* aText );
 
-/// Converts Eagle's HTML description into KiCad description format.
+/// Converts Eagle's HTML description into Anvil description format.
 wxString convertDescription( wxString aDescr );
 
 static inline wxXmlNode* getChildrenNodes( NODE_MAP& aMap, const wxString& aName )
@@ -380,7 +380,7 @@ size_t GetNodeCount( const wxXmlNode* aNode );
  */
 NODE_MAP MapChildren( wxXmlNode* aCurrentNode );
 
-/// Convert an Eagle curve end to a KiCad center for S_ARC.
+/// Convert an Eagle curve end to a Anvil center for S_ARC.
 VECTOR2I ConvertArcCenter( const VECTOR2I& aStart, const VECTOR2I& aEnd, double aAngle );
 
 // Pre-declare for typedefs
@@ -459,7 +459,7 @@ struct EURN : public EAGLE_BASE
 
 // All of the 'E'STRUCTS below merely hold Eagle XML information verbatim, in binary.
 // For maintenance and troubleshooting purposes, it was thought that we'd need to
-// separate the conversion process into distinct steps. There is no intent to have KiCad
+// separate the conversion process into distinct steps. There is no intent to have Anvil
 // forms of information in these 'E'STRUCTS.  They are only binary forms
 // of the Eagle information in the corresponding Eagle XML nodes.
 
@@ -1163,9 +1163,9 @@ struct EPOLYGON : public EAGLE_BASE
     int        layer;
     opt_ecoord spacing;
 
-    // KiCad priority is opposite of Eagle rank, that is:
+    // Anvil priority is opposite of Eagle rank, that is:
     //  - Eagle Low rank drawn first
-    //  - KiCad high priority drawn first
+    //  - Anvil high priority drawn first
     // So since Eagle has an upper limit we define this, used for the cases
     // where no rank is specified.
     static const int    max_priority = 6;

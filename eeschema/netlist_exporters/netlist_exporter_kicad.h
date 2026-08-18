@@ -1,5 +1,5 @@
 /*
- * This program source code file is part of KiCad, a free EDA CAD application.
+ * This program source code file is part of Anvil, a free EDA CAD application.
  *
  * Copyright (C) 1992-2013 jp.charras at wanadoo.fr
  * Copyright (C) 2013 SoftPLC Corporation, Dick Hollenbeck <dick@softplc.com>
@@ -31,7 +31,7 @@
 class OUTPUTFORMATTER;
 
 /**
- * Generate the KiCad netlist format supported by Pcbnew. It is basically the XML netlist
+ * Generate the Anvil netlist format supported by Pcbnew. It is basically the XML netlist
  * just formatted slightly different.
  */
 class NETLIST_EXPORTER_KICAD : public NETLIST_EXPORTER_XML
@@ -44,7 +44,7 @@ public:
     /**
      * Write netlist to \a aOutFileName.
      *
-     * Generate the KiCad netlist format supported by Pcbnew. It is basically the XML netlist
+     * Generate the Anvil netlist format supported by Pcbnew. It is basically the XML netlist
      * just formatted slightly different.
      */
     bool WriteNetlist( const wxString& aOutFileName, unsigned aNetlistOptions,

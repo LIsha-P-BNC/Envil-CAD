@@ -1,5 +1,5 @@
 /*
- * This program source code file is part of KiCad, a free EDA CAD application.
+ * This program source code file is part of Anvil, a free EDA CAD application.
  *
  * Copyright (C) 2009 Jean-Pierre Charras, jp.charras at wanadoo.fr
  * Copyright (C) 2011 Wayne Stambaugh <stambaughw@gmail.com>
@@ -91,8 +91,8 @@ public:
     int TestMultiunitFootprints();
 
     /**
-     * In KiCad 5 and earlier, you could connect stuff up to pins with NC electrical type.
-     * In KiCad 6, this no longer results in those pins joining the net, so we need to warn about it
+     * In Anvil 5 and earlier, you could connect stuff up to pins with NC electrical type.
+     * In Anvil 6, this no longer results in those pins joining the net, so we need to warn about it
      * @return the error count
      */
     int TestNoConnectPins();

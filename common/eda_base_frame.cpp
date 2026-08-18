@@ -1,5 +1,5 @@
 /*
- * This program source code file is part of KiCad, a free EDA CAD application.
+ * This program source code file is part of Anvil, a free EDA CAD application.
  *
  * Copyright (C) 2017 Jean-Pierre Charras, jp.charras at wanadoo.fr
  * Copyright (C) 2013 Wayne Stambaugh <stambaughw@gmail.com>
@@ -516,7 +516,7 @@ int EDA_BASE_FRAME::GetAutoSaveInterval() const
 {
     int interval = Pgm().GetCommonSettings()->m_System.local_history_debounce;
 
-    // KiCad Next / Anvil: when autosave writes the real project file (so the AI sees manual
+    // Anvil Next / Anvil: when autosave writes the real project file (so the AI sees manual
     // edits), the timer MUST arm even if the user never configured a history debounce.  Fall
     // back to a short positive default in that case; a user-set interval is still honoured.
     if( ADVANCED_CFG::GetCfg().m_AnvilAutoSaveRealFile && interval <= 0 )
@@ -1369,7 +1369,7 @@ void EDA_BASE_FRAME::RestoreAuiLayout()
 
     /*
      * Legacy loading of the string AUI perspective (if it exists). This is needed for
-     * wx 3.2 or the first settings upgrade when wx 3.3 is used in KiCad (e.g., 9.0->10.0 for Windows and macOS).
+     * wx 3.2 or the first settings upgrade when wx 3.3 is used in Anvil (e.g., 9.0->10.0 for Windows and macOS).
      */
     if( !restored && !m_perspective.IsEmpty() )
         m_auimgr.LoadPerspective( m_perspective );
@@ -1814,7 +1814,7 @@ bool EDA_BASE_FRAME::IsWritable( const wxFileName& aFileName, bool aVerbose )
     wxString msg;
     wxFileName fn = aFileName;
 
-    // Check for absence of a file path with a file name.  Unfortunately KiCad
+    // Check for absence of a file path with a file name.  Unfortunately Anvil
     // uses paths relative to the current project path without the ./ part which
     // confuses wxFileName. Making the file name path absolute may be less than
     // elegant but it solves the problem.

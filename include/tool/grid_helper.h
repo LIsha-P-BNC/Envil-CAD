@@ -1,5 +1,5 @@
 /*
- * This program source code file is part of KiCad, a free EDA CAD application.
+ * This program source code file is part of Anvil, a free EDA CAD application.
  *
  * Copyright The KiCad Developers, see AUTHORS.txt for contributors.
  *
@@ -224,7 +224,7 @@ protected:
 
     /**
      * Check whether it is possible to use the grid -- this depends both on local grid helper
-     * settings and global (tool manager) KiCad settings.
+     * settings and global (tool manager) Anvil settings.
      */
     bool canUseGrid() const;
 

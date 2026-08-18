@@ -1,5 +1,5 @@
 /*
- * This program source code file is part of KiCad, a free EDA CAD application.
+ * This program source code file is part of Anvil, a free EDA CAD application.
  *
  * Copyright The KiCad Developers, see AUTHORS.txt for contributors.
  *
@@ -66,9 +66,9 @@ struct PADS_LAYER_INFO
 
 
 /**
- * Maps PADS layer numbers and names to KiCad layer IDs.
+ * Maps PADS layer numbers and names to Anvil layer IDs.
  *
- * PADS uses a different layer numbering scheme than KiCad:
+ * PADS uses a different layer numbering scheme than Anvil:
  * - Layer 1 is Top copper
  * - Layer N (where N is layer count) is Bottom copper
  * - Layers 2 through N-1 are inner copper layers
@@ -115,20 +115,20 @@ public:
     PADS_LAYER_TYPE ParseLayerName( const std::string& aLayerName ) const;
 
     /**
-     * Get the suggested KiCad layer for a PADS layer.
+     * Get the suggested Anvil layer for a PADS layer.
      *
      * @param aPadsLayer The PADS layer number
      * @param aType Optional override for the layer type (if known)
-     * @return The suggested KiCad layer ID
+     * @return The suggested Anvil layer ID
      */
     PCB_LAYER_ID GetAutoMapLayer( int aPadsLayer,
                                    PADS_LAYER_TYPE aType = PADS_LAYER_TYPE::UNKNOWN ) const;
 
     /**
-     * Get the permitted KiCad layers for a given PADS layer type.
+     * Get the permitted Anvil layers for a given PADS layer type.
      *
      * @param aType The PADS layer type
-     * @return Set of permitted KiCad layers
+     * @return Set of permitted Anvil layers
      */
     LSET GetPermittedLayers( PADS_LAYER_TYPE aType ) const;
 

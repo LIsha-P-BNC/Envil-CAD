@@ -1,5 +1,5 @@
 /*
- * This program source code file is part of KiCad, a free EDA CAD application.
+ * This program source code file is part of Anvil, a free EDA CAD application.
  *
  * Copyright (C) 2020 Ian McInerney <Ian.S.McInerney at ieee.org>
  * Copyright The KiCad Developers, see AUTHORS.txt for contributors.
@@ -95,7 +95,7 @@ bool KIPLATFORM::ENV::IsNetworkPath( const wxString& aPath )
 
 wxString KIPLATFORM::ENV::GetDocumentsPath()
 {
-    // If called by a python script in stand-alone (outside KiCad), wxStandardPaths::Get()
+    // If called by a python script in stand-alone (outside Anvil), wxStandardPaths::Get()
     // complains about not existing app. so use a dummy app
     if( wxTheApp ==  nullptr )
     {
@@ -109,7 +109,7 @@ wxString KIPLATFORM::ENV::GetDocumentsPath()
 
 wxString KIPLATFORM::ENV::GetUserConfigPath()
 {
-    // If called by a python script in stand-alone (outside KiCad), wxStandardPaths::Get()
+    // If called by a python script in stand-alone (outside Anvil), wxStandardPaths::Get()
     // complains about not existing app. so use a dummy app
     if( wxTheApp ==  nullptr )
     {
@@ -123,7 +123,7 @@ wxString KIPLATFORM::ENV::GetUserConfigPath()
 
 wxString KIPLATFORM::ENV::GetUserDataPath()
 {
-    // If called by a python script in stand-alone (outside KiCad), wxStandardPaths::Get()
+    // If called by a python script in stand-alone (outside Anvil), wxStandardPaths::Get()
     // complains about not existing app. so use a dummy app
     if( wxTheApp ==  nullptr )
     {
@@ -137,7 +137,7 @@ wxString KIPLATFORM::ENV::GetUserDataPath()
 
 wxString KIPLATFORM::ENV::GetUserLocalDataPath()
 {
-    // If called by a python script in stand-alone (outside KiCad), wxStandardPaths::Get()
+    // If called by a python script in stand-alone (outside Anvil), wxStandardPaths::Get()
     // complains about not existing app. so use a dummy app
     if( wxTheApp == nullptr )
     {
@@ -155,7 +155,7 @@ wxString KIPLATFORM::ENV::GetUserCachePath()
 
     // Make sure we don't include the "appinfo" (appended app name)
 
-    // If called by a python script in stand-alone (outside KiCad), wxStandardPaths::Get()
+    // If called by a python script in stand-alone (outside Anvil), wxStandardPaths::Get()
     // complains about not existing app. so use a dummy app
     if( wxTheApp ==  nullptr )
     {

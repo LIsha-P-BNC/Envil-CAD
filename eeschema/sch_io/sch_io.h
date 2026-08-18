@@ -1,5 +1,5 @@
 /*
- * This program source code file is part of KiCad, a free EDA CAD application.
+ * This program source code file is part of Anvil, a free EDA CAD application.
  *
  * Copyright (C) 2016 CERN
  * Copyright The KiCad Developers, see AUTHORS.txt for contributors.
@@ -293,7 +293,7 @@ public:
      * Retrieves a list of sub-libraries in this library.
      *
      * Some types of symbol library support sub-libraries, which are a single-level organizational
-     * hierarchy that is implementation-defined per plugin.  Most of KiCad ignores sub-libraries and
+     * hierarchy that is implementation-defined per plugin.  Most of Anvil ignores sub-libraries and
      * treats the hierarchy between library and symbol as flat, but the sub-libraries are used for
      * sorting and grouping symbols in the symbol chooser.
      *
@@ -319,7 +319,7 @@ public:
      * The plugin is responsible for guaranteeing that this list contains the set of unique
      * custom field names present on any symbols contained in the library.
      *
-     * The required KiCad fields are not included in this list.
+     * The required Anvil fields are not included in this list.
      *
      * @param aNames will be filled with any custom fields present in this library.
      */
@@ -346,7 +346,7 @@ public:
      * Return an error string to the caller.
      *
      * This is useful for schematic loaders that can load partial schematics where throwing
-     * an exception would be problematic such as the KiCad legacy plugin.
+     * an exception would be problematic such as the Anvil legacy plugin.
      *
      * @return an unformatted string containing errors if any.
      */

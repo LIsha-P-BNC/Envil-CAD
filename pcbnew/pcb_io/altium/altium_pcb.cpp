@@ -1,5 +1,5 @@
 /*
- * This program source code file is part of KiCad, a free EDA CAD application.
+ * This program source code file is part of Anvil, a free EDA CAD application.
  *
  * Copyright (C) 2019-2020 Thomas Pointhuber <thomas.pointhuber@gmx.at>
  * Copyright The KiCad Developers, see AUTHORS.txt for contributors.
@@ -170,7 +170,7 @@ PCB_LAYER_ID ALTIUM_PCB::GetKicadLayer( ALTIUM_LAYER aAltiumLayer ) const
         if( ( altiumOrd + 1 ) > MAX_USER_DEFINED_LAYERS )
             return UNDEFINED_LAYER;
 
-        // Convert to KiCad User_* layers
+        // Convert to Anvil User_* layers
         return static_cast<PCB_LAYER_ID>( static_cast<int>( User_1 ) + altiumOrd * 2 );
     }
 
@@ -1294,7 +1294,7 @@ void ALTIUM_PCB::remapUnsureLayers( std::vector<ABOARD6_LAYER_STACKUP>& aStackup
         if( layerPair.second == PCB_LAYER_ID::UNDEFINED_LAYER )
         {
             // Layer mapping handler returned UNDEFINED_LAYER - skip this layer
-            // This can happen for layers that don't have a KiCad equivalent
+            // This can happen for layers that don't have a Anvil equivalent
             if( m_reporter )
             {
                 m_reporter->Report( wxString::Format( _( "Layer '%s' could not be mapped and "
@@ -1510,7 +1510,7 @@ void ALTIUM_PCB::ParseComponents6Data( const ALTIUM_PCB_COMPOUND_FILE& aAltiumPc
         // Altium stores the footprint library information needed to find the footprint in the
         // source library in the sourcefootprintlibrary field.  Since Altium is a Windows-only
         // program, the path separator is always a backslash.  We need strip the extra path information
-        // here to prevent overly-long LIB_IDs because KiCad doesn't store the full path to the
+        // here to prevent overly-long LIB_IDs because Anvil doesn't store the full path to the
         // footprint library in the design file, only in a library table.
         wxFileName libName( elem.sourcefootprintlibrary, wxPATH_WIN );
 
@@ -1531,7 +1531,7 @@ void ALTIUM_PCB::ParseComponents6Data( const ALTIUM_PCB_COMPOUND_FILE& aAltiumPc
         footprint->SetPosition( elem.position );
         footprint->SetOrientationDegrees( elem.rotation );
 
-        // KiCad netlisting requires parts to have non-digit + digit annotation.
+        // Anvil netlisting requires parts to have non-digit + digit annotation.
         // If the reference begins with a number, we prepend 'UNK' (unknown) for the source designator
         wxString reference = elem.sourcedesignator;
 
@@ -1811,8 +1811,8 @@ void ALTIUM_PCB::HelperParseDimensions6Linear( const ADIMENSION6& aElem )
         if( m_reporter )
         {
             m_reporter->Report( wxString::Format(
-                    _( "Dimension found on an Altium layer (%d) with no KiCad equivalent. "
-                           "It has been moved to KiCad layer Eco1_User." ), aElem.layer ),
+                    _( "Dimension found on an Altium layer (%d) with no Anvil equivalent. "
+                           "It has been moved to Anvil layer Eco1_User." ), aElem.layer ),
                         RPT_SEVERITY_INFO );
         }
 
@@ -1833,7 +1833,7 @@ void ALTIUM_PCB::HelperParseDimensions6Linear( const ADIMENSION6& aElem )
         /**
          * Basically REFERENCE0POINT and REFERENCE1POINT are the two end points of the dimension.
          * XY1 is the position of the arrow above REFERENCE0POINT. those three points are not
-         * necessarily in 90degree angle, but KiCad requires this to show the correct measurements.
+         * necessarily in 90degree angle, but Anvil requires this to show the correct measurements.
          *
          * Therefore, we take the vector of REFERENCE0POINT -> XY1, calculate the normal, and
          * intersect it with REFERENCE1POINT pointing the same direction as REFERENCE0POINT -> XY1.
@@ -1918,8 +1918,8 @@ void ALTIUM_PCB::HelperParseDimensions6Radial(const ADIMENSION6 &aElem)
         if( m_reporter )
         {
             m_reporter->Report( wxString::Format(
-                _( "Dimension found on an Altium layer (%d) with no KiCad equivalent. "
-                   "It has been moved to KiCad layer Eco1_User." ),
+                _( "Dimension found on an Altium layer (%d) with no Anvil equivalent. "
+                   "It has been moved to Anvil layer Eco1_User." ),
                 aElem.layer ), RPT_SEVERITY_INFO );
         }
 
@@ -1998,8 +1998,8 @@ void ALTIUM_PCB::HelperParseDimensions6Leader( const ADIMENSION6& aElem )
         if( m_reporter )
         {
             wxString msg;
-            msg.Printf( _( "Dimension found on an Altium layer (%d) with no KiCad equivalent. "
-                          "It has been moved to KiCad layer Eco1_User." ), aElem.layer );
+            msg.Printf( _( "Dimension found on an Altium layer (%d) with no Anvil equivalent. "
+                          "It has been moved to Anvil layer Eco1_User." ), aElem.layer );
             m_reporter->Report( msg, RPT_SEVERITY_ERROR );
         }
 
@@ -2097,8 +2097,8 @@ void ALTIUM_PCB::HelperParseDimensions6Datum( const ADIMENSION6& aElem )
         if( m_reporter )
         {
             wxString msg;
-            msg.Printf( _( "Dimension found on an Altium layer (%d) with no KiCad equivalent. "
-                           "It has been moved to KiCad layer Eco1_User." ), aElem.layer );
+            msg.Printf( _( "Dimension found on an Altium layer (%d) with no Anvil equivalent. "
+                           "It has been moved to Anvil layer Eco1_User." ), aElem.layer );
             m_reporter->Report( msg, RPT_SEVERITY_INFO );
         }
 
@@ -2128,8 +2128,8 @@ void ALTIUM_PCB::HelperParseDimensions6Center( const ADIMENSION6& aElem )
         if( m_reporter )
         {
             wxString msg;
-            msg.Printf( _( "Dimension found on an Altium layer (%d) with no KiCad equivalent. "
-                           "It has been moved to KiCad layer Eco1_User." ), aElem.layer );
+            msg.Printf( _( "Dimension found on an Altium layer (%d) with no Anvil equivalent. "
+                           "It has been moved to Anvil layer Eco1_User." ), aElem.layer );
             m_reporter->Report( msg, RPT_SEVERITY_INFO );
         }
 
@@ -2369,7 +2369,7 @@ void ALTIUM_PCB::ParsePolygons6Data( const ALTIUM_PCB_COMPOUND_FILE&     aAltium
             // We have found multiple Altium files with polygon records containing nothing but two
             // coincident vertices.  These polygons do not appear when opening the file in Altium.
             // https://gitlab.com/kicad/code/kicad/-/issues/8183
-            // Also, polygons with less than 3 points are not supported in KiCad.
+            // Also, polygons with less than 3 points are not supported in Anvil.
             //
             // wxLogError( _( "Polygon has only %d point extracted from %ld vertices. At least 2 "
             //                "points are required." ),
@@ -2384,7 +2384,7 @@ void ALTIUM_PCB::ParsePolygons6Data( const ALTIUM_PCB_COMPOUND_FILE&     aAltium
 
         if( elem.hatchstyle != ALTIUM_POLYGON_HATCHSTYLE::SOLID )
         {
-            // Altium "Hatched" or "None" polygon outlines have thickness, convert it to KiCad's representation.
+            // Altium "Hatched" or "None" polygon outlines have thickness, convert it to Anvil's representation.
             outline.Inflate( elem.trackwidth / 2, CORNER_STRATEGY::CHAMFER_ACUTE_CORNERS,
                              ARC_HIGH_DEF, true );
         }
@@ -2651,7 +2651,7 @@ void ALTIUM_PCB::ConvertShapeBasedRegions6ToBoardItem( const AREGION6& aElem )
             // We have found multiple Altium files with polygon records containing nothing but
             // two coincident vertices.  These polygons do not appear when opening the file in
             // Altium.  https://gitlab.com/kicad/code/kicad/-/issues/8183
-            // Also, polygons with less than 3 points are not supported in KiCad.
+            // Also, polygons with less than 3 points are not supported in Anvil.
             return;
         }
 
@@ -2689,7 +2689,7 @@ void ALTIUM_PCB::ConvertShapeBasedRegions6ToBoardItem( const AREGION6& aElem )
 
         if( linechain.PointCount() < 3 )
         {
-            // Polygons with less than 3 points are not supported in KiCad.
+            // Polygons with less than 3 points are not supported in Anvil.
             return;
         }
 
@@ -2724,8 +2724,8 @@ void ALTIUM_PCB::ConvertShapeBasedRegions6ToBoardItem( const AREGION6& aElem )
             if( m_reporter )
             {
                 wxString msg;
-                msg.Printf( _( "Dashed outline found on an Altium layer (%d) with no KiCad equivalent. "
-                               "It has been moved to KiCad layer Eco1_User." ), aElem.layer );
+                msg.Printf( _( "Dashed outline found on an Altium layer (%d) with no Anvil equivalent. "
+                               "It has been moved to Anvil layer Eco1_User." ), aElem.layer );
                 m_reporter->Report( msg, RPT_SEVERITY_ERROR );
             }
 
@@ -2740,7 +2740,7 @@ void ALTIUM_PCB::ConvertShapeBasedRegions6ToBoardItem( const AREGION6& aElem )
             // We have found multiple Altium files with polygon records containing nothing but
             // two coincident vertices. These polygons do not appear when opening the file in
             // Altium. https://gitlab.com/kicad/code/kicad/-/issues/8183
-            // Also, polygons with less than 3 points are not supported in KiCad.
+            // Also, polygons with less than 3 points are not supported in Anvil.
             return;
         }
 
@@ -2787,7 +2787,7 @@ void ALTIUM_PCB::ConvertShapeBasedRegions6ToFootprintItem( FOOTPRINT*      aFoot
             // We have found multiple Altium files with polygon records containing nothing but
             // two coincident vertices. These polygons do not appear when opening the file in
             // Altium. https://gitlab.com/kicad/code/kicad/-/issues/8183
-            // Also, polygons with less than 3 points are not supported in KiCad.
+            // Also, polygons with less than 3 points are not supported in Anvil.
             return;
         }
 
@@ -2845,7 +2845,7 @@ void ALTIUM_PCB::ConvertShapeBasedRegions6ToFootprintItem( FOOTPRINT*      aFoot
                     wxString msg;
                     msg.Printf( _( "Loading library '%s':\n"
                                  "Footprint %s contains a dashed outline on Altium layer (%d) with "
-                                 "no KiCad equivalent. It has been moved to KiCad layer Eco1_User." ),
+                                 "no Anvil equivalent. It has been moved to Anvil layer Eco1_User." ),
                               m_library,
                               m_footprintName,
                               aElem.layer );
@@ -2858,7 +2858,7 @@ void ALTIUM_PCB::ConvertShapeBasedRegions6ToFootprintItem( FOOTPRINT*      aFoot
                 {
                     wxString msg;
                     msg.Printf( _( "Footprint %s contains a dashed outline on Altium layer (%d) with "
-                                 "no KiCad equivalent. It has been moved to KiCad layer Eco1_User." ),
+                                 "no Anvil equivalent. It has been moved to Anvil layer Eco1_User." ),
                               aFootprint->GetReference(),
                               aElem.layer );
                     m_reporter->Report( msg, RPT_SEVERITY_ERROR );
@@ -2876,7 +2876,7 @@ void ALTIUM_PCB::ConvertShapeBasedRegions6ToFootprintItem( FOOTPRINT*      aFoot
             // We have found multiple Altium files with polygon records containing nothing but
             // two coincident vertices. These polygons do not appear when opening the file in
             // Altium. https://gitlab.com/kicad/code/kicad/-/issues/8183
-            // Also, polygons with less than 3 points are not supported in KiCad.
+            // Also, polygons with less than 3 points are not supported in Anvil.
             return;
         }
 
@@ -2934,7 +2934,7 @@ void ALTIUM_PCB::ConvertShapeBasedRegions6ToBoardItemOnLayer( const AREGION6& aE
         // We have found multiple Altium files with polygon records containing nothing
         // but two coincident vertices. These polygons do not appear when opening the
         // file in Altium. https://gitlab.com/kicad/code/kicad/-/issues/8183
-        // Also, polygons with less than 3 points are not supported in KiCad.
+        // Also, polygons with less than 3 points are not supported in Anvil.
         return;
     }
 
@@ -2981,7 +2981,7 @@ void ALTIUM_PCB::ConvertShapeBasedRegions6ToFootprintItemOnLayer( FOOTPRINT*    
         // We have found multiple Altium files with polygon records containing nothing
         // but two coincident vertices. These polygons do not appear when opening the
         // file in Altium. https://gitlab.com/kicad/code/kicad/-/issues/8183
-        // Also, polygons with less than 3 points are not supported in KiCad.
+        // Also, polygons with less than 3 points are not supported in Anvil.
         return;
     }
 
@@ -3455,7 +3455,7 @@ void ALTIUM_PCB::ConvertVias6ToFootprintItem( FOOTPRINT* aFootprint, const AVIA6
     pad->SetShape( PADSTACK::ALL_LAYERS, PAD_SHAPE::CIRCLE );
     pad->SetAttribute( PAD_ATTRIB::PTH );
 
-    // Pads are always through holes in KiCad
+    // Pads are always through holes in Anvil
     pad->SetLayerSet( LSET().AllCuMask() );
 
     if( aElem.viamode == ALTIUM_PAD_MODE::SIMPLE )
@@ -3652,7 +3652,7 @@ void ALTIUM_PCB::ConvertPads6ToFootprintItemOnCopper( FOOTPRINT* aFootprint, con
                             wxString msg;
                             msg.Printf( _( "Loading library '%s':\n"
                                          "Footprint %s pad %s has a hole-rotation of %d degrees. "
-                                         "KiCad only supports 90 degree rotations." ),
+                                         "Anvil only supports 90 degree rotations." ),
                                       m_library,
                                       m_footprintName,
                                       aElem.name,
@@ -3666,7 +3666,7 @@ void ALTIUM_PCB::ConvertPads6ToFootprintItemOnCopper( FOOTPRINT* aFootprint, con
                         {
                             wxString msg;
                             msg.Printf( _( "Footprint %s pad %s has a hole-rotation of %d degrees. "
-                                         "KiCad only supports 90 degree rotations." ),
+                                         "Anvil only supports 90 degree rotations." ),
                                       aFootprint->GetReference(),
                                       aElem.name,
                                       KiROUND( slotRotation.AsDegrees() ) );
@@ -3879,8 +3879,8 @@ void ALTIUM_PCB::ConvertPads6ToBoardItemOnNonCopper( const APAD6& aElem )
         if( m_reporter )
         {
             wxString msg;
-            msg.Printf( _( "Non-copper pad %s found on an Altium layer (%d) with no KiCad "
-                         "equivalent. It has been moved to KiCad layer Eco1_User." ),
+            msg.Printf( _( "Non-copper pad %s found on an Altium layer (%d) with no Anvil "
+                         "equivalent. It has been moved to Anvil layer Eco1_User." ),
                       aElem.name, aElem.layer );
             m_reporter->Report( msg, RPT_SEVERITY_INFO );
         }
@@ -3909,7 +3909,7 @@ void ALTIUM_PCB::ConvertPads6ToFootprintItemOnNonCopper( FOOTPRINT* aFootprint, 
                 wxString msg;
                 msg.Printf( _( "Loading library '%s':\n"
                              "Footprint %s non-copper pad %s found on an Altium layer (%d) with no "
-                             "KiCad equivalent. It has been moved to KiCad layer Eco1_User." ),
+                             "Anvil equivalent. It has been moved to Anvil layer Eco1_User." ),
                           m_library,
                           m_footprintName,
                           aElem.name,
@@ -3923,7 +3923,7 @@ void ALTIUM_PCB::ConvertPads6ToFootprintItemOnNonCopper( FOOTPRINT* aFootprint, 
             {
                 wxString msg;
                 msg.Printf( _( "Footprint %s non-copper pad %s found on an Altium layer (%d) with no "
-                             "KiCad equivalent. It has been moved to KiCad layer Eco1_User." ),
+                             "Anvil equivalent. It has been moved to Anvil layer Eco1_User." ),
                           aFootprint->GetReference(),
                           aElem.name,
                           aElem.layer );
@@ -4704,7 +4704,7 @@ void ALTIUM_PCB::HelperSetTextboxAlignmentAndPos( const ATEXT6& aElem, PCB_TEXTB
     kposition.y -= aElem.textbox_rect_height;
 
 #if 0
-    // Compensate for KiCad's textbox margin
+    // Compensate for Anvil's textbox margin
     int charWidth = aTextbox->GetTextWidth();
     int charHeight = aTextbox->GetTextHeight();
 
@@ -4856,7 +4856,7 @@ void ALTIUM_PCB::HelperSetTextAlignmentAndPos( const ATEXT6& aElem, EDA_TEXT* aT
     int charWidth = aText->GetTextWidth();
     int charHeight = aText->GetTextHeight();
 
-    // Correct for KiCad's baseline offset.
+    // Correct for Anvil's baseline offset.
     // Text height and font must be set correctly before calling.
     if( !aText->GetFont() || aText->GetFont()->IsStroke() )
     {

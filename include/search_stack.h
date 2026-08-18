@@ -1,5 +1,5 @@
 /*
- * This program source code file is part of KiCad, a free EDA CAD application.
+ * This program source code file is part of Anvil, a free EDA CAD application.
  *
  * Copyright (C) 2014 CERN
  * Copyright The KiCad Developers, see AUTHORS.txt for contributors.
@@ -56,7 +56,7 @@ public:
      * name to the list. Otherwise, add the library name with the full or relative path.
      * The relative path is preferable because it preserves use of default libraries paths,
      * when the path is a sub path of these default paths. Note we accept only sub paths
-     * not relative paths starting by ../ that are not subpaths and are outside KiCad library
+     * not relative paths starting by ../ that are not subpaths and are outside Anvil library
      * paths
      *
      * @param aFullFilename The filename with path and extension.

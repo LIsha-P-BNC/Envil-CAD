@@ -1,5 +1,5 @@
 /*
- * This program source code file is part of KiCad, a free EDA CAD application.
+ * This program source code file is part of Anvil, a free EDA CAD application.
  *
  * Copyright The KiCad Developers, see AUTHORS.txt for contributors.
  * Author: SYSUEric <jzzhuang666@gmail.com>.
@@ -83,10 +83,10 @@ ODB_MISC_ENTITY::ODB_MISC_ENTITY()
                { wxS( ODB_UNITS ), PCB_IO_ODBPP::m_unitsStr },
                { wxS( "ODB_VERSION_MAJOR" ), wxS( "8" ) },
                { wxS( "ODB_VERSION_MINOR" ), wxS( "1" ) },
-               { wxS( "ODB_SOURCE" ), wxS( "KiCad EDA" ) },
+               { wxS( "ODB_SOURCE" ), wxS( "Anvil EDA" ) },
                { wxS( "CREATION_DATE" ), wxDateTime::Now().Format( "%Y%m%d.%H%M%S" ) },
                { wxS( "SAVE_DATE" ), wxDateTime::Now().Format( "%Y%m%d.%H%M%S" ) },
-               { wxS( "SAVE_APP" ), wxString::Format( wxS( "KiCad EDA %s" ), GetBuildVersion() ) } };
+               { wxS( "SAVE_APP" ), wxString::Format( wxS( "Anvil EDA %s" ), GetBuildVersion() ) } };
 }
 
 

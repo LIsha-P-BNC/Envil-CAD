@@ -1,5 +1,5 @@
 /*
- * This program source code file is part of KiCad, a free EDA CAD application.
+ * This program source code file is part of Anvil, a free EDA CAD application.
  *
  * Copyright (C) 2020 Thomas Pointhuber <thomas.pointhuber@gmx.at>
  * Copyright The KiCad Developers, see AUTHORS.txt for contributors.
@@ -331,7 +331,7 @@ struct ASCH_PIN : ASCH_OWNER_INTERFACE
     VECTOR2I location;
     int      pinlength;
 
-    VECTOR2I kicadLocation; // location of pin in KiCad without rounding error
+    VECTOR2I kicadLocation; // location of pin in Anvil without rounding error
 
     bool showPinName;
     bool showDesignator;

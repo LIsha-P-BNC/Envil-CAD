@@ -1,5 +1,5 @@
 /*
- * This program source code file is part of KiCad, a free EDA CAD application.
+ * This program source code file is part of Anvil, a free EDA CAD application.
  *
  * Copyright (C) 2024 Jon Evans <jon@craftyjon.com>
  * Copyright The KiCad Developers, see AUTHORS.txt for contributors.
@@ -157,7 +157,7 @@ class PADSTACK : public SERIALIZABLE
 {
 public:
     ///! Padstack type, mostly for IPC-7351 naming and attributes
-    ///! Note that TYPE::MOUNTING is probably not currently supported by KiCad
+    ///! Note that TYPE::MOUNTING is probably not currently supported by Anvil
     enum class TYPE
     {
         NORMAL,     ///< Padstack for a footprint pad

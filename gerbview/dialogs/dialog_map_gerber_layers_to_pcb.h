@@ -1,5 +1,5 @@
 /*
- * This program source code file is part of KiCad, a free EDA CAD application.
+ * This program source code file is part of Anvil, a free EDA CAD application.
  *
  * Copyright (C) 2011-2018 Jean-Pierre Charras  jp.charras at wanadoo.fr
  * Copyright The KiCad Developers, see AUTHORS.txt for contributors.
@@ -54,15 +54,15 @@ private:
     void OnResetClick( wxCommandEvent& event ) override;
 
     /**
-     * Find number of loaded Gerbers where the matching KiCad layer can be identified.
+     * Find number of loaded Gerbers where the matching Anvil layer can be identified.
      *
      * The passed vector<int> will be returned with the same number of elements
      * as there are Gerber files.  The indices into it are 1:1 with the loaded Gerber
-     * files.  Any Gerber that maps will have its entry set to the KiCad PCB layer
+     * files.  Any Gerber that maps will have its entry set to the Anvil PCB layer
      * number.  Gerbers that can be identified or which don't map to an
-     * equivalent KiCad PCB layer will be set to UNSELECTED_LAYER.
+     * equivalent Anvil PCB layer will be set to UNSELECTED_LAYER.
      *
-     * @param aGerber2KicadMapping passed to return KiCad PCB layer number for each Gerber.
+     * @param aGerber2KicadMapping passed to return Anvil PCB layer number for each Gerber.
      *
      * @return The number of loaded Gerbers that have Altium extensions.
      */
@@ -73,28 +73,28 @@ private:
      *
      * The passed vector<int> will be returned with the same number of elements
      * as there are Gerber files.  The indices into it are 1:1 with the loaded Gerber
-     * files.  Any Gerber that maps will have its entry set to the KiCad PCB layer
+     * files.  Any Gerber that maps will have its entry set to the Anvil PCB layer
      * number.  Gerbers that aren't using Altium extensions or which don't map to an
-     * equivalent KiCad PCB layer will be set to UNSELECTED_LAYER.
+     * equivalent Anvil PCB layer will be set to UNSELECTED_LAYER.
      *
-     * @param aGerber2KicadMapping passed to return KiCad PCB layer number for each Gerber.
+     * @param aGerber2KicadMapping passed to return Anvil PCB layer number for each Gerber.
      *
      * @return The number of loaded Gerbers that have Altium extensions.
      */
     int findNumAltiumGerbersLoaded( std::vector<int>& aGerber2KicadMapping );
 
     /**
-     * Find number of loaded Gerbers using KiCad naming convention.
+     * Find number of loaded Gerbers using Anvil naming convention.
      *
      * The passed vector<int> will be returned with the same number of elements
      * as there are Gerber files.  The indices into it are 1:1 with the loaded Gerber
-     * files.  Any Gerber that maps will have its entry set to the KiCad PCB layer
-     * number.  Gerbers that aren't using KiCad naming or which don't map to an
-     * equivalent KiCad PCB layer will be set to UNSELECTED_LAYER.
+     * files.  Any Gerber that maps will have its entry set to the Anvil PCB layer
+     * number.  Gerbers that aren't using Anvil naming or which don't map to an
+     * equivalent Anvil PCB layer will be set to UNSELECTED_LAYER.
      *
-     * @param aGerber2KicadMapping passed to return KiCad PCB layer number for each Gerber.
+     * @param aGerber2KicadMapping passed to return Anvil PCB layer number for each Gerber.
      *
-     * @return The number of loaded Gerbers using KiCad naming conventions.
+     * @return The number of loaded Gerbers using Anvil naming conventions.
      */
     int findNumKiCadGerbersLoaded( std::vector<int>& aGerber2KicadMapping );
 
@@ -103,11 +103,11 @@ private:
      *
      * The passed vector<int> will be returned with the same number of elements
      * as there are Gerber files.  The indices into it are 1:1 with the loaded Gerber
-     * files.  Any Gerber that maps will have its entry set to the KiCad PCB layer
+     * files.  Any Gerber that maps will have its entry set to the Anvil PCB layer
      * number.  Gerbers that aren't using X2 File functions or which don't map to an
-     * equivalent KiCad PCB layer will be set to UNSELECTED_LAYER.
+     * equivalent Anvil PCB layer will be set to UNSELECTED_LAYER.
      *
-     * @param aGerber2KicadMapping passed to return KiCad PCB layer number for each Gerber.
+     * @param aGerber2KicadMapping passed to return Anvil PCB layer number for each Gerber.
      *
      * @return The number of loaded Gerbers with X2 File Functions.
      */

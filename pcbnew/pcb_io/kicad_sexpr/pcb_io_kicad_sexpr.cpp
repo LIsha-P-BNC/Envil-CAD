@@ -1,5 +1,5 @@
 /*
- * This program source code file is part of KiCad, a free EDA CAD application.
+ * This program source code file is part of Anvil, a free EDA CAD application.
  *
  * Copyright (C) 2012 CERN
  * Copyright The KiCad Developers, see AUTHORS.txt for contributors.
@@ -438,7 +438,7 @@ bool FP_CACHE::loadFromAggregateCache( long long aDirTimestamp )
 
             footprint->SetFPID( LIB_ID( wxEmptyString, fpName ) );
 
-            // Reconstruct the per-footprint source path (KiCad stores one footprint per file named
+            // Reconstruct the per-footprint source path (Anvil stores one footprint per file named
             // <fpName>.kicad_mod, so the filename equals the footprint name — same as the per-file
             // path's fn.GetName()).  Save()/Remove() rely on this pointing at the real file.
             WX_FILENAME fn( m_lib_raw_path, fpName + wxT( "." )
@@ -3429,7 +3429,7 @@ void PCB_IO_KICAD_SEXPR::format( const ZONE_LAYER_PROPERTIES& aZoneLayerProperti
 }
 
 
-PCB_IO_KICAD_SEXPR::PCB_IO_KICAD_SEXPR( int aControlFlags ) : PCB_IO( wxS( "KiCad" ) ),
+PCB_IO_KICAD_SEXPR::PCB_IO_KICAD_SEXPR( int aControlFlags ) : PCB_IO( wxS( "Anvil" ) ),
     m_cache( nullptr ),
     m_ctl( aControlFlags )
 {

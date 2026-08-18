@@ -1,5 +1,5 @@
 /*
- * This program source code file is part of KiCad, a free EDA CAD application.
+ * This program source code file is part of Anvil, a free EDA CAD application.
  *
  * Copyright (C) 2012 SoftPLC Corporation, Dick Hollenbeck <dick@softplc.com>
  * Copyright (C) 2012 Jean-Pierre Charras, jp.charras at wanadoo.fr
@@ -256,7 +256,7 @@ PROJECT_TREE_PANE::PROJECT_TREE_PANE( KICAD_MANAGER_FRAME* parent ) :
     for( int ii = 0; s_allowedExtensionsToList[ii] != nullptr; ii++ )
         m_filters.emplace_back( s_allowedExtensionsToList[ii] );
 
-    m_filters.emplace_back( wxT( "^no KiCad files found" ) );
+    m_filters.emplace_back( wxT( "^no Anvil files found" ) );
 
     ReCreateTreePrj();
 }
@@ -487,7 +487,7 @@ wxTreeItemId PROJECT_TREE_PANE::addItemToProjectTree( const wxString& aName,
             }
         }
 
-        // Anvil native extensions classify as their KiCad-format equivalents.
+        // Anvil native extensions classify as their Anvil-format equivalents.
         if( type == TREE_FILE_TYPE::UNKNOWN )
         {
             wxString anvilExt = wxFileName( aName ).GetExt().Lower();
@@ -1133,7 +1133,7 @@ void PROJECT_TREE_PANE::onOpenSelectedFileWithTextEditor( wxCommandEvent& event 
 
     if( editorname.IsEmpty() )
     {
-        wxMessageBox( _( "No text editor selected in KiCad.  Please choose one." ) );
+        wxMessageBox( _( "No text editor selected in Anvil.  Please choose one." ) );
         return;
     }
 

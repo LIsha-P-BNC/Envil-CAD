@@ -1,5 +1,5 @@
 /*
- * This program source code file is part of KiCad, a free EDA CAD application.
+ * This program source code file is part of Anvil, a free EDA CAD application.
  *
  * Copyright (C) 2004-2015 Jean-Pierre Charras, jp.charras at wanadoo.fr
  * Copyright (C) 2011 Wayne Stambaugh <stambaughw@gmail.com>
@@ -107,7 +107,7 @@ static const wxChar* const traceAllegroPerf = wxT( "KICAD_ALLEGRO_PERF" );
  * @param aParent is a wxFrame passed to wxFileDialog.
  * @param aCtl is where to put the OpenProjectFiles() control bits.
  * @param aFileName on entry is a probable choice, on return is the chosen filename.
- * @param aKicadFilesOnly true to list KiCad pcb files plugins only, false to list import plugins.
+ * @param aKicadFilesOnly true to list Anvil pcb files plugins only, false to list import plugins.
  * @return  true if chosen, else false if user aborted.
  */
 bool AskLoadBoardFileName( PCB_EDIT_FRAME* aParent, wxString* aFileName, int aCtl = 0 )
@@ -193,7 +193,7 @@ bool AskLoadBoardFileName( PCB_EDIT_FRAME* aParent, wxString* aFileName, int aCt
 
     bool kicadFormat = ( aCtl & KICTL_KICAD_ONLY );
 
-    wxFileDialog dlg( aParent, kicadFormat ? _( "Open Board File" ) : _( "Import Non KiCad Board File" ),
+    wxFileDialog dlg( aParent, kicadFormat ? _( "Open Board File" ) : _( "Import Non Anvil Board File" ),
                       path, name, fileFiltersStr, wxFD_OPEN | wxFD_FILE_MUST_EXIST );
 
     FILEDLG_IMPORT_NON_KICAD importOptions( aParent->config()->m_System.show_import_issues );
@@ -490,7 +490,7 @@ int PCB_EDIT_FRAME::inferLegacyEdgeClearance( BOARD* aBoard, bool aShowUserMsg )
                             _( "If the zones on this board are refilled the Copper Edge "
                                "Clearance setting will be used (see Board Setup > Design "
                                "Rules > Constraints).\n This may result in different fills "
-                               "from previous KiCad versions which used the line thicknesses "
+                               "from previous Anvil versions which used the line thicknesses "
                                "of the board boundary on the Edge Cuts layer." ) );
     }
 
@@ -523,8 +523,8 @@ bool PCB_EDIT_FRAME::OpenProjectFiles( const std::vector<wxString>& aFileSet, in
     if( !lock->Valid() && lock->IsLockedByMe() )
     {
         // If we cannot acquire the lock but we appear to be the one who locked it, check to
-        // see if there is another KiCad instance running.  If not, then we can override the
-        // lock.  This could happen if KiCad crashed or was interrupted.
+        // see if there is another Anvil instance running.  If not, then we can override the
+        // lock.  This could happen if Anvil crashed or was interrupted.
 
         if( !Pgm().SingleInstance()->IsAnotherRunning() )
             lock->OverrideLock();
@@ -796,7 +796,7 @@ bool PCB_EDIT_FRAME::OpenProjectFiles( const std::vector<wxString>& aFileSet, in
             if( !loadedBoard->m_LegacyCopperEdgeClearanceLoaded )
             {
                 // Do not show the inferred edge clearance warning dialog when loading third
-                // party boards.  For some reason the dialog completely hangs all of KiCad and
+                // party boards.  For some reason the dialog completely hangs all of Anvil and
                 // the imported board cannot be saved.
                 int edgeClearance = inferLegacyEdgeClearance( loadedBoard, !converted );
                 loadedBoard->GetDesignSettings().m_CopperEdgeClearance = edgeClearance;
@@ -858,7 +858,7 @@ bool PCB_EDIT_FRAME::OpenProjectFiles( const std::vector<wxString>& aFileSet, in
         {
             m_infoBar->RemoveAllButtons();
             m_infoBar->AddCloseButton();
-            m_infoBar->ShowMessage( _( "This file was created by an older version of KiCad. "
+            m_infoBar->ShowMessage( _( "This file was created by an older version of Anvil. "
                                        "It will be converted to the new format when saved." ),
                                     wxICON_WARNING, WX_INFOBAR::MESSAGE_TYPE::OUTDATED_SAVE );
         }
@@ -922,7 +922,7 @@ bool PCB_EDIT_FRAME::OpenProjectFiles( const std::vector<wxString>& aFileSet, in
                     rel_path = result;
 
                 FP_LIB_TABLE_ROW* row = new FP_LIB_TABLE_ROW( libNickName, rel_path,
-                                                              wxT( "KiCad" ), wxEmptyString );
+                                                              wxT( "Anvil" ), wxEmptyString );
                 prjlibtable->InsertRow( row );
 
                 wxString tblName = Prj().FootprintLibTblName();

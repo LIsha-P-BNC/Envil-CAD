@@ -1,5 +1,5 @@
 /*
- * This program source code file is part of KiCad, a free EDA CAD application.
+ * This program source code file is part of Anvil, a free EDA CAD application.
  *
  * Copyright The KiCad Developers, see AUTHORS.txt for contributors.
  *
@@ -37,7 +37,7 @@ CLI::PCB_IMPORT_COMMAND::PCB_IMPORT_COMMAND() : COMMAND( "import" )
     addCommonArgs( true, true, IO_TYPE::FILE, IO_TYPE::FILE );
 
     m_argParser.add_description(
-            UTF8STDSTR( _( "Import a non-KiCad PCB file to KiCad format" ) ) );
+            UTF8STDSTR( _( "Import a non-Anvil PCB file to Anvil format" ) ) );
 
     m_argParser.add_argument( ARG_FORMAT )
             .default_value( std::string( "auto" ) )

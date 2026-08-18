@@ -1,5 +1,5 @@
 /*
- * This program source code file is part of KiCad, a free EDA CAD application.
+ * This program source code file is part of Anvil, a free EDA CAD application.
  *
  * Copyright The KiCad Developers, see AUTHORS.txt for contributors.
  *
@@ -36,11 +36,11 @@ enum class PADS_UNIT_TYPE
 };
 
 /**
- * Converts PADS file format units to KiCad internal units (nanometers).
+ * Converts PADS file format units to Anvil internal units (nanometers).
  *
  * PADS files can use different unit systems: MILS, METRIC (mm), or INCHES.
  * Additionally, files can use BASIC units which are internal database units.
- * This class handles conversion from any of these to KiCad's internal
+ * This class handles conversion from any of these to Anvil's internal
  * nanometer representation.
  */
 class PADS_UNIT_CONVERTER
@@ -165,7 +165,7 @@ public:
      * This is the primary conversion function for positional values.
      *
      * @param aValue The value in PADS file units.
-     * @return The value in nanometers (KiCad internal units).
+     * @return The value in nanometers (Anvil internal units).
      */
     int64_t ToNanometers( double aValue ) const;
 
@@ -176,7 +176,7 @@ public:
      * coordinates but may have different rounding behavior in the future.
      *
      * @param aValue The size value in PADS file units.
-     * @return The size in nanometers (KiCad internal units).
+     * @return The size in nanometers (Anvil internal units).
      */
     int64_t ToNanometersSize( double aValue ) const;
 

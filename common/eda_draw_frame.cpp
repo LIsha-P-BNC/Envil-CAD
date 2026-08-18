@@ -1,5 +1,5 @@
 /*
- * This program source code file is part of KiCad, a free EDA CAD application.
+ * This program source code file is part of Anvil, a free EDA CAD application.
  *
  * Copyright (C) 2004-2017 Jean-Pierre Charras, jp.charras at wanadoo.fr
  * Copyright (C) 2008 Wayne Stambaugh <stambaughw@gmail.com>
@@ -272,8 +272,8 @@ bool EDA_DRAW_FRAME::LockFile( const wxString& aFileName )
     if( !m_file_checker->Valid() && m_file_checker->IsLockedByMe() )
     {
         // If we cannot acquire the lock but we appear to be the one who locked it, check to see if
-        // there is another KiCad instance running.  If there is not, then we can override the lock.
-        // This could happen if KiCad crashed or was interrupted.
+        // there is another Anvil instance running.  If there is not, then we can override the lock.
+        // This could happen if Anvil crashed or was interrupted.
         if( !Pgm().SingleInstance()->IsAnotherRunning() )
             m_file_checker->OverrideLock();
     }

@@ -1,5 +1,5 @@
 /*
- * This program source code file is part of KiCad, a free EDA CAD application.
+ * This program source code file is part of Anvil, a free EDA CAD application.
  *
  * Copyright Quilter
  * Copyright The KiCad Developers, see AUTHORS.txt for contributors.
@@ -166,7 +166,7 @@ bool PCB_IO_ALLEGRO::LoadBoardFromData( const uint8_t* aData, size_t aSize, BOAR
 
     wxLogTrace( traceAllegroPerf, wxT( "Phase 1 (binary parse): %.3f ms" ), phaseTimer.msecs() ); //format:allow
 
-    // Import Phase 2: turn the C++ structs into the KiCad BOARD
+    // Import Phase 2: turn the C++ structs into the Anvil BOARD
     ALLEGRO::BOARD_BUILDER builder( *brdDb, aBoard, *m_reporter, m_progressReporter, m_layer_mapping_handler );
 
     phaseTimer.Start();

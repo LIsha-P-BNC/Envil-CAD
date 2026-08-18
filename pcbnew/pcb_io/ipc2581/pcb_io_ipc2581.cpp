@@ -1,5 +1,5 @@
 /**
-* This program source code file is part of KiCad, a free EDA CAD application.
+* This program source code file is part of Anvil, a free EDA CAD application.
 *
 * Copyright The KiCad Developers, see AUTHORS.txt for contributors.
 *
@@ -65,7 +65,7 @@ static const wxChar traceIpc2581[] = wxT( "KICAD_IPC_2581" );
 
 
 /**
- * Map KiCad surface finish strings to IPC-6012 surfaceFinishType enum.
+ * Map Anvil surface finish strings to IPC-6012 surfaceFinishType enum.
  */
 static const std::map<wxString, surfaceFinishType> surfaceFinishMap =
 {
@@ -515,17 +515,17 @@ void PCB_IO_IPC2581::addLocationNode( wxXmlNode* aNode, const PCB_SHAPE& aShape 
 
     switch( aShape.GetShape() )
     {
-    // Rectangles in KiCad are mapped by their corner while IPC2581 uses the center
+    // Rectangles in Anvil are mapped by their corner while IPC2581 uses the center
     case SHAPE_T::RECTANGLE:
         pos = aShape.GetPosition()
               + VECTOR2I( aShape.GetRectangleWidth() / 2.0, aShape.GetRectangleHeight() / 2.0 );
         break;
-    // Both KiCad and IPC2581 use the center of the circle
+    // Both Anvil and IPC2581 use the center of the circle
     case SHAPE_T::CIRCLE:
         pos = aShape.GetPosition();
         break;
 
-    // KiCad uses the exact points on the board, so we want the reference location to be 0,0
+    // Anvil uses the exact points on the board, so we want the reference location to be 0,0
     case SHAPE_T::POLY:
     case SHAPE_T::BEZIER:
     case SHAPE_T::SEGMENT:
@@ -1417,7 +1417,7 @@ wxXmlNode* PCB_IO_IPC2581::generateHistorySection()
     wxXmlNode* historyNode = appendNode( m_xml_root, "HistoryRecord" );
     addAttribute( historyNode,  "number", "1" );
     addAttribute( historyNode,  "origination", wxDateTime::Now().FormatISOCombined() );
-    addAttribute( historyNode,  "software", "KiCad EDA" );
+    addAttribute( historyNode,  "software", "Anvil EDA" );
     addAttribute( historyNode,  "lastChange", wxDateTime::Now().FormatISOCombined() );
 
     wxXmlNode* fileRevisionNode = appendNode( historyNode, "FileRevision" );
@@ -1426,9 +1426,9 @@ wxXmlNode* PCB_IO_IPC2581::generateHistorySection()
     addAttribute( fileRevisionNode,  "label", "NO LABEL" );
 
     wxXmlNode* softwarePackageNode = appendNode( fileRevisionNode, "SoftwarePackage" );
-    addAttribute( softwarePackageNode,  "name", "KiCad" );
+    addAttribute( softwarePackageNode,  "name", "Anvil" );
     addAttribute( softwarePackageNode,  "revision", GetMajorMinorPatchVersion() );
-    addAttribute( softwarePackageNode,  "vendor", "KiCad EDA" );
+    addAttribute( softwarePackageNode,  "vendor", "Anvil EDA" );
 
     wxXmlNode* certificationNode = appendNode( softwarePackageNode, "Certification" );
     addAttribute( certificationNode,  "certificationStatus", "SELFTEST" );
@@ -3881,7 +3881,7 @@ wxXmlNode* PCB_IO_IPC2581::generateAvlSection()
 
     wxXmlNode* header = appendNode( avl, "AvlHeader" );
     addAttribute( header,  "title", "BOM" );
-    addAttribute( header,  "source", "KiCad" );
+    addAttribute( header,  "source", "Anvil" );
     addAttribute( header,  "author", "OWNER" );
     addAttribute( header,  "datetime", wxDateTime::Now().FormatISOCombined() );
     addAttribute( header,  "version", "1" );

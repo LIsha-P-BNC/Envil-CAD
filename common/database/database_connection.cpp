@@ -1,5 +1,5 @@
 /*
- * This program source code file is part of KiCad, a free EDA CAD application.
+ * This program source code file is part of Anvil, a free EDA CAD application.
  *
  * Copyright (C) 2022 Jon Evans <jon@craftyjon.com>
  * Copyright The KiCad Developers, see AUTHORS.txt for contributors.
@@ -52,14 +52,14 @@ const char* const traceDatabase = "KICAD_DATABASE";
 
 /**
  * When Unicode support is enabled in nanodbc, string formats are used matching the appropriate
- * character set of the platform.  KiCad uses UTF-8 encoded strings internally, but different
+ * character set of the platform.  Anvil uses UTF-8 encoded strings internally, but different
  * platforms use different encodings for SQL strings.  Unicode mode must be enabled for compilation
  * on Windows, since Visual Studio forces the use of Unicode SQL headers if any part of the project
  * has Unicode enabled.
  */
 
 /**
- * Converts a string from KiCad-native to nanodbc-native
+ * Converts a string from Anvil-native to nanodbc-native
  * @param aString is a UTF-8 encoded string
  * @return a string in nanodbc's platform-specific representation
  */
@@ -70,7 +70,7 @@ nanodbc::string fromUTF8( const std::string& aString )
 
 
 /**
- * Converts a string from nanodbc-native to KiCad-native
+ * Converts a string from nanodbc-native to Anvil-native
  * @param aString is a string encoded in nanodbc's platform-specific way
  * @return a string with UTF-8 encoding
  */

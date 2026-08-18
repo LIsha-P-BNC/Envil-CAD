@@ -1,5 +1,5 @@
 /*
- * This program source code file is part of KiCad, a free EDA CAD application.
+ * This program source code file is part of Anvil, a free EDA CAD application.
  *
  * Copyright (C) 2024 Jon Evans <jon@craftyjon.com>
  * Copyright The KiCad Developers, see AUTHORS.txt for contributors.
@@ -211,7 +211,7 @@ std::optional<ApiResponseStatus> API_HANDLER_EDITOR::checkForBusy()
     {
         ApiResponseStatus e;
         e.set_status( ApiStatusCode::AS_BUSY );
-        e.set_error_message( "KiCad is busy and cannot respond to API requests right now" );
+        e.set_error_message( "Anvil is busy and cannot respond to API requests right now" );
         return e;
     }
 

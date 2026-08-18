@@ -1,5 +1,5 @@
 /*
- * This program source code file is part of KiCad, a free EDA CAD application.
+ * This program source code file is part of Anvil, a free EDA CAD application.
  *
  * Copyright The KiCad Developers, see AUTHORS.txt for contributors.
  *
@@ -35,7 +35,7 @@ class SEARCH_STACK;
 
 /**
  * Append system places to \a aSearchStack in a platform specific way and pertinent
- * to KiCad programs.
+ * to Anvil programs.
  */
 KICOMMON_API void SystemDirsAppend( SEARCH_STACK* aSearchStack );
 

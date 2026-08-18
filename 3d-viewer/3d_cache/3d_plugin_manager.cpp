@@ -1,5 +1,5 @@
 /*
- * This program source code file is part of KiCad, a free EDA CAD application.
+ * This program source code file is part of Anvil, a free EDA CAD application.
  *
  * Copyright (C) 2015-2016 Cirilo Bernardo <cirilo.bernardo@gmail.com>
  * Copyright The KiCad Developers, see AUTHORS.txt for contributors.
@@ -158,7 +158,7 @@ void S3D_PLUGIN_MANAGER::loadPlugins( void )
     if( wxGetEnv( wxT( "KICAD_RUN_FROM_BUILD_DIR" ), nullptr ) )
     {
     	// Exe will be at <build_dir>/pcbnew/pcbnew.app/Contents/MacOS/pcbnew for standalone
-    	// Plugin will be at <build_dir>/kicad/KiCad.app/Contents/PlugIns/3d
+    	// Plugin will be at <build_dir>/kicad/Anvil.app/Contents/PlugIns/3d
     	fn.Assign( wxStandardPaths::Get().GetExecutablePath() );
 
         if( fn.GetName() == wxT( "kicad" ) )
@@ -172,7 +172,7 @@ void S3D_PLUGIN_MANAGER::loadPlugins( void )
             fn.AppendDir( wxT( ".." ) ); // pcbnew
             fn.AppendDir( wxT( ".." ) ); // Build root
             fn.AppendDir( wxT( "kicad" ) );
-            fn.AppendDir( wxT( "KiCad.app" ) );
+            fn.AppendDir( wxT( "Anvil.app" ) );
             fn.AppendDir( wxT( "Contents" ) );
         }
 
@@ -183,7 +183,7 @@ void S3D_PLUGIN_MANAGER::loadPlugins( void )
     	std::string testpath = std::string( fn.GetPathWithSep().ToUTF8() );
     	checkPluginPath( testpath, searchpaths );
 
-        // Also check when running KiCad manager from build dir
+        // Also check when running Anvil manager from build dir
 
     }
     else

@@ -1,5 +1,5 @@
 /*
- * This program source code file is part of KiCad, a free EDA CAD application.
+ * This program source code file is part of Anvil, a free EDA CAD application.
  *
  * Copyright (C) 2014 Jean-Pierre Charras, jp.charras at wanadoo.fr
  * Copyright (C) 2012 SoftPLC Corporation, Dick Hollenbeck <dick@softplc.com>
@@ -116,7 +116,7 @@ std::optional<TOOLBAR_CONFIGURATION> FOOTPRINT_VIEWER_TOOLBAR_SETTINGS::DefaultT
 
 void FOOTPRINT_VIEWER_FRAME::doReCreateMenuBar()
 {
-    // KiCad Next: build the shared common menu bar instead of the legacy one when enabled.
+    // Anvil Next: build the shared common menu bar instead of the legacy one when enabled.
     if( UseUnifiedMenuBar() )
     {
         buildCommonMenuBar();
@@ -161,7 +161,7 @@ void FOOTPRINT_VIEWER_FRAME::doReCreateMenuBar()
 }
 
 
-//================================ KiCad Next unified menu bar ================================
+//================================ Anvil Next unified menu bar ================================
 // The hooks reproduce the small browser menus above so the viewer joins the unified bar and
 // the modern layout's Window menu.  In the modern toolbar preset the left bar keeps only the
 // working tools, so its display toggles surface in the View menu here.

@@ -1,5 +1,5 @@
 /*
- * This program source code file is part of KiCad, a free EDA CAD application.
+ * This program source code file is part of Anvil, a free EDA CAD application.
  *
  * Copyright The KiCad Developers, see AUTHORS.txt for contributors.
  *
@@ -151,7 +151,7 @@ void drawTicksAlongLine( KIGFX::VIEW* aView, const VECTOR2D& aOrigin, const VECT
         // Due to the fact a shadow text is drawn left or right aligned,
         // it needs an offset = shadowXoffset to be drawn at the same place as normal text
         // But for some reason we need to slightly modify this offset
-        // for a better look for KiCad font (better alignment of shadow shape)
+        // for a better look for Anvil font (better alignment of shadow shape)
         const float adjust = 1.2f;      // Value chosen after tests
         shadowXoffset *= adjust;
     }

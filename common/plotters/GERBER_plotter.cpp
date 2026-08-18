@@ -1,5 +1,5 @@
 /*
- * This program source code file is part of KiCad, a free EDA CAD application.
+ * This program source code file is part of Anvil, a free EDA CAD application.
  *
  * Copyright (C) 2019 Jean-Pierre Charras, jp.charras at wanadoo.fr
  * Copyright The KiCad Developers, see AUTHORS.txt for contributors.
@@ -287,7 +287,7 @@ bool GERBER_PLOTTER::StartPlot( const wxString& aPageNumber )
     // So use a ISO date format (using a space as separator between date and time),
     // not a localized date format
     wxDateTime date = wxDateTime::Now();
-    fmt::println( m_outputFile, "G04 Created by KiCad ({}) date {}*",
+    fmt::println( m_outputFile, "G04 Created by Anvil ({}) date {}*",
              TO_UTF8( Title ), TO_UTF8( date.FormatISOCombined( ' ') ) );
 
     /* Mass parameter: unit = IN/MM */

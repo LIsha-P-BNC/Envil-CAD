@@ -1,5 +1,5 @@
 /*
- * This program source code file is part of KiCad, a free EDA CAD application.
+ * This program source code file is part of Anvil, a free EDA CAD application.
  *
  * Copyright The KiCad Developers, see AUTHORS.txt for contributors.
  *
@@ -175,7 +175,7 @@ void PROJECT::setProjectFullName( const wxString& aFullPathAndName )
         wxString ext = m_project_name.GetExt();
 
         // Anvil dual-extension: .anvil_pro is a first-class project extension.  Only
-        // normalize genuinely foreign extensions to the KiCad default.
+        // normalize genuinely foreign extensions to the Anvil default.
         if( !ext.IsEmpty() && ext != FILEEXT::AnvilProjectFileExtension
                 && ext != FILEEXT::ProjectFileExtension )
         {

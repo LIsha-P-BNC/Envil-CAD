@@ -1,5 +1,5 @@
 /*
- * This program source code file is part of KiCad, a free EDA CAD application.
+ * This program source code file is part of Anvil, a free EDA CAD application.
  *
  * Copyright The KiCad Developers, see AUTHORS.txt for contributors.
  *
@@ -212,7 +212,7 @@ int SIMULATOR_CONTROL::ExportPlotToClipboard( const TOOL_EVENT& aEvent )
             wxBitmap bm( screenImage );
 
             wxTheClipboard->SetData( new wxBitmapDataObject( bm ) );
-            wxTheClipboard->Flush(); // Allow data to be available after closing KiCad
+            wxTheClipboard->Flush(); // Allow data to be available after closing Anvil
             wxTheClipboard->Close();
         }
     }

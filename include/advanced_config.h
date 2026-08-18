@@ -1,5 +1,5 @@
 /*
- * This program source code file is part of KiCad, a free EDA CAD application.
+ * This program source code file is part of Anvil, a free EDA CAD application.
  *
  * Copyright The KiCad Developers, see AUTHORS.txt for contributors.
  *
@@ -37,7 +37,7 @@ class PARAM_CFG;
  * Class containing "advanced" configuration options.
  *
  * Options set here are for developer or advanced users only. If a general user
- * needs to set one of these for normal KiCad use, either:
+ * needs to set one of these for normal Anvil use, either:
  * * They are working around some bug that should be fixed, or
  * * The parameter they are setting is of general interest and should be in the
  *   main application config, with UI provided.
@@ -441,9 +441,9 @@ public:
     bool m_Skip3DModelMemoryCache;
 
     /**
-     * Hide the build version from the KiCad manager frame title.
+     * Hide the build version from the Anvil manager frame title.
      *
-     * Useful for making screenshots/videos of KiCad without pinning to a specific version.
+     * Useful for making screenshots/videos of Anvil without pinning to a specific version.
      *
      * Setting name: "HideVersionFromTitle"
      * Valid values: 0 or 1
@@ -553,7 +553,7 @@ public:
     bool m_EnableGenerators;
 
     /**
-     * KiCad Next: build every frame's menu bar from the shared common-root builder
+     * Anvil Next: build every frame's menu bar from the shared common-root builder
      * (EDA_BASE_FRAME::buildCommonMenuBar) instead of the legacy per-frame menu code.
      * Additive/reversible: when 0, each frame's original doReCreateMenuBar() runs unchanged.
      *
@@ -564,12 +564,12 @@ public:
     bool m_UnifiedMenuBar;
 
     /**
-     * KiCad Next: regroup the unified menu bar into the Altium-style top-level set
+     * Anvil Next: regroup the unified menu bar into the Altium-style top-level set
      * (File / Edit / View / Project / Place / Design / Route / Reports / Tools / Window,
      * with the Preferences items folded into the tail of Tools until the title-bar gear
      * button hosts them).  Implies the unified menu-bar path even when "UnifiedMenuBar"
      * is 0.  Every menu item still fires the stock action; only its top-level grouping
-     * changes, so the classic KiCad grouping returns unchanged when this is 0.
+     * changes, so the classic Anvil grouping returns unchanged when this is 0.
      *
      * Setting name: "ModernMenuLayout"
      * Valid values: 0 or 1
@@ -578,7 +578,7 @@ public:
     bool m_ModernMenuLayout;
 
     /**
-     * KiCad Next: Altium-style ("Active Bar") toolbar preset.  The left and right editor
+     * Anvil Next: Altium-style ("Active Bar") toolbar preset.  The left and right editor
      * toolbars are dropped; the drawing / routing tools fold into grouped palette buttons at
      * the end of the top toolbar, and the display toggles they carried surface in the View
      * menu when ModernMenuLayout is also set.  Independent of ModernMenuLayout so either can
@@ -592,7 +592,7 @@ public:
     bool m_ModernToolbarLayout;
 
     /**
-     * KiCad Next: open the auxiliary tools (Gerber Viewer, Image Converter, PCB
+     * Anvil Next: open the auxiliary tools (Gerber Viewer, Image Converter, PCB
      * Calculator, Drawing Sheet Editor) as in-process KIWAY players instead of
      * spawning a separate executable, so they live in one process (one KIWAY /
      * one AI brain) and can be re-hosted as tabs in the project-manager shell.
@@ -607,7 +607,7 @@ public:
     bool m_SingleWindowShell;
 
     /**
-     * KiCad Next: host a single AI chat panel in the project-manager shell (Cursor
+     * Anvil Next: host a single AI chat panel in the project-manager shell (Cursor
      * style) instead of one panel per editor frame. When set together with
      * SingleWindowShell, the per-editor AI panels are suppressed and the shell owns
      * the only panel, retargeting it to whichever editor tab is active.
@@ -620,7 +620,7 @@ public:
     bool m_CommonAiPanel;
 
     /**
-     * KiCad Next: in the single-window shell, mirror the active editor tab's status bar
+     * Anvil Next: in the single-window shell, mirror the active editor tab's status bar
      * (cursor X/Y, dx/dy, grid, units, zoom, current tool, constraints) into the shell's
      * own footer, which is otherwise the Project Manager's 2-field bar with no coordinates.
      * Needs SingleWindowShell. Additive/reversible: when 0, the shell footer is the original
@@ -997,7 +997,7 @@ public:
     /**
      * Stale lock timeout for local history repository locks, in seconds.
      *
-     * When a KiCad process crashes while holding a lock on the .history repository,
+     * When a Anvil process crashes while holding a lock on the .history repository,
      * the lock file remains. This setting controls how old a lock file must be
      * before it is considered "stale" and can be automatically removed.
      *
@@ -1047,7 +1047,7 @@ public:
 
     /**
      * PADS text anchor offset in nanometers for PCB imports.
-     * Compensates for the difference between PADS and KiCad text anchor positions.
+     * Compensates for the difference between PADS and Anvil text anchor positions.
      *
      * Setting name: "PadsTextAnchorOffsetNm"
      * Valid values: 0 to 1000000
@@ -1096,7 +1096,7 @@ public:
     wxString m_traceMasks; ///< Trace masks for wxLogTrace, loaded from the config file.
 
     /**
-     * KiCad Next single-window shell: after the project-manager window is up, warm the
+     * Anvil Next single-window shell: after the project-manager window is up, warm the
      * heavy editor KIFACEs (Symbol / Footprint / Gerber / Drawing-Sheet) in the
      * background, one at a time on the GUI thread, so the user's first click on one is
      * instant instead of "loading the whole app".  Only has any effect when
@@ -1118,7 +1118,7 @@ public:
     bool m_ShellPrewarmEditors;
 
     /**
-     * KiCad Next: open a project-tree file (schematic, PCB, ...) on a single mouse click
+     * Anvil Next: open a project-tree file (schematic, PCB, ...) on a single mouse click
      * instead of requiring a double-click — VS Code / Cursor style.  Double-click keeps
      * working unchanged (it goes through the existing activate path); this only adds the
      * single-click open, so it is additive/reversible.  Directories and the +/- expand
@@ -1135,7 +1135,7 @@ public:
     bool m_SingleClickOpen;
 
     /**
-     * KiCad Next / Anvil: folder-based symbol libraries (`*.kicad_symdir`, one `*.kicad_sym`
+     * Anvil Next / Anvil: folder-based symbol libraries (`*.kicad_symdir`, one `*.kicad_sym`
      * file per symbol) are loaded by opening and parsing every file in the directory on the
      * GUI thread.  With the Anvil library set (~223 libs / ~22,800 files) that synchronous
      * enumeration freezes the window ("Not Responding") on the first Symbol Chooser / editor
@@ -1164,7 +1164,7 @@ public:
     bool m_SymDirAggregateCache;
 
     /**
-     * KiCad Next / Anvil: paint the schematic editor's window chrome (the "frame": dockable
+     * Anvil Next / Anvil: paint the schematic editor's window chrome (the "frame": dockable
      * panel backgrounds, sashes/borders/captions, the AUI tool-bars and child controls) with
      * the Anvil "Vibrant Purple & Indigo" dark palette, instead of the OS/native colours.
      * Scoped to the schematic editor only — the project manager and the other editors are left
@@ -1176,7 +1176,7 @@ public:
      * ADVANCED_CFG need not be rebuilt for this addition (only kicommon + eeschema, which reads
      * the flag when building the schematic frame).
      *
-     * OPT-IN (default 0) so the chrome is byte-identical to stock KiCad until explicitly enabled.
+     * OPT-IN (default 0) so the chrome is byte-identical to stock Anvil until explicitly enabled.
      *
      * Setting name: "AnvilPurpleFrame"
      * Valid values: 0 or 1
@@ -1185,7 +1185,7 @@ public:
     bool m_AnvilPurpleFrame;
 
     /**
-     * KiCad Next: when ON, recolor the toolbar/menu icon set from KiCad blue to the NEMI emerald
+     * Anvil Next: when ON, recolor the toolbar/menu icon set from Anvil blue to the NEMI emerald
      * hue at load time (a hue-selective remap in BITMAP_STORE::getImage).  Ships OFF: Anvil's icon
      * identity is now rich MULTI-COLOUR — the native full-colour palette for the general icon set
      * plus custom multi-colour editor icons (icon_eeschema/pcbnew/etc.).  Set 1 to opt back into the
@@ -1210,7 +1210,7 @@ public:
     int m_AnvilTooltipDelayMs;
 
     /**
-     * KiCad Next / Anvil: ungroup toolbar tool-groups into individual buttons.  KiCad packs related
+     * Anvil Next / Anvil: ungroup toolbar tool-groups into individual buttons.  Anvil packs related
      * tools (route/via/tune, line/arc/rectangle/circle/polygon, dimensions, ...) into a single
      * button with a ">>" group dropdown; when this is on, ApplyConfiguration() adds every group
      * member as its OWN button instead, so all tools are visible at once with no group dropdowns.
@@ -1223,7 +1223,7 @@ public:
     bool m_AnvilFlatToolbars;
 
     /**
-     * KiCad Next / Anvil: base point size for the application UI font (menus' dropdowns, side
+     * Anvil Next / Anvil: base point size for the application UI font (menus' dropdowns, side
      * panels, project tree, status bars, dialogs — every wx control that derives its font from
      * the window font).  Applied once on each EDA_BASE_FRAME and DIALOG_SHIM at construction;
      * the KIUI font helpers (GetControlFont / GetInfoFont / ...) then derive from it, so the
@@ -1251,7 +1251,7 @@ public:
     wxString m_AnvilMonoFontFace;
 
     /**
-     * KiCad Next / Anvil: consolidated read cache for *.pretty footprint folder libraries — the
+     * Anvil Next / Anvil: consolidated read cache for *.pretty footprint folder libraries — the
      * footprint twin of SymDirAggregateCache.  The PCB editor's first footprint load opens and
      * parses every *.kicad_mod in every *.pretty library on the loader thread; on a large library
      * (e.g. 155 folders / 15k files) with real-time antivirus scanning each open, that load blocks
@@ -1274,8 +1274,8 @@ public:
     bool m_FpDirAggregateCache;
 
     /**
-     * KiCad Next / Anvil: self-heal the global symbol AND footprint library tables on load.  A
-     * shipped install seeds each global table as a single nested "KiCad" row pointing at the stock
+     * Anvil Next / Anvil: self-heal the global symbol AND footprint library tables on load.  A
+     * shipped install seeds each global table as a single nested "Anvil" row pointing at the stock
      * template (share/kicad/template/sym-lib-table | fp-lib-table).  If that template is missing,
      * empty, or was replaced by an older/broken installer, the table flattens to ZERO libraries and
      * the symbol chooser shows "0 items loaded" / the footprint preview shows "Footprint not found"
@@ -1301,7 +1301,7 @@ public:
     bool m_LibTableSelfHeal;
 
     /**
-     * KiCad Next / Anvil: before a symbol picked from the library chooser is placed on the
+     * Anvil Next / Anvil: before a symbol picked from the library chooser is placed on the
      * sheet, or before a brand-new symbol is finalized in the symbol editor, show a small
      * confirmation dialog asking (a) Through-Hole vs Surface-Mount package preference and
      * (b) which candidate footprint/library to use for that part. Asked once per distinct
@@ -1312,7 +1312,7 @@ public:
      * appending keeps every existing member's offset stable, so only kicommon + eeschema (which
      * read this flag) need rebuilding for this addition.
      *
-     * OPT-IN (default 0) so symbol placement is byte-identical to stock KiCad until enabled.
+     * OPT-IN (default 0) so symbol placement is byte-identical to stock Anvil until enabled.
      *
      * Setting name: "ConfirmComponentPackage"
      * Valid values: 0 or 1
@@ -1321,14 +1321,14 @@ public:
     bool m_ConfirmComponentPackage;
 
     /**
-     * KiCad Next / Anvil: VSCode-style "auto save to the real file".  Stock KiCad's autosave
+     * Anvil Next / Anvil: VSCode-style "auto save to the real file".  Stock Anvil's autosave
      * timer commits the editor state to the git-backed .history snapshot store, NOT to the
      * actual .kicad_sch / .kicad_pcb the AI backend reads.  So a user's MANUAL edits stay in the
      * editor's memory (or only in .history) until an explicit Ctrl+S, and the AI — which reads the
      * real project files each turn — never sees them.  When enabled, the existing autosave timer
      * (already armed on every content change) instead writes the user's current in-memory design
      * straight to the real project file on disk (like VSCode files.autoSave=afterDelay) and SKIPS
-     * the .history snapshot.  Result: the AI observes manual KiCad edits automatically, the
+     * the .history snapshot.  Result: the AI observes manual Anvil edits automatically, the
      * Cursor/Claude-Code way (file on disk = source of truth, read live), with no snapshot and no
      * per-turn "update" click.  Read by SCH_EDIT_FRAME::doAutoSave / PCB_EDIT_FRAME::DoAutoSave;
      * EDA_BASE_FRAME::GetAutoSaveInterval returns a short positive default when this is on so the
@@ -1338,7 +1338,7 @@ public:
      * above — appending keeps every existing member's offset stable, so only kicommon + the two
      * editor KIFACEs (which read the flag in their autosave hooks) need rebuilding for this.
      *
-     * OPT-IN (default 0) so autosave is byte-identical to stock KiCad (.history snapshot) until
+     * OPT-IN (default 0) so autosave is byte-identical to stock Anvil (.history snapshot) until
      * explicitly enabled.
      *
      * Setting name: "AnvilAutoSaveRealFile"

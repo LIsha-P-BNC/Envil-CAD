@@ -1,5 +1,5 @@
 /*
- * This program source code file is part of KiCad, a free EDA CAD application.
+ * This program source code file is part of Anvil, a free EDA CAD application.
  *
  * Copyright (C) 2022 Mark Roszko <mark.roszko@gmail.com>
  * Copyright The KiCad Developers, see AUTHORS.txt for contributors.
@@ -135,7 +135,7 @@ EESCHEMA_JOBS_HANDLER::EESCHEMA_JOBS_HANDLER( KIWAY* aKiway ) :
                   if( plotJob->m_plotFormat == SCH_PLOT_FORMAT::HPGL )
                   {
                       DisplayErrorMessage( editFrame,
-                                           _( "Plotting to HPGL is no longer supported as of KiCad 10.0." ) );
+                                           _( "Plotting to HPGL is no longer supported as of Anvil 10.0." ) );
                       return false;
                   }
 
@@ -278,7 +278,7 @@ int EESCHEMA_JOBS_HANDLER::JobExportPlot( JOB* aJob )
 
     if( aPlotJob->m_plotFormat == SCH_PLOT_FORMAT::HPGL )
     {
-        m_reporter->Report( _( "Plotting to HPGL is no longer supported as of KiCad 10.0.\n" ),
+        m_reporter->Report( _( "Plotting to HPGL is no longer supported as of Anvil 10.0.\n" ),
                             RPT_SEVERITY_ERROR );
         return CLI::EXIT_CODES::ERR_ARGS;
     }
@@ -1211,7 +1211,7 @@ int EESCHEMA_JOBS_HANDLER::JobSymUpgrade( JOB* aJob )
     }
     else if( fileType != SCH_IO_MGR::SCH_KICAD )
     {
-        m_reporter->Report( _( "Output path must be specified to convert legacy and non-KiCad libraries\n" ),
+        m_reporter->Report( _( "Output path must be specified to convert legacy and non-Anvil libraries\n" ),
                             RPT_SEVERITY_ERROR );
 
         return CLI::EXIT_CODES::ERR_INVALID_OUTPUT_CONFLICT;

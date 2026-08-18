@@ -1,5 +1,5 @@
 /*
- * This program source code file is part of KiCad, a free EDA CAD application.
+ * This program source code file is part of Anvil, a free EDA CAD application.
  *
  * Copyright (C) 2018 Jean-Pierre Charras, jp.charras at wanadoo.fr
  * Copyright (C) 2012 SoftPLC Corporation, Dick Hollenbeck <dick@softplc.com>
@@ -2802,7 +2802,7 @@ std::vector<PCB_SHAPE*> PAD::Recombine( bool aIsDryRun, int maxError )
             AddPrimitive( layer, primitive );
         }
 
-        // See if there are other shapes that match and mark them for delete.  (KiCad won't
+        // See if there are other shapes that match and mark them for delete.  (Anvil won't
         // produce these, but old footprints from other vendors have them.)
         for( PCB_SHAPE* other : findMatching( fpShape ) )
         {

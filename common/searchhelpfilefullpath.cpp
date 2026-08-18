@@ -1,5 +1,5 @@
 /*
- * This program source code file is part of KiCad, a free EDA CAD application.
+ * This program source code file is part of Anvil, a free EDA CAD application.
  *
  * Copyright (C) 2014-2015 CERN
  * Copyright The KiCad Developers, see AUTHORS.txt for contributors.
@@ -48,7 +48,7 @@ wxString SearchHelpFileFullPath( const wxString& aBaseName )
 
     // By default, the documentation from kicad-doc is installed to a folder called "help" with
     // subdirectories for all supported languages. Although this can be changed at build-time by
-    // overwriting ${KICAD_DOC_PATH}, the best guess KiCad can make is that help files are always
+    // overwriting ${KICAD_DOC_PATH}, the best guess Anvil can make is that help files are always
     // located in a folder named "help". If no translation matching the current locale settings is
     // available, the English version will be returned instead.
 

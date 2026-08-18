@@ -1,5 +1,5 @@
 /*
- * This program source code file is part of KiCad, a free EDA CAD application.
+ * This program source code file is part of Anvil, a free EDA CAD application.
  *
  * Copyright The KiCad Developers, see AUTHORS.txt for contributors.
  *
@@ -598,19 +598,19 @@ void PANEL_DESIGN_BLOCK_LIB_TABLE::onMigrateLibraries( wxCommandEvent& event )
 
     if( rowsToMigrate.size() <= 0 )
     {
-        wxMessageBox( _( "Select one or more rows containing libraries to save as current KiCad format." ) );
+        wxMessageBox( _( "Select one or more rows containing libraries to save as current Anvil format." ) );
         return;
     }
     else
     {
         if( rowsToMigrate.size() == 1 )
         {
-            msg.Printf( _( "Save '%s' as current KiCad format and replace entry in table?" ),
+            msg.Printf( _( "Save '%s' as current Anvil format and replace entry in table?" ),
                         cur_grid()->GetCellValue( rowsToMigrate[0], COL_NICKNAME ) );
         }
         else
         {
-            msg.Printf( _( "Save %d libraries as current KiCad format and replace entries in table?" ),
+            msg.Printf( _( "Save %d libraries as current Anvil format and replace entries in table?" ),
                         (int) rowsToMigrate.size() );
         }
 
@@ -916,7 +916,7 @@ void PANEL_DESIGN_BLOCK_LIB_TABLE::populateEnvironReadOnlyTable()
     }
 
     // Make sure this special environment variable shows up even if it was
-    // not used yet.  It is automatically set by KiCad to the directory holding
+    // not used yet.  It is automatically set by Anvil to the directory holding
     // the current project.
     unique.insert( PROJECT_VAR_NAME );
     unique.insert( DESIGN_BLOCK_LIBRARY_ADAPTER::GlobalPathEnvVariableName() );

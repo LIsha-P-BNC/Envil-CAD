@@ -1,5 +1,5 @@
 /*
- * This program source code file is part of KiCad, a free EDA CAD application.
+ * This program source code file is part of Anvil, a free EDA CAD application.
  *
  * Copyright (C) 2018 CERN
  * Copyright The KiCad Developers, see AUTHORS.txt for contributors.
@@ -276,7 +276,7 @@ public:
      *       collision functions.  Other programs should call this using explicit accuracy
      *       values.
      *
-     * @todo Unify KiCad internal units.
+     * @todo Unify Anvil internal units.
      *
      * @return a default accuracy value for ConvertToPolyline() to build the polyline.
      */
@@ -289,7 +289,7 @@ public:
      *       collision functions.  Other programs should call this using explicit accuracy
      *       values.
      *
-     * @todo Unify KiCad internal units.
+     * @todo Unify Anvil internal units.
      *
      * @param aMaxError maximum divergence from true arc given in internal units.
      * @param aActualError is the actual divergence from true arc given.

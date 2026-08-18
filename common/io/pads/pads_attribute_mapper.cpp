@@ -1,5 +1,5 @@
 /*
- * This program source code file is part of KiCad, a free EDA CAD application.
+ * This program source code file is part of Anvil, a free EDA CAD application.
  *
  * Copyright The KiCad Developers, see AUTHORS.txt for contributors.
  *
@@ -25,7 +25,7 @@
 
 PADS_ATTRIBUTE_MAPPER::PADS_ATTRIBUTE_MAPPER()
 {
-    // Standard PADS attribute mappings to KiCad fields
+    // Standard PADS attribute mappings to Anvil fields
     // Reference designator variations
     m_standardMappings["ref.des."] = FIELD_REFERENCE;
     m_standardMappings["ref des"] = FIELD_REFERENCE;

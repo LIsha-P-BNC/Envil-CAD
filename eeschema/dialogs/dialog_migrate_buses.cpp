@@ -1,5 +1,5 @@
 /*
- * This program source code file is part of KiCad, a free EDA CAD application.
+ * This program source code file is part of Anvil, a free EDA CAD application.
  *
  * Copyright (C) 2018 CERN
  * Copyright The KiCad Developers, see AUTHORS.txt for contributors.
@@ -31,7 +31,7 @@
 /**
  * Migrates buses using legacy multi-label joining behavior.
  *
- * In KiCad versions before 6.0, you were allowed to place multiple labels
+ * In Anvil versions before 6.0, you were allowed to place multiple labels
  * on a given bus subgraph, and that would have the effect of making those
  * bus descriptions equivalent according to the bus vector number.
  *

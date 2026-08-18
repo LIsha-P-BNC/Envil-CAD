@@ -1,5 +1,5 @@
 /*
- * This program source code file is part of KiCad, a free EDA CAD application.
+ * This program source code file is part of Anvil, a free EDA CAD application.
  *
  * Copyright (C) 2023 Mark Roszko <mark.roszko@gmail.com>
  * Copyright (C) 1992-2023 KiCad Developers, see AUTHORS.txt for contributors.
@@ -108,8 +108,8 @@ public:
 
         wxBoxSizer* helpSizer = new wxBoxSizer( wxHORIZONTAL );
         wxStaticText* helpLabel = new wxStaticText( this, -1, _( "For help, please visit " ) );
-        wxString docsUrl = wxString::Format( "https://go.kicad.org/docs/%s", GetMajorMinorVersion() );
-        wxHyperlinkCtrl* helpLink = new wxHyperlinkCtrl( this, -1, wxT( "docs.kicad.org" ), docsUrl );
+        wxString docsUrl = wxString::Format( "https://go.anvilcad.com/docs/%s", GetMajorMinorVersion() );
+        wxHyperlinkCtrl* helpLink = new wxHyperlinkCtrl( this, -1, wxT( "docs.anvilcad.com" ), docsUrl );
         helpSizer->Add( helpLabel, 0, wxLEFT | wxTOP | wxBOTTOM | wxALIGN_CENTER_VERTICAL, 5 );
         helpSizer->Add( helpLink, 0, wxRIGHT | wxTOP | wxBOTTOM | wxALIGN_CENTER_VERTICAL, 5 );
         m_mainSizer->Add( helpSizer, 0, wxEXPAND, 5 );
@@ -240,7 +240,7 @@ void STARTWIZARD::CheckAndRun( wxWindow* aParent )
     m_wizard->Bind( wxEVT_WIZARD_CANCEL,
             [&]( wxWizardEvent& aEvt )
             {
-                if( IsOK( aParent, _( "Are you sure?  If you cancel KiCad setup, default settings "
+                if( IsOK( aParent, _( "Are you sure?  If you cancel Anvil setup, default settings "
                                       "will be chosen for you." ) ) )
                 {
                     for( std::unique_ptr<STARTWIZARD_PROVIDER>& provider : m_providers )

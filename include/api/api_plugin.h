@@ -1,5 +1,5 @@
 /*
- * This program source code file is part of KiCad, a free EDA CAD application.
+ * This program source code file is part of Anvil, a free EDA CAD application.
  *
  * Copyright (C) 2024 Jon Evans <jon@craftyjon.com>
  * Copyright The KiCad Developers, see AUTHORS.txt for contributors.
@@ -87,7 +87,7 @@ struct PLUGIN_ACTION
 };
 
 /**
- * A plugin that is invoked by KiCad and runs as an external process; communicating with KiCad
+ * A plugin that is invoked by Anvil and runs as an external process; communicating with Anvil
  * via the IPC API.  The plugin metadata is read from a JSON file containing things like which
  * actions the plugin is capable of and how to invoke each one.
  */

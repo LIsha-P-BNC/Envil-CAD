@@ -1,5 +1,5 @@
 /*
- * This program source code file is part of KiCad, a free EDA CAD application.
+ * This program source code file is part of Anvil, a free EDA CAD application.
  *
  * Copyright (C) 2018 Jean-Pierre Charras, jean-pierre.charras@ujf-grenoble.fr
  * Copyright (C) 2012 SoftPLC Corporation, Dick Hollenbeck <dick@softplc.com>
@@ -852,7 +852,7 @@ void PCB_BASE_FRAME::LoadSettings( APP_SETTINGS_BASE* aCfg )
         {
             rs->SetHighlightFactor( aCfg->m_Graphics.highlight_factor );
             rs->SetSelectFactor( aCfg->m_Graphics.select_factor );
-            rs->SetDefaultFont( wxEmptyString );    // Always the KiCad font for PCBs
+            rs->SetDefaultFont( wxEmptyString );    // Always the Anvil font for PCBs
         }
     }
 }

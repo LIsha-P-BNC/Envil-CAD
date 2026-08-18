@@ -1,5 +1,5 @@
 /*
- * This program source code file is part of KiCad, a free EDA CAD application.
+ * This program source code file is part of Anvil, a free EDA CAD application.
  *
  * Copyright (C) 2016 CERN
  * Copyright The KiCad Developers, see AUTHORS.txt for contributors.
@@ -93,7 +93,7 @@ const wxString SCH_IO_MGR::ShowType( SCH_FILE_T aType )
 
     switch( aType )
     {
-    case SCH_KICAD:           return wxString( wxT( "KiCad" ) );
+    case SCH_KICAD:           return wxString( wxT( "Anvil" ) );
     case SCH_LEGACY:          return wxString( wxT( "Legacy" ) );
     case SCH_ALTIUM:          return wxString( wxT( "Altium" ) );
     case SCH_CADSTAR_ARCHIVE: return wxString( wxT( "CADSTAR Schematic Archive" ) );
@@ -117,7 +117,7 @@ SCH_IO_MGR::SCH_FILE_T SCH_IO_MGR::EnumFromStr( const wxString& aType )
     // text spellings.  If you change the spellings, you will obsolete
     // library tables, so don't do change, only additions are ok.
 
-    if( aType == wxT( "KiCad" ) )
+    if( aType == wxT( "Anvil" ) || aType == wxT( "KiCad" ) )
         return SCH_KICAD;
     else if( aType == wxT( "Legacy" ) )
         return SCH_LEGACY;

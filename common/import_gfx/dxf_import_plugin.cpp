@@ -1,5 +1,5 @@
 ﻿/*
- * This program source code file is part of KiCad, a free EDA CAD application.
+ * This program source code file is part of Anvil, a free EDA CAD application.
  *
  * Copyright (C) 2019 Jean-Pierre Charras, jp.charras at wanadoo.fr
  * Copyright The KiCad Developers, see AUTHORS.txt for contributors.
@@ -416,7 +416,7 @@ void DXF_IMPORT_PLUGIN::addLine( const DL_LineData& aData )
 
 void DXF_IMPORT_PLUGIN::addPolyline(const DL_PolylineData& aData )
 {
-    // Convert DXF Polylines into a series of KiCad Lines and Arcs.
+    // Convert DXF Polylines into a series of Anvil Lines and Arcs.
     // A Polyline (as opposed to a LWPolyline) may be a 3D line or
     // even a 3D Mesh. The only type of Polyline which is guaranteed
     // to import correctly is a 2D Polyline in X and Y, which is what
@@ -632,10 +632,10 @@ void DXF_IMPORT_PLUGIN::addEllipse( const DL_EllipseData& aData )
     VECTOR2D major( mapX( majorCoords.x ), mapY( majorCoords.y ) );
 
     // DXF elliptical arcs store their angles in radians (unlike circular arcs which use degrees)
-    // The arcs wind CCW as in KiCad.  The end angle must be greater than the start angle, and if
+    // The arcs wind CCW as in Anvil.  The end angle must be greater than the start angle, and if
     // the extrusion direction is negative, the arc winding is CW instead!  Note that this is a
     // simplification that assumes the DXF is representing a 2D drawing, and would need to be
-    // revisited if we want to import true 3D drawings and "flatten" them to the 2D KiCad plane
+    // revisited if we want to import true 3D drawings and "flatten" them to the 2D Anvil plane
     // internally.
     EDA_ANGLE startAngle( aData.angle1, RADIANS_T );
     EDA_ANGLE endAngle( aData.angle2, RADIANS_T );

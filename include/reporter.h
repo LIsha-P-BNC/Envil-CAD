@@ -1,5 +1,5 @@
 /*
- * This program source code file is part of KiCad, a free EDA CAD application.
+ * This program source code file is part of Anvil, a free EDA CAD application.
  *
  * Copyright (C) 2013 Wayne Stambaugh <stambaughw@gmail.com>
  * Copyright The KiCad Developers, see AUTHORS.txt for contributors.
@@ -39,7 +39,7 @@
  *       me to write this.
  * @warning Do not add any dependencies to wxWidgets (or any other third party UI library )
  *          to the REPORTER object.  All wxWidgets objects should be defined by pointer or
- *          reference and forward declared so that using reporters in low level KiCad objects
+ *          reference and forward declared so that using reporters in low level Anvil objects
  *          will not require pulling in wxWidgets to building them.
  */
 

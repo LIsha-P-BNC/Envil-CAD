@@ -1,5 +1,5 @@
 /*
- * This program source code file is part of KiCad, a free EDA CAD application.
+ * This program source code file is part of Anvil, a free EDA CAD application.
  *
  * Copyright The KiCad Developers, see AUTHORS.txt for contributors.
  *
@@ -523,7 +523,7 @@ bool PCB_BASE_EDIT_FRAME::AddLibrary( const wxString& aDialogTitle, const wxStri
 
     wxString type = PCB_IO_MGR::ShowType( lib_type );
 
-    // KiCad lib is our default guess.  So it might not have the .pretty extension
+    // Anvil lib is our default guess.  So it might not have the .pretty extension
     // In this case, the extension is part of the library name
     if( lib_type == PCB_IO_MGR::KICAD_SEXP && fn.GetExt() != FILEEXT::KiCadFootprintLibPathExtension )
         libName = fn.GetFullName();

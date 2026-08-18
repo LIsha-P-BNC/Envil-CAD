@@ -282,7 +282,7 @@ constexpr VECTOR2<T>::VECTOR2( T aX, T aY )
 template <class T>
 T VECTOR2<T>::EuclideanNorm() const
 {
-    // 45° are common in KiCad, so we can optimize the calculation
+    // 45° are common in Anvil, so we can optimize the calculation
     if( std::abs( x ) == std::abs( y ) )
     {
         if( std::is_integral<T>::value )

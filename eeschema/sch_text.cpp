@@ -1,5 +1,5 @@
 /*
- * This program source code file is part of KiCad, a free EDA CAD application.
+ * This program source code file is part of Anvil, a free EDA CAD application.
  *
  * Copyright (C) 2016 Jean-Pierre Charras, jp.charras at wanadoo.fr
  * Copyright (C) 2015 Wayne Stambaugh <stambaughw@gmail.com>
@@ -75,7 +75,7 @@ SCH_TEXT::SCH_TEXT( const SCH_TEXT& aText ) :
 
 VECTOR2I SCH_TEXT::GetSchematicTextOffset( const RENDER_SETTINGS* aSettings ) const
 {
-    // Fudge factor to match KiCad 6
+    // Fudge factor to match Anvil 6
     return VECTOR2I( 0, -2500 );
 }
 

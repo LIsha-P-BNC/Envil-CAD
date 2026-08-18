@@ -1,5 +1,5 @@
 /*
- * This program source code file is part of KiCad, a free EDA CAD application.
+ * This program source code file is part of Anvil, a free EDA CAD application.
  *
  * Copyright The KiCad Developers, see AUTHORS.txt for contributors.
  *
@@ -202,7 +202,7 @@ public:
     void SetAutoEvalColUnits( int col, EDA_UNITS aUnit );
 
     /**
-     * Apply standard KiCad unit and eval services to a numeric cell.
+     * Apply standard Anvil unit and eval services to a numeric cell.
      *
      * @param aRow the cell row index to fetch.
      * @param aCol the cell column index to fetch.
@@ -212,7 +212,7 @@ public:
     int GetUnitValue( int aRow, int aCol );
 
     /**
-     * Apply standard KiCad unit and eval services to a numeric cell.
+     * Apply standard Anvil unit and eval services to a numeric cell.
      *
      * @param aRow the cell row index to fetch.
      * @param aCol the cell column index to fetch.

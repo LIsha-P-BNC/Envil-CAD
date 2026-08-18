@@ -1,5 +1,5 @@
 /*
- * This program source code file is part of KiCad, a free EDA CAD application.
+ * This program source code file is part of Anvil, a free EDA CAD application.
  *
  * Copyright (C) 2024 Mike Williams <mike@mikebwilliams.com>
  * Copyright The KiCad Developers, see AUTHORS.txt for contributors.
@@ -48,7 +48,7 @@ const wxString DESIGN_BLOCK_IO_MGR::ShowType( DESIGN_BLOCK_FILE_T aFileType )
 {
     switch( aFileType )
     {
-    case KICAD_SEXP:   return _( "KiCad" );
+    case KICAD_SEXP:   return _( "Anvil" );
     case NESTED_TABLE: return LIBRARY_TABLE_ROW::TABLE_TYPE_NAME;
     default:           return wxString::Format( _( "UNKNOWN (%d)" ), aFileType );
     }
@@ -58,7 +58,7 @@ const wxString DESIGN_BLOCK_IO_MGR::ShowType( DESIGN_BLOCK_FILE_T aFileType )
 DESIGN_BLOCK_IO_MGR::DESIGN_BLOCK_FILE_T
 DESIGN_BLOCK_IO_MGR::EnumFromStr( const wxString& aFileType )
 {
-    if( aFileType == _( "KiCad" ) )
+    if( aFileType == _( "Anvil" ) )
         return DESIGN_BLOCK_FILE_T::KICAD_SEXP;
     else if( aFileType == LIBRARY_TABLE_ROW::TABLE_TYPE_NAME )
         return DESIGN_BLOCK_FILE_T::NESTED_TABLE;
@@ -145,7 +145,7 @@ bool DESIGN_BLOCK_IO_MGR::ConvertLibrary( std::map<std::string, UTF8>* aOldFileP
 
 const DESIGN_BLOCK_IO::IO_FILE_DESC DESIGN_BLOCK_IO::GetLibraryDesc() const
 {
-    return IO_BASE::IO_FILE_DESC( _HKI( "KiCad Design Block folders" ), {},
+    return IO_BASE::IO_FILE_DESC( _HKI( "Anvil Design Block folders" ), {},
                                   { FILEEXT::KiCadDesignBlockLibPathExtension }, false );
 }
 

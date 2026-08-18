@@ -1,5 +1,5 @@
 /*
- * This program source code file is part of KiCad, a free EDA CAD application.
+ * This program source code file is part of Anvil, a free EDA CAD application.
  *
  * Copyright (C) 2014-2019 CERN
  * Copyright The KiCad Developers, see AUTHORS.txt for contributors.
@@ -670,7 +670,7 @@ int FOOTPRINT_EDITOR_CONTROL::OpenWithTextEditor( const TOOL_EVENT& aEvent )
 
     if( fullEditorName.IsEmpty() )
     {
-        wxMessageBox( _( "No text editor selected in KiCad. Please choose one." ) );
+        wxMessageBox( _( "No text editor selected in Anvil. Please choose one." ) );
         return 0;
     }
 

@@ -1,5 +1,5 @@
 /*
- * This program source code file is part of KiCad, a free EDA CAD application.
+ * This program source code file is part of Anvil, a free EDA CAD application.
  *
  * Copyright (C) 2017 Jean-Pierre Charras, jp.charras at wanadoo.fr
  * Copyright (C) 2013 CERN (www.cern.ch)
@@ -684,7 +684,7 @@ private:
 // icon set as the editor toolbars) instead of a Segoe MDL2 font glyph — so the caption's
 // save/undo/redo match the toolbar icons below in type, colour and weight.
 //
-// App-wide icon target is 18px.  KiCad icon artwork carries ~2px of transparent padding, so the
+// App-wide icon target is 18px.  Anvil icon artwork carries ~2px of transparent padding, so the
 // bitmap CELL must be 2px larger than the desired visible glyph: 18 + 2 = 20 renders an 18px icon.
 static constexpr int ANVIL_TITLEBAR_ICON_PX   = 15;   // visible glyph size (what you see on screen)
 static constexpr int ANVIL_TITLEBAR_ICON_CELL = ANVIL_TITLEBAR_ICON_PX + 2;   // bitmap cell (= 17)
@@ -927,7 +927,7 @@ private:
 
 
 // ============================================================================
-// KiCad Next: custom single-row title bar (logo + menu + window buttons).
+// Anvil Next: custom single-row title bar (logo + menu + window buttons).
 // Hosts the menu as a row of popup buttons so the native OS caption + native
 // menu row collapse into one bar. The caption itself is removed by the frame's
 // WM_NCCALCSIZE handler (see MSWWindowProc); this panel is just the content.
@@ -1022,7 +1022,7 @@ public:
         m_gear->Bind( wxEVT_BUTTON, [this]( wxCommandEvent& ) { m_frame->RunQuickAccessAction( 3 ); } );
         m_layoutBtns.push_back( m_gear );
 
-        // KiCad Next single-window shell: VS Code / Cursor-style title-bar layout toggles,
+        // Anvil Next single-window shell: VS Code / Cursor-style title-bar layout toggles,
         // sitting just left of the window-control buttons.  Each is a vector panel-diagram icon
         // (left/bottom/right docked region) that flips a pane and fills in while it's shown.
         m_sizer->Add( makeLayoutButton( TITLEBAR_PANEL_BUTTON::LEFT,
@@ -1519,7 +1519,7 @@ KICAD_MANAGER_FRAME::KICAD_MANAGER_FRAME( wxWindow* parent, const wxString& titl
     // Movable(false)/Floatable(false)/DockFixed, so only the AI panel actually moves.
     m_auimgr.SetFlags( wxAUI_MGR_DEFAULT | wxAUI_MGR_LIVE_RESIZE );
 
-    // KiCad Next: the left vertical toolbar only repeats actions that already live in the
+    // Anvil Next: the left vertical toolbar only repeats actions that already live in the
     // top menu bar (New/Open/Archive/Zoom/Project-dir), so it is hidden to avoid showing
     // the same commands twice. The 9 editor/tool launchers become the left icon rail below.
     m_auimgr.AddPane( m_tbLeft, EDA_PANE().VToolbar().Name( "TopMainToolbar" ).Left().Layer( 2 ).Hide() );
@@ -1583,7 +1583,7 @@ KICAD_MANAGER_FRAME::KICAD_MANAGER_FRAME( wxWindow* parent, const wxString& titl
                                             .Show( !ADVANCED_CFG::GetCfg().m_ModernMenuLayout )
                                             .MinSize( FromDIP( 40 ), -1 ).BestSize( FromDIP( 40 ), -1 ) );
 
-    // KiCad Next single-window shell (Layer B): the center editor-tab area.  Each
+    // Anvil Next single-window shell (Layer B): the center editor-tab area.  Each
     // editor (Schematic/PCB/Gerber/Calculator/…) is re-hosted here as a tab by
     // DockEditorAsTab() instead of floating as its own window.  Created only when
     // the flag is set, so the legacy layout is untouched when off.
@@ -1627,13 +1627,13 @@ KICAD_MANAGER_FRAME::KICAD_MANAGER_FRAME( wxWindow* parent, const wxString& titl
                                                   .CaptionVisible( false ).PaneBorder( false )
                                                   .Floatable( false ).Movable( false ) );
 
-        // KiCad Next single-window shell: register this shell as the KIWAY tab host so editor
+        // Anvil Next single-window shell: register this shell as the KIWAY tab host so editor
         // KIFACEs (eeschema "Update PCB" / pcbnew "Update Schematic", etc.) dock the sibling
         // editor they open as a tab here instead of floating it as a separate window.  Cleared
         // in doCloseWindow().  Only registered when the shell's tab area actually exists.
         Kiway().SetTabHost( this );
 
-        // KiCad Next: the modern layout's Window menu activates frames through this hook.
+        // Anvil Next: the modern layout's Window menu activates frames through this hook.
         // A docked editor becomes a tab selection; everything else (the shell itself, still-
         // floating tools like the 3D viewer) falls back to the default Show + Raise.  Cleared
         // in doCloseWindow() alongside the tab host.
@@ -1680,7 +1680,7 @@ KICAD_MANAGER_FRAME::KICAD_MANAGER_FRAME( wxWindow* parent, const wxString& titl
                                   .MinSize( -1, FromDIP( 60 ) ).BestSize( -1, FromDIP( 60 ) ) );
 #endif
 
-    // KiCad Next: a single shell-owned "AI Assistant" panel (Cursor style).  Created only
+    // Anvil Next: a single shell-owned "AI Assistant" panel (Cursor style).  Created only
     // when CommonAiPanel + SingleWindowShell are set; the per-editor panels are suppressed
     // (see SCH_EDIT_FRAME / PCB_EDIT_FRAME) so this is the ONLY AI panel in the window.  It
     // retargets to whichever editor tab is in front via syncAiPanelToActiveTab(); the editors
@@ -1776,7 +1776,7 @@ KICAD_MANAGER_FRAME::KICAD_MANAGER_FRAME( wxWindow* parent, const wxString& titl
             m_aiChatPanel = nullptr;
         }
 
-        // KiCad Next (Cursor-style): give the SHELL its own backend command channel so a
+        // Anvil Next (Cursor-style): give the SHELL its own backend command channel so a
         // just-built project can be loaded into the Project Files tree automatically. The
         // editors already listen for open_file/revert; the shell listens for "open_project"
         // and calls LoadProject() — which rebuilds the tree and resets the file watcher, so
@@ -1881,7 +1881,7 @@ KICAD_MANAGER_FRAME::KICAD_MANAGER_FRAME( wxWindow* parent, const wxString& titl
 
     wxSizer* mainSizer = GetSizer();
 
-    // Only fit the initial window size the first time KiCad is run.
+    // Only fit the initial window size the first time Anvil is run.
     if( mainSizer && config()->m_Window.state.size_x == 0 && config()->m_Window.state.size_y == 0 )
     {
         Layout();
@@ -1914,7 +1914,7 @@ KICAD_MANAGER_FRAME::KICAD_MANAGER_FRAME( wxWindow* parent, const wxString& titl
     if( ADVANCED_CFG::GetCfg().m_AnvilPurpleFrame )
         applyAnvilShellTheme();
 
-    // KiCad Next single-window shell: warm the heavy editor KIFACEs in the background so
+    // Anvil Next single-window shell: warm the heavy editor KIFACEs in the background so
     // the user's first click on Symbol/Footprint/Gerber/Drawing-Sheet is instant instead
     // of "loading the whole app".  No-op unless the shell + prewarm flags are set.  Use a
     // unique timer id and bind only to it, so this never intercepts the base frame's
@@ -1923,7 +1923,7 @@ KICAD_MANAGER_FRAME::KICAD_MANAGER_FRAME( wxWindow* parent, const wxString& titl
     Bind( wxEVT_TIMER, &KICAD_MANAGER_FRAME::prewarmNextEditor, this, m_prewarmTimer.GetId() );
     schedulePrewarmEditors();
 
-    // KiCad Next unified shell footer: with no editor tab docked yet, make sure the shell's own
+    // Anvil Next unified shell footer: with no editor tab docked yet, make sure the shell's own
     // status bar is the one showing (Project Manager state). No-op when the flag is off.
     syncShellStatusBarToActiveTab();
 }
@@ -2441,7 +2441,7 @@ void KICAD_MANAGER_FRAME::syncShellStatusBarToActiveTab()
         return;
 
     // Native-footer mode: each docked editor shows its OWN status bar (kept visible by
-    // DockEditorAsTab), exactly like standalone KiCad.  So all this has to do is hide the shell's
+    // DockEditorAsTab), exactly like standalone Anvil.  So all this has to do is hide the shell's
     // own status bar while an editor tab is in front — otherwise there would be two footers — and
     // show it again on the Project Manager tab.
     const bool editorActive = getActiveDockedEditorFrame() != nullptr;
@@ -3006,7 +3006,7 @@ bool KICAD_MANAGER_FRAME::DockEditorAsTab( KIWAY_PLAYER* aPlayer, const wxString
     //
     // UnifiedStatusBar on: do the opposite — keep the editor's OWN native footer visible (so the
     // schematic / PCB tab shows exactly the same coords / grid / zoom / units footer as standalone
-    // KiCad).  syncShellStatusBarToActiveTab() then hides the shell's own bar while an editor tab
+    // Anvil).  syncShellStatusBarToActiveTab() then hides the shell's own bar while an editor tab
     // is in front so there is still only one footer.
     if( wxStatusBar* sb = aPlayer->GetStatusBar() )
         sb->Show( ADVANCED_CFG::GetCfg().m_SingleWindowShell
@@ -3117,7 +3117,7 @@ void KICAD_MANAGER_FRAME::OpenAnvilFile( const wxString& aPath )
 
     const wxString ext = fn.GetExt();
 
-    // 1) Project file → open / switch to it.  KiCad & legacy projects route through LoadProject
+    // 1) Project file → open / switch to it.  Anvil & legacy projects route through LoadProject
     //    too (it offers to import them).  FILEEXT is the single source of this mapping.
     if( ext == FILEEXT::AnvilProjectFileExtension
         || ext == FILEEXT::ProjectFileExtension
@@ -3128,7 +3128,7 @@ void KICAD_MANAGER_FRAME::OpenAnvilFile( const wxString& aPath )
     }
 
     // 2) Schematic or board file.  Opening is Anvil-only: only a native anvil_sch / anvil_pcb
-    //    opens directly in the editor.  A foreign KiCad (or legacy) schematic/board is never
+    //    opens directly in the editor.  A foreign Anvil (or legacy) schematic/board is never
     //    opened natively — it reaches an editor only through the import flow — so route it to its
     //    owning project's import offer instead.  FILEEXT is the single source of the mapping.
     const TOOL_ACTION* editorAction = nullptr;
@@ -3147,7 +3147,7 @@ void KICAD_MANAGER_FRAME::OpenAnvilFile( const wxString& aPath )
         {
             // Hand the owning project (sibling .kicad_pro / legacy .pro) to LoadProject, which
             // puts up the "Import & Convert" offer.  If there is no sibling project, tell the
-            // user how KiCad designs enter Anvil.
+            // user how Anvil designs enter Anvil.
             wxFileName projectFn = fn;
             projectFn.SetExt( FILEEXT::ProjectFileExtension );          // sibling kicad_pro
 
@@ -3161,8 +3161,8 @@ void KICAD_MANAGER_FRAME::OpenAnvilFile( const wxString& aPath )
             }
 
             DisplayInfoMessage( this, wxString::Format(
-                    _( "'%s' is a KiCad file.\n\nAnvil opens KiCad designs through import: use "
-                       "File > Import > KiCad Project." ),
+                    _( "'%s' is a Anvil file.\n\nAnvil opens Anvil designs through import: use "
+                       "File > Import > Anvil Project." ),
                     fn.GetFullName() ) );
             return;
         }
@@ -3181,7 +3181,7 @@ void KICAD_MANAGER_FRAME::OpenAnvilFile( const wxString& aPath )
     projectFn.SetExt( FILEEXT::AnvilProjectFileExtension );
 
     if( !projectFn.FileExists() )
-        projectFn.SetExt( FILEEXT::ProjectFileExtension );   // KiCad-native sibling
+        projectFn.SetExt( FILEEXT::ProjectFileExtension );   // Anvil-native sibling
 
     wxFileName activeFn( GetProjectFileName() );
 
@@ -3230,7 +3230,7 @@ void KICAD_MANAGER_FRAME::HandleForwardedOpen( const wxString& aPath )
 
     // A file belonging to a DIFFERENT project than the one open here gets its own window instead
     // of silently swapping the active project (and its unsaved edits) out from under the user —
-    // same rule as VS Code opening a different folder.  KiCad keeps one project per directory, so
+    // same rule as VS Code opening a different folder.  Anvil keeps one project per directory, so
     // "same directory as the active project" == "belongs to the open project" (this also covers
     // sub-sheets whose basename differs from the project).  A fresh "--new" instance bypasses the
     // single-instance handoff and opens the file in its own window.
@@ -3659,7 +3659,7 @@ void KICAD_MANAGER_FRAME::doCloseWindow()
     m_projectTreePane->Show( false );
     Pgm().m_Quitting = true;
 
-    // KiCad Next single-window shell: stop advertising ourselves as the KIWAY tab host before
+    // Anvil Next single-window shell: stop advertising ourselves as the KIWAY tab host before
     // we are destroyed, so any late editor → sibling-editor launch floats instead of calling
     // into a dead shell.
     if( Kiway().GetTabHost() == this )
@@ -3849,7 +3849,7 @@ bool KICAD_MANAGER_FRAME::LoadProject( const wxFileName& aProjectFileNameIn )
 
     // Foreign projects are never opened natively: every direct-open path (File>Open, CLI,
     // double-click, MRU, drag-drop, unarchive) funnels through here, so this is the single
-    // place KiCad projects get routed into the import & convert flow instead.
+    // place Anvil projects get routed into the import & convert flow instead.
     if( FILEEXT::IsForeignFamilyExt( aProjectFileName.GetExt() )
             || aProjectFileName.GetExt().IsSameAs( FILEEXT::LegacyProjectFileExtension, false ) )
     {
@@ -3876,8 +3876,8 @@ bool KICAD_MANAGER_FRAME::LoadProject( const wxFileName& aProjectFileNameIn )
         if( !lockFile.Valid() && lockFile.IsLockedByMe() )
         {
             // If we cannot acquire the lock but we appear to be the one who locked it, check to
-            // see if there is another KiCad instance running. If not, then we can override the
-            // lock. This could happen if KiCad crashed or was interrupted.
+            // see if there is another Anvil instance running. If not, then we can override the
+            // lock. This could happen if Anvil crashed or was interrupted.
             if( !Pgm().SingleInstance()->IsAnotherRunning() )
                 lockFile.OverrideLock();
         }
@@ -3960,7 +3960,7 @@ bool KICAD_MANAGER_FRAME::LoadProject( const wxFileName& aProjectFileNameIn )
     {
         wxString head = Kiway().LocalHistory().GetHeadHash( Prj().GetProjectPath() );
 
-        KICAD_MESSAGE_DIALOG dlg( this, _( "KiCad found unsaved changes from your last session that are newer than "
+        KICAD_MESSAGE_DIALOG dlg( this, _( "Anvil found unsaved changes from your last session that are newer than "
                                            "the saved project files." ),
                                   _( "Recover Unsaved Changes" ), wxYES_NO | wxICON_QUESTION );
 
@@ -4233,9 +4233,9 @@ void KICAD_MANAGER_FRAME::ProjectChanged()
         if( !lockFile.Valid() && lockFile.IsLockedByMe() )
         {
             // If we cannot acquire the lock but we appear to be the one who
-            // locked it, check to see if there is another KiCad instance running.
+            // locked it, check to see if there is another Anvil instance running.
             // If there is not, then we can override the lock.  This could happen if
-            // KiCad crashed or was interrupted
+            // Anvil crashed or was interrupted
             if( !Pgm().SingleInstance()->IsAnotherRunning() )
             {
                 lockFile.OverrideLock();
@@ -4378,7 +4378,7 @@ void KICAD_MANAGER_FRAME::OnIdle( wxIdleEvent& aEvent )
 {
     /**
      * We start loading the saved previously open windows on idle to avoid locking up the GUI
-     * earlier in project loading. This gives us the visual effect of a opened KiCad project but
+     * earlier in project loading. This gives us the visual effect of a opened Anvil project but
      * with a "busy" progress reporter
      */
     if( !m_openSavedWindows )

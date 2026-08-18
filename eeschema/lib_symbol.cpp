@@ -1,5 +1,5 @@
 /*
- * This program source code file is part of KiCad, a free EDA CAD application.
+ * This program source code file is part of Anvil, a free EDA CAD application.
  *
  * Copyright (C) 2004-2015 Jean-Pierre Charras, jp.charras at wanadoo.fr
  * Copyright (C) 2008 Wayne Stambaugh <stambaughw@gmail.com>
@@ -201,7 +201,7 @@ void LIB_SYMBOL::cacheChooserFields()
             m_chooserFieldsCache[field->GetName()] = field->EDA_TEXT::GetShownText( false );
     }
 
-    // If the user has a field named "Keywords", then prefer that.  Otherwise add the KiCad
+    // If the user has a field named "Keywords", then prefer that.  Otherwise add the Anvil
     // keywords.
     const wxString localizedKeywords = _( "Keywords" );
 

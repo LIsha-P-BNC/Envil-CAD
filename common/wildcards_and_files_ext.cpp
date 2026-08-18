@@ -1,5 +1,5 @@
 /*
- * This program source code file is part of KiCad, a free EDA CAD application.
+ * This program source code file is part of Anvil, a free EDA CAD application.
  *
  * Copyright (C) 2018 Jean-Pierre Charras, jp.charras at wanadoo.fr
  * Copyright (C) 2008 Wayne Stambaugh <stambaughw@gmail.com>
@@ -139,7 +139,7 @@ const std::string FILEEXT::ProjectFileExtension( "kicad_pro" );
 const std::string FILEEXT::LegacyProjectFileExtension( "pro" );
 
 // Anvil-CAD native extensions.  Same s-expression content as the kicad_* files —
-// only the extension differs, so KiCad projects/libraries stay directly readable
+// only the extension differs, so Anvil projects/libraries stay directly readable
 // (dual-accept) while new work is created under the Anvil brand.
 const std::string FILEEXT::AnvilProjectFileExtension( "anvil_pro" );
 const std::string FILEEXT::AnvilSchematicFileExtension( "anvil_sch" );
@@ -333,7 +333,7 @@ wxString FILEEXT::ProjectFileWildcard()
 
 wxString FILEEXT::LegacyProjectFileWildcard()
 {
-    return _( "KiCad legacy project files" )
+    return _( "Anvil legacy project files" )
             + AddFileExtListToFilter( { LegacyProjectFileExtension } );
 }
 
@@ -354,7 +354,7 @@ wxString FILEEXT::AllSchematicFilesWildcard()
 
 wxString FILEEXT::LegacySchematicFileWildcard()
 {
-    return _( "KiCad legacy schematic files" )
+    return _( "Anvil legacy schematic files" )
             + AddFileExtListToFilter( { LegacySchematicFileExtension } );
 }
 
@@ -405,7 +405,7 @@ wxString FILEEXT::OrCadPcb2NetlistFileWildcard()
 
 wxString FILEEXT::NetlistFileWildcard()
 {
-    return _( "KiCad netlist files" ) + AddFileExtListToFilter( { "net" } );
+    return _( "Anvil netlist files" ) + AddFileExtListToFilter( { "net" } );
 }
 
 
@@ -456,14 +456,14 @@ wxString FILEEXT::KiCadFootprintLibPathWildcard()
 
 wxString FILEEXT::KiCadDesignBlockPathWildcard()
 {
-    return _( "KiCad design block path" )
+    return _( "Anvil design block path" )
            + AddFileExtListToFilter( { KiCadDesignBlockPathExtension } );
 }
 
 
 wxString FILEEXT::KiCadDesignBlockLibPathWildcard()
 {
-    return _( "KiCad design block library paths" )
+    return _( "Anvil design block library paths" )
            + AddFileExtListToFilter( { KiCadDesignBlockLibPathExtension } );
 }
 
@@ -478,7 +478,7 @@ wxString FILEEXT::DrawingSheetFileWildcard()
 // Wildcard for cvpcb symbol to footprint link file
 wxString FILEEXT::FootprintAssignmentFileWildcard()
 {
-    return _( "KiCad symbol footprint link files" )
+    return _( "Anvil symbol footprint link files" )
             + AddFileExtListToFilter( { FootprintAssignmentFileExtension } );
 }
 

@@ -1,5 +1,5 @@
 /*
- * This program source code file is part of KiCad, a free EDA CAD application.
+ * This program source code file is part of Anvil, a free EDA CAD application.
  *
  * Copyright (C) 2020-2021 Roberto Fernandez Bautista <roberto.fer.bau@gmail.com>
  * Copyright The KiCad Developers, see AUTHORS.txt for contributors.
@@ -20,7 +20,7 @@
 
 /**
  * @file cadstar_sch_archive_loader.cpp
- * @brief Loads a csa file into a KiCad SCHEMATIC object
+ * @brief Loads a csa file into a Anvil SCHEMATIC object
  */
 
 #include <sch_io/cadstar/cadstar_sch_archive_loader.h>
@@ -226,7 +226,7 @@ CADSTAR_SCH_ARCHIVE_LOADER::loadLibPart( const CADSTAR_PART_ENTRY& aPart )
             // Load all part attributes, regardless of original cadstar type, to the symbol
 
             // @todo some cadstar part attributes have a "read-only" flag. We should load this
-            // when KiCad supports read-only fields.
+            // when Anvil supports read-only fields.
 
             for( auto& [fieldName, value] : aPart.m_UserAttributes )
                 addNewFieldToSymbol( fieldName, retSym )->SetText( value );
@@ -243,7 +243,7 @@ CADSTAR_SCH_ARCHIVE_LOADER::loadLibPart( const CADSTAR_PART_ENTRY& aPart )
             for( auto& [fieldName, attrValue] : aPart.m_PartAttributes )
                 addNewFieldToSymbol( fieldName, retSym )->SetText( attrValue.m_Value );
 
-            // Load all hidden pins onto the first unit of the symbol in KiCad
+            // Load all hidden pins onto the first unit of the symbol in Anvil
             // We load them in a spiral sequence, starting at the center of the symbol BBOX
             VECTOR2I symCenter = retSym->GetBodyBoundingBox( unit, 0, false, false ).GetCenter();
             symCenter.y = -symCenter.y; // need to invert the y coord for lib symbols.
@@ -386,7 +386,7 @@ void CADSTAR_SCH_ARCHIVE_LOADER::Load( SCHEMATIC* aSchematic, SCH_SHEET* aRootSh
     if( Schematic.VariantHierarchy.Variants.size() > 0 )
     {
         m_reporter->Report( wxString::Format( _( "The CADSTAR design contains variants which has "
-                                                 "no KiCad equivalent. Only the master variant "
+                                                 "no Anvil equivalent. Only the master variant "
                                                  "('%s') was loaded." ),
                                               Schematic.VariantHierarchy.Variants.at( "V0" ).Name ),
                             RPT_SEVERITY_WARNING );
@@ -394,14 +394,14 @@ void CADSTAR_SCH_ARCHIVE_LOADER::Load( SCHEMATIC* aSchematic, SCH_SHEET* aRootSh
 
     if( Schematic.Groups.size() > 0 )
     {
-        m_reporter->Report( _( "The CADSTAR design contains grouped items which has no KiCad "
+        m_reporter->Report( _( "The CADSTAR design contains grouped items which has no Anvil "
                                "equivalent. Any grouped items have been ungrouped." ),
                             RPT_SEVERITY_WARNING );
     }
 
     if( Schematic.ReuseBlocks.size() > 0 )
     {
-        m_reporter->Report( _( "The CADSTAR design contains re-use blocks which has no KiCad "
+        m_reporter->Report( _( "The CADSTAR design contains re-use blocks which has no Anvil "
                                "equivalent. The re-use block information has been discarded during "
                                "the import." ),
                             RPT_SEVERITY_WARNING );
@@ -515,7 +515,7 @@ void CADSTAR_SCH_ARCHIVE_LOADER::Load( SCHEMATIC* aSchematic, SCH_SHEET* aRootSh
 
     checkPoint();
 
-    m_reporter->Report( _( "CADSTAR fonts are different to the ones in KiCad. This will likely "
+    m_reporter->Report( _( "CADSTAR fonts are different to the ones in Anvil. This will likely "
                            "result in alignment issues. Please review the imported text elements "
                            "carefully and correct manually if required." ),
                         RPT_SEVERITY_WARNING );
@@ -539,7 +539,7 @@ void CADSTAR_SCH_ARCHIVE_LOADER::checkDesignLimits()
     if( designSizeXkicad > maxDesignSizekicad || designSizeYkicad > maxDesignSizekicad )
     {
         THROW_IO_ERROR( wxString::Format(
-                _( "The design is too large and cannot be imported into KiCad. \n"
+                _( "The design is too large and cannot be imported into Anvil. \n"
                    "Please reduce the maximum design size in CADSTAR by navigating to: \n"
                    "Design Tab -> Properties -> Design Options -> Maximum Design Size. \n"
                    "Current Design size: %.2f, %.2f millimeters. \n" //format:allow
@@ -682,7 +682,7 @@ void CADSTAR_SCH_ARCHIVE_LOADER::loadPartsLibrary()
                 m_reporter->Report( wxString::Format( _( "Part definition '%s' references symbol "
                                                          "'%s' (alternate '%s') which could not be "
                                                          "found in the symbol library. The part has "
-                                                         "not been loaded into the KiCad library." ),
+                                                         "not been loaded into the Anvil library." ),
                                                       part.Name,
                                                       gate.Name,
                                                       gate.Alternate ),
@@ -707,7 +707,7 @@ void CADSTAR_SCH_ARCHIVE_LOADER::loadPartsLibrary()
                 m_reporter->Report( wxString::Format( _( "Part definition '%s' has an incomplete "
                                                          "definition (no symbol definitions are "
                                                          "associated with it). The part has not "
-                                                         "been loaded into the KiCad library." ),
+                                                         "been loaded into the Anvil library." ),
                                                       part.Name ),
                                     RPT_SEVERITY_WARNING );
             }
@@ -870,14 +870,14 @@ void CADSTAR_SCH_ARCHIVE_LOADER::loadSchematicSymbolInstances()
                 wxString symbolInstanceNetName = sym.SymbolVariant.Reference;
                 symbolInstanceNetName = EscapeString( symbolInstanceNetName, CTX_LIBID );
 
-                // Name of the symbol we will use for saving the part in KiCad
+                // Name of the symbol we will use for saving the part in Anvil
                 // Note: In CADSTAR all power symbols will start have the reference name be
                 // "GLOBALSIGNAL" followed by the default net name, so it makes sense to save
-                // the symbol in KiCad as the default net name as well.
+                // the symbol in Anvil as the default net name as well.
                 wxString libPartName = libraryNetName;
 
                 // In CADSTAR power symbol instances can refer to a different net to that defined
-                // in the library. This causes problems in KiCad v6 as it breaks connectivity when
+                // in the library. This causes problems in Anvil v6 as it breaks connectivity when
                 // the user decides to update all symbols from library. We handle this by creating
                 // individual versions of the power symbol for each net name.
                 if( libPartName != symbolInstanceNetName )
@@ -1009,7 +1009,7 @@ void CADSTAR_SCH_ARCHIVE_LOADER::loadSchematicSymbolInstances()
 
             m_reporter->Report( wxString::Format( _( "Symbol '%s' is scaled in the original "
                                                      "CADSTAR schematic but this is not supported "
-                                                     "in KiCad. When the symbol is reloaded from "
+                                                     "in Anvil. When the symbol is reloaded from "
                                                      "the library, it will revert to the original "
                                                      "1:1 scale." ),
                                                   symbolName,
@@ -1258,7 +1258,7 @@ void CADSTAR_SCH_ARCHIVE_LOADER::loadNets()
         for( NET_SCH::CONNECTION_SCH conn : net.Connections )
         {
             if( conn.LayerID == wxT( "NO_SHEET" ) )
-                continue; // No point loading virtual connections. KiCad handles that internally
+                continue; // No point loading virtual connections. Anvil handles that internally
 
             POINT start = getLocationOfNetElement( net, conn.StartNode );
             POINT end = getLocationOfNetElement( net, conn.EndNode );
@@ -1286,7 +1286,7 @@ void CADSTAR_SCH_ARCHIVE_LOADER::loadNets()
 
             // AUTO-FIX SHEET PINS
             //--------------------
-            // KiCad constrains the sheet pin on the edge of the sheet object whereas in
+            // Anvil constrains the sheet pin on the edge of the sheet object whereas in
             // CADSTAR it can be anywhere. Let's find the intersection of the wires with the sheet
             // and place the hierarchical
             std::vector<NETELEMENT_ID> nodes;
@@ -1324,7 +1324,7 @@ void CADSTAR_SCH_ARCHIVE_LOADER::loadNets()
                         if( !wireChain.Intersect( sheetEdge, wireToSheetIntersects ) )
                         {
                             // The block terminal is outside the block shape in the original
-                            // CADSTAR design. Since KiCad's Sheet Pin will already be constrained
+                            // CADSTAR design. Since Anvil's Sheet Pin will already be constrained
                             // on the edge, we will simply join to it with a straight line.
                             if( node == conn.StartNode )
                                 wireChain = wireChain.Reverse();
@@ -1419,7 +1419,7 @@ void CADSTAR_SCH_ARCHIVE_LOADER::loadNets()
 
             if( junc.HasNetLabel )
             {
-                // In CADSTAR the label can be placed anywhere, but in KiCad it has to be placed
+                // In CADSTAR the label can be placed anywhere, but in Anvil it has to be placed
                 // in the same location as the junction for it to be connected to it.
                 SCH_LABEL* label = new SCH_LABEL();
                 label->SetText( netName );
@@ -1895,7 +1895,7 @@ void CADSTAR_SCH_ARCHIVE_LOADER::loadSymbolGateAndPartFields( const SYMDEF_ID& a
 
         //TODO: Handle "links": In cadstar a field can be a "link" if its name starts
         // with the characters "Link ". Need to figure out how to convert them to
-        // equivalent in KiCad.
+        // equivalent in Anvil.
 
         if( attrName == wxT( "(PartDefinitionNameStem)" ) )
         {
@@ -2115,7 +2115,7 @@ SCH_SYMBOL* CADSTAR_SCH_ARCHIVE_LOADER::loadSchematicSymbol( const SYMBOL& aCads
     {
         m_reporter->Report( wxString::Format( _( "Symbol '%s' is rotated by an angle of %.1f " //format:allow
                                                  "degrees in the original CADSTAR design but "
-                                                 "KiCad only supports rotation angles multiples "
+                                                 "Anvil only supports rotation angles multiples "
                                                  "of 90 degrees. The connecting wires will need "
                                                  "manual fixing." ),
                                               aCadstarSymbol.ComponentRef.Designator,
@@ -2205,7 +2205,7 @@ void CADSTAR_SCH_ARCHIVE_LOADER::loadSymbolFieldAttribute( const ATTRIBUTE_LOCAT
     if( aIsMirrored )
     {
         // We need to change the aligment when the symbol is mirrored based on the text orientation
-        // To ensure the anchor point is the same in KiCad.
+        // To ensure the anchor point is the same in Anvil.
 
         int textIsVertical = KiROUND( textAngle.AsDegrees() / 90.0 ) % 2;
 
@@ -2529,7 +2529,7 @@ void CADSTAR_SCH_ARCHIVE_LOADER::loadChildSheets( const LAYER_ID& aCadstarSheetI
                     m_reporter->Report( wxString::Format( _( "The block ID %s (Block name: '%s') "
                                                              "is drawn on sheet '%s' but is not "
                                                              "linked to another sheet in the "
-                                                             "design. KiCad requires all sheet "
+                                                             "design. Anvil requires all sheet "
                                                              "symbols to be associated to a sheet, "
                                                              "so the block was not loaded." ),
                                                           block.ID, block.Name,
@@ -2540,7 +2540,7 @@ void CADSTAR_SCH_ARCHIVE_LOADER::loadChildSheets( const LAYER_ID& aCadstarSheetI
                 continue;
             }
 
-            // In KiCad you can only draw rectangular shapes whereas in Cadstar arbitrary shapes
+            // In Anvil you can only draw rectangular shapes whereas in Cadstar arbitrary shapes
             // are allowed. We will calculate the extents of the Cadstar shape and draw a rectangle
 
             std::pair<VECTOR2I, VECTOR2I> blockExtents;
@@ -2560,7 +2560,7 @@ void CADSTAR_SCH_ARCHIVE_LOADER::loadChildSheets( const LAYER_ID& aCadstarSheetI
             loadSheetAndChildSheets( block.AssocLayerID, blockExtents.first, blockExtents.second,
                                      aSheet );
 
-            // Hide all KiCad sheet properties (sheet name/filename is not applicable in CADSTAR)
+            // Hide all Anvil sheet properties (sheet name/filename is not applicable in CADSTAR)
             SCH_SHEET* loadedSheet = m_sheetMap.at( block.AssocLayerID );
             SCH_FIELDS fields = loadedSheet->GetFields();
 
@@ -2571,7 +2571,7 @@ void CADSTAR_SCH_ARCHIVE_LOADER::loadChildSheets( const LAYER_ID& aCadstarSheetI
 
             if( block.HasBlockLabel )
             {
-                //@todo use below code when KiCad supports multi-line fields
+                //@todo use below code when Anvil supports multi-line fields
                 /*
                 // Add the block label as a separate field
                 SCH_FIELD blockNameField( getKiCadPoint( block.BlockLabel.Position ), 2,
@@ -3005,9 +3005,9 @@ void CADSTAR_SCH_ARCHIVE_LOADER::applyTextSettings( EDA_TEXT*            aKiCadT
     // TODO update this when Eeschema supports justification independent of anchor position.
     ALIGNMENT textAlignment = aCadstarAlignment;
 
-    // KiCad mirrors the justification and alignment when the symbol is mirrored but CADSTAR
+    // Anvil mirrors the justification and alignment when the symbol is mirrored but CADSTAR
     // specifies it post-mirroring. In contrast, if the text item itself is mirrored (not
-    // supported in KiCad), CADSTAR specifies the alignment and justification pre-mirroring
+    // supported in Anvil), CADSTAR specifies the alignment and justification pre-mirroring
     if( aMirrored )
         textAlignment = mirrorX( aCadstarAlignment );
 
@@ -3017,7 +3017,7 @@ void CADSTAR_SCH_ARCHIVE_LOADER::applyTextSettings( EDA_TEXT*            aKiCadT
                 switch( aAlignment )
                 {
                 case ALIGNMENT::NO_ALIGNMENT: // Bottom left of the first line
-                    //No exact KiCad equivalent, so lets move the position of the text
+                    //No exact Anvil equivalent, so lets move the position of the text
                     FixTextPositionNoAlignment( aText );
                     KI_FALLTHROUGH;
                 case ALIGNMENT::BOTTOMLEFT:
@@ -3115,7 +3115,7 @@ void CADSTAR_SCH_ARCHIVE_LOADER::applyTextSettings( EDA_TEXT*            aKiCadT
         VECTOR2I pos;
 
         // Change the anchor point of the text item to make it match the same bounding box
-        // And correct the error introduced by the text offsetting in KiCad
+        // And correct the error introduced by the text offsetting in Anvil
         switch( spin )
         {
         case SPIN_STYLE::BOTTOM: pos = { bb.GetRight() - off, bb.GetTop()          }; break;

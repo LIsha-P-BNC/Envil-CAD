@@ -1,5 +1,5 @@
 /*
- * This program source code file is part of KiCad, a free EDA CAD application.
+ * This program source code file is part of Anvil, a free EDA CAD application.
  *
  * Copyright (C) 2017 Jean-Pierre Charras, jp.charras at wanadoo.fr
  * Copyright The KiCad Developers, see AUTHORS.txt for contributors.
@@ -252,7 +252,7 @@ SCH_EDIT_FRAME::SCH_EDIT_FRAME( KIWAY* aKiway, wxWindow* aParent ) :
     m_designBlocksPane = new SCH_DESIGN_BLOCK_PANE( this, nullptr, m_designBlockHistoryList );
 
     // AI Chat Panel — wrapped in try/catch so schematic editor loads even if WebView fails.
-    // KiCad Next: when the project-manager shell owns ONE common AI panel (CommonAiPanel +
+    // Anvil Next: when the project-manager shell owns ONE common AI panel (CommonAiPanel +
     // SingleWindowShell), this editor builds NO chat panel of its own — only the shell's.
     // The AI_IPC_CLIENT below is still created so the backend's revert/open_file broadcast
     // keeps refreshing this editor's document while the shell hosts the chat surface.
@@ -275,7 +275,7 @@ SCH_EDIT_FRAME::SCH_EDIT_FRAME( KIWAY* aKiway, wxWindow* aParent ) :
         }
 
         // Search for chat.html in priority order:
-        // 1. KiCad stock data path (works for both installed and KICAD_RUN_FROM_BUILD_DIR)
+        // 1. Anvil stock data path (works for both installed and KICAD_RUN_FROM_BUILD_DIR)
         // 2. Exe directory (build output: eeschema sits next to ai_chat/)
         // 3. wxStandardPaths resources dir (fallback)
         wxString chatHtmlFound;
@@ -319,7 +319,7 @@ SCH_EDIT_FRAME::SCH_EDIT_FRAME( KIWAY* aKiway, wxWindow* aParent ) :
             wxString schFile = Schematic().GetFileName();
             schFile.Replace( wxT( "\\" ), wxT( "/" ) );
             schFile.Replace( wxT( " " ), wxT( "%20" ) );
-            // app=eeschema tells the chat panel which KiCad editor it
+            // app=eeschema tells the chat panel which Anvil editor it
             // lives inside, so the Python backend can filter its tool
             // list and emit the right page_summary card on hello.
             // Without this hint, location.pathname is identical for both
@@ -395,7 +395,7 @@ SCH_EDIT_FRAME::SCH_EDIT_FRAME( KIWAY* aKiway, wxWindow* aParent ) :
                                 // client (eeschema AND pcbnew). Only act on a real
                                 // schematic here; a .kicad_pcb path is meant for pcbnew.
                                 // Without this guard eeschema hands the board to
-                                // OpenProjectFiles and pops "'…kicad_pcb' is not a KiCad
+                                // OpenProjectFiles and pops "'…kicad_pcb' is not a Anvil
                                 // schematic file" — a modal that also races/blocks the
                                 // pcbnew revert (the "routing not showing" symptom).
                                 if( !filePath.IsEmpty() && wxFileExists( filePath )
@@ -426,7 +426,7 @@ SCH_EDIT_FRAME::SCH_EDIT_FRAME( KIWAY* aKiway, wxWindow* aParent ) :
                                 // real schematic here; ignore the board path and let
                                 // pcbnew handle it (its own handler is board-guarded).
                                 // Without this, eeschema OpenProjectFiles() the board and
-                                // pops the "not a KiCad schematic file" modal.
+                                // pops the "not a Anvil schematic file" modal.
                                 if( !targetFile.IsEmpty() && wxFileExists( targetFile )
                                         && targetFile.Lower().EndsWith( wxT( ".kicad_sch" ) ) )
                                 {
@@ -1245,7 +1245,7 @@ void SCH_EDIT_FRAME::CaptureHierarchyPaneSize()
     // Store the current pane size
     // It allows to retrieve the last defined pane size when switching between
     // docked and floating pane state
-    // Note: *DO NOT* call m_auimgr.Update() here: it crashes KiCad at least on Windows
+    // Note: *DO NOT* call m_auimgr.Update() here: it crashes Anvil at least on Windows
 
     EESCHEMA_SETTINGS* cfg = dynamic_cast<EESCHEMA_SETTINGS*>( Kiface().KifaceSettings() );
     wxAuiPaneInfo&     hierarchy_pane = m_auimgr.GetPane( SchematicHierarchyPaneName() );
@@ -1936,7 +1936,7 @@ void SCH_EDIT_FRAME::OnUpdatePCB( bool aAutoApply )
     if( Kiface().IsSingle() )
     {
         DisplayError( this,  _( "Cannot update the PCB because the Schematic Editor is opened in stand-alone "
-                                "mode. In order to create/update PCBs from schematics, launch the main KiCad "
+                                "mode. In order to create/update PCBs from schematics, launch the main Anvil "
                                 "application and create a project." ) );
         return;
     }
@@ -1963,7 +1963,7 @@ void SCH_EDIT_FRAME::OnUpdatePCB( bool aAutoApply )
         frame->OpenProjectFiles( std::vector<wxString>( 1, fn.GetFullPath() ) );
     }
 
-    // KiCad Next single-window shell: dock the PCB editor as a tab in the one shell window
+    // Anvil Next single-window shell: dock the PCB editor as a tab in the one shell window
     // instead of letting it float as its own OS window.  DockPlayer() returns false when no
     // shell is hosting (stand-alone editor, SingleWindowShell flag off, or non-Windows), so
     // the legacy floating path below runs unchanged in every other configuration.
@@ -2146,7 +2146,7 @@ void SCH_EDIT_FRAME::OnOpenPcbnew()
                 frame->OpenProjectFiles( std::vector<wxString>( 1, boardfn.GetFullPath() ) );
             }
 
-            // KiCad Next single-window shell: dock the PCB editor as a tab rather than
+            // Anvil Next single-window shell: dock the PCB editor as a tab rather than
             // floating it; falls back to the legacy floating path when no shell is hosting.
             if( !Kiway().DockPlayer( frame ) )
             {
@@ -3726,7 +3726,7 @@ void SCH_EDIT_FRAME::RemoveVariant()
 
 bool SCH_EDIT_FRAME::doAutoSave()
 {
-    // KiCad Next / Anvil: VSCode-style autosave to the REAL .kicad_sch (not the .history
+    // Anvil Next / Anvil: VSCode-style autosave to the REAL .kicad_sch (not the .history
     // snapshot) so the AI backend, which reads the live project file, observes the user's
     // manual edits automatically — the Cursor way.  Only writes when there is something to
     // save and the project is writable; a clean or read-only design is a no-op.  Skips the

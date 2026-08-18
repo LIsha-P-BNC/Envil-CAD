@@ -245,7 +245,7 @@ std::string ENVIL_AI_AGENT::toolsJson() const
             "add_component", "Place a component symbol into the open schematic in Envil-CAD.",
             { { "lib_id",
                 { { "type", "string" },
-                  { "description", "KiCad library id 'Library:Symbol', e.g. "
+                  { "description", "Anvil library id 'Library:Symbol', e.g. "
                                    "'Regulator_Linear:AP2112K-3.3', 'Device:R', 'Device:C', "
                                    "'power:GND', 'power:+3V3'." } } },
               { "reference",

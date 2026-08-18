@@ -1,5 +1,5 @@
 /*
- * This program source code file is part of KiCad, a free EDA CAD application.
+ * This program source code file is part of Anvil, a free EDA CAD application.
  *
  * Copyright The KiCad Developers, see AUTHORS.txt for contributors.
  *
@@ -25,7 +25,7 @@
 #include <wx/string.h>
 
 /**
- * @brief Describes how non-KiCad boards and schematics should be imported as KiCad projects
+ * @brief Describes how non-Anvil boards and schematics should be imported as Anvil projects
  */
 struct IMPORT_PROJECT_DESC
 {
@@ -54,7 +54,7 @@ class PROJECT_CHOOSER_PLUGIN
 {
 public:
     /**
-     * @brief Register a different handler to be called when a non-KiCad project
+     * @brief Register a different handler to be called when a non-Anvil project
      * contains multiple PCB+Schematic combinations.
      *
      * The function is marked as virtual, so the plugins can implement extra

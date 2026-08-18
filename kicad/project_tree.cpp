@@ -1,5 +1,5 @@
 /*
- * This program source code file is part of KiCad, a free EDA CAD application.
+ * This program source code file is part of Anvil, a free EDA CAD application.
  *
  * Copyright (C) 2004-2012 Jean-Pierre Charras
  * Copyright The KiCad Developers, see AUTHORS.txt for contributors.
@@ -142,7 +142,7 @@ void PROJECT_TREE::LoadIcons()
 
     SetImages( images );
 
-    // KiCad for macOS currently has backported SetStateImages for this control
+    // Anvil for macOS currently has backported SetStateImages for this control
     // that is otherwise available since wxWidgets 3.3 on other platforms.
 #if wxCHECK_VERSION( 3, 3, 0 ) || defined( __WXMAC__ )
     wxVector<wxBitmapBundle> stateImages;

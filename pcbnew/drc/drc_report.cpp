@@ -1,5 +1,5 @@
 /*
- * This program source code file is part of KiCad, a free EDA CAD application.
+ * This program source code file is part of Anvil, a free EDA CAD application.
  *
  * Copyright The KiCad Developers, see AUTHORS.txt for contributors.
  *
@@ -152,7 +152,7 @@ bool DRC_REPORT::WriteJsonReport( const wxString& aFullFileName )
     RC_JSON::DRC_REPORT reportHead;
 
     wxFileName fn( m_board->GetFileName() );
-    reportHead.$schema = "https://schemas.kicad.org/drc.v1.json";
+    reportHead.$schema = "https://schemas.anvilcad.com/drc.v1.json";
     reportHead.source = fn.GetFullName();
     reportHead.date = GetISO8601CurrentDateTime();
     reportHead.kicad_version = GetMajorMinorPatchVersion();

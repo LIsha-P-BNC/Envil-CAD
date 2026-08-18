@@ -1,5 +1,5 @@
 /*
- * This program source code file is part of KiCad, a free EDA CAD application.
+ * This program source code file is part of Anvil, a free EDA CAD application.
  *
  * Copyright (C) 2025 KiCad Developers, see AUTHORS.txt for contributors.
  *
@@ -44,10 +44,10 @@ namespace PADS_SCH
 {
 
 /**
- * Builder class to create KiCad schematic elements from parsed PADS data.
+ * Builder class to create Anvil schematic elements from parsed PADS data.
  *
  * This class handles the conversion of parsed PADS signals and connectivity
- * into KiCad schematic wire segments, junctions, and labels.
+ * into Anvil schematic wire segments, junctions, and labels.
  */
 class PADS_SCH_SCHEMATIC_BUILDER
 {
@@ -159,7 +159,7 @@ public:
     /**
      * Create custom fields from non-standard PADS attributes.
      *
-     * Creates KiCad custom fields for PADS attributes that don't map to
+     * Creates Anvil custom fields for PADS attributes that don't map to
      * standard fields (Reference, Value, Footprint, Datasheet, Description).
      * Uses PADS_ATTRIBUTE_MAPPER for name normalization.
      *
@@ -172,7 +172,7 @@ public:
     /**
      * Create title block from parsed PADS parameters.
      *
-     * Maps PADS *FIELDS* section entries to KiCad TITLE_BLOCK, checking both standard
+     * Maps PADS *FIELDS* section entries to Anvil TITLE_BLOCK, checking both standard
      * and custom field names since PADS designs often leave standard names empty and
      * use custom variants instead (e.g. "TITLE1" instead of "Title").
      *
@@ -256,12 +256,12 @@ public:
 
 private:
     /**
-     * Convert PADS coordinate to KiCad internal units.
+     * Convert PADS coordinate to Anvil internal units.
      */
     int toKiCadUnits( double aPadsValue ) const;
 
     /**
-     * Convert PADS Y coordinate to KiCad Y, accounting for Y-axis inversion and page offset.
+     * Convert PADS Y coordinate to Anvil Y, accounting for Y-axis inversion and page offset.
      */
     int toKiCadY( double aPadsY ) const;
 
@@ -283,7 +283,7 @@ private:
                                         const VECTOR2I& aAdjacentPos );
 
     /**
-     * Convert a PADS net name for use as a KiCad label.
+     * Convert a PADS net name for use as a Anvil label.
      * Handles "/" prefix → "~{}" overbar conversion for inverted signals.
      */
     wxString convertNetName( const std::string& aName ) const;

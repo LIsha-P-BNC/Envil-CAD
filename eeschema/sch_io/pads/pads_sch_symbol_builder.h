@@ -1,5 +1,5 @@
 /*
- * This program source code file is part of KiCad, a free EDA CAD application.
+ * This program source code file is part of Anvil, a free EDA CAD application.
  *
  * Copyright (C) 2025 KiCad Developers, see AUTHORS.txt for contributors.
  *
@@ -36,10 +36,10 @@ namespace PADS_SCH
 {
 
 /**
- * Builder class to convert PADS symbol definitions to KiCad LIB_SYMBOL objects.
+ * Builder class to convert PADS symbol definitions to Anvil LIB_SYMBOL objects.
  *
  * This class handles the conversion of parsed PADS symbol definitions (graphics and pins)
- * to KiCad's embedded symbol format for schematic import.
+ * to Anvil's embedded symbol format for schematic import.
  */
 class PADS_SCH_SYMBOL_BUILDER
 {
@@ -48,7 +48,7 @@ public:
     ~PADS_SCH_SYMBOL_BUILDER();
 
     /**
-     * Build a KiCad LIB_SYMBOL from a PADS symbol definition.
+     * Build a Anvil LIB_SYMBOL from a PADS symbol definition.
      *
      * @param aSymbolDef The parsed PADS symbol definition.
      * @return A new LIB_SYMBOL object. Caller takes ownership.
@@ -88,17 +88,17 @@ public:
     static bool IsPowerSymbol( const std::string& aName );
 
     /**
-     * Get KiCad power library symbol ID for a PADS power symbol.
+     * Get Anvil power library symbol ID for a PADS power symbol.
      *
      * @param aPadsName PADS symbol name.
-     * @return LIB_ID for the KiCad power library symbol, or nullopt if no mapping.
+     * @return LIB_ID for the Anvil power library symbol, or nullopt if no mapping.
      */
     static std::optional<LIB_ID> GetKiCadPowerSymbolId( const std::string& aPadsName );
 
     /**
-     * Build a power symbol using hard-coded KiCad-standard graphics.
+     * Build a power symbol using hard-coded Anvil-standard graphics.
      *
-     * @param aKiCadName KiCad power symbol name (e.g. "GND", "VCC", "VEE").
+     * @param aKiCadName Anvil power symbol name (e.g. "GND", "VCC", "VEE").
      * @return A new LIB_SYMBOL with power graphics, or nullptr if the name is unrecognized.
      *         Caller takes ownership.
      */
@@ -108,7 +108,7 @@ public:
      * Map a PADS special_variant to a power symbol style name.
      *
      * Uses the variant's decal_name pattern (RAIL, ARROW, BUBBLE) and pin_type
-     * to determine the appropriate KiCad power symbol style.
+     * to determine the appropriate Anvil power symbol style.
      *
      * @param aDecalName Variant decal name (e.g. "+RAIL", "AGND", "+BUBBLE").
      * @param aPinType   Variant pin type ("G" for ground, "P" for power).
@@ -171,7 +171,7 @@ public:
      * Build a multi-unit connector symbol where each unit represents one pin.
      *
      * PADS connectors place each pin individually on the schematic. This creates
-     * a multi-unit KiCad symbol where each unit has the connector decal graphics
+     * a multi-unit Anvil symbol where each unit has the connector decal graphics
      * and one pin with the correct pin number, allowing all placements to share
      * one reference designator.
      *
@@ -210,7 +210,7 @@ public:
 
 private:
     /**
-     * Convert PADS coordinate to KiCad internal units.
+     * Convert PADS coordinate to Anvil internal units.
      */
     int toKiCadUnits( double aPadsValue ) const;
 
@@ -232,7 +232,7 @@ private:
     SCH_PIN* createPin( const SYMBOL_PIN& aPin, LIB_SYMBOL* aParent );
 
     /**
-     * Map PADS pin type to KiCad electrical type.
+     * Map PADS pin type to Anvil electrical type.
      */
     int mapPinType( PIN_TYPE aPadsType );
 

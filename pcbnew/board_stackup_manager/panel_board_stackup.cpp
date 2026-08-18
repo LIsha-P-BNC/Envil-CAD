@@ -1,5 +1,5 @@
 /*
- * This program source code file is part of KiCad, a free EDA CAD application.
+ * This program source code file is part of Anvil, a free EDA CAD application.
  *
  * Copyright (C) 2019 Jean-Pierre Charras, jp.charras at wanadoo.fr
  * Copyright The KiCad Developers, see AUTHORS.txt for contributors.
@@ -440,7 +440,7 @@ void PANEL_SETUP_BOARD_STACKUP::onExportToClipboard( wxCommandEvent& event )
         // This data objects are held by the clipboard,
         // so do not delete them in the app.
         wxTheClipboard->SetData( new wxTextDataObject( report ) );
-        wxTheClipboard->Flush(); // Allow data to be available after closing KiCad
+        wxTheClipboard->Flush(); // Allow data to be available after closing Anvil
         wxTheClipboard->Close();
     }
 }

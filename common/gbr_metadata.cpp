@@ -1,5 +1,5 @@
 /*
- * This program source code file is part of KiCad, a free EDA CAD application.
+ * This program source code file is part of Anvil, a free EDA CAD application.
  *
  * Copyright (C) 2019 Jean-Pierre Charras, jp.charras at wanadoo.fr
  * Copyright The KiCad Developers, see AUTHORS.txt for contributors.
@@ -665,7 +665,7 @@ bool FormatNetAttribute( std::string& aPrintedText, std::string& aLastNetAttribu
     if( aLastNetAttributes != full_attribute_string )
     {
         // first, remove no longer existing attributes.
-        // Because in KiCad the full attribute list is evaluated for each object,
+        // Because in Anvil the full attribute list is evaluated for each object,
         // the entire dictionary is cleared
         // If m_TryKeepPreviousAttributes is true, only the no longer existing attribute
         // is cleared.

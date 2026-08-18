@@ -1,5 +1,5 @@
 /*
- * This program source code file is part of KiCad, a free EDA CAD application.
+ * This program source code file is part of Anvil, a free EDA CAD application.
  *
  * Copyright (C) 2020-2021 Roberto Fernandez Bautista <roberto.fer.bau@gmail.com>
  * Copyright The KiCad Developers, see AUTHORS.txt for contributors.
@@ -295,9 +295,9 @@ public:
         VARIANT_ID VariantID             = wxEmptyString;
 
         std::map<TERMINAL_ID, TERMATTR>         TerminalAttributes;
-        std::map<TERMINAL_ID, SYMPINNAME_LABEL> PinLabels;  ///< Equivalent to KiCad's Pin Name
+        std::map<TERMINAL_ID, SYMPINNAME_LABEL> PinLabels;  ///< Equivalent to Anvil's Pin Name
         std::map<TERMINAL_ID, SYMPINNAME_LABEL> PinNames;   ///< Identifier of the pin in the PCB
-                                                            ///< Equivalent to KiCad's Pin Number
+                                                            ///< Equivalent to Anvil's Pin Number
         std::map<TERMINAL_ID, PIN_NUM>          PinNumbers; ///< This seems to only appear in older
                                                             ///< designs and is similar to PinNames
                                                             ///< but only allowing numerical values
@@ -462,7 +462,7 @@ public:
     ATTRCOLORS        AttrColors;
     PARTNAMECOL       SymbolPartNameColor;
 
-    int KiCadUnitDivider; ///<Use this value to convert units in this CSA file to KiCad units
+    int KiCadUnitDivider; ///<Use this value to convert units in this CSA file to Anvil units
 
 private:
     XNODE* m_rootNode; // Currently parsed root node

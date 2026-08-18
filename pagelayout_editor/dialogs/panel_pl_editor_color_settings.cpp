@@ -1,5 +1,5 @@
 /*
- * This program source code file is part of KiCad, a free EDA CAD application.
+ * This program source code file is part of Anvil, a free EDA CAD application.
  *
  * Copyright The KiCad Developers, see AUTHORS.txt for contributors.
  *
@@ -79,7 +79,7 @@ bool PANEL_PL_EDITOR_COLOR_SETTINGS::TransferDataFromWindow()
 
 void PANEL_PL_EDITOR_COLOR_SETTINGS::ResetPanel()
 {
-    m_themes->SetStringSelection( _( "KiCad Default" ) );
+    m_themes->SetStringSelection( _( "Anvil Default" ) );
 }
 
 

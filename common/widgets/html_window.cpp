@@ -1,5 +1,5 @@
 /*
- * This program source code file is part of KiCad, a free EDA CAD application.
+ * This program source code file is part of Anvil, a free EDA CAD application.
  *
  * Copyright (C) 2021 Mikołaj Wielgus <wielgusmikolaj@gmail.com>
  * Copyright The KiCad Developers, see AUTHORS.TXT for contributors.
@@ -134,7 +134,7 @@ void HTML_WINDOW::onMenuEvent( wxMenuEvent& event )
             bool primarySelection = wxTheClipboard->IsUsingPrimarySelection();
             wxTheClipboard->UsePrimarySelection( false );   // required to use the main clipboard
             wxTheClipboard->SetData( new wxTextDataObject( SelectionToText() ) );
-            wxTheClipboard->Flush(); // Allow data to be available after closing KiCad
+            wxTheClipboard->Flush(); // Allow data to be available after closing Anvil
             wxTheClipboard->Close();
             wxTheClipboard->UsePrimarySelection( primarySelection );
         }

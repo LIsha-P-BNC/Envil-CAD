@@ -171,7 +171,7 @@ void KIGFX::PREVIEW::DrawTextNextToCursor( KIGFX::VIEW* aView, const VECTOR2D& a
     // Due to the fact a shadow text is drawn left or right aligned,
     // it needs an offset = shadowWidth/2 to be drawn at the same place as normal text
     // But for some reason we need to slightly modify this offset
-    // for a better look for KiCad font (better alignment of shadow shape)
+    // for a better look for Anvil font (better alignment of shadow shape)
     const float adjust = 1.2f;      // Value chosen after tests
     shadowXoffset *= adjust;
 

@@ -1,5 +1,5 @@
 /*
- * This program source code file is part of KiCad, a free EDA CAD application.
+ * This program source code file is part of Anvil, a free EDA CAD application.
  *
  * Copyright (C) 2018 Jean-Pierre Charras, jp.charras at wanadoo.fr
  * Copyright (C) 2015 Dick Hollenbeck, dick@softplc.com
@@ -265,7 +265,7 @@ void PANEL_FP_PROPERTIES_3D_MODEL::cleanupFilename( wxString* aFilename )
             aFilename->insert( 0, wxT( ":" ) );
 
 #ifdef __WINDOWS__
-        // In KiCad files, filenames and paths are stored using Unix notation
+        // In Anvil files, filenames and paths are stored using Unix notation
         aFilename->Replace( wxT( "\\" ), wxT( "/" ) );
 #endif
     }
@@ -478,7 +478,7 @@ void PANEL_FP_PROPERTIES_3D_MODEL::OnAdd3DModel( wxCommandEvent&  )
         filename = alias + wxT( ":" ) + shortPath;
 
 #ifdef __WINDOWS__
-    // In KiCad files, filenames and paths are stored using Unix notation
+    // In Anvil files, filenames and paths are stored using Unix notation
     model.m_Filename.Replace( wxT( "\\" ), wxT( "/" ) );
 #endif
 

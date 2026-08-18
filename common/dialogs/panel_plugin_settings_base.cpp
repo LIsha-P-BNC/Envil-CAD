@@ -14,7 +14,7 @@ PANEL_PLUGIN_SETTINGS_BASE::PANEL_PLUGIN_SETTINGS_BASE( wxWindow* parent, wxWind
 	wxBoxSizer* bPanelSizer;
 	bPanelSizer = new wxBoxSizer( wxVERTICAL );
 
-	apiLabel = new wxStaticText( this, wxID_ANY, _("KiCad API"), wxDefaultPosition, wxDefaultSize, 0 );
+	apiLabel = new wxStaticText( this, wxID_ANY, _("Anvil API"), wxDefaultPosition, wxDefaultSize, 0 );
 	apiLabel->Wrap( -1 );
 	bPanelSizer->Add( apiLabel, 0, wxTOP|wxRIGHT|wxLEFT, 13 );
 
@@ -24,12 +24,12 @@ PANEL_PLUGIN_SETTINGS_BASE::PANEL_PLUGIN_SETTINGS_BASE( wxWindow* parent, wxWind
 	wxBoxSizer* apiBox;
 	apiBox = new wxBoxSizer( wxVERTICAL );
 
-	m_staticText3 = new wxStaticText( this, wxID_ANY, _("When the KiCad API is enabled, plugins and other software running on this computer can connect to KiCad."), wxDefaultPosition, wxDefaultSize, 0 );
+	m_staticText3 = new wxStaticText( this, wxID_ANY, _("When the Anvil API is enabled, plugins and other software running on this computer can connect to Anvil."), wxDefaultPosition, wxDefaultSize, 0 );
 	m_staticText3->Wrap( -1 );
 	apiBox->Add( m_staticText3, 0, wxALL, 5 );
 
-	m_cbEnableApi = new wxCheckBox( this, wxID_ANY, _("Enable KiCad API"), wxDefaultPosition, wxDefaultSize, 0 );
-	m_cbEnableApi->SetToolTip( _("Enable the KiCad API.  Doing so will allow third-party software running on your computer to access KiCad.") );
+	m_cbEnableApi = new wxCheckBox( this, wxID_ANY, _("Enable Anvil API"), wxDefaultPosition, wxDefaultSize, 0 );
+	m_cbEnableApi->SetToolTip( _("Enable the Anvil API.  Doing so will allow third-party software running on your computer to access Anvil.") );
 
 	apiBox->Add( m_cbEnableApi, 0, wxALL, 5 );
 

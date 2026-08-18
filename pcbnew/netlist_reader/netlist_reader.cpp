@@ -2,7 +2,7 @@
  * @file netlist_reader.cpp
  */
 /*
- * This program source code file is part of KiCad, a free EDA CAD application.
+ * This program source code file is part of Anvil, a free EDA CAD application.
  *
  * Copyright (C) 1992-2011 Jean-Pierre Charras.
  * Copyright (C) 2013-2016 Wayne Stambaugh <stambaughw@gmail.com>.

@@ -1,5 +1,5 @@
 /*
- * This program source code file is part of KiCad, a free EDA CAD application.
+ * This program source code file is part of Anvil, a free EDA CAD application.
  *
  * Copyright (C) 2010 Rafael Sokolowski <Rafael.Sokolowski@web.de>
  * Copyright The KiCad Developers, see AUTHORS.txt for contributors.
@@ -63,7 +63,7 @@ static void buildKicadAboutBanner( EDA_BASE_FRAME* aParent, ABOUT_APP_INFO& aInf
     /* Set title */
     aInfo.SetAppName( Pgm().App().GetAppName() );
 
-    /* KiCad build version */
+    /* Anvil build version */
     wxString version;
     version << ( KIPLATFORM::APP::IsOperatingSystemUnsupported() ? wxString( wxS( "(UNSUPPORTED)" ) )
                                                                  : GetBuildVersion() )
@@ -88,8 +88,8 @@ static void buildKicadAboutBanner( EDA_BASE_FRAME* aParent, ABOUT_APP_INFO& aInf
     libVersion << wxT( " ANSI " );
 #endif
 
-    // Just in case someone builds KiCad with the platform native of Boost instead of
-    // the version included with the KiCad source.
+    // Just in case someone builds Anvil with the platform native of Boost instead of
+    // the version included with the Anvil source.
     libVersion << wxT( "and Boost " ) << ( BOOST_VERSION / 100000 ) << wxT( "." )
                << ( BOOST_VERSION / 100 % 1000 ) << wxT( "." ) << ( BOOST_VERSION % 100 )
                << wxT( "\n" );
@@ -127,17 +127,17 @@ static void buildKicadAboutBanner( EDA_BASE_FRAME* aParent, ABOUT_APP_INFO& aInf
     // bullet-ed list with some http links
     description << wxT( "<ul>" );
     description << wxT( "<li>" )
-                << _( "The official KiCad website - " )
-                << HtmlHyperlink( wxS( "http://www.kicad.org" ) )
+                << _( "The official Anvil website - " )
+                << HtmlHyperlink( wxS( "http://www.anvilcad.com" ) )
                 << wxT( "</li>" );
     description << wxT( "<li>" )
                 << _( "Developer website - " )
-                << HtmlHyperlink( wxS( "https://go.kicad.org/dev" ) )
+                << HtmlHyperlink( wxS( "https://go.anvilcad.com/dev" ) )
                 << wxT( "</li>" );
 
     description << wxT( "<li>" )
-                << _("Official KiCad library repositories - " )
-                << HtmlHyperlink( wxS( "https://go.kicad.org/libraries" ) )
+                << _("Official Anvil library repositories - " )
+                << HtmlHyperlink( wxS( "https://go.anvilcad.com/libraries" ) )
                 << wxT( "</li>" );
 
     description << wxT( "</ul></p>" );
@@ -150,18 +150,18 @@ static void buildKicadAboutBanner( EDA_BASE_FRAME* aParent, ABOUT_APP_INFO& aInf
     description << wxT( "<ul>" );
     description << wxT( "<li>" )
                 << _( "Report or examine bugs - " )
-                << HtmlHyperlink( wxS( "https://go.kicad.org/bugs" ) )
+                << HtmlHyperlink( wxS( "https://go.anvilcad.com/bugs" ) )
                 << wxT( "</li>" );
     description << wxT( "</ul></p>" );
 
     description << wxT( "<p><b><u>" )
-                << _( "KiCad users group and community" )
+                << _( "Anvil users group and community" )
                 << wxT( "</u></b>" ); // bold & underlined font caption
 
     description << wxT( "<ul>" );
     description << wxT( "<li>" )
-                << _( "KiCad forum - " )
-                << HtmlHyperlink( wxS( "https://go.kicad.org/forum" ) )
+                << _( "Anvil forum - " )
+                << HtmlHyperlink( wxS( "https://go.anvilcad.com/forum" ) )
                 << wxT( "</li>" );
 
     description << wxT( "</ul></p>" );

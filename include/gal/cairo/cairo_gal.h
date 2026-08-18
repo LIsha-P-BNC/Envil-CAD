@@ -49,7 +49,7 @@
  *   drawing across a number of different backends. "
  *
  * Cairo offers also backends for PostScript and PDF surfaces. So it can be used for printing
- * of KiCad graphics surfaces as well.
+ * of Anvil graphics surfaces as well.
  */
 namespace KIGFX
 {

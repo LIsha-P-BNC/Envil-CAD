@@ -1,5 +1,5 @@
 /*
- * This program source code file is part of KiCad, a free EDA CAD application.
+ * This program source code file is part of Anvil, a free EDA CAD application.
  *
  * Copyright (C) 2020-2021 Roberto Fernandez Bautista <roberto.fer.bau@gmail.com>
  * Copyright The KiCad Developers, see AUTHORS.txt for contributors.
@@ -20,7 +20,7 @@
 
 /**
  * @file cadstar_pcb_archive_loader.h
- * @brief Loads a cpa file into a KiCad BOARD object
+ * @brief Loads a cpa file into a Anvil BOARD object
  */
 
 #ifndef CADSTAR_PCB_ARCHIVE_LOADER_H_
@@ -75,7 +75,7 @@ public:
     }
 
     /**
-     * @brief Loads a CADSTAR PCB Archive file into the KiCad BOARD object given
+     * @brief Loads a CADSTAR PCB Archive file into the Anvil BOARD object given
      * @param aBoard
      */
     void Load( BOARD* aBoard, PROJECT* aProject );
@@ -98,17 +98,17 @@ private:
     bool                             m_logLayerWarnings;    ///< Used in loadBoardStackup()
     BOARD*                           m_board;
     PROJECT*                         m_project;
-    std::map<LAYER_ID, PCB_LAYER_ID> m_layermap;         ///< Map between Cadstar and KiCad Layers.
+    std::map<LAYER_ID, PCB_LAYER_ID> m_layermap;         ///< Map between Cadstar and Anvil Layers.
                                                          ///< Populated by loadBoardStackup().
-    std::map<SYMDEF_ID, FOOTPRINT*>  m_libraryMap;       ///< Map between Cadstar and KiCad
+    std::map<SYMDEF_ID, FOOTPRINT*>  m_libraryMap;       ///< Map between Cadstar and Anvil
                                                          ///< components in the library. Populated
                                                          ///< by loadComponentLibrary(). Owns the
                                                          ///< FOOTPRINT objects.
-    std::map<GROUP_ID, PCB_GROUP*>   m_groupMap;         ///< Map between Cadstar and KiCad
+    std::map<GROUP_ID, PCB_GROUP*>   m_groupMap;         ///< Map between Cadstar and Anvil
                                                          ///< groups. Does NOT ownthe PCB_GROUP
                                                          ///< objects (these should have been
                                                          ///< loaded to m_board).
-    std::map<COMPONENT_ID, FOOTPRINT*> m_componentMap;   ///< Map between Cadstar and KiCad
+    std::map<COMPONENT_ID, FOOTPRINT*> m_componentMap;   ///< Map between Cadstar and Anvil
                                                          ///< components on the board. Does NOT own
                                                          ///< the FOOTPRINT objects (these should
                                                          ///< have been loaded to m_board).
@@ -124,16 +124,16 @@ private:
      */
     std::map<SYMDEF_ID, ASSOCIATED_COPPER_PADS> m_librarycopperpads;
 
-    std::map<NET_ID, NETINFO_ITEM*>       m_netMap;      ///< Map between Cadstar and KiCad Nets
+    std::map<NET_ID, NETINFO_ITEM*>       m_netMap;      ///< Map between Cadstar and Anvil Nets
     std::map<std::tuple<ROUTECODE_ID, NETCLASS_ID, SPACING_CLASS_ID>, std::shared_ptr<NETCLASS>>
-                                 m_netClassMap; ///< Map between Cadstar and KiCad classes
-    std::map<TEMPLATE_ID, ZONE*> m_zonesMap;             ///< Map between Cadstar and KiCad zones
+                                 m_netClassMap; ///< Map between Cadstar and Anvil classes
+    std::map<TEMPLATE_ID, ZONE*> m_zonesMap;             ///< Map between Cadstar and Anvil zones
     std::vector<LAYER_ID> m_powerPlaneLayers;            ///< List of layers that are marked as
                                                          ///< power plane in CADSTAR. This is used
                                                          ///< by "loadtemplates"
     VECTOR2I m_designCenter;                             ///< Used for calculating the required
                                                          ///< offset to apply to the Cadstar design
-                                                         ///< so that it fits in KiCad canvas
+                                                         ///< so that it fits in Anvil canvas
     std::set<HATCHCODE_ID> m_hatchcodesTested;           ///< Used by checkAndLogHatchCode() to
                                                          ///< avoid multiple duplicate warnings
     std::set<PADCODE_ID> m_padcodesTested;               ///< Used by getKiCadPad() to avoid
@@ -202,10 +202,10 @@ private:
      * @param aContainer to draw on (e.g. m_board)
      * @param aCadstarGroupID to add the text to
      * @param aCadstarLayerOverride if not empty, overrides the LayerID in aCadstarText
-     * @param aMoveVector move text by this amount (in KiCad coordinates)
+     * @param aMoveVector move text by this amount (in Anvil coordinates)
      * @param aRotationAngle rotate text by this amount (in tenth degrees)
      * @param aScalingFactor scale text by this amount
-     * @param aTransformCentre around which all transforms are applied (KiCad coordinates)
+     * @param aTransformCentre around which all transforms are applied (Anvil coordinates)
      * @param aMirrorInvert if true, it inverts the Mirror status of aCadstarText
      */
     void drawCadstarText( const TEXT& aCadstarText, BOARD_ITEM_CONTAINER* aContainer,
@@ -219,15 +219,15 @@ private:
     /**
      * @brief
      * @param aCadstarShape
-     * @param aCadstarLayerID KiCad layer to draw on
+     * @param aCadstarLayerID Anvil layer to draw on
      * @param aLineThickness Thickness of line to draw with
      * @param aShapeName for reporting warnings/errors to the user
      * @param aContainer to draw on (e.g. m_board)
      * @param aCadstarGroupID to add the shape to
-     * @param aMoveVector move shapes by this amount (in KiCad coordinates)
+     * @param aMoveVector move shapes by this amount (in Anvil coordinates)
      * @param aRotationAngle rotate shapes by this amount (in tenth degrees)
      * @param aScalingFactor scale shapes by this amount
-     * @param aTransformCentre around which all transforms are applied (KiCad coordinates)
+     * @param aTransformCentre around which all transforms are applied (Anvil coordinates)
      * @param aMirrorInvert if true, mirrors the shapes
      */
     void drawCadstarShape( const SHAPE& aCadstarShape, const PCB_LAYER_ID& aKiCadLayer,
@@ -242,14 +242,14 @@ private:
     /**
      * @brief Uses PCB_SHAPEs to draw the cutouts on m_board object
      * @param aVertices
-     * @param aKiCadLayer KiCad layer to draw on
+     * @param aKiCadLayer Anvil layer to draw on
      * @param aLineThickness Thickness of line to draw with
      * @param aContainer to draw on (e.g. m_board)
      * @param aCadstarGroupID to add the shapes to
-     * @param aMoveVector move shapes by this amount (in KiCad coordinates)
+     * @param aMoveVector move shapes by this amount (in Anvil coordinates)
      * @param aRotationAngle rotate shapes by this amount (in tenth degrees)
      * @param aScalingFactor scale shapes by this amount
-     * @param aTransformCentre around which all transforms are applied (KiCad coordinates)
+     * @param aTransformCentre around which all transforms are applied (Anvil coordinates)
      * @param aMirrorInvert if true, mirrors the shapes
      */
     void drawCadstarCutoutsAsShapes( const std::vector<CUTOUT>& aCutouts,
@@ -265,14 +265,14 @@ private:
     /**
      * @brief Uses PCB_SHAPE to draw the vertices on m_board object
      * @param aCadstarVertices
-     * @param aKiCadLayer KiCad layer to draw on
+     * @param aKiCadLayer Anvil layer to draw on
      * @param aLineThickness Thickness of line to draw with
      * @param aContainer to draw on (e.g. m_board)
      * @param aCadstarGroupID to add the shape to
-     * @param aMoveVector move shape by this amount (in KiCad coordinates)
+     * @param aMoveVector move shape by this amount (in Anvil coordinates)
      * @param aRotationAngle rotate shape by this amount (in tenth degrees)
      * @param aScalingFactor scale shape by this amount
-     * @param aTransformCentre around which all transforms are applied (KiCad coordinates)
+     * @param aTransformCentre around which all transforms are applied (Anvil coordinates)
      * @param aMirrorInvert if true, mirrors the shape
      * @param aCadstarGroupID to add the shape to
      */
@@ -290,10 +290,10 @@ private:
      * @param aCadstarVertices
      * @param aContainer to draw on (e.g. m_board). Can be nullptr.
      * @param aCadstarGroupID to add the shape to
-     * @param aMoveVector move shapes by this amount (in KiCad coordinates)
+     * @param aMoveVector move shapes by this amount (in Anvil coordinates)
      * @param aRotationAngle rotate shapes by this amount (in tenth degrees)
      * @param aScalingFactor scale shapes by this amount
-     * @param aTransformCentre around which all transforms are applied (KiCad coordinates)
+     * @param aTransformCentre around which all transforms are applied (Anvil coordinates)
      * @param aMirrorInvert if true, mirrors the shapes
      * @return
      */
@@ -312,10 +312,10 @@ private:
      * @param aCadstarVertex
      * @param aContainer to draw on (e.g. m_board). Can be nullptr.
      * @param aCadstarGroupID to add the shape to
-     * @param aMoveVector move shapes by this amount (in KiCad coordinates)
+     * @param aMoveVector move shapes by this amount (in Anvil coordinates)
      * @param aRotationAngle rotate shapes by this amount (in tenth degrees)
      * @param aScalingFactor scale shapes by this amount
-     * @param aTransformCentre around which all transforms are applied (KiCad coordinates)
+     * @param aTransformCentre around which all transforms are applied (Anvil coordinates)
      * @param aMirrorInvert if true, mirrors the shapes
      * @return
      */
@@ -343,10 +343,10 @@ private:
      * @param aCadstarShape
      * @param aLineThickness Thickness of line is used for expanding the polygon by half.
      * @param aContainer to draw on (e.g. m_board). Can be nullptr.
-     * @param aMoveVector move poly by this amount (in KiCad coordinates)
+     * @param aMoveVector move poly by this amount (in Anvil coordinates)
      * @param aRotationAngle rotate poly by this amount (in tenth degrees)
      * @param aScalingFactor scale poly by this amount
-     * @param aTransformCentre around which all transforms are applied (KiCad coordinates)
+     * @param aTransformCentre around which all transforms are applied (Anvil coordinates)
      * @param aMirrorInvert if true, mirrors the poly
      * @return
      */
@@ -384,7 +384,7 @@ private:
                                                   int aWidthOverride = -1 );
 
     /**
-     * @brief Adds a CADSTAR Attribute to a KiCad footprint
+     * @brief Adds a CADSTAR Attribute to a Anvil footprint
      * @param aCadstarAttrLoc
      * @param aCadstarAttributeID
      * @param aFootprint
@@ -406,7 +406,7 @@ private:
                            const long& aOffsetAmount );
 
     /**
-     * Apply cadstar textcode parameters to a KiCad text object
+     * Apply cadstar textcode parameters to a Anvil text object
      */
     void applyTextCode( EDA_TEXT* aKiCadText, const TEXTCODE_ID& aCadstarTextCodeID );
 
@@ -425,7 +425,7 @@ private:
               const std::map<ATTRIBUTE_ID, ATTRIBUTE_VALUE>& aCadstarAttributeMap );
     LAYER_TYPE getLayerType( const LAYER_ID aCadstarLayerID );
 
-    // Helper Functions for obtaining individual elements as KiCad elements:
+    // Helper Functions for obtaining individual elements as Anvil elements:
     EDA_ANGLE  getHatchCodeAngle( const HATCHCODE_ID& aCadstarHatchcodeID );
     PAD*       getKiCadPad( const COMPONENT_PAD& aCadstarPad, FOOTPRINT* aParent );
     PAD*&      getPadReference( FOOTPRINT* aFootprint, const PAD_ID aCadstarPadID );
@@ -435,7 +435,7 @@ private:
     PCB_GROUP* getKiCadGroup( const GROUP_ID& aCadstarGroupID );
 
     /**
-     * @brief Scales, offsets and inverts y axis to make the point usable directly in KiCad
+     * @brief Scales, offsets and inverts y axis to make the point usable directly in Anvil
      * @param aCadstarPoint
      * @return
      */
@@ -520,7 +520,7 @@ private:
     /**
      * @brief
      * @param aCadstarLayerID
-     * @return true if the layer corresponds to a KiCad LSET or false if the layer maps directly
+     * @return true if the layer corresponds to a Anvil LSET or false if the layer maps directly
      */
     bool isLayerSet( const LAYER_ID& aCadstarLayerID );
 

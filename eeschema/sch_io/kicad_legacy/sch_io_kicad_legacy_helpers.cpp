@@ -1,5 +1,5 @@
 /*
- * This program source code file is part of KiCad, a free EDA CAD application.
+ * This program source code file is part of Anvil, a free EDA CAD application.
  *
  * Copyright The KiCad Developers, see AUTHORS.txt for contributors.
  *
@@ -35,7 +35,7 @@ const char* delims = " \t\r\n";
 
 bool is_eol( char c )
 {
-    //        The default file eol character used internally by KiCad.
+    //        The default file eol character used internally by Anvil.
     //        |
     //        |            Possible eol if someone edited the file by hand on certain platforms.
     //        |            |

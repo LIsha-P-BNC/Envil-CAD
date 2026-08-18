@@ -1,5 +1,5 @@
 /*
- * This program source code file is part of KiCad, a free EDA CAD application.
+ * This program source code file is part of Anvil, a free EDA CAD application.
  *
  * Copyright (C) 2009 Jean-Pierre Charras, jaen-pierre.charras@gipsa-lab.inpg.com
  * Copyright (C) 2011 Wayne Stambaugh <stambaughw@gmail.com>
@@ -214,7 +214,7 @@ public:
     /*
      * These 4 functions provide a basic way to show/hide grid and /get/set grid color.
      *
-     * These parameters are saved in KiCad config for each main frame.
+     * These parameters are saved in Anvil config for each main frame.
      */
     bool IsGridVisible();
     virtual void SetGridVisibility( bool aVisible );

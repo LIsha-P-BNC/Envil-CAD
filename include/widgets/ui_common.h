@@ -1,5 +1,5 @@
 /*
- * This program source code file is part of KiCad, a free EDA CAD application.
+ * This program source code file is part of Anvil, a free EDA CAD application.
  *
  * Copyright The KiCad Developers, see AUTHORS.txt for contributors.
  *
@@ -53,7 +53,7 @@ const int c_IndicatorSizeDIP = 10;
 
 
 /**
- * Get the standard margin around a widget in the KiCad UI
+ * Get the standard margin around a widget in the Anvil UI
  * @return margin in pixels
  */
 KICOMMON_API int GetStdMargin();

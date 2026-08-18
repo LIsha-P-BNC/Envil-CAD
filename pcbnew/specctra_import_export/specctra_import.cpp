@@ -1,5 +1,5 @@
 /*
- * This program source code file is part of KiCad, a free EDA CAD application.
+ * This program source code file is part of Anvil, a free EDA CAD application.
  *
  * Copyright (C) 2007-2013 SoftPLC Corporation, Dick Hollenbeck <dick@softplc.com>
  * Copyright The KiCad Developers, see AUTHORS.txt for contributors.
@@ -102,10 +102,10 @@ namespace DSN {
 
 /**
  * Function scale
- * converts a session file distance to KiCad units of deci-mils.
+ * converts a session file distance to Anvil units of deci-mils.
  * @param distance The session file length to convert.
  * @param aResolution The session UNIT_RES which holds the engineering unit specifier
- * @return int - The KiCad length in internal unit
+ * @return int - The Anvil length in internal unit
  */
 static int scale( double distance, UNIT_RES* aResolution )
 {
@@ -129,10 +129,10 @@ static int scale( double distance, UNIT_RES* aResolution )
 /**
  * Function mapPt
  * translates a point from the Specctra Session format coordinate system
- * to the KiCad coordinate system.
+ * to the Anvil coordinate system.
  * @param aPoint The session point to translate
  * @param aResolution - The amount to scale the point.
- * @return wxPoint - The KiCad coordinate system point.
+ * @return wxPoint - The Anvil coordinate system point.
  */
 static VECTOR2I mapPt( const POINT& aPoint, UNIT_RES* aResolution )
 {
@@ -430,7 +430,7 @@ void SPECCTRA_DB::FromSESSION( BOARD* aBoard )
 
                 if( place.m_side == T_front )
                 {
-                    // convert from degrees to tenths of degrees used in KiCad.
+                    // convert from degrees to tenths of degrees used in Anvil.
                     EDA_ANGLE orientation( place.m_rotation, DEGREES_T );
 
                     if( footprint->GetLayer() != F_Cu )

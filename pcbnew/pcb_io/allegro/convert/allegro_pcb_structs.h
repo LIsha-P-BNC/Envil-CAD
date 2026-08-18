@@ -1,5 +1,5 @@
 /*
- * This program source code file is part of KiCad, a free EDA CAD application.
+ * This program source code file is part of Anvil, a free EDA CAD application.
  *
  * Copyright Quilter
  * Copyright The KiCad Developers, see AUTHORS.txt for contributors.
@@ -231,7 +231,7 @@ struct FILE_HEADER
 
     /**
      * This is apparently some kind of linked list that chains though subsets
-     * objects in the file. It's not clear if this has any utility for KiCad, as we
+     * objects in the file. It's not clear if this has any utility for Anvil, as we
      * can just keep a map of object types as we go.
      */
     struct LINKED_LIST
@@ -844,7 +844,7 @@ struct BLK_0x0C_PIN_DEF
 
 /**
  * Pad geometry and placement in board-absolute coordinates. References a padstack (0x1C)
- * for shape/drill definitions. Coordinates and rotation are board-absolute; for KiCad
+ * for shape/drill definitions. Coordinates and rotation are board-absolute; for Anvil
  * footprint-local space, subtract the parent footprint's position and rotation.
  */
 struct BLK_0x0D_PAD
@@ -855,8 +855,8 @@ struct BLK_0x0D_PAD
 
     COND_GE<FMT_VER::V_174, uint32_t> m_Unknown1;
 
-    int32_t m_CoordsX;  ///< Board coordinates. Use SetFPRelativePosition() for KiCad FP-local space.
-    int32_t m_CoordsY;  ///< Board coordinates. Use SetFPRelativePosition() for KiCad FP-local space.
+    int32_t m_CoordsX;  ///< Board coordinates. Use SetFPRelativePosition() for Anvil FP-local space.
+    int32_t m_CoordsY;  ///< Board coordinates. Use SetFPRelativePosition() for Anvil FP-local space.
 
     uint32_t m_PadStack;
     uint32_t m_Unknown2;

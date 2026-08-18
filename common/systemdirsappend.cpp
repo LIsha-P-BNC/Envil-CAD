@@ -1,5 +1,5 @@
 /*
- * This program source code file is part of KiCad, a free EDA CAD application.
+ * This program source code file is part of Anvil, a free EDA CAD application.
  *
  * Copyright (C) 2014 CERN
  * Copyright The KiCad Developers, see AUTHORS.TXT for contributors.
@@ -64,14 +64,14 @@ void SystemDirsAppend( SEARCH_STACK* aSearchStack )
     maybe.AddPaths( PATHS::GetOSXKicadDataDir() );
 #else
     // This is from CMAKE_INSTALL_PREFIX.
-    // Useful when KiCad is installed by `make install`.
+    // Useful when Anvil is installed by `make install`.
     // Use as second ranked place.
     maybe.AddPaths( wxT( DEFAULT_INSTALL_PATH ) );
 
 #ifdef __WXGTK__
     // On Linux, the stock EDA library data install path can be redefined via
     // KICAD_LIBRARY_DATA, otherwise KICAD_DATA will be used.
-    // Useful when multiple versions of KiCad are installed in parallel.
+    // Useful when multiple versions of Anvil are installed in parallel.
     maybe.AddPaths( PATHS::GetStockEDALibraryPath() );
 #endif
 
@@ -228,7 +228,7 @@ void GlobalPathsAppend( SEARCH_STACK* aDst, KIWAY::FACE_T aId )
             fn.RemoveLastDir();
         }
 
-        // Add KiCad template file path to search path list.
+        // Add Anvil template file path to search path list.
         fn.AppendDir( wxT( "template" ) );
         aDst->AddPaths( fn.GetPath() );
     }

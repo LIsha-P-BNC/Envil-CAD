@@ -1,5 +1,5 @@
 /*
- * This program source code file is part of KiCad, a free EDA CAD application.
+ * This program source code file is part of Anvil, a free EDA CAD application.
  *
  * Copyright (C) 2010 SoftPLC Corporation, Dick Hollenbeck <dick@softplc.com>
  * Copyright The KiCad Developers, see AUTHORS.txt for contributors.
@@ -42,7 +42,7 @@ class KIID;
 /**
  * An extension of wxXmlAttribute that stores a variant type rather than just a string.
  * Technically, XML requires that all attribute values be strings, but since XNODE is
- * primarily used for s-expression formatting rather than XML formatting, and KiCad's
+ * primarily used for s-expression formatting rather than XML formatting, and Anvil's
  * s-expression format permits integer and floating-point numeric values in lists, this
  * class allows storage of the source value so that it can be properly formatted in the output.
  */
@@ -65,7 +65,7 @@ private:
 };
 
 /**
- * An extension of wxXmlNode that can format its contents as KiCad-style s-expressions
+ * An extension of wxXmlNode that can format its contents as Anvil-style s-expressions
  */
 class KICOMMON_API XNODE : public wxXmlNode
 {

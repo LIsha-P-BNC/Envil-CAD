@@ -5,7 +5,7 @@
  * @version 1.0
  * @date 2017-05-03
  *
- * This program source code file is part of KiCad, a free EDA CAD application.
+ * This program source code file is part of Anvil, a free EDA CAD application.
  *
  * Copyright The KiCad Developers, see AUTHORS.TXT for contributors.
  *

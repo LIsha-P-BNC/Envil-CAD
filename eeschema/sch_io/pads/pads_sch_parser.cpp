@@ -1,5 +1,5 @@
 /*
- * This program source code file is part of KiCad, a free EDA CAD application.
+ * This program source code file is part of Anvil, a free EDA CAD application.
  *
  * Copyright (C) 2025 KiCad Developers, see AUTHORS.txt for contributors.
  *
@@ -1179,7 +1179,7 @@ size_t PADS_SCH_PARSER::parseSymbolDef( const std::vector<std::string>& aLines, 
 
             // Pin stub length from pin decal name. Self-contained pin decals
             // (no pin_decal_name) draw the pin graphics themselves so the
-            // KiCad stub length should be zero.
+            // Anvil stub length should be zero.
             if( pin.pin_decal_name.empty() )
                 pin.length = 0.0;
             else if( pin.pin_decal_name.find( "SHORT" ) != std::string::npos )

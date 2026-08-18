@@ -1,5 +1,5 @@
 /*
- * This program source code file is part of KiCad, a free EDA CAD application.
+ * This program source code file is part of Anvil, a free EDA CAD application.
  *
  * Copyright (C) 2013 CERN (www.cern.ch)
  * Copyright The KiCad Developers, see AUTHORS.txt for contributors.
@@ -48,7 +48,7 @@ class ENVIL_AI_AGENT;
 class ENVIL_AI_TOOL_SERVER;
 
 /**
- * The main KiCad project manager frame.  It is not a KIWAY_PLAYER.
+ * The main Anvil project manager frame.  It is not a KIWAY_PLAYER.
  *
  * It also implements KIFACE_TAB_HOST so editor KIFACEs can dock newly opened sibling
  * editors as tabs in the single-window shell (see KIWAY::DockPlayer).
@@ -122,7 +122,7 @@ public:
     void HideTabsIfNeeded();
 
     /**
-     * KiCad Next single-window shell (Layer B): re-host an in-process editor frame
+     * Anvil Next single-window shell (Layer B): re-host an in-process editor frame
      * (Schematic / PCB / Gerber / Calculator / …) as a tab in the manager window's
      * center editor notebook instead of letting it float as its own OS window.
      * The frame's top-level decorations are stripped so the shell's single title /
@@ -169,7 +169,7 @@ public:
     wxString GetCurrentFileName() const override;
 
     /**
-     * @brief Creates a project and imports a non-KiCad Schematic and PCB
+     * @brief Creates a project and imports a non-Anvil Schematic and PCB
      * @param aWindowTitle to display to the user when opening the files
      * @param aFilesWildcard that includes both PCB and Schematic files (from
      * wildcards_and_files_ext.h)
@@ -186,19 +186,19 @@ public:
     /**
      * Open dialog to import Altium project files.
      */
-    /// Convert a KiCad project into an Anvil project (copy, rename to .anvil_*, rewrite
+    /// Convert a Anvil project into an Anvil project (copy, rename to .anvil_*, rewrite
     /// hierarchical sheet references, open the result).
     /**
      * Convert a project's kicad_pro/kicad_sch/kicad_pcb files to the Anvil extensions,
      * rewriting quoted internal references. Used by the Import menu, the open-time
-     * conversion offer, and the non-KiCad importers (Altium etc.).
+     * conversion offer, and the non-Anvil importers (Altium etc.).
      *
-     * @param aKeepOriginals true = leave the KiCad files in place (convert-as-copy).
+     * @param aKeepOriginals true = leave the Anvil files in place (convert-as-copy).
      */
     bool ConvertProjectToAnvil( const wxFileName& aSrcPro, const wxString& aDestDir,
                                 bool aKeepOriginals, wxFileName* aDestProOut = nullptr );
 
-    /// Convert a KiCad/Altium symbol library to .anvil_sym via eeschema (KIWAY mail).
+    /// Convert a Anvil/Altium symbol library to .anvil_sym via eeschema (KIWAY mail).
     /// After an import, offer to review/clean the design with Anvil AI. Pre-fills the AI
     /// panel's composer (never auto-sends, so the user decides when a turn starts).
     void OfferAiImportCleanup( const wxString& aWhat );
@@ -216,7 +216,7 @@ public:
 private:
     void importKiCadProjectFile( const wxString& aInputPath );
 
-    /// Direct-open router: a foreign (KiCad or legacy) project reached LoadProject via
+    /// Direct-open router: a foreign (Anvil or legacy) project reached LoadProject via
     /// File>Open, CLI, double-click, MRU or drag-drop.  Offers to import & convert it —
     /// foreign projects are never opened natively.  Returns true when an import ran.
     bool OfferImportForeignProject( const wxFileName& aProjectFile );
@@ -380,7 +380,7 @@ protected:
 
     void doReCreateMenuBar() override;
 
-    // KiCad Next unified menu bar (see EDA_BASE_FRAME::buildCommonMenuBar()).
+    // Anvil Next unified menu bar (see EDA_BASE_FRAME::buildCommonMenuBar()).
     TOOL_INTERACTIVE* getCurrentMenuTool() override;
     void buildFileMenu( ACTION_MENU* aMenu ) override;
     void buildEditMenu( ACTION_MENU* aMenu ) override;
@@ -392,7 +392,7 @@ protected:
 
 public:
     /**
-     * KiCad Next: titlebar quick access (0=Save, 1=Undo, 2=Redo) and the Preferences gear
+     * Anvil Next: titlebar quick access (0=Save, 1=Undo, 2=Redo) and the Preferences gear
      * (3), dispatched to the ACTIVE editor tab's tool manager (resolved per click).
      */
     void RunQuickAccessAction( int aWhich );
@@ -462,7 +462,7 @@ private:
     void syncAiPanelToActiveTab();
 
     /// Single-window shell unified footer (m_UnifiedStatusBar): each docked editor shows its OWN
-    /// native status bar (exactly like standalone KiCad); this just hides the shell's own status
+    /// native status bar (exactly like standalone Anvil); this just hides the shell's own status
     /// bar while an editor tab is in front (so there is only one footer) and shows it again on the
     /// Project Manager tab. No-op unless SingleWindowShell + UnifiedStatusBar are both set.
     void syncShellStatusBarToActiveTab();
@@ -564,11 +564,11 @@ private:
     int                                     m_pcmUpdateCount;
     std::unique_ptr<UPDATE_MANAGER>         m_updateManager;
 
-    // KiCad Next custom single-row title bar (logo + menu + window buttons)
+    // Anvil Next custom single-row title bar (logo + menu + window buttons)
     class TITLEBAR_PANEL;          // defined in kicad_manager_frame.cpp
     TITLEBAR_PANEL*                         m_titleBar = nullptr;
 
-    // KiCad Next (Cursor-style): the SHELL's own backend command channel. The editors
+    // Anvil Next (Cursor-style): the SHELL's own backend command channel. The editors
     // listen for open_file/revert; the shell listens for "open_project" and calls
     // LoadProject() so a just-built project appears in the Project Files tree and updates
     // live (LoadProject rebuilds the tree + resets the file watcher). Created only when the

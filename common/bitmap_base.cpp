@@ -1,5 +1,5 @@
 /*
- * This program source code file is part of KiCad, a free EDA CAD application.
+ * This program source code file is part of Anvil, a free EDA CAD application.
  *
  * Copyright (C) 2017 jean-pierre.charras
  * Copyright The KiCad Developers, see AUTHORS.txt for contributors.
@@ -327,7 +327,7 @@ void BITMAP_BASE::DrawBitmap( wxDC* aDC, const VECTOR2I& aPos,
     wxAffineMatrix2D init_matrix = aDC->GetTransformMatrix();
 
     // Note: clipping bitmap area was made to fix a minor issue in old versions of
-    // KiCad/wxWidgets (5.1 / wx 3.0)
+    // Anvil/wxWidgets (5.1 / wx 3.0)
     // However SetClippingRegion creates a lot of issues (different ways to fix the
     // position and size of the area, depending on wxWidgets version)because it changes with
     // each versions of wxWidgets, so it is now disabled

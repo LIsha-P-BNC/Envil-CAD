@@ -1,5 +1,5 @@
 /*
- * This program source code file is part of KiCad, a free EDA CAD application.
+ * This program source code file is part of Anvil, a free EDA CAD application.
  *
  * Copyright (C) 2014-2020 Jean-Pierre Charras, jp.charras at wanadoo.fr
  * Copyright (C) 2008 Wayne Stambaugh <stambaughw@gmail.com>
@@ -786,10 +786,10 @@ bool WarnUserIfOperatingSystemUnsupported()
 
     KICAD_MESSAGE_DIALOG dialog( nullptr,
                                  _( "This operating system is not supported "
-                                    "by KiCad and its dependencies." ),
+                                    "by Anvil and its dependencies." ),
                                  _( "Unsupported Operating System" ), wxOK | wxICON_EXCLAMATION );
 
-    dialog.SetExtendedMessage( _( "Any issues with KiCad on this system cannot "
+    dialog.SetExtendedMessage( _( "Any issues with Anvil on this system cannot "
                                   "be reported to the official bugtracker." ) );
     dialog.ShowModal();
 

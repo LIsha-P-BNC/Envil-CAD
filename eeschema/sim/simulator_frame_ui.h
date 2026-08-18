@@ -1,5 +1,5 @@
 /*
- * This program source code file is part of KiCad, a free EDA CAD application.
+ * This program source code file is part of Anvil, a free EDA CAD application.
  *
  * Copyright (C) 2016-2023 CERN
  * Copyright The KiCad Developers, see AUTHORS.txt for contributors.
@@ -415,7 +415,7 @@ private:
 
     MULTI_RUN_STATE             m_multiRunState;
 
-    ///< SPICE expressions need quoted versions of the netnames since KiCad allows '-' and '/'
+    ///< SPICE expressions need quoted versions of the netnames since Anvil allows '-' and '/'
     ///< in netnames.
     std::vector<wxString>        m_netnames;
 

@@ -1,5 +1,5 @@
 /*
- * This program source code file is part of KiCad, a free EDA CAD application.
+ * This program source code file is part of Anvil, a free EDA CAD application.
  *
  * Copyright (C) 2007-2013 SoftPLC Corporation, Dick Hollenbeck <dick@softplc.com>
  * Copyright The KiCad Developers, see AUTHORS.txt for contributors.
@@ -1976,7 +1976,7 @@ private:
     std::string     m_pin_id;
     POINT           m_vertex;
 
-    int             m_kiNetCode;      ///< KiCad netcode
+    int             m_kiNetCode;      ///< Anvil netcode
 };
 
 
@@ -3733,7 +3733,7 @@ public:
 private:
     /**
      * Create a few data translation structures for layer name and number mapping between the
-     * DSN::PCB structure and the KiCad #BOARD structure.
+     * DSN::PCB structure and the Anvil #BOARD structure.
      *
      * @param aBoard The #BOARD to create the maps for.
      */
@@ -3865,7 +3865,7 @@ private:
     PADSTACK* makePADSTACK( BOARD* aBoard, PAD* aPad );
 
     /**
-     * Make a round through hole #PADSTACK using the given KiCad diameter in deci-mils.
+     * Make a round through hole #PADSTACK using the given Anvil diameter in deci-mils.
      *
      * @param aCopperDiameter The diameter of the copper pad.
      * @param aDrillDiameter The drill diameter, used on re-import of the session file.
@@ -3876,7 +3876,7 @@ private:
     PADSTACK* makeVia( int aCopperDiameter, int aDrillDiameter, int aTopLayer, int aBotLayer );
 
     /**
-     * Make any kind of #PADSTACK using the given KiCad #VIA.
+     * Make any kind of #PADSTACK using the given Anvil #VIA.
      *
      * @param aVia The #VIA to build the padstack from.
      * @return The padstack, which is on the heap only, user must save or delete it.
@@ -3914,7 +3914,7 @@ private:
     PCB_ARC* makeARC( WIRE* wire, QARC* aQarc, int aNetcode );
 
     /**
-     * Instantiate a KiCad #VIA on the heap and initializes it with internal
+     * Instantiate a Anvil #VIA on the heap and initializes it with internal
      * values consistent with the given #PADSTACK, #POINT, and netcode.
      */
     PCB_VIA* makeVIA( WIRE_VIA*aVia, PADSTACK* aPadstack, const POINT& aPoint, int aNetCode,

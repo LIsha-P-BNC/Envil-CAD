@@ -1,5 +1,5 @@
 /*
- * This program source code file is part of KiCad, a free EDA CAD application.
+ * This program source code file is part of Anvil, a free EDA CAD application.
  *
  * Copyright The KiCad Developers, see AUTHORS.txt for contributors.
  *
@@ -24,10 +24,10 @@
 #include <wx/string.h>
 
 /**
- * KiCad uses environment variables internally for determining the base paths for libraries,
+ * Anvil uses environment variables internally for determining the base paths for libraries,
  * templates, and other assets that can be relocated by packagers or users.
  *
- * Because setting environment variables is not user-friendly on most platforms, KiCad supports two
+ * Because setting environment variables is not user-friendly on most platforms, Anvil supports two
  * backing stores for these internal variables: the system environment, and the settings system.
  *
  * We also want to make it possible to change the names and values of environment variables over
@@ -42,7 +42,7 @@
  * 2) Variables set in the system environment
  * 3) Variables loaded from the settings system (stored in COMMON_SETTINGS)
  *
- * For all KiCad system variables, we allow users to change the values at runtime via the Configure
+ * For all Anvil system variables, we allow users to change the values at runtime via the Configure
  * Paths dialog.  If these variables were set in the system environment, we do not persist any
  * changes made at runtime (and warn the user about this).  If the variables were not set in the
  * environment (meaning they were either the default value, or loaded from the settings system),
@@ -53,7 +53,7 @@
 
 /**
  * A simple helper class to store environment variable definitions and values.  This is used to
- * initialize the environment variables that are built-in to KiCad, and also to store any variables
+ * initialize the environment variables that are built-in to Anvil, and also to store any variables
  * created by the user.
  */
 class ENV_VAR_ITEM
@@ -123,7 +123,7 @@ private:
     /// The value that was originally loaded from JSON
     wxString m_settingsValue;
 
-    /// Set to true for KiCad built-in variables that are always defined one way or another.
+    /// Set to true for Anvil built-in variables that are always defined one way or another.
     bool m_isBuiltin;
 
     /// Flag to indicate if the environment variable was defined externally to the process.

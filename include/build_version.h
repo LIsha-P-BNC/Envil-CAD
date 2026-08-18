@@ -1,5 +1,5 @@
 /*
- * This program source code file is part of KiCad, a free EDA CAD application.
+ * This program source code file is part of Anvil, a free EDA CAD application.
  *
  * Copyright (C) 2007-2014 Jean-Pierre Charras, jp.charras at wanadoo.fr
  * Copyright The KiCad Developers, see AUTHORS.TXT for contributors.
@@ -33,7 +33,7 @@
 class wxString;
 
 /**
- * Get the full KiCad version string. This string contains platform-specific information
+ * Get the full Anvil version string. This string contains platform-specific information
  * added by the packagers. It is created by CMake in the KICAD_FULL_VERSION variable.
  *
  * @return the full version string
@@ -41,7 +41,7 @@ class wxString;
 KICOMMON_API wxString GetBuildVersion();
 
 /**
- * Get the KiCad version string without the information added by the packagers.
+ * Get the Anvil version string without the information added by the packagers.
  * It is created by CMake in the KICAD_VERSION variable.
  *
  * @return the base version string
@@ -54,7 +54,7 @@ KICOMMON_API wxString GetBaseVersion();
 KICOMMON_API wxString GetPlatformGetBitnessName();
 
 /**
- * Get the semantic version string for KiCad defined inside the KiCadVersion.cmake file in
+ * Get the semantic version string for Anvil defined inside the KiCadVersion.cmake file in
  * the variable KICAD_SEMANTIC_VERSION.
  *
  * @return the semantic version string

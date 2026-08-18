@@ -1,5 +1,5 @@
 /*
- * This program source code file is part of KiCad, a free EDA CAD application.
+ * This program source code file is part of Anvil, a free EDA CAD application.
  *
  * Copyright (C) 2024 Jean-Pierre Charras.
  * Copyright The KiCad Developers, see AUTHORS.txt for contributors.
@@ -21,7 +21,7 @@
 #pragma once
 
 // These flags are used to control the data items that must be disabled when creating
-// mainly a netlist but also some other KiCad files.
+// mainly a netlist but also some other Anvil files.
 // They allow skipping specified data in these files.
 
 #define CTL_OMIT_EXTRA              (1 << 0)

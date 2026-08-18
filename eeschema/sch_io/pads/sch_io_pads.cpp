@@ -1,5 +1,5 @@
 /*
- * This program source code file is part of KiCad, a free EDA CAD application.
+ * This program source code file is part of Anvil, a free EDA CAD application.
  *
  * Copyright (C) 2025 KiCad Developers, see AUTHORS.txt for contributors.
  *
@@ -240,7 +240,7 @@ static int computePowerOrientation( const std::string& aOpcId,
 
     // Determine which direction the wire approaches from (relative to OPC position).
     // The symbol body should face AWAY from the wire.
-    // In KiCad Y-down coordinates: dy > 0 means wire goes down from OPC.
+    // In Anvil Y-down coordinates: dy > 0 means wire goes down from OPC.
 
     if( std::abs( dx ) >= std::abs( dy ) )
     {
@@ -388,7 +388,7 @@ SCH_SHEET* SCH_IO_PADS::LoadSchematicFile( const wxString&                    aF
         }
     }
 
-    // Set KiCad page size to match the PADS drawing sheet
+    // Set Anvil page size to match the PADS drawing sheet
     PAGE_INFO pageInfo;
 
     if( !params.sheet_size.name.empty() )
@@ -396,7 +396,7 @@ SCH_SHEET* SCH_IO_PADS::LoadSchematicFile( const wxString&                    aF
     else
         pageInfo.SetType( PAGE_SIZE_TYPE::A );
 
-    // PADS Y-up to KiCad Y-down: Y_kicad = pageHeight - Y_pads
+    // PADS Y-up to Anvil Y-down: Y_kicad = pageHeight - Y_pads
     const int pageHeightIU = pageInfo.GetHeightIU( schIUScale.IU_PER_MILS );
 
     // Build LIB_SYMBOL objects from all CAEDECAL definitions
@@ -483,7 +483,7 @@ SCH_SHEET* SCH_IO_PADS::LoadSchematicFile( const wxString&                    aF
     std::set<std::string> connectorBaseRefs;
 
     // Pre-scan connector placements to group pins by base reference.
-    // Each group becomes one multi-unit connector symbol in KiCad.
+    // Each group becomes one multi-unit connector symbol in Anvil.
     struct ConnectorGroup
     {
         std::vector<std::string>        pinNumbers;
@@ -787,7 +787,7 @@ SCH_SHEET* SCH_IO_PADS::LoadSchematicFile( const wxString&                    aF
             }
 
             // For multi-gate parts, strip the alpha gate suffix (e.g. "U1-A" → "U1")
-            // so KiCad recognizes all units as belonging to the same part.
+            // so Anvil recognizes all units as belonging to the same part.
             if( isMultiGate && !isConnector )
             {
                 std::string baseRef = stripGateSuffix( part.reference );
@@ -1085,7 +1085,7 @@ SCH_SHEET* SCH_IO_PADS::LoadSchematicFile( const wxString&                    aF
                                     powerSignalNames );
 
         // Place off-page connectors: power/ground types become SCH_SYMBOL with
-        // KiCad standard power graphics; signal types become SCH_GLOBALLABEL.
+        // Anvil standard power graphics; signal types become SCH_GLOBALLABEL.
         int pwrIndex = 1;
 
         for( const PADS_SCH::OFF_PAGE_CONNECTOR& opc : parser.GetOffPageConnectors() )

@@ -1,5 +1,5 @@
 /*
- * This program source code file is part of KiCad, a free EDA CAD application.
+ * This program source code file is part of Anvil, a free EDA CAD application.
  *
  * Copyright The KiCad Developers, see AUTHORS.txt for contributors.
  * @author Jon Evans <jon@craftyjon.com>
@@ -24,7 +24,7 @@
 #include <pegtl.hpp>
 
 /*
- * Grammar for a KiCad library stored in s-expression format.  This parser is generic and
+ * Grammar for a Anvil library stored in s-expression format.  This parser is generic and
  * supports all known types of library tables -- the differences in code between things like
  * symbol and footprint libraries are handled elsewhere in the architecture.
  */

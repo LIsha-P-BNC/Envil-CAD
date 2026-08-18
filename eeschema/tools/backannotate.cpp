@@ -1,5 +1,5 @@
 /*
- * This program source code file is part of KiCad, a free EDA CAD application.
+ * This program source code file is part of Anvil, a free EDA CAD application.
  *
  * Copyright (C) 2019 Alexander Shuklin <Jasuramme@gmail.com>
  * Copyright The KiCad Developers, see AUTHORS.txt for contributors.
@@ -103,7 +103,7 @@ bool BACK_ANNOTATE::FetchNetlistFromPCB( std::string& aNetlist )
     {
         DisplayErrorMessage( m_frame, _( "Cannot fetch PCB netlist because Schematic Editor is opened in "
                                          "stand-alone mode.\n"
-                                         "You must launch the KiCad project manager and create a project." ) );
+                                         "You must launch the Anvil project manager and create a project." ) );
         return false;
     }
 
@@ -149,7 +149,7 @@ void BACK_ANNOTATE::getPcbModulesFromString( const std::string& aPayload )
     DSNLEXER lexer( aPayload, From_UTF8( __func__ ) );
     PTREE    doc;
 
-    // NOTE: KiCad's PTREE scanner constructs a property *name* tree, not a property tree.
+    // NOTE: Anvil's PTREE scanner constructs a property *name* tree, not a property tree.
     // Every token in the s-expr is stored as a property name; the property's value is then
     // either the nested s-exprs or an empty PTREE; there are *no* literal property values.
 
@@ -1145,7 +1145,7 @@ std::set<wxString> BACK_ANNOTATE::applyPinSwaps( SCH_SYMBOL* aSymbol, const SCH_
 
         // Ignore power pins and anything marked as non-connectable. Power pins can map to
         // hidden/global references, e.g. implicit power connections on logic symbols.
-        // KiCad pins are currently always connectable, but the extra guard keeps the
+        // Anvil pins are currently always connectable, but the extra guard keeps the
         // logic robust if alternate pin types (e.g. explicit mechanical/NC pins)
         // ever start reporting false.
         if( !pin || pin->IsPower() || !pin->IsConnectable() )

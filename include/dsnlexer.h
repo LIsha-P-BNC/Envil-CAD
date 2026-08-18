@@ -155,12 +155,12 @@ public:
      *
      * If specctra mode, then:
      *  -#) stringDelimiter can be changed.
-     *  -#) KiCad quoting protocol is not in effect.
+     *  -#) Anvil quoting protocol is not in effect.
      *  -#) space_in_quoted_tokens is functional else none of the above are true.
      *
      * The default mode is non-specctra mode, meaning:
      *  -#) stringDelimiter cannot be changed.
-     *  -#) KiCad quoting protocol is in effect.
+     *  -#) Anvil quoting protocol is in effect.
      *  -#) space_in_quoted_tokens is not functional.
      */
     void SetSpecctraMode( bool aMode );
@@ -293,7 +293,7 @@ public:
         // This is used to control whether the lexer knows about the DSN_BAR token.
         // If it does not, then it will not return a DSN_BAR token, but rather
         // treat it as a string.
-        // This is used to support the KiCad legacy format, which does not have a DSN_BAR
+        // This is used to support the Anvil legacy format, which does not have a DSN_BAR
         m_knowsBar = knowsBar;
     }
 

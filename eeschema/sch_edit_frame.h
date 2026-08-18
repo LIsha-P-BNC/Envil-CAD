@@ -1,5 +1,5 @@
 /*
- * This program source code file is part of KiCad, a free EDA CAD application.
+ * This program source code file is part of Anvil, a free EDA CAD application.
  *
  * Copyright (C) 2015 Jean-Pierre Charras, jp.charras wanadoo.fr
  * Copyright (C) 2008 Wayne Stambaugh <stambaughw@gmail.com>
@@ -158,7 +158,7 @@ public:
     void SaveProjectLocalSettings() override;
 
     /**
-     * Load the KiCad project file (*.pro) settings specific to Eeschema.
+     * Load the Anvil project file (*.pro) settings specific to Eeschema.
      *
      * @return True if the project file was loaded correctly.
      */
@@ -611,7 +611,7 @@ public:
                           const wxString* aSourceSheetFilename = nullptr );
 
     /**
-     * Load a the KiCad schematic file \a aFileName into the sheet \a aSheet.
+     * Load a the Anvil schematic file \a aFileName into the sheet \a aSheet.
      *
      * If \a aSheet does not have a valid #SCH_SCREEN object, the schematic is loaded into
      * \a Sheet.  Otherwise, it is appended to the current #SCH_SCREEN object.
@@ -956,7 +956,7 @@ protected:
 
     void doReCreateMenuBar() override;
 
-    // KiCad Next unified menu bar (see EDA_BASE_FRAME::buildCommonMenuBar()).
+    // Anvil Next unified menu bar (see EDA_BASE_FRAME::buildCommonMenuBar()).
     TOOL_INTERACTIVE* getCurrentMenuTool() override;
     void buildFileMenu( ACTION_MENU* aMenu ) override;
     void buildEditMenu( ACTION_MENU* aMenu ) override;
@@ -971,7 +971,7 @@ protected:
     void buildPanelsMenu( ACTION_MENU* aMenu ) override;
 
     /**
-     * Send the KiCad netlist over to CVPCB.
+     * Send the Anvil netlist over to CVPCB.
      */
     void sendNetlistToCvpcb();
 

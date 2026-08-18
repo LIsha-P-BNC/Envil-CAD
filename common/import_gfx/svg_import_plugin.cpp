@@ -192,7 +192,7 @@ bool SVG_IMPORT_PLUGIN::Import()
         {
             if( filled && !path->closed )
             {
-                // KiCad doesn't support a single object representing a filled shape that is
+                // Anvil doesn't support a single object representing a filled shape that is
                 // *not* closed so create a filled, closed shape for the fill, and an unfilled,
                 // open shape for the outline
                 static IMPORTED_STROKE noStroke( -1, LINE_STYLE::SOLID, COLOR4D::UNSPECIFIED );

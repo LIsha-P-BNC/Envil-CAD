@@ -1,5 +1,5 @@
 /*
- * This program source code file is part of KiCad, a free EDA CAD application.
+ * This program source code file is part of Anvil, a free EDA CAD application.
  *
  * Copyright The KiCad Developers, see AUTHORS.txt for contributors.
  *
@@ -39,7 +39,7 @@ class LOCKFILE;
  * - Layer 2: Git index lock (prevents concurrent git operations)
  *
  * This provides defense-in-depth protection against:
- * - Multiple KiCad instances accessing same project
+ * - Multiple Anvil instances accessing same project
  * - Multi-threaded operations within same instance
  * - Repository corruption from concurrent writes
  *
@@ -63,7 +63,7 @@ public:
     /**
      * Construct a lock manager and attempt to acquire locks.
      *
-     * @param aProjectPath Path to the KiCad project directory
+     * @param aProjectPath Path to the Anvil project directory
      * @param aStaleTimeoutSec Timeout in seconds after which a lock is considered stale
      *                         and can be forcibly removed. If <= 0, uses the value from
      *                         ADVANCED_CFG::m_HistoryLockStaleTimeout (default: 0 = use config)

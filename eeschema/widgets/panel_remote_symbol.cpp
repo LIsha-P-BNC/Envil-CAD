@@ -1,5 +1,5 @@
 /*
- * This program source code file is part of KiCad, a free EDA CAD application.
+ * This program source code file is part of Anvil, a free EDA CAD application.
  *
  * Copyright The KiCad Developers, see AUTHORS.txt for contributors.
  *
@@ -202,7 +202,7 @@ std::unique_ptr<LIB_SYMBOL> PANEL_REMOTE_SYMBOL::loadSymbolFromPayload( const st
 
     if( !plugin )
     {
-        aError = _( "Unable to access the KiCad symbol plugin." );
+        aError = _( "Unable to access the Anvil symbol plugin." );
         wxRemoveFile( tempFile.GetFullPath() );
         return nullptr;
     }
@@ -570,7 +570,7 @@ void PANEL_REMOTE_SYMBOL::beginSessionHandshake()
     m_messageIdCounter = 0;
 
     nlohmann::json params = nlohmann::json::object();
-    params["client_name"] = "KiCad";
+    params["client_name"] = "Anvil";
     params["client_version"] = GetSemanticVersion().ToStdString();
     params["supported_versions"] = { REMOTE_SYMBOL_SESSION_VERSION };
     sendRpcNotification( wxS( "NEW_SESSION" ), std::move( params ) );
@@ -855,7 +855,7 @@ void PANEL_REMOTE_SYMBOL::handleRpcMessage( const nlohmann::json& aMessage )
     if( command == wxS( "NEW_SESSION" ) )
     {
         nlohmann::json reply = nlohmann::json::object();
-        reply["client_name"] = "KiCad";
+        reply["client_name"] = "Anvil";
         reply["client_version"] = GetSemanticVersion().ToStdString();
         reply["supported_versions"] = { REMOTE_SYMBOL_SESSION_VERSION };
         sendRpcReply( command, messageId, std::move( reply ) );

@@ -1,5 +1,5 @@
 /*
- * This program source code file is part of KiCad, a free EDA CAD application.
+ * This program source code file is part of Anvil, a free EDA CAD application.
  *
  * Copyright The KiCad Developers, see AUTHORS.txt for contributors.
  *
@@ -23,7 +23,7 @@
 
 /**
  * @file i18n_utility.h
- * @brief Some functions to handle hotkeys in KiCad
+ * @brief Some functions to handle hotkeys in Anvil
  */
 
 #ifndef  I18N_UTILITY_H

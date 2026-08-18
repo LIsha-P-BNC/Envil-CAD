@@ -1,5 +1,5 @@
 /*
- * This program source code file is part of KiCad, a free EDA CAD application.
+ * This program source code file is part of Anvil, a free EDA CAD application.
  *
  * Copyright (C) 2015 Chris Pavlina <pavlina.chris@gmail.com>
  * Copyright The KiCad Developers, see AUTHORS.txt for contributors.
@@ -843,7 +843,7 @@ bool SYMBOL_LIB_TABLE_RESCUER::WriteRescueLibrary( wxWindow *aParent )
 
         row->SetNickname( libNickname );
         row->SetURI( uri );
-        row->SetType( wxT( "KiCad" ) );
+        row->SetType( wxT( "Anvil" ) );
 
         bool success = true;
 

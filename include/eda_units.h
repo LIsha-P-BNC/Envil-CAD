@@ -1,5 +1,5 @@
 /*
- * This program source code file is part of KiCad, a free EDA CAD application.
+ * This program source code file is part of Anvil, a free EDA CAD application.
  *
  * Copyright The KiCad Developers, see AUTHORS.txt for contributors.
  *
@@ -114,7 +114,7 @@ namespace EDA_UNIT_UTILS
      * This should only be used for writing to files  as it ignores locale.
      *
      * @note Internal angles for board items can be either degrees or tenths of degree
-     *       on how KiCad is built.
+     *       on how Anvil is built.
      * @param aAngle A angle value to convert.
      * @return std::string object containing the converted angle.
      */
@@ -126,7 +126,7 @@ namespace EDA_UNIT_UTILS
      * This should only be used for writing to files as it ignores locale.
      *
      * @note Internal units for board items can be either deci-mils or nanometers depending
-     *       on how KiCad is built.
+     *       on how Anvil is built.
      *
      * @param aValue A coordinate value to convert.
      * @param aDataType The EDA_UNITS data type for @param aValue

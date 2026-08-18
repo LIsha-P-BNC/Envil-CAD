@@ -1,5 +1,5 @@
 /*
- * This program source code file is part of KiCad, a free EDA CAD application.
+ * This program source code file is part of Anvil, a free EDA CAD application.
  *
  * Copyright The KiCad Developers, see AUTHORS.txt for contributors.
  *
@@ -20,7 +20,7 @@
 #include <text_eval/text_eval_wrapper.h>
 #include <fmt/format.h>
 
-// Include the KiCad common functionality
+// Include the Anvil common functionality
 #include <common.h>
 #include <fast_float/fast_float.h>
 #include <text_eval/text_eval_types.h> // Parser types
@@ -1693,7 +1693,7 @@ EXPRESSION_EVALUATOR::createCombinedCallback( const std::unordered_map<wxString,
             return calc_parser::MakeValue<calc_parser::Value>( it->second );
         }
 
-        // Priority 5: Use KiCad's ExpandTextVars for system/project variables
+        // Priority 5: Use Anvil's ExpandTextVars for system/project variables
         try
         {
             wxString varName = stdStringToWxString( aVarName );
@@ -1714,7 +1714,7 @@ EXPRESSION_EVALUATOR::createCombinedCallback( const std::unordered_map<wxString,
 
             if( wasResolved )
             {
-                // Variable exists in KiCad's system, now get its actual value
+                // Variable exists in Anvil's system, now get its actual value
                 std::function<bool( wxString* )> valueResolver = []( wxString* token ) -> bool
                 {
                     // Let ExpandTextVars resolve this normally

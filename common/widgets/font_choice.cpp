@@ -1,5 +1,5 @@
 /*
- * This program source code file is part of KiCad, a free EDA CAD application.
+ * This program source code file is part of Anvil, a free EDA CAD application.
  *
  * Copyright The KiCad Developers, see AUTHORS.txt for contributors.
  *
@@ -939,6 +939,6 @@ wxString FONT_CHOICE::FindBestPartialMatch( const wxString& aText )
 
 wxString FONT_CHOICE::GetDefaultFontName() const
 {
-    // Return KiCad font name as the default
+    // Return Anvil font name as the default
     return KICAD_FONT_NAME;
 }

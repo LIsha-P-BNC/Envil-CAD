@@ -1,5 +1,5 @@
 /*
- * This program source code file is part of KiCad, a free EDA CAD application.
+ * This program source code file is part of Anvil, a free EDA CAD application.
  *
  * Copyright (C) 2018 Jean-Pierre Charras, jp.charras at wanadoo.fr
  * Copyright (C) 2009 Wayne Stambaugh <stambaughw@gmail.com>
@@ -42,7 +42,7 @@
 
 void SCH_EDIT_FRAME::doReCreateMenuBar()
 {
-    // KiCad Next: build the shared common menu bar instead of the legacy one when enabled.
+    // Anvil Next: build the shared common menu bar instead of the legacy one when enabled.
     if( UseUnifiedMenuBar() )
     {
         buildCommonMenuBar();
@@ -108,7 +108,7 @@ void SCH_EDIT_FRAME::doReCreateMenuBar()
     submenuImport->SetTitle( _( "Import" ) );
     submenuImport->SetIcon( BITMAPS::import );
 
-    submenuImport->Add( _( "Non-KiCad Schematic..." ),
+    submenuImport->Add( _( "Non-Anvil Schematic..." ),
                 _( "Replace current schematic sheet with one imported from another application" ),
                 ID_IMPORT_NON_KICAD_SCH,
                 BITMAPS::import_document );
@@ -390,7 +390,7 @@ void SCH_EDIT_FRAME::doReCreateMenuBar()
 }
 
 
-//================================ KiCad Next unified menu bar ================================
+//================================ Anvil Next unified menu bar ================================
 // The following hooks reproduce the menus built above, but populate a menu supplied by the
 // shared EDA_BASE_FRAME::buildCommonMenuBar() orchestrator.  They are used only when the
 // m_UnifiedMenuBar advanced flag is set; otherwise the legacy doReCreateMenuBar() above runs.
@@ -481,7 +481,7 @@ void SCH_EDIT_FRAME::buildFileMenu( ACTION_MENU* fileMenu )
     submenuImport->SetTitle( _( "Import" ) );
     submenuImport->SetIcon( BITMAPS::import );
 
-    submenuImport->Add( _( "Non-KiCad Schematic..." ),
+    submenuImport->Add( _( "Non-Anvil Schematic..." ),
                 _( "Replace current schematic sheet with one imported from another application" ),
                 ID_IMPORT_NON_KICAD_SCH,
                 BITMAPS::import_document );

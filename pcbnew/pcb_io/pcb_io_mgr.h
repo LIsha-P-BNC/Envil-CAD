@@ -235,7 +235,7 @@ public:
                       const std::map<std::string, UTF8>* aProperties = nullptr );
 
     /**
-     * Convert a schematic symbol library to the latest KiCad format
+     * Convert a schematic symbol library to the latest Anvil format
      */
     static bool ConvertLibrary( const std::map<std::string, UTF8>& aOldFileProps,
                                 const wxString& aOldFilePath,

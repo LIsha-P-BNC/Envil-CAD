@@ -159,6 +159,11 @@ add_executable( kicad-cli WIN32
     ${KICAD_RESOURCES}
     )
 
+# Anvil branding: emit the CLI as anvil-cli.exe (target name stays kicad-cli internally).
+if( WIN32 )
+    set_target_properties( kicad-cli PROPERTIES OUTPUT_NAME "anvil-cli" )
+endif()
+
 if( MSVC )
    # The cli needs subsystem:console or else we can't link wmain/main
    set_target_properties(kicad-cli PROPERTIES COMPILE_DEFINITIONS_DEBUG "_CONSOLE")

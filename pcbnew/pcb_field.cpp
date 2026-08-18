@@ -1,5 +1,5 @@
 /*
- * This program source code file is part of KiCad, a free EDA CAD application.
+ * This program source code file is part of Anvil, a free EDA CAD application.
  *
  * Copyright (C) 2023 Mike Williams, mike@mikebwilliams.com
  * Copyright The KiCad Developers, see AUTHORS.txt for contributors.
@@ -88,7 +88,7 @@ bool PCB_FIELD::Deserialize( const google::protobuf::Any &aContainer )
     if( field.has_id() )
         setId( (FIELD_T) field.id().id() );
 
-    // Mandatory fields have a blank Name in the KiCad object
+    // Mandatory fields have a blank Name in the Anvil object
     if( !IsMandatory() )
         SetName( wxString( field.name().c_str(), wxConvUTF8 ) );
 

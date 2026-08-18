@@ -1,5 +1,5 @@
 /*
- * This program source code file is part of KiCad, a free EDA CAD application.
+ * This program source code file is part of Anvil, a free EDA CAD application.
  *
  * Copyright (C) 2024 Jon Evans <jon@craftyjon.com>
  * Copyright The KiCad Developers, see AUTHORS.txt for contributors.
@@ -291,7 +291,7 @@ int API_PLUGIN_MANAGER::doInvokeAction( const wxString& aIdentifier, std::vector
         if( Pgm().GetCommonSettings()->m_Api.python_interpreter == FindKicadFile( "pythonw.exe" )
             || wxGetEnv( wxT( "KICAD_RUN_FROM_BUILD_DIR" ), nullptr ) )
         {
-            wxLogTrace( traceApi, "Configured Python is the KiCad one; erasing path overrides..." );
+            wxLogTrace( traceApi, "Configured Python is the Anvil one; erasing path overrides..." );
             env.env.erase( "PYTHONHOME" );
             env.env.erase( "PYTHONPATH" );
         }
@@ -561,7 +561,7 @@ void API_PLUGIN_MANAGER::processNextJob( wxCommandEvent& aEvent )
         if( Pgm().GetCommonSettings()->m_Api.python_interpreter == FindKicadFile( "pythonw.exe" )
             || wxGetEnv( wxT( "KICAD_RUN_FROM_BUILD_DIR" ), nullptr ) )
         {
-            wxLogTrace( traceApi, "Configured Python is the KiCad one; erasing path overrides..." );
+            wxLogTrace( traceApi, "Configured Python is the Anvil one; erasing path overrides..." );
             env.env.erase( "PYTHONHOME" );
             env.env.erase( "PYTHONPATH" );
         }
@@ -622,7 +622,7 @@ void API_PLUGIN_MANAGER::processNextJob( wxCommandEvent& aEvent )
                 || wxGetEnv( wxT( "KICAD_RUN_FROM_BUILD_DIR" ), nullptr ) )
             {
                 wxLogTrace( traceApi,
-                            "Configured Python is the KiCad one; erasing path overrides..." );
+                            "Configured Python is the Anvil one; erasing path overrides..." );
                 env.env.erase( "PYTHONHOME" );
                 env.env.erase( "PYTHONPATH" );
             }
@@ -690,7 +690,7 @@ void API_PLUGIN_MANAGER::processNextJob( wxCommandEvent& aEvent )
             wxGetEnv( wxS( "SYSTEMROOT" ), &systemRoot );
             env.env[wxS( "SYSTEMROOT" )] = systemRoot;
 
-            // If we are using the KiCad-shipped Python interpreter we have to do hacks
+            // If we are using the Anvil-shipped Python interpreter we have to do hacks
             env.env.erase( "PYTHONHOME" );
             env.env.erase( "PYTHONPATH" );
 #endif

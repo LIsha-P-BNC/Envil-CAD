@@ -1,5 +1,5 @@
 /*
- * This program source code file is part of KiCad, a free EDA CAD application.
+ * This program source code file is part of Anvil, a free EDA CAD application.
  *
  * Copyright (C) 2009-2014 Jerry Jacobs
  * Copyright The KiCad Developers, see AUTHORS.TXT for contributors.
@@ -75,7 +75,7 @@ KICOMMON_API void CopySexprFile( const wxString& aSrcPath, const wxString& aDest
  * @param[in] aEditorName is the full filename for the binary.
  * @param[in] aFileName is the full filename of the file to open.
  * @param[in] aCallback a wxProcess* for the call.
- * @param aFileForKicad a boolean to flag if aFileName runs with a KiCad binary.
+ * @param aFileForKicad a boolean to flag if aFileName runs with a Anvil binary.
  * In this case aFileName is a shortname and FindKicadFile() is called to return the path.
  * In the other case, aFileName is a full file name (passed prefixed with the path).
  */
@@ -91,7 +91,7 @@ KICOMMON_API int ExecuteFile( const wxString& aEditorName,
 KICOMMON_API void QuoteString( wxString& string );
 
 /**
- * Search the executable file shortname in KiCad binary path and return full file
+ * Search the executable file shortname in Anvil binary path and return full file
  * name if found or shortname if the kicad binary path is kicad/bin.
  *
  * The binary path is found from:

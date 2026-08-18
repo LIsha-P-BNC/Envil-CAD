@@ -1,5 +1,5 @@
 /*
- * This program source code file is part of KiCad, a free EDA CAD application.
+ * This program source code file is part of Anvil, a free EDA CAD application.
  *
  * Copyright (C) 2017 Chris Pavlina <pavlina.chris@gmail.com>
  * Copyright (C) 2014 Henner Zeller <h.zeller@acm.org>
@@ -318,7 +318,7 @@ void LIB_TREE_MODEL_ADAPTER::UpdateSearchString( const wxString& aSearch, bool a
         Freeze();
         BeforeReset();
 
-        // Don't cause KiCad to hang if someone accidentally pastes the PCB or schematic into
+        // Don't cause Anvil to hang if someone accidentally pastes the PCB or schematic into
         // the search box.
         constexpr int MAX_TERMS = 100;
 

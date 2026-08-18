@@ -1,5 +1,5 @@
 /*
- * This program source code file is part of KiCad, a free EDA CAD application.
+ * This program source code file is part of Anvil, a free EDA CAD application.
  *
  * Copyright (C) 2020-2021 Roberto Fernandez Bautista <roberto.fer.bau@gmail.com>
  * Copyright The KiCad Developers, see AUTHORS.txt for contributors.
@@ -39,7 +39,7 @@
 // Ratio derived from CADSTAR default font. See doxygen comment in cadstar_archive_parser.h
 const double CADSTAR_ARCHIVE_PARSER::TXT_HEIGHT_RATIO = ( 24.0 - 5.0 ) / 24.0;
 
-// Cadstar fields and their KiCad equivalent
+// Cadstar fields and their Anvil equivalent
 const std::map<CADSTAR_ARCHIVE_PARSER::TEXT_FIELD_NAME, wxString>
         CADSTAR_ARCHIVE_PARSER::CADSTAR_TO_KICAD_FIELDS =
                 {   { TEXT_FIELD_NAME::DESIGN_TITLE, wxT( "DESIGN_TITLE" ) },

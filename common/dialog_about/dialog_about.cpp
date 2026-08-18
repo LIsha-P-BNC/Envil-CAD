@@ -1,5 +1,5 @@
 /*
- * This program source code file is part of KiCad, a free EDA CAD application.
+ * This program source code file is part of Anvil, a free EDA CAD application.
  *
  * Copyright (C) 2010 Rafael Sokolowski <Rafael.Sokolowski@web.de>
  * Copyright The KiCad Developers, see AUTHORS.TXT for contributors.
@@ -32,7 +32,7 @@
 #include <wx/msgdlg.h>
 #include <wx/hyperlink.h>
 
-/* All KiCad icons are linked into shared library 'libbitmaps.a'.
+/* All Anvil icons are linked into shared library 'libbitmaps.a'.
  *  Icons:
  *  preference_xpm;         // Icon for 'Developers' tab
  *  editor_xpm;             // Icon for 'Doc Writers' tab
@@ -263,7 +263,7 @@ void DIALOG_ABOUT::onCopyVersionInfo( wxCommandEvent& event )
     wxString msg_version = GetVersionInfoData( m_untranslatedTitleName );
 
     wxTheClipboard->SetData( new wxTextDataObject( msg_version ) );
-    wxTheClipboard->Flush(); // Allow clipboard data to be available after KiCad closes
+    wxTheClipboard->Flush(); // Allow clipboard data to be available after Anvil closes
     wxTheClipboard->Close();
     m_btCopyVersionInfo->SetLabel( _( "Copied..." ) );
 }

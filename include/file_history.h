@@ -1,5 +1,5 @@
 /*
- * This program source code file is part of KiCad, a free EDA CAD application.
+ * This program source code file is part of Anvil, a free EDA CAD application.
  *
  * Copyright (C) 2019 Ian McInerney <Ian.S.McInerney@ieee.org>
  * Copyright The KiCad Developers, see AUTHORS.txt for contributors.
@@ -37,7 +37,7 @@ class APP_SETTINGS_BASE;
  * This class implements a file history object to store a list of files, that can then
  * be added to a menu.
  *
- * This class extends the wxWidgets wxFileHistory class to include KiCad specific items.
+ * This class extends the wxWidgets wxFileHistory class to include Anvil specific items.
  */
 class FILE_HISTORY : public wxFileHistory
 {

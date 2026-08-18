@@ -1,5 +1,5 @@
 /*
- * This program source code file is part of KiCad, a free EDA CAD application.
+ * This program source code file is part of Anvil, a free EDA CAD application.
  *
  * Copyright (C) 2007-2015 SoftPLC Corporation, Dick Hollenbeck <dick@softplc.com>
  * Copyright The KiCad Developers, see AUTHORS.txt for contributors.
@@ -122,7 +122,7 @@ void ExportBoardToSpecctraFile( BOARD* aBoard, const wxString& aFullFilename )
     if( !db.BuiltBoardOutlines( aBoard ) )
         wxLogWarning( _( "Board outline is malformed. Run DRC for a full analysis." ) );
 
-    // DSN Images (=KiCad FOOTPRINTs and PADs) must be presented from the top view.  So we
+    // DSN Images (=Anvil FOOTPRINTs and PADs) must be presented from the top view.  So we
     // temporarily flip any footprints which are on the back side of the board to the front,
     // and record this in the FOOTPRINT's flag field.
     db.FlipFOOTPRINTs( aBoard );
@@ -178,7 +178,7 @@ static inline double mapY( int y )
 
 
 /**
- * Convert a KiCad point into a DSN file point.
+ * Convert a Anvil point into a DSN file point.
  *
  * Kicad's #BOARD coordinates are in nanometers (called Internal Units or IU) and we are
  * exporting in units of mils, so we have to scale them.
@@ -1774,7 +1774,7 @@ void SPECCTRA_DB::exportNETCLASS( const NETCLASS* aNetClass, const BOARD* aBoard
 
 void SPECCTRA_DB::FlipFOOTPRINTs( BOARD* aBoard )
 {
-    // DSN Images (=KiCad FOOTPRINTs and PADs) must be presented from the top view.
+    // DSN Images (=Anvil FOOTPRINTs and PADs) must be presented from the top view.
     // Note: to export footprints, the footprints must be flipped around the X axis, otherwise
     // the rotation angle is not good.
     for( FOOTPRINT* footprint : aBoard->Footprints() )
@@ -1797,7 +1797,7 @@ void SPECCTRA_DB::RevertFOOTPRINTs( BOARD* aBoard )
     if( !m_footprintsAreFlipped )
         return;
 
-    // DSN Images (=KiCad FOOTPRINTs and PADs) must be presented from the
+    // DSN Images (=Anvil FOOTPRINTs and PADs) must be presented from the
     // top view.  Restore those that were flipped.
     // Note: to export footprints, the footprints were flipped around the X axis,
     for( FOOTPRINT* footprint : aBoard->Footprints() )

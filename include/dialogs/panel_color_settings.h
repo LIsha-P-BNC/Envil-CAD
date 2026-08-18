@@ -1,5 +1,5 @@
 /*
- * This program source code file is part of KiCad, a free EDA CAD application.
+ * This program source code file is part of Anvil, a free EDA CAD application.
  *
  * Copyright (C) 2020 Jon Evans <jon@craftyjon.com>
  * Copyright The KiCad Developers, see AUTHORS.txt for contributors.
@@ -47,7 +47,7 @@ public:
 
     virtual wxString GetResetTooltip() const override
     {
-        return _( "Reset all colors in this theme to the KiCad defaults" );
+        return _( "Reset all colors in this theme to the Anvil defaults" );
     }
 
     bool Show( bool show ) override;

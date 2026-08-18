@@ -1,5 +1,5 @@
 /*
- * This program source code file is part of KiCad, a free EDA CAD application.
+ * This program source code file is part of Anvil, a free EDA CAD application.
  *
  * Copyright (C) 2020 Jon Evans <jon@craftyjon.com>
  * Copyright The KiCad Developers, see AUTHORS.txt for contributors.
@@ -106,7 +106,7 @@ struct KICOMMON_API WINDOW_SETTINGS
 };
 
 /**
- * APP_SETTINGS_BASE is a settings class that should be derived for each standalone KiCad
+ * APP_SETTINGS_BASE is a settings class that should be derived for each standalone Anvil
  * application.  It stores settings that should exist for every app, but may be different from
  * app to app depending on the user's preferences.
  *
@@ -201,7 +201,7 @@ public:
         int                   last_metric_units;
         int                   last_imperial_units;
 
-        /// Stored value for "show import issues" when importing non-KiCad designs to this
+        /// Stored value for "show import issues" when importing non-Anvil designs to this
         /// application.
         bool                  show_import_issues;
     };

@@ -1,5 +1,5 @@
 /*
- * This program source code file is part of KiCad, a free EDA CAD application.
+ * This program source code file is part of Anvil, a free EDA CAD application.
  *
  * Copyright The KiCad Developers, see AUTHORS.txt for contributors.
  *
@@ -60,7 +60,7 @@ public:
     bool IsContentModified() const override;
 
     /**
-     * KiCad Next / Anvil: autosave the edited footprint to its REAL library (not the
+     * Anvil Next / Anvil: autosave the edited footprint to its REAL library (not the
      * .history snapshot) when the AnvilAutoSaveRealFile advanced flag is on, so the AI
      * backend sees manual library edits without a Ctrl+S.  Silent no-op for footprints
      * linked to the board, unnamed footprints, and read-only/legacy libraries.
@@ -248,7 +248,7 @@ public:
     void ActivateGalCanvas() override;
 
     /**
-     * Load a KiCad board (.kicad_pcb) from \a aFileName.
+     * Load a Anvil board (.kicad_pcb) from \a aFileName.
      *
      * @param aFileSet is the BOARD file to load, a vector of one element.
      * @param aCtl is the KICTL_ bits, one to indicate that an append of the board file
@@ -337,7 +337,7 @@ protected:
      */
     void doReCreateMenuBar() override;
 
-    // KiCad Next unified menu bar (see EDA_BASE_FRAME::buildCommonMenuBar()).
+    // Anvil Next unified menu bar (see EDA_BASE_FRAME::buildCommonMenuBar()).
     TOOL_INTERACTIVE* getCurrentMenuTool() override;
     void buildFileMenu( ACTION_MENU* aMenu ) override;
     void buildEditMenu( ACTION_MENU* aMenu ) override;

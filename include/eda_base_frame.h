@@ -1,5 +1,5 @@
 /*
- * This program source code file is part of KiCad, a free EDA CAD application.
+ * This program source code file is part of Anvil, a free EDA CAD application.
  *
  * Copyright (C) 2009-2015 Jean-Pierre Charras, jp.charras wanadoo.fr
  * Copyright (C) 2011 Wayne Stambaugh <stambaughw@gmail.com>
@@ -107,7 +107,7 @@ typedef std::function< void( wxUpdateUIEvent& ) > UIUpdateHandler;
 
 
 /**
- * The base frame for deriving all KiCad main window classes.
+ * The base frame for deriving all Anvil main window classes.
  *
  * This class is not intended to be used directly.  It provides support for automatic calls
  * to SaveSettings() function.  SaveSettings() for a derived class can choose to do nothing,
@@ -408,7 +408,7 @@ public:
      *
      * @param aActionMap current hotkey map (over which the imported hotkeys will be applied).
      * @param aDefaultShortname a default short name (extension not needed) like
-     *                          Eeschema, KiCad...
+     *                          Eeschema, Anvil...
      */
     void ImportHotkeyConfigFromFile( std::map<std::string, TOOL_ACTION*> aActionMap,
                                      const wxString& aDefaultShortname );
@@ -504,12 +504,12 @@ public:
     void ReCreateMenuBar();
 
     /**
-     * Add the standard KiCad help menu to the menubar.
+     * Add the standard Anvil help menu to the menubar.
      */
     void AddStandardHelpMenu( wxMenuBar* aMenuBar );
 
     /**
-     * KiCad Next unified ("common") menu bar.
+     * Anvil Next unified ("common") menu bar.
      *
      * Assemble the menu bar from the shared common root (File, Edit, View, Place, Route,
      * Inspect, Tools, Preferences) plus the standard Help menu, in a single canonical order.
@@ -522,7 +522,7 @@ public:
     void buildCommonMenuBar();
 
     /**
-     * KiCad Next single-window shell: build the unified menu bar of THIS frame from the
+     * Anvil Next single-window shell: build the unified menu bar of THIS frame from the
      * menu hooks of ANOTHER frame (@p aSource) and install it on this frame.
      *
      * buildCommonMenuBar() builds a frame's menu from its own hooks; this variant lets the
@@ -691,19 +691,19 @@ public:
     virtual bool CanAcceptApiCommands() { return IsEnabled(); }
 
     /**
-     * KiCad Next: true when any unified menu-bar path is active (the "UnifiedMenuBar"
+     * Anvil Next: true when any unified menu-bar path is active (the "UnifiedMenuBar"
      * advanced flag, or implied by "ModernMenuLayout").
      */
     static bool UseUnifiedMenuBar();
 
     /**
-     * KiCad Next: true when the unified menu bar uses the Altium-style top-level grouping
+     * Anvil Next: true when the unified menu bar uses the Altium-style top-level grouping
      * (File / Edit / View / Project / Place / Design / Route / Reports / Tools / Window).
      */
     static bool UseModernMenuLayout();
 
     /**
-     * KiCad Next: activation hook used by the unified Window menu.  Multi-window mode uses
+     * Anvil Next: activation hook used by the unified Window menu.  Multi-window mode uses
      * the default (Show + Raise); the single-window shell replaces it so that choosing a
      * window entry selects the matching editor tab instead of raising a floating frame.
      */
@@ -711,7 +711,7 @@ public:
     static void ActivateWindowMenuTarget( EDA_BASE_FRAME* aFrame );
 
     /**
-     * KiCad Next: fill @p aMenu with this frame's dockable-panel toggle actions (the content
+     * Anvil Next: fill @p aMenu with this frame's dockable-panel toggle actions (the content
      * of its View → Panels submenu).  Shared by the View menu and the shell's status-bar
      * Panels button.  Default: this frame has no panels.
      */
@@ -724,7 +724,7 @@ protected:
     virtual void doReCreateMenuBar() {}
 
     /**
-     * KiCad Next unified menu bar hooks (see buildCommonMenuBar()).
+     * Anvil Next unified menu bar hooks (see buildCommonMenuBar()).
      *
      * getCurrentMenuTool() returns the TOOL_INTERACTIVE used for menu event dispatch (the same
      * tool each legacy doReCreateMenuBar() passes to its ACTION_MENUs). buildCommonMenuBar()
@@ -745,7 +745,7 @@ protected:
     virtual void buildPreferencesMenu( ACTION_MENU* aMenu ) {}
 
     /**
-     * KiCad Next: extra hooks used only by the Altium-style layout (ModernMenuLayout).
+     * Anvil Next: extra hooks used only by the Altium-style layout (ModernMenuLayout).
      * Project = project-scope navigation (other editors, variants), Design = design-data
      * operations (setup, rules, annotation, cross-editor sync), Reports = generated
      * outputs and diagnostics (BOM, statistics, library diffs).  The classic layout
@@ -966,10 +966,10 @@ private:
 
 
 /**
- * Specialization of the wxAuiPaneInfo class for KiCad panels.
+ * Specialization of the wxAuiPaneInfo class for Anvil panels.
  *
  * Documentation for wxAui is poor at this time. The following notes spring from errors made in
- * previous KiCad implementations:
+ * previous Anvil implementations:
  *
  * wxAuiPaneInfo.ToolbarPane() and .Defaults() are used to clear and then prepare the objects so
  * only use them once at the beginning of configuration..
@@ -997,7 +997,7 @@ public:
     }
 
     /**
-     * Turn *this to a horizontal toolbar for KiCad.
+     * Turn *this to a horizontal toolbar for Anvil.
      */
     EDA_PANE& HToolbar()
     {
@@ -1011,7 +1011,7 @@ public:
     }
 
     /**
-     * Turn *this into a vertical toolbar for KiCad.
+     * Turn *this into a vertical toolbar for Anvil.
      */
     EDA_PANE& VToolbar()
     {
@@ -1047,7 +1047,7 @@ public:
     }
 
     /**
-     * Turn *this into a messages pane for KiCad.
+     * Turn *this into a messages pane for Anvil.
      */
     EDA_PANE& Messages()
     {
@@ -1060,7 +1060,7 @@ public:
     }
 
     /**
-     * Turn *this into a infobar for KiCad.
+     * Turn *this into a infobar for Anvil.
      */
     EDA_PANE& InfoBar()
     {

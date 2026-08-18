@@ -1,5 +1,5 @@
 /*
- * This program source code file is part of KiCad, a free EDA CAD application.
+ * This program source code file is part of Anvil, a free EDA CAD application.
  *
  * Copyright The KiCad Developers, see AUTHORS.txt for contributors.
  *
@@ -121,7 +121,7 @@ void GRID_CELL_CHECKBOX_RENDERER::Draw(wxGrid& grid,
     }
 
     int flags = wxCONTROL_CELL;
-#if 1   // KiCad change
+#if 1   // Anvil change
     if( grid.GetTable()->GetValue( row, col ) == INDETERMINATE_STATE )
         flags |= wxCONTROL_UNDETERMINED;
     else

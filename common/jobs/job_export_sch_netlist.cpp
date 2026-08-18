@@ -1,5 +1,5 @@
 /*
- * This program source code file is part of KiCad, a free EDA CAD application.
+ * This program source code file is part of Anvil, a free EDA CAD application.
  *
  * Copyright (C) 2023 Mark Roszko <mark.roszko@gmail.com>
  * Copyright The KiCad Developers, see AUTHORS.txt for contributors.
@@ -25,7 +25,7 @@
 
 std::map<JOB_EXPORT_SCH_NETLIST::FORMAT, wxString> jobNetlistNameLookup =
 {
-    { JOB_EXPORT_SCH_NETLIST::FORMAT::KICADSEXPR, wxT( "KiCad" ) },
+    { JOB_EXPORT_SCH_NETLIST::FORMAT::KICADSEXPR, wxT( "Anvil" ) },
     { JOB_EXPORT_SCH_NETLIST::FORMAT::KICADXML, wxT( "XML" ) },
     { JOB_EXPORT_SCH_NETLIST::FORMAT::ORCADPCB2, wxT( "OrcadPCB2" ) },
     { JOB_EXPORT_SCH_NETLIST::FORMAT::ALLEGRO, wxT( "Allegro" ) },

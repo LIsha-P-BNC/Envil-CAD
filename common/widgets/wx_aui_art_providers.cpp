@@ -1,5 +1,5 @@
 /*
- * This program source code file is part of KiCad, a free EDA CAD application.
+ * This program source code file is part of Anvil, a free EDA CAD application.
  *
  * Copyright The KiCad Developers, see AUTHORS.txt for contributors.
  *
@@ -260,7 +260,7 @@ void WX_AUI_TOOLBAR_ART::DrawBackground( wxDC& aDc, wxWindow* aWindow, const wxR
 
 void WX_AUI_TOOLBAR_ART::DrawPlainBackground( wxDC& aDc, wxWindow* aWindow, const wxRect& aRect )
 {
-    // KiCad tool-bars use wxAUI_TB_PLAIN_BACKGROUND, so this (not DrawBackground) paints the bar.
+    // Anvil tool-bars use wxAUI_TB_PLAIN_BACKGROUND, so this (not DrawBackground) paints the bar.
     if( m_anvilTheme )
     {
         aDc.SetPen( wxPen( m_anvilBg ) );

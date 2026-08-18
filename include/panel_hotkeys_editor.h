@@ -1,5 +1,5 @@
 /*
- * This program source code file is part of KiCad, a free EDA CAD application.
+ * This program source code file is part of Anvil, a free EDA CAD application.
  *
  * Copyright The KiCad Developers, see AUTHORS.TXT for contributors.
  *
@@ -54,7 +54,7 @@ public:
 
     wxString GetResetTooltip() const override
     {
-        return _( "Reset all hotkeys to the built-in KiCad defaults" );
+        return _( "Reset all hotkeys to the built-in Anvil defaults" );
     }
 
     wxSizer* GetBottomSizer() { return m_bottomSizer; }

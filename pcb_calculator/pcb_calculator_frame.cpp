@@ -195,7 +195,7 @@ void PCB_CALCULATOR_FRAME::loadPages()
 
 void PCB_CALCULATOR_FRAME::doReCreateMenuBar()
 {
-    // KiCad Next: build the shared common menu bar instead of the legacy one when enabled.
+    // Anvil Next: build the shared common menu bar instead of the legacy one when enabled.
     if( UseUnifiedMenuBar() )
     {
         buildCommonMenuBar();
@@ -241,7 +241,7 @@ void PCB_CALCULATOR_FRAME::doReCreateMenuBar()
 }
 
 
-//================================ KiCad Next unified menu bar ================================
+//================================ Anvil Next unified menu bar ================================
 // The following hooks reproduce the menus built above, but populate a menu supplied by the
 // shared EDA_BASE_FRAME::buildCommonMenuBar() orchestrator.  They are used only when the
 // m_UnifiedMenuBar advanced flag is set; otherwise the legacy doReCreateMenuBar() above runs.

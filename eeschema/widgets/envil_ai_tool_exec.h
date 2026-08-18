@@ -25,7 +25,7 @@ class SCH_EDIT_FRAME;
 std::string EnvilExecAiTool( SCH_EDIT_FRAME* aFrame, const std::string& aRequestJson );
 
 /**
- * Convert a symbol library (Altium .SchLib/.IntLib, KiCad .kicad_sym/.anvil_sym, legacy
+ * Convert a symbol library (Altium .SchLib/.IntLib, Anvil .kicad_sym/.anvil_sym, legacy
  * .lib) to the native s-expression format under the given destination path.
  *
  * @param aRequest "srcPath\ndestPath"

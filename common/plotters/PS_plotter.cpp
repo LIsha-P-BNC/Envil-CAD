@@ -1,5 +1,5 @@
 /*
- * This program source code file is part of KiCad, a free EDA CAD application.
+ * This program source code file is part of Anvil, a free EDA CAD application.
  *
  * Copyright (C) 2017 Jean-Pierre Charras, jp.charras at wanadoo.fr
  * Copyright The KiCad Developers, see AUTHORS.txt for contributors.
@@ -24,7 +24,7 @@
 
 /**
  * @file PS_plotter.cpp
- * @brief KiCad: specialized plotter for PS files format
+ * @brief Anvil: specialized plotter for PS files format
  */
 
 #include <convert_basic_shapes_to_polygon.h>
@@ -816,7 +816,7 @@ bool PS_PLOTTER::StartPlot( const wxString& aPageNumber )
     // Specify the size of the sheet and the name associated with that size.
     // (If the "User size" option has been selected for the sheet size,
     // identify the sheet size as "Custom" (rather than as "User"), but
-    // otherwise use the name assigned by KiCad for each sheet size.)
+    // otherwise use the name assigned by Anvil for each sheet size.)
     //
     // (The Document Structuring Convention also supports sheet weight,
     // sheet color, and sheet type properties being specified within a

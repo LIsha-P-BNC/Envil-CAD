@@ -1,5 +1,5 @@
 /*
- * This program source code file is part of KiCad, a free EDA CAD application.
+ * This program source code file is part of Anvil, a free EDA CAD application.
  *
  * Copyright (C) 2022 Jon Evans <jon@craftyjon.com>
  * Copyright The KiCad Developers, see AUTHORS.txt for contributors.
@@ -46,8 +46,8 @@ struct KICOMMON_API DATABASE_SOURCE
 struct KICOMMON_API DATABASE_FIELD_MAPPING
 {
     std::string column;             ///< Database column name
-    std::string name;               ///< KiCad field name
-    wxString    name_wx;            ///< KiCad field name (converted)
+    std::string name;               ///< Anvil field name
+    wxString    name_wx;            ///< Anvil field name (converted)
     bool        visible_on_add;     ///< Whether to show the field when placing the symbol
     bool        visible_in_chooser; ///< Whether the column is shown by default in the chooser
     bool        show_name;   ///< Whether or not to show the field name as well as its value
@@ -72,7 +72,7 @@ struct KICOMMON_API MAPPABLE_SYMBOL_PROPERTIES
 
 /**
  * A database library table will be mapped to a sub-library provided by the database library entry
- * in the KiCad symbol/footprint library table.  A single database library config file (managed by
+ * in the Anvil symbol/footprint library table.  A single database library config file (managed by
  * this class) may contain more than one table mapping, and each will have its own nickname.
  *
  * The LIB_ID for parts placed from this library will be constructed from the nickname of the
@@ -85,11 +85,11 @@ struct KICOMMON_API MAPPABLE_SYMBOL_PROPERTIES
  */
 struct KICOMMON_API DATABASE_LIB_TABLE
 {
-    std::string name;              ///< KiCad library nickname (will form part of the LIB_ID)
+    std::string name;              ///< Anvil library nickname (will form part of the LIB_ID)
     std::string table;             ///< Database table to pull content from
     std::string key_col;           ///< Unique key column name (will form part of the LIB_ID)
-    std::string symbols_col;       ///< Column name containing KiCad symbol refs
-    std::string footprints_col;    ///< Column name containing KiCad footprint refs
+    std::string symbols_col;       ///< Column name containing Anvil symbol refs
+    std::string footprints_col;    ///< Column name containing Anvil footprint refs
 
     MAPPABLE_SYMBOL_PROPERTIES properties;
     std::vector<DATABASE_FIELD_MAPPING> fields;

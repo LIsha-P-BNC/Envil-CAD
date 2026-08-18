@@ -1,5 +1,5 @@
 /*
- * This program source code file is part of KiCad, a free EDA CAD application.
+ * This program source code file is part of Anvil, a free EDA CAD application.
  *
  * Copyright (C) 2018 Jean-Pierre Charras, jean-pierre.charras
  * Copyright (C) 2011 Wayne Stambaugh <stambaughw@gmail.com>
@@ -116,7 +116,7 @@ bool CVPCB_MAINFRAME::readNetListAndFpFiles( const std::string& aNetlist )
     if( hasMissingNicks )
     {
         msg = _( "Some of the assigned footprints are legacy entries with no library names. Would "
-                 "you like KiCad to attempt to convert them to the new required LIB_ID format? "
+                 "you like Anvil to attempt to convert them to the new required LIB_ID format? "
                  "(If you answer no, then these assignments will be cleared and you will need to "
                  "re-assign them manually.)" );
 

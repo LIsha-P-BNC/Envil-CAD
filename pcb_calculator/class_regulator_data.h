@@ -78,7 +78,7 @@ public:
     void Add( REGULATOR_DATA* aItem )
     {
         // add new item an try to keep alphabetic order,
-        // and because name have numbers inside, use a KiCad compare function
+        // and because name have numbers inside, use a Anvil compare function
         // that handles number as numbers not ASCII chars
         unsigned ii = 0;
 

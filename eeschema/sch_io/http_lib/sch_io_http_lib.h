@@ -1,5 +1,5 @@
 /*
- * This program source code file is part of KiCad, a free EDA CAD application.
+ * This program source code file is part of Anvil, a free EDA CAD application.
  *
  * Copyright (C) 2023 Andre F. K. Iwers <iwers11@gmail.com>
  * Copyright The KiCad Developers, see AUTHORS.txt for contributors.
@@ -30,7 +30,7 @@
 class LIBRARY_MANAGER_ADAPTER;
 
 /**
- * A KiCad HTTP library provides both symbol and footprint metadata, so there are "shim" plugins
+ * A Anvil HTTP library provides both symbol and footprint metadata, so there are "shim" plugins
  * on both the symbol and footprint side of things that expose the database contents to the
  * schematic and board editors.  The architecture of these is slightly different from the other
  * plugins because the backing file is just a configuration file rather than something that

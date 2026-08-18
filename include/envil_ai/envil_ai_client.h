@@ -2,7 +2,7 @@
  * Envil AI - native Claude client for Envil-CAD.
  *
  * Talks to the Anthropic Messages API (POST /v1/messages) directly over HTTPS
- * using KiCad's bundled libcurl wrapper. No external process, no Python.
+ * using Anvil's bundled libcurl wrapper. No external process, no Python.
  *
  * Phase 2: tool-use support. The caller drives the agent loop; this class does
  * one Messages-API round trip per call. Messages/tools are passed as JSON

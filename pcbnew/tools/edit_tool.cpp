@@ -1,5 +1,5 @@
 /*
- * This program source code file is part of KiCad, a free EDA CAD application.
+ * This program source code file is part of Anvil, a free EDA CAD application.
  *
  * Copyright (C) 2013-2023 CERN
  * Copyright The KiCad Developers, see AUTHORS.txt for contributors.
@@ -2406,7 +2406,7 @@ int EDIT_TOOL::Rotate( const TOOL_EVENT& aEvent )
         commit = &localCommit;
 
     // Be sure that there is at least one item that we can modify. If nothing was selected before,
-    // try looking for the stuff under mouse cursor (i.e. KiCad old-style hover selection)
+    // try looking for the stuff under mouse cursor (i.e. Anvil old-style hover selection)
     PCB_SELECTION& selection = m_selectionTool->RequestSelection(
             [&]( const VECTOR2I& aPt, GENERAL_COLLECTOR& aCollector, PCB_SELECTION_TOOL* sTool )
             {

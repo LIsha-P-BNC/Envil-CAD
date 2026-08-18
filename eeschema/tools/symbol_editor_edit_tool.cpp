@@ -1,5 +1,5 @@
 /*
- * This program source code file is part of KiCad, a free EDA CAD application.
+ * This program source code file is part of Anvil, a free EDA CAD application.
  *
  * Copyright (C) 2019 CERN
  * Copyright The KiCad Developers, see AUTHORS.txt for contributors.
@@ -1693,7 +1693,7 @@ int SYMBOL_EDITOR_EDIT_TOOL::Paste( const TOOL_EVENT& aEvent )
         wxString pasteText( clipboardData );
 
         // Limit of 5000 is totally arbitrary.  Without a limit, pasting a bitmap image from
-        // eeschema makes KiCad appear to hang.
+        // eeschema makes Anvil appear to hang.
         if( pasteText.Length() > 5000 )
             pasteText = pasteText.Left( 5000 ) + wxT( "..." );
 

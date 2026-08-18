@@ -1,5 +1,5 @@
 /*
- * This program source code file is part of KiCad, a free EDA CAD application.
+ * This program source code file is part of Anvil, a free EDA CAD application.
  *
  * Copyright (C) 2019-2023 CERN
  * Copyright The KiCad Developers, see AUTHORS.txt for contributors.
@@ -39,22 +39,22 @@ TOOL_ACTION KICAD_MANAGER_ACTIONS::importProject( TOOL_ACTION_ARGS()
         .Name( "kicad.Control.importProject" )
         .Scope( AS_GLOBAL )
         .FriendlyName( _( "Import Project..." ) )
-        .Tooltip( _( "Import a KiCad, Altium, CADSTAR, Eagle, EasyEDA, PADS or gEDA project "
+        .Tooltip( _( "Import a Anvil, Altium, CADSTAR, Eagle, EasyEDA, PADS or gEDA project "
                      "and convert it to an Anvil project" ) )
         .Icon( BITMAPS::import_project ) );
 
 TOOL_ACTION KICAD_MANAGER_ACTIONS::importKiCadProject( TOOL_ACTION_ARGS()
         .Name( "kicad.Control.importKiCadProject" )
         .Scope( AS_GLOBAL )
-        .FriendlyName( _( "KiCad Project..." ) )
-        .Tooltip( _( "Import KiCad Schematic and PCB (*.kicad_pro)" ) )
+        .FriendlyName( _( "Anvil Project..." ) )
+        .Tooltip( _( "Import Anvil Schematic and PCB (*.kicad_pro)" ) )
         .Icon( BITMAPS::import_project ) );
 
 TOOL_ACTION KICAD_MANAGER_ACTIONS::importFootprintLibrary( TOOL_ACTION_ARGS()
         .Name( "kicad.Control.importFootprintLibrary" )
         .Scope( AS_GLOBAL )
         .FriendlyName( _( "Footprint Library..." ) )
-        .Tooltip( _( "Convert an Altium (*.PcbLib), Eagle (*.lbr) or KiCad footprint library "
+        .Tooltip( _( "Convert an Altium (*.PcbLib), Eagle (*.lbr) or Anvil footprint library "
                      "to an Anvil footprint library" ) )
         .Icon( BITMAPS::import_project ) );
 
@@ -62,7 +62,7 @@ TOOL_ACTION KICAD_MANAGER_ACTIONS::importSymbolLibrary( TOOL_ACTION_ARGS()
         .Name( "kicad.Control.importSymbolLibrary" )
         .Scope( AS_GLOBAL )
         .FriendlyName( _( "Symbol Library..." ) )
-        .Tooltip( _( "Convert a KiCad or Altium symbol library (*.kicad_sym, *.lib, "
+        .Tooltip( _( "Convert a Anvil or Altium symbol library (*.kicad_sym, *.lib, "
                      "*.SchLib, *.IntLib) to an Anvil library (*.anvil_sym)" ) )
         .Icon( BITMAPS::import_project ) );
 

@@ -1,5 +1,5 @@
 /*
- * This program source code file is part of KiCad, a free EDA CAD application.
+ * This program source code file is part of Anvil, a free EDA CAD application.
  *
  * Copyright (C) 2018 jean-pierre.charras jp.charras at wanadoo.fr
  * Copyright The KiCad Developers, see AUTHORS.txt for contributors.
@@ -37,7 +37,7 @@ class PLOTTER;
 
 
 /**
- * This class handle bitmap images in KiCad.
+ * This class handle bitmap images in Anvil.
  *
  * It is not intended to be used alone, but inside another class so all methods are protected
  * or private.  It is used in #SCH_BITMAP class, #DS_DRAW_ITEM_BITMAP, and possibly others in
@@ -278,7 +278,7 @@ private:
     mutable wxBitmap* m_bitmap;     ///< The bitmap used to draw/plot image.
     mutable bool      m_bitmapDirty;///< True when m_bitmap needs rebuilding from m_image.
     double    m_pixelSizeIu;        ///< The scaling factor of the bitmap to convert the bitmap
-                                    ///< size (in pixels) to internal KiCad units.  This usually
+                                    ///< size (in pixels) to internal Anvil units.  This usually
                                     ///< does not change.
     int       m_ppi;                ///< The bitmap definition. The default is 300PPI.
     KIID      m_imageId;

@@ -1,5 +1,5 @@
 /*
- * This program source code file is part of KiCad, a free EDA CAD application.
+ * This program source code file is part of Anvil, a free EDA CAD application.
  *
  * Copyright (C) 2012 CERN
  * Copyright The KiCad Developers, see AUTHORS.txt for contributors.
@@ -125,7 +125,7 @@ public:
     }
 
     /**
-     * Return a string representing the version of KiCad required to open this
+     * Return a string representing the version of Anvil required to open this
      * file. Not particularly meaningful if IsTooRecent() returns false.
      */
     wxString GetRequiredVersion();
@@ -440,7 +440,7 @@ private:
     std::set<wxString>  m_undefinedLayers;  ///< set of layers not defined in layers section
     std::vector<int>    m_netCodes;         ///< net codes mapping for boards being loaded
     bool                m_tooRecent;        ///< true if version parses as later than supported
-    int                 m_requiredVersion;  ///< set to the KiCad format version this board requires
+    int                 m_requiredVersion;  ///< set to the Anvil format version this board requires
     wxString            m_generatorVersion; ///< Set to the generator version this board requires
     bool                m_appendToExisting; ///< reading into an existing board; reset UUIDs
 

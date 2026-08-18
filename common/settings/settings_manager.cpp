@@ -1,5 +1,5 @@
 /*
- * This program source code file is part of KiCad, a free EDA CAD application.
+ * This program source code file is part of Anvil, a free EDA CAD application.
  *
  * Copyright (C) 2020 Jon Evans <jon@craftyjon.com>
  * Copyright The KiCad Developers, see AUTHORS.txt for contributors.
@@ -695,7 +695,7 @@ bool SETTINGS_MANAGER::GetPreviousVersionPaths( std::vector<wxString>* aPaths )
 
 #ifdef __WXGTK__
     // When running inside FlatPak, KIPLATFORM::ENV::GetUserConfigPath() will return a sandboxed
-    // path.  In case the user wants to move from non-FlatPak KiCad to FlatPak KiCad, let's add our
+    // path.  In case the user wants to move from non-FlatPak Anvil to FlatPak Anvil, let's add our
     // best guess as to the non-FlatPak config path.  Unfortunately FlatPak also hides the host
     // XDG_CONFIG_HOME, so if the user customizes their config path, they will have to browse
     // for it.
@@ -706,7 +706,7 @@ bool SETTINGS_MANAGER::GetPreviousVersionPaths( std::vector<wxString>* aPaths )
         base_paths.emplace_back( wxGtkPath );
 
         // We also want to pick up regular flatpak if we are nightly
-        wxGtkPath.AssignDir( wxS( "~/.var/app/org.kicad.KiCad/config/kicad" ) );
+        wxGtkPath.AssignDir( wxS( "~/.var/app/org.kicad.Anvil/config/kicad" ) );
         wxGtkPath.MakeAbsolute();
         base_paths.emplace_back( wxGtkPath );
     }
@@ -961,7 +961,7 @@ bool SETTINGS_MANAGER::LoadProject( const wxString& aFullPath, bool aSetActive )
             && path.GetExt() != FILEEXT::ProjectFileExtension )
     {
         // Prefer the Anvil project file when one exists (or when neither exists yet, e.g. a
-        // brand-new project); fall back to a sibling .kicad_pro so KiCad projects open as-is.
+        // brand-new project); fall back to a sibling .kicad_pro so Anvil projects open as-is.
         wxFileName kicadPro( path );
         kicadPro.SetExt( FILEEXT::ProjectFileExtension );
         path.SetExt( FILEEXT::AnvilProjectFileExtension );
@@ -985,7 +985,7 @@ bool SETTINGS_MANAGER::LoadProject( const wxString& aFullPath, bool aSetActive )
     wxString fullPath = path.GetFullPath();
 
     // If already loaded, we are all set.  This might be called more than once over a project's
-    // lifetime in case the project is first loaded by the KiCad manager and then Eeschema or
+    // lifetime in case the project is first loaded by the Anvil manager and then Eeschema or
     // Pcbnew try to load it again when they are launched.
     if( m_projects.count( fullPath ) )
         return true;

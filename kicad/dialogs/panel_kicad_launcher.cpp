@@ -1,5 +1,5 @@
 /*
- * This program source code file is part of KiCad, a free EDA CAD application.
+ * This program source code file is part of Anvil, a free EDA CAD application.
  *
  * Copyright The KiCad Developers, see AUTHORS.txt for contributors.
  *
@@ -92,7 +92,7 @@ void PANEL_KICAD_LAUNCHER::CreateLaunchers()
         m_toolsSizer->SetRows( 0 );
     }
 
-    // KiCad Next: lay the 9 tools out as a single-column compact icon+label rail
+    // Anvil Next: lay the 9 tools out as a single-column compact icon+label rail
     // (matching the web prototype's activity rail) instead of the 2-column
     // big-button + help-paragraph list.
     m_toolsSizer->SetCols( 1 );
@@ -146,7 +146,7 @@ void PANEL_KICAD_LAUNCHER::CreateLaunchers()
                  _( "Edit drawing sheet borders and title blocks for use in schematics and PCB designs" ) );
 
     BITMAP_BUTTON* bb = addLauncher( KICAD_MANAGER_ACTIONS::showPluginManager, BITMAPS::icon_pcm,
-                                     _( "Manage downloadable packages from KiCad and 3rd party repositories" ),
+                                     _( "Manage downloadable packages from Anvil and 3rd party repositories" ),
                                      KIPLATFORM::POLICY::GetPolicyBool( POLICY_KEY_PCM )
                                             != KIPLATFORM::POLICY::PBOOL::DISABLED );
 

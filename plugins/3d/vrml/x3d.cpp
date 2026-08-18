@@ -1,5 +1,5 @@
 /*
- * This program source code file is part of KiCad, a free EDA CAD application.
+ * This program source code file is part of Anvil, a free EDA CAD application.
  *
  * Copyright (C) 2016 Cirilo Bernardo <cirilo.bernardo@gmail.com>
  * Copyright (C) 2013 Tuomas Vaherkoski <tuomasvaherkoski@gmail.com>
@@ -25,7 +25,7 @@
 
 /*
  * Description:
- *  This plugin implements the legacy KiCad X3D parser.
+ *  This plugin implements the legacy Anvil X3D parser.
  *  Due to the rare use of X3D models, this plugin is a simple
  *  reimplementation of the legacy x3dmodelparser.cpp and is not
  *  intended to be a compliant X3D implementation.

@@ -60,7 +60,7 @@ public:
     /**
      * Load a stroke font.
      *
-     * @param aFontName is the name of the font. If empty, the standard KiCad stroke font is
+     * @param aFontName is the name of the font. If empty, the standard Anvil stroke font is
      *                  loaded.
      */
     static STROKE_FONT* LoadFont( const wxString& aFontName );
@@ -85,7 +85,7 @@ public:
 
 private:
     /**
-     * Load the standard KiCad stroke font.
+     * Load the standard Anvil stroke font.
      *
      * @param aNewStrokeFont is the pointer to the font data.
      * @param aNewStrokeFontSize is the size of the font data.

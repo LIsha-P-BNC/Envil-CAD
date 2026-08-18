@@ -1,5 +1,5 @@
 /*
- * This program source code file is part of KiCad, a free EDA CAD application.
+ * This program source code file is part of Anvil, a free EDA CAD application.
  *
  * Copyright The KiCad Developers, see AUTHORS.txt for contributors.
  *
@@ -55,7 +55,7 @@ public:
     void ImportFiles( int aImportedSchFileType, int aImportedPcbFileType );
 
     /**
-     * @brief Converts PADS ASCII schematic and PCB files to KiCad type files.
+     * @brief Converts PADS ASCII schematic and PCB files to Anvil type files.
      */
     void ImportPadsFiles();
 

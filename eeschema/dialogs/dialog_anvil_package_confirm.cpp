@@ -24,7 +24,7 @@ DIALOG_ANVIL_PACKAGE_CONFIRM::DIALOG_ANVIL_PACKAGE_CONFIRM( SCH_BASE_FRAME* aPar
         m_defaultFootprint( aDefaultFootprint ),
         m_packagePref( PACKAGE_PREF::THT )
 {
-    // Heuristic seed only -- KiCad's own stock libraries consistently suffix the
+    // Heuristic seed only -- Anvil's own stock libraries consistently suffix the
     // library nickname with _SMD/_THT (Resistor_SMD vs Resistor_THT, Package_TO_SOT_SMD
     // vs Package_TO_SOT_THT, ...). The user's own choice below is authoritative.
     if( aDefaultFootprint.Upper().Contains( wxT( "SMD" ) ) )

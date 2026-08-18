@@ -1,5 +1,5 @@
 /*
- * This program source code file is part of KiCad, a free EDA CAD application.
+ * This program source code file is part of Anvil, a free EDA CAD application.
  *
  * Copyright (C) 2013-2016 CERN
  * Copyright The KiCad Developers, see AUTHORS.txt for contributors.
@@ -82,7 +82,7 @@ public:
      * Nasty hack, invoked by the destructor of VIEW_ITEM to auto-remove the item
      * from the owning VIEW if there is any.
      *
-     * KiCad relies too much on this mechanism.  This is the only linking dependency now
+     * Anvil relies too much on this mechanism.  This is the only linking dependency now
      * between #EDA_ITEM and VIEW class. In near future I'll replace it with observers.
      */
     static void OnDestroy( VIEW_ITEM* aItem );

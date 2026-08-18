@@ -1,5 +1,5 @@
 /*
- * This program source code file is part of KiCad, a free EDA CAD application.
+ * This program source code file is part of Anvil, a free EDA CAD application.
  *
  * Copyright (C) 2019 Jean-Pierre Charras, jp.charras at wanadoo.fr
  * Copyright (C) 2011 Wayne Stambaugh <stambaughw@gmail.com>
@@ -912,7 +912,7 @@ void SCH_EDIT_FRAME::KiwayMailIn( KIWAY_MAIL_EVENT& mail )
 
             if( isProjectLocal )
             {
-                // Project-local library: copy into the KiCad project directory and use a
+                // Project-local library: copy into the Anvil project directory and use a
                 // project-relative path so the sym-lib-table stays portable.
                 if( !fn.FileExists() )
                     continue;

@@ -1,5 +1,5 @@
 /*
- * This program source code file is part of KiCad, a free EDA CAD application.
+ * This program source code file is part of Anvil, a free EDA CAD application.
  *
  * Copyright (C) 2021 Thomas Pointhuber <thomas.pointhuber@gmx.at>
  * Copyright The KiCad Developers, see AUTHORS.txt for contributors.
@@ -137,7 +137,7 @@ wxString AltiumSchSpecialStringsToKiCadVariables( const wxString&               
 
             if( !specialString.IsEmpty() )
             {
-                // Note: Altium variable references are case-insensitive.  KiCad matches
+                // Note: Altium variable references are case-insensitive.  Anvil matches
                 // case-sensitive OR to all-upper-case, so make the references all-upper-case.
                 specialString.UpperCase();
 
@@ -164,7 +164,7 @@ wxString AltiumPcbSpecialStringsToKiCadStrings( const wxString&                 
     if( aString.IsEmpty() )
         return aString;
 
-    // Convert a 'special string' to a KiCad variable, substituting any override.
+    // Convert a 'special string' to a Anvil variable, substituting any override.
     const auto getVariable = [&]( const wxString& aSpecialString )
     {
         wxString str = aSpecialString;

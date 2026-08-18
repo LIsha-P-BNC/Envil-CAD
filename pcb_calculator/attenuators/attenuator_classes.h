@@ -6,7 +6,7 @@
  *     Attenuator Synthesis
  *
  *     From Qucs
- *      Modified for KiCad
+ *      Modified for Anvil
  */
 
 #ifndef ATTENUATORFUNC_H

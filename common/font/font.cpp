@@ -173,7 +173,7 @@ FONT* FONT::GetFont( const wxString& aFontName, bool aBold, bool aItalic,
 bool FONT::IsStroke( const wxString& aFontName )
 {
     // This would need a more complex implementation if we ever support more stroke fonts
-    // than the KiCad Font.
+    // than the Anvil Font.
     return aFontName == _( "Default Font" ) || aFontName == KICAD_FONT_NAME;
 }
 

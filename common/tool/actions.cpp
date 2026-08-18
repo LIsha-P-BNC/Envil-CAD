@@ -1,5 +1,5 @@
 /*
- * This program source code file is part of KiCad, a free EDA CAD application.
+ * This program source code file is part of Anvil, a free EDA CAD application.
  *
  * Copyright (C) 2019-2023 CERN
  * Copyright The KiCad Developers, see AUTHORS.txt for contributors.
@@ -1381,8 +1381,8 @@ TOOL_ACTION ACTIONS::showDesignBlockLibTable( TOOL_ACTION_ARGS()
 TOOL_ACTION ACTIONS::gettingStarted( TOOL_ACTION_ARGS()
         .Name( "common.SuiteControl.gettingStarted" )
         .Scope( AS_GLOBAL )
-        .FriendlyName( _( "Getting Started with KiCad" ) )
-        .Tooltip( _( "Open \"Getting Started in KiCad\" guide for beginners" ) )
+        .FriendlyName( _( "Getting Started with Anvil" ) )
+        .Tooltip( _( "Open \"Getting Started in Anvil\" guide for beginners" ) )
         .Icon( BITMAPS::help ) );
 
 TOOL_ACTION ACTIONS::help( TOOL_ACTION_ARGS()
@@ -1395,7 +1395,7 @@ TOOL_ACTION ACTIONS::help( TOOL_ACTION_ARGS()
 TOOL_ACTION ACTIONS::about( TOOL_ACTION_ARGS()
         .Name( "common.SuiteControl.about" )
         .Scope( AS_GLOBAL )
-        .FriendlyName( _( "About KiCad" ) )
+        .FriendlyName( _( "About Anvil" ) )
         .UIId( wxID_ABOUT )
         .Icon( BITMAPS::about ) );
 
@@ -1412,20 +1412,20 @@ TOOL_ACTION ACTIONS::getInvolved( TOOL_ACTION_ARGS()
         .Name( "common.SuiteControl.getInvolved" )
         .Scope( AS_GLOBAL )
         .FriendlyName( _( "Get Involved" ) )
-        .Tooltip( _( "Open \"Contribute to KiCad\" in a web browser" ) )
+        .Tooltip( _( "Open \"Contribute to Anvil\" in a web browser" ) )
         .Icon( BITMAPS::info ) );
 
 TOOL_ACTION ACTIONS::donate( TOOL_ACTION_ARGS()
         .Name( "common.SuiteControl.donate" )
         .Scope( AS_GLOBAL )
         .FriendlyName( _( "Donate" ) )
-        .Tooltip( _( "Open \"Donate to KiCad\" in a web browser" ) ) );
+        .Tooltip( _( "Open \"Donate to Anvil\" in a web browser" ) ) );
 
 TOOL_ACTION ACTIONS::reportBug( TOOL_ACTION_ARGS()
         .Name( "common.SuiteControl.reportBug" )
         .Scope( AS_GLOBAL )
         .FriendlyName( _( "Report Bug" ) )
-        .Tooltip( _( "Report a problem with KiCad" ) )
+        .Tooltip( _( "Report a problem with Anvil" ) )
         .Icon( BITMAPS::bug ) );
 
 TOOL_ACTION ACTIONS::ddAddLibrary( TOOL_ACTION_ARGS()

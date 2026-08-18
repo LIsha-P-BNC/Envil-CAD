@@ -1,5 +1,5 @@
 /*
- * This program source code file is part of KiCad, a free EDA CAD application.
+ * This program source code file is part of Anvil, a free EDA CAD application.
  *
  * Copyright The KiCad Developers, see AUTHORS.txt for contributors.
  *
@@ -57,7 +57,7 @@ bool validateAssetUrl( const REMOTE_PROVIDER_METADATA& aProvider, const wxString
 bool defaultFetchHandler( const wxString& aUrl, REMOTE_SYMBOL_FETCH_RESPONSE& aResponse, wxString& aError )
 {
     KICAD_CURL_EASY curl;
-    curl.SetUserAgent( "KiCad-RemoteProvider/1.0" );
+    curl.SetUserAgent( "Anvil-RemoteProvider/1.0" );
     curl.SetFollowRedirects( false );
     curl.SetConnectTimeout( 10 );
 

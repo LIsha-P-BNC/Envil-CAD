@@ -1,5 +1,5 @@
 /*
- * This program source code file is part of KiCad, a free EDA CAD application.
+ * This program source code file is part of Anvil, a free EDA CAD application.
  *
  * Copyright (C) 2020-2021 Roberto Fernandez Bautista <roberto.fer.bau@gmail.com>
  * Copyright The KiCad Developers, see AUTHORS.txt for contributors.
@@ -20,7 +20,7 @@
 
 /**
  * @file cadstar_pcb_archive_loader.cpp
- * @brief Loads a cpa file into a KiCad BOARD object
+ * @brief Loads a cpa file into a Anvil BOARD object
  */
 
 #include <cadstar_pcb_archive_loader.h>
@@ -73,7 +73,7 @@ void CADSTAR_PCB_ARCHIVE_LOADER::Load( BOARD* aBoard, PROJECT* aProject )
         // Note that we allow the floating point output here because this message is displayed to the user and should
         // be in their locale.
         THROW_IO_ERROR( wxString::Format(
-                _( "The design is too large and cannot be imported into KiCad. \n"
+                _( "The design is too large and cannot be imported into Anvil. \n"
                    "Please reduce the maximum design size in CADSTAR by navigating to: \n"
                    "Design Tab -> Properties -> Design Options -> Maximum Design Size. \n"
                    "Current Design size: %.2f, %.2f millimeters. \n"                //format:allow
@@ -145,14 +145,14 @@ void CADSTAR_PCB_ARCHIVE_LOADER::Load( BOARD* aBoard, PROJECT* aProject )
     if( Layout.Trunks.size() > 0 )
     {
         wxLogWarning(
-                _( "The CADSTAR design contains Trunk routing elements, which have no KiCad "
+                _( "The CADSTAR design contains Trunk routing elements, which have no Anvil "
                    "equivalent. These elements were not loaded." ) );
     }
 
     if( Layout.VariantHierarchy.Variants.size() > 0 )
     {
         wxLogWarning( wxString::Format(
-                _( "The CADSTAR design contains variants which has no KiCad equivalent. Only "
+                _( "The CADSTAR design contains variants which has no Anvil equivalent. Only "
                    "the variant '%s' was loaded." ),
                 Layout.VariantHierarchy.Variants.begin()->second.Name ) );
     }
@@ -160,11 +160,11 @@ void CADSTAR_PCB_ARCHIVE_LOADER::Load( BOARD* aBoard, PROJECT* aProject )
     if( Layout.ReuseBlocks.size() > 0 )
     {
         wxLogWarning(
-                _( "The CADSTAR design contains re-use blocks which has no KiCad equivalent. The "
+                _( "The CADSTAR design contains re-use blocks which has no Anvil equivalent. The "
                    "re-use block information has been discarded during the import." ) );
     }
 
-    wxLogWarning( _( "CADSTAR fonts are different to the ones in KiCad. This will likely result "
+    wxLogWarning( _( "CADSTAR fonts are different to the ones in Anvil. This will likely result "
                      "in alignment issues that may cause DRC errors. Please review the imported "
                      "text elements carefully and correct manually if required." ) );
 
@@ -240,8 +240,8 @@ void CADSTAR_PCB_ARCHIVE_LOADER::logBoardStackupWarning( const wxString& aCadsta
     if( m_logLayerWarnings )
     {
         wxLogWarning( wxString::Format(
-                _( "The CADSTAR layer '%s' has no KiCad equivalent. All elements on this "
-                   "layer have been mapped to KiCad layer '%s' instead." ),
+                _( "The CADSTAR layer '%s' has no Anvil equivalent. All elements on this "
+                   "layer have been mapped to Anvil layer '%s' instead." ),
                 aCadstarLayerName, LSET::Name( aKiCadLayer ) ) );
     }
 }
@@ -254,7 +254,7 @@ void CADSTAR_PCB_ARCHIVE_LOADER::logBoardStackupMessage( const wxString& aCadsta
     {
         wxLogMessage( wxString::Format(
                 _( "The CADSTAR layer '%s' has been assumed to be a technical layer. All "
-                   "elements on this layer have been mapped to KiCad layer '%s'." ),
+                   "elements on this layer have been mapped to Anvil layer '%s'." ),
                 aCadstarLayerName, LSET::Name( aKiCadLayer ) ) );
     }
 }
@@ -271,7 +271,7 @@ void CADSTAR_PCB_ARCHIVE_LOADER::initStackupItem( const LAYER&          aCadstar
         aKiCadItem->SetMaterial( material.Name, aDielectricSublayer );
         aKiCadItem->SetEpsilonR( material.Permittivity.GetDouble(), aDielectricSublayer );
         aKiCadItem->SetLossTangent( material.LossTangent.GetDouble(), aDielectricSublayer );
-        //TODO add Resistivity when KiCad supports it
+        //TODO add Resistivity when Anvil supports it
     }
 
     if( !aCadstarLayer.Name.IsEmpty() )
@@ -358,7 +358,7 @@ void CADSTAR_PCB_ARCHIVE_LOADER::loadBoardStackup()
         cadstarBoardStackup.back().ConstructionLayers.clear();
     }
 
-    // Make sure it is an even number of layers (KiCad doesn't yet support unbalanced stack-ups)
+    // Make sure it is an even number of layers (Anvil doesn't yet support unbalanced stack-ups)
     if( ( m_numCopperLayers % 2 ) != 0 )
     {
         LAYER_BLOCK bottomLayer = cadstarBoardStackup.back();
@@ -459,7 +459,7 @@ void CADSTAR_PCB_ARCHIVE_LOADER::loadBoardStackup()
             if( layerBlock.ConstructionLayers.size() == 0 )
             {
                 ++stackIndex;
-                continue; // Older cadstar designs have no construction layers - use KiCad defaults
+                continue; // Older cadstar designs have no construction layers - use Anvil defaults
             }
 
             int dielectricId = stackIndex + 1;
@@ -539,7 +539,7 @@ void CADSTAR_PCB_ARCHIVE_LOADER::loadBoardStackup()
 
     int numElecLayersProcessed = 0;
 
-    // Map CADSTAR documentation layers to KiCad "User layers"
+    // Map CADSTAR documentation layers to Anvil "User layers"
     int                       currentDocLayer = 0;
     std::vector<PCB_LAYER_ID> docLayers = { Dwgs_User, Cmts_User, User_1, User_2, User_3, User_4,
                                             User_5,    User_6,    User_7, User_8, User_9 };
@@ -760,7 +760,7 @@ void CADSTAR_PCB_ARCHIVE_LOADER::loadDesignRules()
     bds.m_ViasMinSize = bds.m_TrackMinWidth; // Not specified, assumed same as track width
     bds.m_ViasMinAnnularWidth = bds.m_TrackMinWidth / 2; // Not specified, assumed half track width
     bds.m_MinThroughDrill = PCB_IU_PER_MM * 0.0508; // CADSTAR does not specify a minimum hole size
-                                                   // so set to minimum permitted in KiCad (2 mils)
+                                                   // so set to minimum permitted in Anvil (2 mils)
     bds.m_HoleClearance = 0; // Testing suggests cadstar might not have a copper-to-hole clearance
 
     auto applyNetClassRule = [&]( wxString aID, const std::shared_ptr<NETCLASS>& aNetClassPtr )
@@ -774,7 +774,7 @@ void CADSTAR_PCB_ARCHIVE_LOADER::loadDesignRules()
 
     applyNetClassRule( "T_T", bds.m_NetSettings->GetDefaultNetclass() );
 
-    wxLogWarning( _( "KiCad design rules are different from CADSTAR ones. Only the compatible "
+    wxLogWarning( _( "Anvil design rules are different from CADSTAR ones. Only the compatible "
                      "design rules were imported. It is recommended that you review the design "
                      "rules that have been applied." ) );
 }
@@ -819,7 +819,7 @@ void CADSTAR_PCB_ARCHIVE_LOADER::loadComponentLibrary()
         loadLibraryCoppers( component, footprint ); // Load coppers after pads to ensure correct
                                                     // ordering of pads in footprint->Pads()
 
-        footprint->SetPosition( { 0, 0 } ); // KiCad expects library footprints at 0,0
+        footprint->SetPosition( { 0, 0 } ); // Anvil expects library footprints at 0,0
         footprint->SetReference( wxT( "REF**" ) );
         footprint->SetValue( libID.GetLibItemName() );
         footprint->AutoPositionFields();
@@ -979,7 +979,7 @@ void CADSTAR_PCB_ARCHIVE_LOADER::loadLibraryAreas( const SYMDEF_PCB& aComponent,
                 libName << wxT( " (" ) << aComponent.Alternate << wxT( ")" );
 
             wxLogError( wxString::Format( _( "The CADSTAR area '%s' in library component '%s' does not "
-                                             "have a KiCad equivalent. The area is neither a via nor "
+                                             "have a Anvil equivalent. The area is neither a via nor "
                                              "route keepout area. The area was not imported." ),
                                           area.ID, libName ) );
         }
@@ -1073,7 +1073,7 @@ PAD* CADSTAR_PCB_ARCHIVE_LOADER::getKiCadPad( const COMPONENT_PAD& aCadstarPad, 
                     complexPadErrorLogged = true;
                     errorMSG += wxT( "\n - " )
                                 + wxString::Format( _( "The CADSTAR pad definition '%s' is a complex pad stack, "
-                                                       "which is not supported in KiCad. Please review the "
+                                                       "which is not supported in Anvil. Please review the "
                                                        "imported pads as they may require manual correction." ),
                                                     csPadcode.Name );
                 }
@@ -1107,7 +1107,7 @@ PAD* CADSTAR_PCB_ARCHIVE_LOADER::getKiCadPad( const COMPONENT_PAD& aCadstarPad, 
             pad->SetLayerSet( LSET( { F_Mask } ) );
         }
 
-        // zero sized pads seems to break KiCad so lets make it very small instead
+        // zero sized pads seems to break Anvil so lets make it very small instead
         csPadcode.Shape.Size = 1;
     }
 
@@ -1149,7 +1149,7 @@ PAD* CADSTAR_PCB_ARCHIVE_LOADER::getKiCadPad( const COMPONENT_PAD& aCadstarPad, 
     case PAD_SHAPE_TYPE::DIAMOND:
     {
         // Cadstar diamond shape is a square rotated 45 degrees
-        // We convert it in KiCad to a square with chamfered edges
+        // We convert it in Anvil to a square with chamfered edges
         int sizeOfSquare = (double) getKiCadLength( csPadcode.Shape.Size ) * sqrt(2.0);
         pad->SetShape( PADSTACK::ALL_LAYERS, PAD_SHAPE::RECTANGLE );
         pad->SetChamferRectRatio( PADSTACK::ALL_LAYERS, 0.5 );
@@ -1407,7 +1407,7 @@ void CADSTAR_PCB_ARCHIVE_LOADER::loadBoards()
         if( !board.GroupID.IsEmpty() )
             addToGroup( board.GroupID, getKiCadGroup( boardGroup ) );
 
-        //TODO process board attributes when KiCad supports them
+        //TODO process board attributes when Anvil supports them
     }
 }
 
@@ -1425,8 +1425,8 @@ void CADSTAR_PCB_ARCHIVE_LOADER::loadFigures()
         }
 
         //TODO process "swaprule" (doesn't seem to apply to Layout Figures?)
-        //TODO process re-use block when KiCad Supports it
-        //TODO process attributes when KiCad Supports attributes in figures
+        //TODO process re-use block when Anvil Supports it
+        //TODO process attributes when Anvil Supports attributes in figures
     }
 }
 
@@ -1453,7 +1453,7 @@ void CADSTAR_PCB_ARCHIVE_LOADER::loadDimensions()
             switch( csDim.Subtype )
             {
             case DIMENSION::SUBTYPE::ANGLED:
-                wxLogWarning( wxString::Format( _( "Dimension ID %s is an angled dimension, which has no KiCad "
+                wxLogWarning( wxString::Format( _( "Dimension ID %s is an angled dimension, which has no Anvil "
                                                    "equivalent. An aligned dimension was loaded instead." ),
                                                 csDim.ID ) );
                 KI_FALLTHROUGH;
@@ -1463,7 +1463,7 @@ void CADSTAR_PCB_ARCHIVE_LOADER::loadDimensions()
                 if( csDim.Line.Style == DIMENSION::LINE::STYLE::EXTERNAL )
                 {
                     wxLogWarning( wxString::Format( _( "Dimension ID %s has 'External' style in CADSTAR. External "
-                                                       "dimension styles are not yet supported in KiCad. The "
+                                                       "dimension styles are not yet supported in Anvil. The "
                                                        "dimension object was imported with an internal dimension "
                                                        "style instead." ),
                                                     csDim.ID ) );
@@ -1525,7 +1525,7 @@ void CADSTAR_PCB_ARCHIVE_LOADER::loadDimensions()
             break;
 
         case DIMENSION::TYPE::LEADERDIM:
-            //TODO: update import when KiCad supports radius and diameter dimensions
+            //TODO: update import when Anvil supports radius and diameter dimensions
 
             if( csDim.Line.Style == DIMENSION::LINE::STYLE::INTERNAL )
             {
@@ -1652,8 +1652,8 @@ void CADSTAR_PCB_ARCHIVE_LOADER::loadDimensions()
             break;
 
         case DIMENSION::TYPE::ANGLEDIM:
-            //TODO: update import when KiCad supports angular dimensions
-            wxLogError( _( "Dimension %s is an angular dimension which has no KiCad equivalent. "
+            //TODO: update import when Anvil supports angular dimensions
+            wxLogError( _( "Dimension %s is an angular dimension which has no Anvil equivalent. "
                            "The object was not imported." ),
                         csDim.ID );
             break;
@@ -1694,19 +1694,19 @@ void CADSTAR_PCB_ARCHIVE_LOADER::loadAreas()
             if( area.Placement )
             {
                 wxLogWarning( wxString::Format( _( "The CADSTAR area '%s' is marked as a placement area in "
-                                                   "CADSTAR. Placement areas are not supported in KiCad. Only "
+                                                   "CADSTAR. Placement areas are not supported in Anvil. Only "
                                                    "the supported elements for the area were imported." ),
                                                 area.Name ) );
             }
         }
         else
         {
-            wxLogError( wxString::Format( _( "The CADSTAR area '%s' does not have a KiCad equivalent. Pure "
+            wxLogError( wxString::Format( _( "The CADSTAR area '%s' does not have a Anvil equivalent. Pure "
                                              "Placement areas are not supported." ),
                                           area.Name ) );
         }
 
-        //todo Process area.AreaHeight when KiCad supports 3D design rules
+        //todo Process area.AreaHeight when Anvil supports 3D design rules
         //TODO process attributes
         //TODO process addition to a group
         //TODO process "swaprule"
@@ -1839,7 +1839,7 @@ void CADSTAR_PCB_ARCHIVE_LOADER::loadComponents()
 
 void CADSTAR_PCB_ARCHIVE_LOADER::loadDocumentationSymbols()
 {
-    //No KiCad equivalent. Loaded as graphic and text elements instead
+    //No Anvil equivalent. Loaded as graphic and text elements instead
 
     for( std::pair<DOCUMENTATION_SYMBOL_ID, DOCUMENTATION_SYMBOL> docPair : Layout.DocumentationSymbols )
     {
@@ -1918,7 +1918,7 @@ void CADSTAR_PCB_ARCHIVE_LOADER::loadTemplates()
         if( csTemplate.Pouring.AllowInNoRouting )
         {
             wxLogWarning( wxString::Format( _( "The CADSTAR template '%s' has the setting 'Allow in No Routing "
-                                               "Areas' enabled. This setting has no KiCad equivalent, so it has "
+                                               "Areas' enabled. This setting has no Anvil equivalent, so it has "
                                                "been ignored." ),
                                             csTemplate.Name ) );
         }
@@ -1926,7 +1926,7 @@ void CADSTAR_PCB_ARCHIVE_LOADER::loadTemplates()
         if( csTemplate.Pouring.BoxIsolatedPins )
         {
             wxLogWarning( wxString::Format( _( "The CADSTAR template '%s' has the setting 'Box Isolated Pins' "
-                                               "enabled. This setting has no KiCad equivalent, so it has been "
+                                               "enabled. This setting has no Anvil equivalent, so it has been "
                                                "ignored." ),
                                             csTemplate.Name ) );
         }
@@ -1934,19 +1934,19 @@ void CADSTAR_PCB_ARCHIVE_LOADER::loadTemplates()
         if( csTemplate.Pouring.AutomaticRepour )
         {
             wxLogWarning( wxString::Format( _( "The CADSTAR template '%s' has the setting 'Automatic Repour' "
-                                               "enabled. This setting has no KiCad equivalent, so it has been "
+                                               "enabled. This setting has no Anvil equivalent, so it has been "
                                                "ignored." ),
                                             csTemplate.Name ) );
         }
 
-        // Sliver width has different behaviour to KiCad Zone's minimum thickness
+        // Sliver width has different behaviour to Anvil Zone's minimum thickness
         // In Cadstar 'Sliver width' has to be greater than the Copper thickness, whereas in
         // Kicad it is the opposite.
         if( csTemplate.Pouring.SliverWidth != 0 )
         {
             wxLogWarning( wxString::Format(
                     _( "The CADSTAR template '%s' has a non-zero value defined for the "
-                       "'Sliver Width' setting. There is no KiCad equivalent for "
+                       "'Sliver Width' setting. There is no Anvil equivalent for "
                        "this, so this setting was ignored." ),
                     csTemplate.Name ) );
         }
@@ -1956,9 +1956,9 @@ void CADSTAR_PCB_ARCHIVE_LOADER::loadTemplates()
         {
             wxLogWarning( wxString::Format(
                     _( "The CADSTAR template '%s' has different settings for 'Retain Poured Copper "
-                       "- Disjoint' and 'Retain Poured Copper - Isolated'. KiCad does not "
+                       "- Disjoint' and 'Retain Poured Copper - Isolated'. Anvil does not "
                        "distinguish between these two settings. The setting for disjoint copper "
-                       "has been applied as the minimum island area of the KiCad Zone." ),
+                       "has been applied as the minimum island area of the Anvil Zone." ),
                     csTemplate.Name ) );
         }
 
@@ -2007,7 +2007,7 @@ void CADSTAR_PCB_ARCHIVE_LOADER::loadTemplates()
         {
             wxLogWarning( wxString::Format(
                     _( "The CADSTAR template '%s' has different settings for thermal relief "
-                       "in pads and vias. KiCad only supports one single setting for both. The "
+                       "in pads and vias. Anvil only supports one single setting for both. The "
                        "setting for pads has been applied." ),
                     csTemplate.Name ) );
         }
@@ -2017,7 +2017,7 @@ void CADSTAR_PCB_ARCHIVE_LOADER::loadTemplates()
         int        reliefWidth = getKiCadLength( csTemplate.Pouring.ClearanceWidth );
 
         // Cadstar supports having a spoke width thinner than the minimum thickness of the zone, but
-        // this is not permitted in KiCad. We load it as solid fill instead.
+        // this is not permitted in Anvil. We load it as solid fill instead.
         if( csTemplate.Pouring.ThermalReliefOnPads && reliefWidth > 0 )
         {
             if( spokeWidth < minThickness )
@@ -2025,7 +2025,7 @@ void CADSTAR_PCB_ARCHIVE_LOADER::loadTemplates()
                 wxLogWarning( wxString::Format(
                         _( "The CADSTAR template '%s' has thermal reliefs in the original design "
                            "but the spoke width (%.2f mm) is thinner than the minimum thickness of " //format:allow
-                           "the zone (%.2f mm). KiCad requires the minimum thickness of the zone "   //format:allow
+                           "the zone (%.2f mm). Anvil requires the minimum thickness of the zone "   //format:allow
                            "to be preserved. Therefore the minimum thickness has been applied as "
                            "the new spoke width and will be applied next time the zones are "
                            "filled." ),
@@ -2159,14 +2159,14 @@ void CADSTAR_PCB_ARCHIVE_LOADER::loadCoppers()
             continue;
         }
 
-        // For now we are going to load coppers to a KiCad zone however this isn't perfect
+        // For now we are going to load coppers to a Anvil zone however this isn't perfect
         //TODO: Load onto a graphical polygon with a net
 
         if( !m_doneCopperWarning )
         {
-            wxLogWarning( _( "The CADSTAR design contains COPPER elements, which have no direct KiCad "
-                             "equivalent. These have been imported as a KiCad Zone if solid or hatch "
-                             "filled, or as a KiCad Track if the shape was an unfilled outline (open or "
+            wxLogWarning( _( "The CADSTAR design contains COPPER elements, which have no direct Anvil "
+                             "equivalent. These have been imported as a Anvil Zone if solid or hatch "
+                             "filled, or as a Anvil Track if the shape was an unfilled outline (open or "
                              "closed)." ) );
             m_doneCopperWarning = true;
         }
@@ -2544,7 +2544,7 @@ int CADSTAR_PCB_ARCHIVE_LOADER::loadNetVia( const NET_ID& aCadstarNetID, const N
     if( csViaCode.Shape.ShapeType != PAD_SHAPE_TYPE::CIRCLE )
     {
         wxLogError( _( "The CADSTAR via code '%s' has different shape from a circle defined. "
-                       "KiCad only supports circular vias so this via type has been changed to "
+                       "Anvil only supports circular vias so this via type has been changed to "
                        "be a via with circular shape of %.2f mm diameter." ),                   //format:allow
                     csViaCode.Name,
                     (double) ( (double) getKiCadLength( csViaCode.Shape.Size ) / 1E6 ) );
@@ -3145,8 +3145,8 @@ std::vector<PCB_TRACK*> CADSTAR_PCB_ARCHIVE_LOADER::makeTracksFromShapes( const 
             } // don't do anything if offsetAmount == 0
 
             // Add a synthetic track of the thinnest width between the tracks
-            // to ensure KiCad features works as expected on the imported design
-            // (KiCad expects tracks are contiguous segments)
+            // to ensure Anvil features works as expected on the imported design
+            // (Anvil expects tracks are contiguous segments)
             if( track->GetStart() != prevTrack->GetEnd() )
             {
                 int    minWidth = std::min( track->GetWidth(), prevTrack->GetWidth() );
@@ -3519,7 +3519,7 @@ void CADSTAR_PCB_ARCHIVE_LOADER::checkAndLogHatchCode( const HATCHCODE_ID& aCads
         {
             wxLogWarning( wxString::Format(
                     _( "The CADSTAR Hatching code '%s' has %d hatches defined. "
-                       "KiCad only supports 2 hatches (crosshatching) 90 degrees apart. "
+                       "Anvil only supports 2 hatches (crosshatching) 90 degrees apart. "
                        "The imported hatching is crosshatched." ),
                     hcode.Name, (int) hcode.Hatches.size() ) );
         }
@@ -3529,7 +3529,7 @@ void CADSTAR_PCB_ARCHIVE_LOADER::checkAndLogHatchCode( const HATCHCODE_ID& aCads
             {
                 wxLogWarning( wxString::Format(
                         _( "The CADSTAR Hatching code '%s' has different line widths for each "
-                           "hatch. KiCad only supports one width for the hatching. The imported "
+                           "hatch. Anvil only supports one width for the hatching. The imported "
                            "hatching uses the width defined in the first hatch definition, i.e. "
                            "%.2f mm." ),    //format:allow
                         hcode.Name,
@@ -3541,7 +3541,7 @@ void CADSTAR_PCB_ARCHIVE_LOADER::checkAndLogHatchCode( const HATCHCODE_ID& aCads
             {
                 wxLogWarning( wxString::Format(
                         _( "The CADSTAR Hatching code '%s' has different step sizes for each "
-                           "hatch. KiCad only supports one step size for the hatching. The imported "
+                           "hatch. Anvil only supports one step size for the hatching. The imported "
                            "hatching uses the step size defined in the first hatching definition, "
                            "i.e. %.2f mm." ), //format:allow
                         hcode.Name,
@@ -3554,7 +3554,7 @@ void CADSTAR_PCB_ARCHIVE_LOADER::checkAndLogHatchCode( const HATCHCODE_ID& aCads
             {
                 wxLogWarning( wxString::Format(
                         _( "The hatches in CADSTAR Hatching code '%s' have an angle  "
-                           "difference of %.1f degrees. KiCad only supports hatching 90 "   //format:allow
+                           "difference of %.1f degrees. Anvil only supports hatching 90 "   //format:allow
                            "degrees apart.  The imported hatching has two hatches 90 "
                            "degrees apart, oriented %.1f degrees from horizontal." ),       //format:allow
                         hcode.Name,
@@ -3613,7 +3613,7 @@ void CADSTAR_PCB_ARCHIVE_LOADER::applyDimensionSettings( const DIMENSION&  aCads
     if( aCadstarDim.LinearUnits == UNITS::DESIGN )
     {
         // For now we will hardcode the units as per the original CADSTAR design.
-        // TODO: update this when KiCad supports design units
+        // TODO: update this when Anvil supports design units
         aKiCadDim->SetPrecision( static_cast<DIM_PRECISION>( Assignments.Technology.UnitDisplPrecision ) );
         dimensionUnits = Assignments.Technology.Units;
     }
@@ -3624,7 +3624,7 @@ void CADSTAR_PCB_ARCHIVE_LOADER::applyDimensionSettings( const DIMENSION&  aCads
     case UNITS::CENTIMETER:
     case UNITS::MICROMETRE:
         wxLogWarning( wxString::Format( _( "Dimension ID %s uses a type of unit that "
-                                           "is not supported in KiCad. Millimeters were "
+                                           "is not supported in Anvil. Millimeters were "
                                            "applied instead." ),
                                         aCadstarDim.ID ) );
         KI_FALLTHROUGH;
@@ -3881,7 +3881,7 @@ NETINFO_ITEM* CADSTAR_PCB_ARCHIVE_LOADER::getKiCadNet( const NET_ID& aCadstarNet
         {
             if( csNet.Pins.size() > 0 )
             {
-                // Create default KiCad net naming:
+                // Create default Anvil net naming:
 
                 NET_PCB::PIN firstPin = ( *csNet.Pins.begin() ).second;
                 //we should have already loaded the component with loadComponents() :
@@ -3901,9 +3901,9 @@ NETINFO_ITEM* CADSTAR_PCB_ARCHIVE_LOADER::getKiCadNet( const NET_ID& aCadstarNet
 
         if( !m_doneNetClassWarning && !csNet.NetClassID.IsEmpty() && csNet.NetClassID != wxT( "NONE" ) )
         {
-            wxLogMessage( _( "The CADSTAR design contains nets with a 'Net Class' assigned. KiCad "
+            wxLogMessage( _( "The CADSTAR design contains nets with a 'Net Class' assigned. Anvil "
                              "does not have an equivalent to CADSTAR's Net Class so these elements "
-                             "were not imported. Note: KiCad's version of 'Net Class' is closer to "
+                             "were not imported. Note: Anvil's version of 'Net Class' is closer to "
                              "CADSTAR's 'Net Route Code' (which has been imported for all nets)." ) );
             m_doneNetClassWarning = true;
         }
@@ -3911,7 +3911,7 @@ NETINFO_ITEM* CADSTAR_PCB_ARCHIVE_LOADER::getKiCadNet( const NET_ID& aCadstarNet
         if( !m_doneSpacingClassWarning && !csNet.SpacingClassID.IsEmpty() && csNet.SpacingClassID != wxT( "NONE" ) )
         {
             wxLogWarning( _( "The CADSTAR design contains nets with a 'Spacing Class' assigned. "
-                             "KiCad does not have an equivalent to CADSTAR's Spacing Class so "
+                             "Anvil does not have an equivalent to CADSTAR's Spacing Class so "
                              "these elements were not imported. Please review the design rules as "
                              "copper pours may be affected by this." ) );
             m_doneSpacingClassWarning = true;

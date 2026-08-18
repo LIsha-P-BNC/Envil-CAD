@@ -1,5 +1,5 @@
 /*
- * This program source code file is part of KiCad, a free EDA CAD application.
+ * This program source code file is part of Anvil, a free EDA CAD application.
  *
  * Copyright The KiCad Developers
  *
@@ -349,7 +349,7 @@ void PIN_LAYOUT_CACHE::recomputeCaches()
     // it needs an offset = shadowWidth/2 to be drawn at the same place as normal text
     // texts drawn as GR_TEXT_H_ALIGN_CENTER do not need a specific offset.
     // this offset is shadowWidth/2 but for some reason we need to slightly modify this offset
-    // for a better look (better alignment of shadow shape), for KiCad font only
+    // for a better look (better alignment of shadow shape), for Anvil font only
     if( !font->IsOutline() )
         m_shadowOffsetAdjust = 1.2f; // Value chosen after tests
     else

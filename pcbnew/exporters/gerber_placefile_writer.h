@@ -1,5 +1,5 @@
 /*
- * This program source code file is part of KiCad, a free EDA CAD application.
+ * This program source code file is part of Anvil, a free EDA CAD application.
  *
  * Copyright (C) 2019 Jean_Pierre Charras <jp.charras at wanadoo.fr>
  * Copyright The KiCad Developers, see AUTHORS.txt for contributors.
@@ -86,7 +86,7 @@ public:
 
 private:
     /**
-     * Convert a KiCad footprint orientation to gerber rotation both are in degrees.
+     * Convert a Anvil footprint orientation to gerber rotation both are in degrees.
      * @param aAngle is the Pcbnew angle in degrees
      * @param aIsFlipped = false for footprints on top side, true on bottom side (flipped)
      * @return the angle in degrees in Gerber convention:

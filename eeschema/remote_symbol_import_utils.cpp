@@ -1,5 +1,5 @@
 /*
- * This program source code file is part of KiCad, a free EDA CAD application.
+ * This program source code file is part of Anvil, a free EDA CAD application.
  *
  * Copyright The KiCad Developers, see AUTHORS.txt for contributors.
  *
@@ -187,7 +187,7 @@ bool EnsureRemoteLibraryEntry( LIBRARY_TABLE_TYPE aTableType, const wxFileName& 
     LIBRARY_TABLE_ROW& row = table->InsertRow();
     row.SetNickname( aNickname );
     row.SetURI( fullPath );
-    row.SetType( wxS( "KiCad" ) );
+    row.SetType( wxS( "Anvil" ) );
     row.SetOptions( wxString() );
     row.SetDescription( _( "Remote download" ) );
     row.SetOk( true );

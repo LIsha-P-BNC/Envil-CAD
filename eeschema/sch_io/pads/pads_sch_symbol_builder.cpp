@@ -1,5 +1,5 @@
 /*
- * This program source code file is part of KiCad, a free EDA CAD application.
+ * This program source code file is part of Anvil, a free EDA CAD application.
  *
  * Copyright (C) 2025 KiCad Developers, see AUTHORS.txt for contributors.
  *
@@ -52,8 +52,8 @@ PADS_SCH_SYMBOL_BUILDER::~PADS_SCH_SYMBOL_BUILDER()
 
 int PADS_SCH_SYMBOL_BUILDER::toKiCadUnits( double aPadsValue ) const
 {
-    // Convert from PADS units to KiCad internal units (nanometers)
-    // PADS uses mils by default, KiCad schematic uses schIUScale.MilsToIU()
+    // Convert from PADS units to Anvil internal units (nanometers)
+    // PADS uses mils by default, Anvil schematic uses schIUScale.MilsToIU()
 
     double milsValue = aPadsValue;
 
@@ -640,8 +640,8 @@ SCH_SHAPE* PADS_SCH_SYMBOL_BUILDER::createShape( const SYMBOL_GRAPHIC& aGraphic 
         VECTOR2I center( toKiCadUnits( aGraphic.center.x ), -toKiCadUnits( aGraphic.center.y ) );
         int radius = toKiCadUnits( aGraphic.radius );
 
-        // Convert angles from PADS format to KiCad
-        // PADS uses degrees, KiCad uses tenths of degrees for arc definition
+        // Convert angles from PADS format to Anvil
+        // PADS uses degrees, Anvil uses tenths of degrees for arc definition
         double startAngle = aGraphic.start_angle * M_PI / 180.0;
         double endAngle = aGraphic.end_angle * M_PI / 180.0;
 
@@ -855,7 +855,7 @@ SCH_PIN* PADS_SCH_SYMBOL_BUILDER::createPin( const SYMBOL_PIN& aPin, LIB_SYMBOL*
 
 LIB_SYMBOL* PADS_SCH_SYMBOL_BUILDER::BuildKiCadPowerSymbol( const std::string& aKiCadName )
 {
-    // Convert mm coordinates from KiCad power symbol library to internal units
+    // Convert mm coordinates from Anvil power symbol library to internal units
     auto mm = [&]( double v ) { return schIUScale.mmToIU( v ); };
 
     LIB_SYMBOL* sym = new LIB_SYMBOL( wxString::FromUTF8( aKiCadName ) );
@@ -863,7 +863,7 @@ LIB_SYMBOL* PADS_SCH_SYMBOL_BUILDER::BuildKiCadPowerSymbol( const std::string& a
     sym->SetShowPinNumbers( false );
     sym->SetShowPinNames( false );
 
-    // Determine which visual style to use based on the KiCad symbol name
+    // Determine which visual style to use based on the Anvil symbol name
     std::string upper = aKiCadName;
     std::transform( upper.begin(), upper.end(), upper.begin(),
                     []( unsigned char c ) { return std::toupper( c ); } );
@@ -1216,7 +1216,7 @@ std::optional<LIB_ID> PADS_SCH_SYMBOL_BUILDER::GetKiCadPowerSymbolId( const std:
     std::transform( upper.begin(), upper.end(), upper.begin(),
                     []( unsigned char c ) { return std::toupper( c ); } );
 
-    // Map common power symbol names to KiCad power library symbols
+    // Map common power symbol names to Anvil power library symbols
     struct PowerMapping
     {
         const char* padsName;

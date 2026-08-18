@@ -1,5 +1,5 @@
 /*
- * This program source code file is part of KiCad, a free EDA CAD application.
+ * This program source code file is part of Anvil, a free EDA CAD application.
  *
  * Copyright (C) 2020 Roberto Fernandez Bautista <roberto.fer.bau@gmail.com>
  * Copyright The KiCad Developers, see AUTHORS.txt for contributors.
@@ -88,7 +88,7 @@ void CADSTAR_PCB_ARCHIVE_PARSER::Parse( bool aLibrary )
                 else
                 {
                     THROW_IO_ERROR( wxT( "The selected file is an unknown CADSTAR format so "
-                                         "cannot be imported into KiCad." ) );
+                                         "cannot be imported into Anvil." ) );
                 }
             }
         }
@@ -104,7 +104,7 @@ void CADSTAR_PCB_ARCHIVE_PARSER::Parse( bool aLibrary )
         {
             // No design information here (no need to parse)
             // Only contains CADSTAR configuration data such as default shapes, text and units
-            // In future some of this could be converted to KiCad but limited value
+            // In future some of this could be converted to Anvil but limited value
         }
         else if( cNode->GetName() == wxT( "PARTS" ) )
         {
@@ -118,7 +118,7 @@ void CADSTAR_PCB_ARCHIVE_PARSER::Parse( bool aLibrary )
         {
             // No design information here (no need to parse)
             // Contains CADSTAR Display settings such as layer/element colours and visibility.
-            // In the future these settings could be converted to KiCad
+            // In the future these settings could be converted to Anvil
         }
         else
         {
@@ -1626,7 +1626,7 @@ void CADSTAR_PCB_ARCHIVE_PARSER::LIBRARY::Parse( XNODE* aNode, PARSER_CONTEXT* a
         {
             // Ignore for now
             //
-            // This node doesn't have any equivalent in KiCad so for now we ignore it. In
+            // This node doesn't have any equivalent in Anvil so for now we ignore it. In
             // future, we could parse it in detail, to obtain the tree-structure of
             // footprints in a cadstar library
         }

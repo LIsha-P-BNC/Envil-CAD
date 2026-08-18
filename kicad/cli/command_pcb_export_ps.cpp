@@ -1,5 +1,5 @@
 /*
- * This program source code file is part of KiCad, a free EDA CAD application.
+ * This program source code file is part of Anvil, a free EDA CAD application.
  *
  * Copyright (C) 2022 Mark Roszko <mark.roszko@gmail.com>
  * Copyright The KiCad Developers, see AUTHORS.txt for contributors.
@@ -105,7 +105,7 @@ CLI::PCB_EXPORT_PS_COMMAND::PCB_EXPORT_PS_COMMAND() :
             .flag();
 
     m_argParser.add_argument( ARG_MODE_MULTI )
-            .help( UTF8STDSTR( _( "Generates one or more files with behavior similar to the KiCad "
+            .help( UTF8STDSTR( _( "Generates one or more files with behavior similar to the Anvil "
                                   "GUI plotting. The given output path specifies a directory in "
                                   "which files may be output." ) ) )
             .flag();

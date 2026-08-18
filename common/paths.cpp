@@ -1,5 +1,5 @@
 /*
- * This program source code file is part of KiCad, a free EDA CAD application.
+ * This program source code file is part of Anvil, a free EDA CAD application.
  *
  * Copyright The KiCad Developers, see AUTHORS.txt for contributors.
  *
@@ -189,7 +189,7 @@ static wxString getBuildDirectoryRoot()
 #elif defined( __WXMAC__ )
 /**
  * Get the main .app bundle root with symlinks resolved.
- * Handles both main KiCad binaries and aux binaries inside the bundle.
+ * Handles both main Anvil binaries and aux binaries inside the bundle.
  * This is the single source of truth for bundle root resolution on macOS.
  */
 static wxString getOSXBundleRoot()
@@ -203,7 +203,7 @@ static wxString getOSXBundleRoot()
         fn.SetFullName( wxEmptyString ); // Remove binary name
 
         // Navigate from .../Contents/MacOS/ up to the .app bundle root
-        // e.g., /Applications/KiCad/KiCad.app/Contents/MacOS -> /Applications/KiCad/KiCad.app
+        // e.g., /Applications/Anvil/Anvil.app/Contents/MacOS -> /Applications/Anvil/Anvil.app
         if( fn.GetDirCount() >= 2 && fn.GetDirs().Last() == wxT( "MacOS" ) )
         {
             fn.RemoveLastDir(); // MacOS
@@ -258,7 +258,7 @@ wxString PATHS::GetStockDataPath( bool aRespectRunFromBuildDir )
 #if defined( __WXMAC__ )
         path = GetOSXKicadDataDir();
 #elif defined( __WXMSW__ )
-        path = getWindowsKiCadRoot() + wxT( "share/kicad" );
+        path = getWindowsKiCadRoot() + wxT( "share/anvil" );
 #else
         path = wxString::FromUTF8Unchecked( KICAD_DATA );
 #endif
@@ -559,10 +559,10 @@ void PATHS::EnsureUserPathsExist()
     if( !tmp.DirExists() )
     {
         wxString msg = wxString::Format(
-                _( "KiCad was unable to use '%s'.\n"
+                _( "Anvil was unable to use '%s'.\n"
                    "\n"
                    "1. Disable 'Controlled folder access' in Windows settings or Group Policy\n"
-                   "2. Make sure no other antivirus software interferes with KiCad\n"
+                   "2. Make sure no other antivirus software interferes with Anvil\n"
                    "3. Make sure you have correct permissions set up" ),
                 tmp.GetPath() );
 

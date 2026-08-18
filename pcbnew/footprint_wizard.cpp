@@ -1,5 +1,5 @@
 /*
- * This program source code file is part of KiCad, a free EDA CAD application.
+ * This program source code file is part of Anvil, a free EDA CAD application.
  *
  * Copyright (C) 2026 Jon Evans <jon@craftyjon.com>
  * Copyright The KiCad Developers, see AUTHORS.txt for contributors.
@@ -176,7 +176,7 @@ tl::expected<FOOTPRINT*, wxString> FOOTPRINT_WIZARD_MANAGER::Generate( FOOTPRINT
 
     return fp.release();
 #else
-    return tl::unexpected( _( "The KiCad API is disabled" ) );
+    return tl::unexpected( _( "The Anvil API is disabled" ) );
 #endif
 }
 

@@ -1,5 +1,5 @@
 /*
- * This program source code file is part of KiCad, a free EDA CAD application.
+ * This program source code file is part of Anvil, a free EDA CAD application.
  *
  * Copyright (C) 2020 Jon Evans <jon@craftyjon.com>
  * Copyright The KiCad Developers, see AUTHORS.txt for contributors.
@@ -22,7 +22,7 @@
 #define _KICAD_SETTINGS_H
 
 #include <settings/app_settings.h>
-#define PCM_DEFAULT_REPOSITORY_URL "https://repository.kicad.org/repository.json"
+#define PCM_DEFAULT_REPOSITORY_URL "https://repository.anvilcad.com/repository.json"
 
 
 class KICOMMON_API KICAD_SETTINGS : public APP_SETTINGS_BASE

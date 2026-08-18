@@ -1,5 +1,5 @@
 /*
- * KiCad Project Template HTML defaults
+ * Anvil Project Template HTML defaults
  * Extracted from dialog_template_selector.cpp to allow reuse and to provide
  * a styled fallback page when a template does not supply an info.html.
  */
@@ -9,7 +9,7 @@
 
 #include <wx/string.h>
 
-// Uses _() translation macro which is defined globally in KiCad builds.
+// Uses _() translation macro which is defined globally in Anvil builds.
 
 namespace
 {
@@ -144,7 +144,7 @@ inline wxString GetWelcomeHtml( bool aDarkMode )
         "<head>"
         "<meta charset=\"UTF-8\">"
         "<meta name=\"viewport\" content=\"width=device-width, initial-scale=1.0\">"
-        "<title>KiCad Project Template Selector</title>"
+        "<title>Anvil Project Template Selector</title>"
         "<style>" )
         + GetCommonStyles() +
         wxString(
@@ -283,7 +283,7 @@ inline wxString GetTemplateInfoHtml( const wxString& aTemplateName, bool aDarkMo
         "<head>"
         "<meta charset=\"UTF-8\">"
         "<meta name=\"viewport\" content=\"width=device-width, initial-scale=1.0\">"
-        "<title>" ) + aTemplateName + wxString( " - KiCad Template</title>"
+        "<title>" ) + aTemplateName + wxString( " - Anvil Template</title>"
         "<style>" )
         + GetCommonStyles() +
         wxString(
@@ -451,7 +451,7 @@ inline wxString GetNoTemplatesHtml( bool aDarkMode )
         "<head>"
         "<meta charset=\"UTF-8\">"
         "<meta name=\"viewport\" content=\"width=device-width, initial-scale=1.0\">"
-        "<title>No Templates - KiCad</title>"
+        "<title>No Templates - Anvil</title>"
         "<style>" )
         + GetCommonStyles() +
         wxString(

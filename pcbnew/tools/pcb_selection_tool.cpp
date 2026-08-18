@@ -1,5 +1,5 @@
 /*
- * This program source code file is part of KiCad, a free EDA CAD application.
+ * This program source code file is part of Anvil, a free EDA CAD application.
  *
  * Copyright (C) 2013-2017 CERN
  * Copyright The KiCad Developers, see AUTHORS.txt for contributors.
@@ -2715,7 +2715,7 @@ void PCB_SELECTION_TOOL::ZoomFitCrossProbeBBox( const BOX2I& aBBox )
     BOX2I bbox = aBBox;
     bbox.Normalize();
 
-    //#define DEFAULT_PCBNEW_CODE // Un-comment for normal full zoom KiCad algorithm
+    //#define DEFAULT_PCBNEW_CODE // Un-comment for normal full zoom Anvil algorithm
 #ifdef DEFAULT_PCBNEW_CODE
     auto bbSize = bbox.Inflate( bbox.GetWidth() * 0.2f ).GetSize();
     auto screenSize = view->ToWorld( GetCanvas()->GetClientSize(), false );
@@ -2752,7 +2752,7 @@ void PCB_SELECTION_TOOL::ZoomFitCrossProbeBBox( const BOX2I& aBBox )
     // This will end up as the scaling factor we apply to "ratio".
     double compRatioBent = 1.0;
 
-    // This is similar to the original KiCad code that scaled the zoom to make sure
+    // This is similar to the original Anvil code that scaled the zoom to make sure
     // components were visible on screen.  It's simply a ratio of screen size to
     // component size, and its job is to zoom in to make the component fullscreen.
     // Earlier in the code the component BBox is given a 20% margin to add some
@@ -2765,7 +2765,7 @@ void PCB_SELECTION_TOOL::ZoomFitCrossProbeBBox( const BOX2I& aBBox )
     screenSize.y = std::max( 10.0, screenSize.y );
     double ratio = std::max( -1.0, fabs( bbSize.y / screenSize.y ) );
 
-    // Original KiCad code for how much to scale the zoom
+    // Original Anvil code for how much to scale the zoom
     double kicadRatio = std::max( fabs( bbSize.x / screenSize.x ),
                                   fabs( bbSize.y / screenSize.y ) );
 
@@ -2816,16 +2816,16 @@ void PCB_SELECTION_TOOL::ZoomFitCrossProbeBBox( const BOX2I& aBBox )
     }
 
     // If the width of the part we're probing is bigger than what the screen width will be
-    // after the zoom, then punt and use the KiCad zoom algorithm since it guarantees the
+    // after the zoom, then punt and use the Anvil zoom algorithm since it guarantees the
     // part's width will be encompassed within the screen.  This will apply to parts that
     // are much wider than they are tall.
 
     if( bbSize.x > screenSize.x * ratio * compRatioBent )
     {
-        // Use standard KiCad zoom algorithm for parts too wide to fit screen/
+        // Use standard Anvil zoom algorithm for parts too wide to fit screen/
         ratio = kicadRatio;
-        compRatioBent = 1.0; // Reset so we don't modify the "KiCad" ratio
-        wxLogTrace( "CROSS_PROBE_SCALE", "Part TOO WIDE for screen.  Using normal KiCad zoom ratio: %1.5f", ratio );
+        compRatioBent = 1.0; // Reset so we don't modify the "Anvil" ratio
+        wxLogTrace( "CROSS_PROBE_SCALE", "Part TOO WIDE for screen.  Using normal Anvil zoom ratio: %1.5f", ratio );
     }
 
     // Now that "compRatioBent" holds our final scaling factor we apply it to the original

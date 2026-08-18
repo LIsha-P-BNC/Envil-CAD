@@ -1,5 +1,5 @@
 /*
- * This program source code file is part of KiCad, a free EDA CAD application.
+ * This program source code file is part of Anvil, a free EDA CAD application.
  *
  * Copyright (C) 2018 Jean-Pierre Charras, jp.charras at wanadoo.fr
  * Copyright (C) 2012 SoftPLC Corporation, Dick Hollenbeck <dick@softplc.com>
@@ -297,7 +297,7 @@ void AddGerberX2Header( PLOTTER* aPlotter, const BOARD* aBoard, bool aUseX1Compa
 
     // Creates the TF,.GenerationSoftware. Format is:
     // %TF,.GenerationSoftware,<vendor>,<application name>[,<application version>]*%
-    text.Printf( wxT( "%%TF.GenerationSoftware,KiCad,Pcbnew,%s*%%" ), GetBuildVersion() );
+    text.Printf( wxT( "%%TF.GenerationSoftware,Anvil,Pcbnew,%s*%%" ), GetBuildVersion() );
     aPlotter->AddLineToHeader( makeStringCompatX1( text, aUseX1CompatibilityMode ) );
 
     // creates the TF.CreationDate attribute:

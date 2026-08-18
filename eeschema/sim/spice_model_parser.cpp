@@ -1,5 +1,5 @@
 /*
- * This program source code file is part of KiCad, a free EDA CAD application.
+ * This program source code file is part of Anvil, a free EDA CAD application.
  *
  * Copyright (C) 2022 Mikolaj Wielgus
  * Copyright The KiCad Developers, see AUTHORS.txt for contributors.
@@ -338,7 +338,7 @@ SIM_MODEL::TYPE SPICE_MODEL_PARSER::ReadTypeFromSpiceStrings( const std::string&
     }
 
     // If the type string is not recognized, demote to a raw Spice element. This way the user won't
-    // have an error if there is a type KiCad does not recognize.
+    // have an error if there is a type Anvil does not recognize.
     return SIM_MODEL::TYPE::RAWSPICE;
 }
 

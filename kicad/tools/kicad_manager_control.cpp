@@ -1,5 +1,5 @@
 /*
- * This program source code file is part of KiCad, a free EDA CAD application.
+ * This program source code file is part of Anvil, a free EDA CAD application.
  *
  * Copyright (C) 2019 CERN
  * Copyright The KiCad Developers, see AUTHORS.txt for contributors.
@@ -943,7 +943,7 @@ int KICAD_MANAGER_CONTROL::ShowPlayer( const TOOL_EVENT& aEvent )
 
         wxBusyCursor busy;
 
-        // KiCad Next single-window shell (Layer B): dock as a tab in the manager
+        // Anvil Next single-window shell (Layer B): dock as a tab in the manager
         // shell instead of floating as its own window.  Falls back to floating when
         // docking is unavailable (non-Windows, or flag off).
         if( ADVANCED_CFG::GetCfg().m_SingleWindowShell )
@@ -993,7 +993,7 @@ int KICAD_MANAGER_CONTROL::ShowPlayer( const TOOL_EVENT& aEvent )
 
 int KICAD_MANAGER_CONTROL::Execute( const TOOL_EVENT& aEvent )
 {
-    // KiCad Next single-window shell (Layer A): when enabled, open the auxiliary
+    // Anvil Next single-window shell (Layer A): when enabled, open the auxiliary
     // tools as in-process KIWAY players instead of spawning a separate .exe, so
     // they share the one process / KIWAY (and become hostable as tabs by Layer B).
     // Additive and reversible: when the flag is off the legacy separate-process

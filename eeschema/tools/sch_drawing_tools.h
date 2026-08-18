@@ -1,5 +1,5 @@
 /*
- * This program source code file is part of KiCad, a free EDA CAD application.
+ * This program source code file is part of Anvil, a free EDA CAD application.
  *
  * Copyright (C) 2019-2023 CERN
  * Copyright The KiCad Developers, see AUTHORS.txt for contributors.
@@ -97,7 +97,7 @@ private:
     std::vector<SCH_HIERLABEL*> importHierLabels( SCH_SHEET* aSheet );
 
     /**
-     * KiCad Next / Anvil: when ADVANCED_CFG::m_ConfirmComponentPackage is enabled, ask the
+     * Anvil Next / Anvil: when ADVANCED_CFG::m_ConfirmComponentPackage is enabled, ask the
      * user for the THT/SMD preference and candidate footprint for a symbol about to be
      * placed, and apply the chosen footprint onto aLibSymbol's footprint field. Asked once
      * per distinct LIB_ID per editing session -- repeat placements of the same part reuse
@@ -136,7 +136,7 @@ private:
     std::unique_ptr<STATUS_TEXT_POPUP>      m_statusPopup;
     std::unique_ptr<DIALOG_SYNC_SHEET_PINS> m_dialogSyncSheetPin;
 
-    ///< KiCad Next / Anvil: LIB_ID (formatted) -> user-picked footprint, cached for this session.
+    ///< Anvil Next / Anvil: LIB_ID (formatted) -> user-picked footprint, cached for this session.
     std::map<wxString, wxString> m_anvilConfirmedFootprints;
 };
 

@@ -1,5 +1,5 @@
 /*
- * This program source code file is part of KiCad, a free EDA CAD application.
+ * This program source code file is part of Anvil, a free EDA CAD application.
  *
  * Copyright The KiCad Developers, see AUTHORS.txt for contributors.
  *
@@ -340,7 +340,7 @@ void RC_TREE_MODEL::rebuildModel( std::shared_ptr<RC_ITEMS_PROVIDER> aProvider, 
     // The fastest method to update wxDataViewCtrl is to rebuild from
     // scratch by calling Cleared(). Linux requires to reassociate model to
     // display data, but Windows will create multiple associations.
-    // On MacOS, this crashes KiCad. See https://gitlab.com/kicad/code/kicad/-/issues/3666
+    // On MacOS, this crashes Anvil. See https://gitlab.com/kicad/code/kicad/-/issues/3666
     // and https://gitlab.com/kicad/code/kicad/-/issues/3653
     m_view->AssociateModel( this );
 #endif

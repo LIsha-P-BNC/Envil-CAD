@@ -1,5 +1,5 @@
 /*
- * This program source code file is part of KiCad, a free EDA CAD application.
+ * This program source code file is part of Anvil, a free EDA CAD application.
  *
  * Copyright (C) 2004 Jean-Pierre Charras, jaen-pierre.charras@gipsa-lab.inpg.com
  * Copyright (C) 2008 Wayne Stambaugh <stambaughw@gmail.com>
@@ -61,7 +61,7 @@ void QuoteString( wxString& string )
 wxString FindKicadFile( const wxString& shortname )
 {
     // Test the presence of the file in the directory shortname of
-    // the KiCad binary path.
+    // the Anvil binary path.
 #ifndef __WXMAC__
     wxString fullFileName = Pgm().GetExecutablePath() + shortname;
 #else
@@ -140,7 +140,7 @@ wxString FindKicadFile( const wxString& shortname )
     }
 
     // Test the presence of the file in the directory shortname
-    // defined by the environment variable KiCad.
+    // defined by the environment variable Anvil.
     if( Pgm().IsKicadEnvVariableDefined() )
     {
         fullFileName = Pgm().GetKicadEnvVariable() + shortname;
@@ -150,12 +150,12 @@ wxString FindKicadFile( const wxString& shortname )
     }
 
 #if defined( __WINDOWS__ )
-    // KiCad can be installed highly portably on Windows, anywhere and concurrently
+    // Anvil can be installed highly portably on Windows, anywhere and concurrently
     // either the "kicad file" is immediately adjacent to the exe or it's not a valid install
     return shortname;
 #else
 
-    // Path list for KiCad binary files
+    // Path list for Anvil binary files
     const static wxChar* possibilities[] = {
 #if defined( __WXMAC__ )
         // all internal paths are relative to main bundle kicad.app

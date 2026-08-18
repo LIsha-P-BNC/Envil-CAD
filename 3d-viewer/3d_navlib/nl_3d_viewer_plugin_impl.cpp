@@ -1,5 +1,5 @@
 /*
- * This program source code file is part of KiCad, a free EDA CAD application.
+ * This program source code file is part of Anvil, a free EDA CAD application.
  *
  * Copyright (C) 2024 3Dconnexion
  * Copyright The KiCad Developers, see AUTHORS.txt for contributors.
@@ -24,7 +24,7 @@
 #include <3d-viewer/3d_rendering/track_ball.h>
 #include <3d-viewer/3d_canvas/eda_3d_canvas.h>
 
-// KiCad includes
+// Anvil includes
 #include <tool/action_manager.h>
 #include <tool/tool_manager.h>
 #include <tool/tools_holder.h>

@@ -1,5 +1,5 @@
 /*
- * This program source code file is part of KiCad, a free EDA CAD application.
+ * This program source code file is part of Anvil, a free EDA CAD application.
  *
  * Copyright (C) 2009-2014 Jerry Jacobs
  * Copyright The KiCad Developers, see AUTHORS.txt for contributors.
@@ -120,7 +120,7 @@ int GRTextWidth( const wxString& aText, KIFONT::FONT* aFont, const VECTOR2I& aSi
  *      Use a value min(aSize.x, aSize.y) / 5 for a bold text.
  *  @param aItalic is the true to simulate an italic font.
  *  @param aBold use true to use a bold font. Useful only with default width value (aWidth = 0).
- *  @param aFont is the font to use, or nullptr for the KiCad stroke font
+ *  @param aFont is the font to use, or nullptr for the Anvil stroke font
  */
 void GRPrintText( wxDC* aDC, const VECTOR2I& aPos, const KIGFX::COLOR4D& aColor,
                   const wxString& aText, const EDA_ANGLE& aOrient, const VECTOR2I& aSize,

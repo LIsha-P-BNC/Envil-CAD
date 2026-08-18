@@ -1,5 +1,5 @@
 /*
- * This program source code file is part of KiCad, a free EDA CAD application.
+ * This program source code file is part of Anvil, a free EDA CAD application.
  *
  * Copyright (C) 2024 Jon Evans <jon@craftyjon.com>
  * Copyright The KiCad Developers, see AUTHORS.txt for contributors.
@@ -33,12 +33,12 @@ class wxTimer;
 /// Internal event used for handling async tasks
 wxDECLARE_EVENT( EDA_EVT_PLUGIN_MANAGER_JOB_FINISHED, wxCommandEvent );
 
-/// Notifies other parts of KiCad when plugin availability changes
+/// Notifies other parts of Anvil when plugin availability changes
 extern const KICOMMON_API wxEventTypeTag<wxCommandEvent> EDA_EVT_PLUGIN_AVAILABILITY_CHANGED;
 
 /**
  * Responsible for loading plugin definitions for API-based plugins (ones that do not run inside
- * KiCad itself, but instead are launched as external processes by KiCad)
+ * Anvil itself, but instead are launched as external processes by Anvil)
  */
 class KICOMMON_API API_PLUGIN_MANAGER : public wxEvtHandler
 {
@@ -58,7 +58,7 @@ public:
 
     /**
      * Invokes an action synchronously, capturing its output.  Mainly used for things like
-     * wizards that have actions that return quickly and pass data to KiCad via stdout.
+     * wizards that have actions that return quickly and pass data to Anvil via stdout.
      * @param aIdentifier is the plugin action to invoke
      * @param aExtraArgs are extra arguments to pass to the action beyond the ones specified in the
      *                   plugin configuration file
