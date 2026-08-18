@@ -1077,6 +1077,23 @@ void FIELDS_EDITOR_GRID_DATA_MODEL::RebuildRows()
             m_rows.emplace_back( DATA_MODEL_ROW( ref, GROUP_SINGLETON ) );
     }
 
+    // Keep the unfiltered groups around so the column-filter UI can offer the full
+    // value list for a column, then drop the rows hidden by active column filters.
+    m_unfilteredRows = m_rows;
+
+    if( !m_colFilters.empty() )
+    {
+        std::vector<DATA_MODEL_ROW> filtered;
+
+        for( DATA_MODEL_ROW& row : m_rows )
+        {
+            if( rowPassesColumnFilters( row, wxEmptyString ) )
+                filtered.push_back( row );
+        }
+
+        m_rows = std::move( filtered );
+    }
+
     if( GetView() )
     {
         wxGridTableMessage msg( this, wxGRIDTABLE_NOTIFY_ROWS_APPENDED, m_rows.size() );
@@ -1084,6 +1101,56 @@ void FIELDS_EDITOR_GRID_DATA_MODEL::RebuildRows()
     }
 
     Sort();
+}
+
+
+bool FIELDS_EDITOR_GRID_DATA_MODEL::rowPassesColumnFilters( const DATA_MODEL_ROW& aRow,
+                                                            const wxString& aExcludeField )
+{
+    for( const auto& [fieldName, allowedValues] : m_colFilters )
+    {
+        if( fieldName == aExcludeField )
+            continue;
+
+        int col = GetFieldNameCol( fieldName );
+
+        if( col < 0 )   // column no longer exists; ignore its stale filter
+            continue;
+
+        if( allowedValues.find( GetValue( aRow, col ) ) == allowedValues.end() )
+            return false;
+    }
+
+    return true;
+}
+
+
+std::vector<wxString> FIELDS_EDITOR_GRID_DATA_MODEL::GetColumnUniqueValues( int aCol )
+{
+    wxCHECK( aCol >= 0 && aCol < static_cast<int>( m_cols.size() ), std::vector<wxString>() );
+
+    std::vector<wxString> values;
+    std::set<wxString>    seen;
+    wxString              fieldName = m_cols[aCol].m_fieldName;
+
+    for( const DATA_MODEL_ROW& row : m_unfilteredRows )
+    {
+        if( !rowPassesColumnFilters( row, fieldName ) )
+            continue;
+
+        wxString value = GetValue( row, aCol );
+
+        if( seen.insert( value ).second )
+            values.push_back( value );
+    }
+
+    std::sort( values.begin(), values.end(),
+               []( const wxString& lhs, const wxString& rhs )
+               {
+                   return StrNumCmp( lhs, rhs, true ) < 0;
+               } );
+
+    return values;
 }
 
 

@@ -49,6 +49,8 @@
 #include <kiway.h>
 #include <macros.h>
 #include <paths.h>
+#include <anvil_auth/anvil_auth.h>
+#include <dialogs/dialog_anvil_login.h>
 #include <richio.h>
 #include <settings/settings_manager.h>
 #include <settings/kicad_settings.h>
@@ -411,6 +413,34 @@ bool PGM_KICAD::OnPgmInit()
 
         if( it != GetLocalEnvVariables().end() && it->second.GetValue() != wxEmptyString )
             m_bm.m_search.Insert( it->second.GetValue(), 0 );
+    }
+
+    // Anvil sign-in gate: no window is created until the user holds a valid session.  The
+    // dialog runs BEFORE the frame exists on purpose — showing it afterwards would flash the
+    // main window for a moment before the login appeared.  Cancelling the dialog is a clean
+    // "no, don't start the app".
+    if( !ANVIL_AUTH::IsLoggedIn() )
+    {
+        // The dialog is the only top-level window at this point, so destroying it would
+        // trip wxWidgets' "last window closed => quit" rule and kill the app before the
+        // manager frame is ever built.  Suspend that rule across the gate.
+        const bool exitOnDelete = App().GetExitOnFrameDelete();
+        App().SetExitOnFrameDelete( false );
+
+        int loginResult;
+
+        {
+            DIALOG_ANVIL_LOGIN loginDlg( nullptr );
+            loginResult = loginDlg.ShowModal();
+        }
+
+        App().SetExitOnFrameDelete( exitOnDelete );
+
+        if( loginResult != wxID_OK )
+        {
+            OnPgmExit();
+            return false;
+        }
     }
 
     wxFrame*      frame = nullptr;

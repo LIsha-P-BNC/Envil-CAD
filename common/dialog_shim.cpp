@@ -131,11 +131,10 @@ DIALOG_SHIM::DIALOG_SHIM( wxWindow* aParent, wxWindowID id, const wxString& titl
             changed = true;
         }
 
-        if( !acfg.m_AnvilUiFontFace.IsEmpty() )
-        {
-            uiFont.SetFaceName( acfg.m_AnvilUiFontFace );
+        // See EDA_BASE_FRAME: apply the brand face only when it is installed, otherwise
+        // SetFaceName() invalidates the font.
+        if( KIUI::ApplyFontFace( uiFont, acfg.m_AnvilUiFontFace ) )
             changed = true;
-        }
 
         if( changed )
             SetFont( uiFont );
@@ -381,6 +380,7 @@ int DIALOG_SHIM::vertPixelsFromDU( int y ) const
 #include <hashtables.h>
 #include <typeinfo>
 #include <grid_tricks.h>
+#include <widgets/ui_common.h>
 
 
 void DIALOG_SHIM::SetPosition( const wxPoint& aNewPosition )

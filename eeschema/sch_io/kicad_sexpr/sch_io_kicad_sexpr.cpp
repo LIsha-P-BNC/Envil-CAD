@@ -1893,10 +1893,15 @@ bool SCH_IO_KICAD_SEXPR::CanReadLibrary( const wxString& aLibraryPath ) const
         if( dir.IsOpened() )
         {
             wxString filename;
-            wxString filespec = wxT( "*." ) + wxString( FILEEXT::KiCadSymbolLibFileExtension );
 
-            if( dir.GetFirst( &filename, filespec, wxDIR_FILES ) )
-                return true;
+            for( const std::string& ext : { FILEEXT::AnvilSymbolLibFileExtension,
+                                            FILEEXT::KiCadSymbolLibFileExtension } )
+            {
+                wxString filespec = wxT( "*." ) + wxString( ext );
+
+                if( dir.GetFirst( &filename, filespec, wxDIR_FILES ) )
+                    return true;
+            }
         }
 
         return false;

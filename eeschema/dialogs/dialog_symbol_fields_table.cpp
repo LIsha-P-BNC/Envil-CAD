@@ -51,8 +51,11 @@
 #include <wx/textdlg.h>
 #include <wx/filedlg.h>
 #include <wx/msgdlg.h>
+#include <wx/choicdlg.h>
+#include <wx/headerctrl.h>
 #include <dialogs/eda_view_switcher.h>
 #include "dialog_symbol_fields_table.h"
+#include <bom_xlsx_writer.h>
 #include <fields_data_model.h>
 #include <eda_list_dialog.h>
 #include <project_sch.h>
@@ -72,7 +75,10 @@ using SCOPE = FIELDS_EDITOR_GRID_DATA_MODEL::SCOPE;
 enum
 {
     MYID_SELECT_FOOTPRINT = GRIDTRICKS_FIRST_CLIENT_ID,
-    MYID_SHOW_DATASHEET
+    MYID_SHOW_DATASHEET,
+    MYID_FILTER_COLUMN,
+    MYID_CLEAR_COLUMN_FILTER,
+    MYID_CLEAR_ALL_COLUMN_FILTERS
 };
 
 class VIEW_CONTROLS_GRID_TRICKS : public GRID_TRICKS
@@ -107,6 +113,44 @@ public:
     {}
 
 protected:
+    void onGridLabelRightClick( wxGridEvent& aEvent ) override
+    {
+        wxMenu menu;
+
+        m_filterMenuCol = aEvent.GetCol();
+
+        if( m_filterMenuCol >= 0 && !m_dataModel->ColIsItemNumber( m_filterMenuCol ) )
+        {
+            wxString fieldName = m_dataModel->GetColFieldName( m_filterMenuCol );
+
+            menu.Append( MYID_FILTER_COLUMN,
+                         wxString::Format( _( "Filter by '%s'..." ),
+                                           m_grid->GetColLabelValue( m_filterMenuCol ) ),
+                         _( "Show only rows with selected values in this column" ) );
+
+            if( m_dataModel->HasColumnFilter( fieldName ) )
+            {
+                menu.Append( MYID_CLEAR_COLUMN_FILTER,
+                             wxString::Format( _( "Clear Filter on '%s'" ),
+                                               m_grid->GetColLabelValue( m_filterMenuCol ) ) );
+            }
+
+            if( m_dataModel->HasAnyColumnFilter() )
+                menu.Append( MYID_CLEAR_ALL_COLUMN_FILTERS, _( "Clear All Column Filters" ) );
+
+            menu.AppendSeparator();
+        }
+
+        for( int i = 0; i < m_grid->GetNumberCols(); ++i )
+        {
+            int id = GRIDTRICKS_FIRST_SHOWHIDE + i;
+            menu.AppendCheckItem( id, m_grid->GetColLabelValue( i ) );
+            menu.Check( id, m_grid->IsColShown( i ) );
+        }
+
+        m_grid->PopupMenu( &menu );
+    }
+
     void showPopupMenu( wxMenu& menu, wxGridEvent& aEvent ) override
     {
         int col = m_grid->GetGridCursorCol();
@@ -130,7 +174,25 @@ protected:
         int row = m_grid->GetGridCursorRow();
         int col = m_grid->GetGridCursorCol();
 
-        if( event.GetId() == MYID_SELECT_FOOTPRINT )
+        if( event.GetId() == MYID_FILTER_COLUMN )
+        {
+            if( m_filterMenuCol >= 0 )
+                m_dlg->ShowColumnFilterDialog( m_filterMenuCol );
+        }
+        else if( event.GetId() == MYID_CLEAR_COLUMN_FILTER )
+        {
+            if( m_filterMenuCol >= 0 )
+            {
+                m_dataModel->ClearColumnFilter( m_dataModel->GetColFieldName( m_filterMenuCol ) );
+                m_dlg->OnColumnFiltersChanged();
+            }
+        }
+        else if( event.GetId() == MYID_CLEAR_ALL_COLUMN_FILTERS )
+        {
+            m_dataModel->ClearAllColumnFilters();
+            m_dlg->OnColumnFiltersChanged();
+        }
+        else if( event.GetId() == MYID_SELECT_FOOTPRINT )
         {
             // pick a footprint using the footprint picker.
             wxString fpid = m_grid->GetCellValue( row, col );
@@ -183,6 +245,7 @@ private:
     VIEW_CONTROLS_GRID_DATA_MODEL* m_viewControlsDataModel;
     FIELDS_EDITOR_GRID_DATA_MODEL* m_dataModel;
     EMBEDDED_FILES*                m_files;
+    int                            m_filterMenuCol = -1;
 };
 
 
@@ -1397,8 +1460,11 @@ void DIALOG_SYMBOL_FIELDS_TABLE::OnOutputFileBrowseClicked( wxCommandEvent& even
     wxFileName fn( Prj().AbsolutePath( m_parent->Schematic().GetFileName() ) );
     fn.SetExt( FILEEXT::CsvFileExtension );
 
+    wxString wildcard = FILEEXT::CsvFileWildcard()
+                        + wxS( "|" ) + _( "Excel BOM files" ) + wxS( " (*.xlsx)|*.xlsx" );
+
     wxFileDialog saveDlg( this, _( "Bill of Materials Output File" ), path, fn.GetFullName(),
-                          FILEEXT::CsvFileWildcard(), wxFD_SAVE | wxFD_OVERWRITE_PROMPT );
+                          wildcard, wxFD_SAVE | wxFD_OVERWRITE_PROMPT );
 
     KIPLATFORM::UI::AllowNetworkFileSystems( &saveDlg );
 
@@ -1407,6 +1473,10 @@ void DIALOG_SYMBOL_FIELDS_TABLE::OnOutputFileBrowseClicked( wxCommandEvent& even
 
 
     wxFileName file = wxFileName( saveDlg.GetPath() );
+
+    // If the Excel format was chosen make sure the extension follows suit
+    if( saveDlg.GetFilterIndex() == 1 && file.GetExt().Lower() != wxS( "xlsx" ) )
+        file.SetExt( wxS( "xlsx" ) );
     wxString   defaultPath = fn.GetPathWithSep();
 
     if( IsOK( this, wxString::Format( _( "Do you want to use a path relative to\n'%s'?" ), defaultPath ) ) )
@@ -1419,6 +1489,73 @@ void DIALOG_SYMBOL_FIELDS_TABLE::OnOutputFileBrowseClicked( wxCommandEvent& even
     }
 
     m_outputFileName->SetValue( file.GetFullPath() );
+}
+
+
+void DIALOG_SYMBOL_FIELDS_TABLE::ShowColumnFilterDialog( int aCol )
+{
+    if( !m_grid->CommitPendingChanges( false ) )
+        return;
+
+    std::vector<wxString> values = m_dataModel->GetColumnUniqueValues( aCol );
+
+    if( values.empty() )
+        return;
+
+    wxString                  fieldName = m_dataModel->GetColFieldName( aCol );
+    const std::set<wxString>* activeFilter = m_dataModel->GetColumnFilter( fieldName );
+
+    wxArrayString choices;
+
+    for( const wxString& value : values )
+        choices.Add( value.IsEmpty() ? _( "(Blanks)" ) : value );
+
+    wxMultiChoiceDialog dlg( this,
+                             wxString::Format( _( "Show rows where '%s' is:" ),
+                                               m_dataModel->GetColFieldName( aCol ) ),
+                             _( "Column Filter" ), choices );
+
+    wxArrayInt selections;
+
+    for( size_t i = 0; i < values.size(); ++i )
+    {
+        if( !activeFilter || activeFilter->count( values[i] ) )
+            selections.Add( (int) i );
+    }
+
+    dlg.SetSelections( selections );
+
+    if( dlg.ShowModal() != wxID_OK )
+        return;
+
+    std::set<wxString> selectedValues;
+
+    for( int idx : dlg.GetSelections() )
+        selectedValues.insert( values[idx] );
+
+    if( selectedValues.empty() )    // hiding every row is never what the user wants
+        return;
+
+    if( selectedValues.size() == values.size() )
+        m_dataModel->ClearColumnFilter( fieldName );
+    else
+        m_dataModel->SetColumnFilter( fieldName, selectedValues );
+
+    OnColumnFiltersChanged();
+}
+
+
+void DIALOG_SYMBOL_FIELDS_TABLE::OnColumnFiltersChanged()
+{
+    m_dataModel->RebuildRows();
+    m_grid->ForceRefresh();
+
+    // The native header caches its labels, so poke it to re-fetch the funnel markers
+    if( wxHeaderCtrl* header = m_grid->GetGridColHeader() )
+    {
+        for( int i = 0; i < m_grid->GetNumberCols(); ++i )
+            header->UpdateColumn( i );
+    }
 }
 
 
@@ -1487,6 +1624,48 @@ void DIALOG_SYMBOL_FIELDS_TABLE::OnExport( wxCommandEvent& aEvent )
     {
         msg.Printf( _( "Could not open/create path '%s'." ), outputFile.GetPath() );
         DisplayError( this, msg );
+        return;
+    }
+
+    if( outputFile.GetExt().Lower() == wxS( "xlsx" ) )
+    {
+        // Build the rows exactly as the CSV export would see them
+        bool saveIncludeExcludedFromBOM = m_dataModel->GetIncludeExcludedFromBOM();
+        m_dataModel->SetIncludeExcludedFromBOM( false );
+        m_dataModel->RebuildRows();
+
+        SCHEMATIC& schematic = m_parent->Schematic();
+        wxFileName schFile( Prj().AbsolutePath( schematic.GetFileName() ) );
+        wxFileName prjFile( Prj().GetProjectFullName() );
+
+        BOM_XLSX_WRITER::PROJECT_INFO info;
+        info.projectFullPath = prjFile.GetFullPath();
+        info.projectFilename = prjFile.GetFullName();
+        info.sourceFullPath = schFile.GetFullPath();
+        info.sourceFilename = schFile.GetFullName();
+        info.variantName = m_dataModel->GetCurrentVariant();
+        info.title = wxString::Format( _( "Bill of Materials for %s" ), schFile.GetFullName() );
+
+        wxString errMsg;
+        bool ok = BOM_XLSX_WRITER::Write( outputFile.GetFullPath(), m_dataModel,
+                                          GetCurrentBomFmtSettings(), info, &errMsg );
+
+        if( saveIncludeExcludedFromBOM )
+        {
+            m_dataModel->SetIncludeExcludedFromBOM( true );
+            m_dataModel->RebuildRows();
+        }
+
+        if( ok )
+        {
+            msg.Printf( _( "Wrote BOM output to '%s'" ), outputFile.GetFullPath() );
+            DisplayInfoMessage( this, msg );
+        }
+        else
+        {
+            DisplayError( this, errMsg );
+        }
+
         return;
     }
 

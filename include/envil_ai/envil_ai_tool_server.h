@@ -41,7 +41,14 @@ public:
     ~ENVIL_AI_TOOL_SERVER() override;
 
     /// Begin listening on 127.0.0.1. Returns false if the port could not be bound.
+    /// A stopped server may be started again (AnvilCAD MCP menu Start/Stop).
     bool Start();
+
+    /// Stop listening and drop all connected clients. Safe to call when not running.
+    void Stop();
+
+    /// True while the socket is bound and listening.
+    bool IsRunning() const { return m_server != nullptr; }
 
     /// Loopback port actually in use.
     int GetPort() const { return m_port; }

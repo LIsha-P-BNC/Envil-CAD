@@ -189,6 +189,11 @@ bool PROJECT_ARCHIVER::Archive( const wxString& aSrcDir, const wxString& aDestFi
     extensions.emplace( FILEEXT::KiCadSymbolLibFileExtension );
     extensions.emplace( FILEEXT::KiCadPcbFileExtension );
     extensions.emplace( FILEEXT::KiCadFootprintFileExtension );
+    extensions.emplace( FILEEXT::AnvilProjectFileExtension );
+    extensions.emplace( FILEEXT::AnvilSchematicFileExtension );
+    extensions.emplace( FILEEXT::AnvilSymbolLibFileExtension );
+    extensions.emplace( FILEEXT::AnvilPcbFileExtension );
+    extensions.emplace( FILEEXT::AnvilFootprintFileExtension );
     extensions.emplace( FILEEXT::DesignRulesFileExtension );
     extensions.emplace( FILEEXT::DrawingSheetFileExtension );
     extensions.emplace( FILEEXT::KiCadJobSetFileExtension );

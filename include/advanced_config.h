@@ -1176,11 +1176,15 @@ public:
      * ADVANCED_CFG need not be rebuilt for this addition (only kicommon + eeschema, which reads
      * the flag when building the schematic frame).
      *
-     * OPT-IN (default 0) so the chrome is byte-identical to stock Anvil until explicitly enabled.
+     * SHIPS ON (default 1).  It is not really optional any more: the shell's custom title bar
+     * paints its menu labels, quick-access glyphs and window controls in the ANVIL palette
+     * (BONE text on a graphite face) whatever this flag says, so with the flag OFF the title bar
+     * keeps the light OS menubar colour and the near-white labels become unreadable
+     * light-on-light.  Set 0 only to compare against stock Anvil chrome.
      *
      * Setting name: "AnvilPurpleFrame"
      * Valid values: 0 or 1
-     * Default value: 0
+     * Default value: 1
      */
     bool m_AnvilPurpleFrame;
 

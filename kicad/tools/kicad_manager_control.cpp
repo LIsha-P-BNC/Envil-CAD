@@ -129,7 +129,8 @@ wxFileName KICAD_MANAGER_CONTROL::newProjectDirectory( wxString* aFileName, bool
 
     if( !pro.DirExists() )
     {
-        if( !pro.Mkdir() )
+        // Recursive create: the user may type a path whose parent directories don't exist yet.
+        if( !pro.Mkdir( wxS_DIR_DEFAULT, wxPATH_MKDIR_FULL ) )
         {
             wxString msg;
             msg.Printf( _( "Folder '%s' could not be created.\n\n"
@@ -434,7 +435,8 @@ int KICAD_MANAGER_CONTROL::NewProject( const TOOL_EVENT& aEvent )
     if( createNewDir )
         fn.AppendDir( fn.GetName() );
 
-    if( !fn.DirExists() && !fn.Mkdir() )
+    // Recursive create: the user may type a path whose parent directories don't exist yet.
+    if( !fn.DirExists() && !fn.Mkdir( wxS_DIR_DEFAULT, wxPATH_MKDIR_FULL ) )
     {
         DisplayErrorMessage( m_frame, wxString::Format( _( "Folder '%s' could not be created.\n\n"
                                                            "Make sure you have write permissions and try again." ),

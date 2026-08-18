@@ -273,8 +273,10 @@ bool EDA_DRAW_FRAME::LockFile( const wxString& aFileName )
     {
         // If we cannot acquire the lock but we appear to be the one who locked it, check to see if
         // there is another Anvil instance running.  If there is not, then we can override the lock.
-        // This could happen if Anvil crashed or was interrupted.
-        if( !Pgm().SingleInstance()->IsAnotherRunning() )
+        // This could happen if Anvil crashed or was interrupted.  Must be the LIVE check: the
+        // startup snapshot stays true forever once a second instance was seen, leaving every
+        // stale lock to pop the "already open" dialog (see IsAnotherInstanceRunningLive()).
+        if( !Pgm().IsAnotherInstanceRunningLive() )
             m_file_checker->OverrideLock();
     }
 
@@ -1221,7 +1223,12 @@ bool EDA_DRAW_FRAME::LibraryFileBrowser( const wxString& aTitle, bool doOpen, wx
             return false;
 
         aFilename = dlg.GetPath();
-        aFilename.SetExt( ext );
+
+        // Opening browses to an existing file: keep the extension the user picked
+        // (e.g. adding a .kicad_sym library must not be renamed to .anvil_sym).
+        // Saving creates a new file: enforce the requested (Anvil) extension.
+        if( !doOpen || aFilename.GetExt().IsEmpty() )
+            aFilename.SetExt( ext );
     }
 
     SetMruPath( aFilename.GetPath() );

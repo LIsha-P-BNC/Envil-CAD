@@ -64,6 +64,19 @@ KICOMMON_API int GetStdMargin();
  */
 KICOMMON_API wxSize GetTextSize( const wxString& aSingleLine, wxWindow* aWindow );
 
+/**
+ * Set @a aFont's face to @a aFaceName, but only when that face is really installed.
+ *
+ * wxFont::SetFaceName() INVALIDATES the font when the face is missing: IsOk() goes false and
+ * every later query answers from a null font — GetPointSize() returns 0, GetFaceName() an empty
+ * string.  A brand face like "Space Grotesk" is not on a stock Windows box, so calling
+ * SetFaceName() directly quietly destroyed the font on any machine that lacked it (that is what
+ * collapsed the AUI pane-caption band to 6 px and clipped every pane title).
+ *
+ * @return true when the face existed and was applied; false leaves @a aFont untouched.
+ */
+KICOMMON_API bool ApplyFontFace( wxFont& aFont, const wxString& aFaceName );
+
 KICOMMON_API wxFont GetMonospacedUIFont();
 
 KICOMMON_API wxFont GetControlFont( wxWindow* aWindow );

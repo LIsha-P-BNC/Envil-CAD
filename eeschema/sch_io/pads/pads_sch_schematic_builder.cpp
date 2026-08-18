@@ -779,7 +779,7 @@ SCH_SHEET* PADS_SCH_SCHEMATIC_BUILDER::CreateHierarchicalSheet( int aSheetNumber
     wxString sheetFilename = wxString::Format( wxT( "%s_sheet%d.%s" ),
                                                fn.GetName(),
                                                aSheetNumber,
-                                               FILEEXT::KiCadSchematicFileExtension );
+                                               FILEEXT::AnvilSchematicFileExtension );
 
     // Set the sheet filename field
     sheet->GetField( FIELD_T::SHEET_FILENAME )->SetText( sheetFilename );

@@ -467,7 +467,7 @@ SCH_SHEET* SCH_IO_EASYEDAPRO::LoadSchematicFile( const wxString& aFileName,
     wxFileName            fname( aFileName );
     wxString              libName = EASYEDAPRO::ShortenLibName( fname.GetName() );
 
-    wxFileName libFileName( fname.GetPath(), libName, FILEEXT::KiCadSymbolLibFileExtension );
+    wxFileName libFileName( fname.GetPath(), libName, FILEEXT::AnvilSymbolLibFileExtension );
 
     if( fname.GetExt() != wxS( "epro" ) && fname.GetExt() != wxS( "zip" ) )
         return rootSheet;
@@ -505,7 +505,7 @@ SCH_SHEET* SCH_IO_EASYEDAPRO::LoadSchematicFile( const wxString& aFileName,
 
     wxFileName rootFname( aFileName );
     rootFname.SetFullName( rootBaseName + wxS( "." )
-                           + wxString::FromUTF8( FILEEXT::KiCadSchematicFileExtension ) );
+                           + wxString::FromUTF8( FILEEXT::AnvilSchematicFileExtension ) );
 
     rootSheet->SetName( prjSchematics[schematicToLoad].name );
     rootSheet->SetFileName( rootFname.GetFullPath() );
@@ -561,7 +561,7 @@ SCH_SHEET* SCH_IO_EASYEDAPRO::LoadSchematicFile( const wxString& aFileName,
 
             wxFileName sheetFname( aFileName );
             sheetFname.SetFullName( sheetBaseName + wxS( "." )
-                                    + wxString::FromUTF8( FILEEXT::KiCadSchematicFileExtension ) );
+                                    + wxString::FromUTF8( FILEEXT::AnvilSchematicFileExtension ) );
 
             wxFileName relSheetPath( sheetFname );
             relSheetPath.MakeRelativeTo( rootFname.GetPath() );

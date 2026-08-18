@@ -796,7 +796,10 @@ int BOARD_EDITOR_CONTROL::ShowEeschema( const TOOL_EVENT& aEvent )
     PCB_EDIT_FRAME* boardFrame = m_frame;
     PROJECT&        project = boardFrame->Prj();
     wxFileName      schematic( project.GetProjectPath(), project.GetProjectName(),
-                               FILEEXT::KiCadSchematicFileExtension );
+                               FILEEXT::AnvilSchematicFileExtension );
+
+    if( !schematic.FileExists() )
+        schematic.SetExt( FILEEXT::KiCadSchematicFileExtension );
 
     if( !schematic.FileExists() )
     {

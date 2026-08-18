@@ -146,6 +146,76 @@ const std::string FILEEXT::AnvilSchematicFileExtension( "anvil_sch" );
 const std::string FILEEXT::AnvilPcbFileExtension( "anvil_pcb" );
 const std::string FILEEXT::AnvilSymbolLibFileExtension( "anvil_sym" );
 const std::string FILEEXT::AnvilFootprintFileExtension( "anvil_mod" );
+
+
+wxString FILEEXT::EnsureNativeFileExtension( const wxString& aFilename,
+                                             const std::string& aAnvilExt,
+                                             const std::string& aKiCadExt )
+{
+    wxString ext = aFilename.Lower().AfterLast( '.' );
+
+    if( ext == aAnvilExt || ext == aKiCadExt )
+        return aFilename;
+
+    wxString newFilename( aFilename );
+
+    if( !newFilename.EndsWith( '.' ) )
+        newFilename.Append( '.' );
+
+    newFilename.Append( aAnvilExt );
+
+    return newFilename;
+}
+
+
+wxString FILEEXT::EnsureNativeSchExtension( const wxString& aFilename )
+{
+    return EnsureNativeFileExtension( aFilename, AnvilSchematicFileExtension,
+                                      KiCadSchematicFileExtension );
+}
+
+
+wxString FILEEXT::ForceAnvilFileExtension( const wxString& aFilename,
+                                           const std::string& aAnvilExt,
+                                           const std::string& aKiCadExt )
+{
+    wxString ext = aFilename.Lower().AfterLast( '.' );
+
+    if( ext == aAnvilExt )
+        return aFilename;
+
+    if( ext == aKiCadExt )
+    {
+        // Replace, don't append: "board.kicad_pcb" must become "board.anvil_pcb",
+        // not "board.kicad_pcb.anvil_pcb".
+        return aFilename.Left( aFilename.length() - ext.length() ) + aAnvilExt;
+    }
+
+    wxString newFilename( aFilename );
+
+    if( !newFilename.EndsWith( '.' ) )
+        newFilename.Append( '.' );
+
+    newFilename.Append( aAnvilExt );
+
+    return newFilename;
+}
+
+
+wxString FILEEXT::ForceAnvilSchExtension( const wxString& aFilename )
+{
+    return ForceAnvilFileExtension( aFilename, AnvilSchematicFileExtension,
+                                    KiCadSchematicFileExtension );
+}
+
+
+wxString FILEEXT::ForceAnvilPcbExtension( const wxString& aFilename )
+{
+    return ForceAnvilFileExtension( aFilename, AnvilPcbFileExtension,
+                                    KiCadPcbFileExtension );
+}
+
+
 const std::string FILEEXT::ProjectLocalSettingsFileExtension( "anvil_prl" );
 const std::string FILEEXT::LegacySchematicFileExtension( "sch" );
 const std::string FILEEXT::CadstarSchematicFileExtension( "csa" );
@@ -322,6 +392,32 @@ wxString FILEEXT::KiCadSymbolLibFileWildcard()
 wxString FILEEXT::AnvilProjectFileWildcard()
 {
     return _( "Anvil project files" ) + AddFileExtListToFilter( { AnvilProjectFileExtension } );
+}
+
+
+wxString FILEEXT::AnvilSchematicFileWildcard()
+{
+    return _( "Anvil schematic files" ) + AddFileExtListToFilter( { AnvilSchematicFileExtension } );
+}
+
+
+wxString FILEEXT::AnvilPcbFileWildcard()
+{
+    return _( "Anvil board files" ) + AddFileExtListToFilter( { AnvilPcbFileExtension } );
+}
+
+
+wxString FILEEXT::AnvilSymbolLibFileWildcard()
+{
+    return _( "Anvil symbol library files" )
+            + AddFileExtListToFilter( { AnvilSymbolLibFileExtension } );
+}
+
+
+wxString FILEEXT::AnvilFootprintLibFileWildcard()
+{
+    return _( "Anvil footprint files" )
+            + AddFileExtListToFilter( { AnvilFootprintFileExtension } );
 }
 
 

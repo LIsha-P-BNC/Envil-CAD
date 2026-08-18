@@ -91,6 +91,26 @@ wxSize KIUI::GetTextSize( const wxString& aSingleLine, wxWindow* aWindow )
 }
 
 
+bool KIUI::ApplyFontFace( wxFont& aFont, const wxString& aFaceName )
+{
+    if( aFaceName.IsEmpty() || !aFont.IsOk() )
+        return false;
+
+    // Probe on a copy: wxFont::SetFaceName() invalidates the font it is called on when the face
+    // is missing, so calling it on aFont directly would destroy a perfectly good font (point
+    // size 0, empty face) on every machine that does not have the brand face installed.
+    wxFont candidate = aFont;
+
+    if( candidate.SetFaceName( aFaceName ) && candidate.IsOk() )
+    {
+        aFont = candidate;
+        return true;
+    }
+
+    return false;
+}
+
+
 wxFont KIUI::GetMonospacedUIFont()
 {
     static int guiFontSize = wxSystemSettings::GetFont( wxSYS_DEFAULT_GUI_FONT ).GetPointSize();
@@ -104,9 +124,9 @@ wxFont KIUI::GetMonospacedUIFont()
     if( ADVANCED_CFG::GetCfg().m_AnvilUiFontPt > 0.0 )
         font.SetFractionalPointSize( ADVANCED_CFG::GetCfg().m_AnvilUiFontPt );
 
-    // NEMI brand: use the configured monospaced face (default "IBM Plex Mono") when set.
-    if( !ADVANCED_CFG::GetCfg().m_AnvilMonoFontFace.IsEmpty() )
-        font.SetFaceName( ADVANCED_CFG::GetCfg().m_AnvilMonoFontFace );
+    // NEMI brand: use the configured monospaced face (default "IBM Plex Mono") when set — and
+    // keep the stock modern face when that brand face is not installed on this machine.
+    KIUI::ApplyFontFace( font, ADVANCED_CFG::GetCfg().m_AnvilMonoFontFace );
 
 #ifdef __WXMAC__
     // https://trac.wxwidgets.org/ticket/19210

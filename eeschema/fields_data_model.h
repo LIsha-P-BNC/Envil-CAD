@@ -19,6 +19,9 @@
 
 #pragma once
 
+#include <map>
+#include <set>
+
 #include <sch_reference_list.h>
 #include <wx/grid.h>
 #include <widgets/wx_grid.h>
@@ -189,6 +192,11 @@ public:
     wxString GetColLabelValue( int aCol ) override
     {
         wxCHECK( aCol >= 0 && aCol < static_cast<int>( m_cols.size() ), wxString() );
+
+        // Flag actively-filtered columns in the header, Excel-style
+        if( m_colFilters.count( m_cols[aCol].m_fieldName ) )
+            return m_cols[aCol].m_label + wxS( " ▼" );
+
         return m_cols[aCol].m_label;
     }
 
@@ -276,6 +284,41 @@ public:
     void SetFilter( const wxString& aFilter ) { m_filter = aFilter; }
     const wxString& GetFilter() { return m_filter; }
 
+    /**
+     * Excel-style per-column content filters.  A filter is a set of allowed (displayed)
+     * values keyed by canonical field name; group rows whose value for that field is not
+     * in the set are hidden.  An empty set clears the filter for that field.
+     */
+    void SetColumnFilter( const wxString& aFieldName, const std::set<wxString>& aValues )
+    {
+        if( aValues.empty() )
+            m_colFilters.erase( aFieldName );
+        else
+            m_colFilters[aFieldName] = aValues;
+    }
+
+    void ClearColumnFilter( const wxString& aFieldName ) { m_colFilters.erase( aFieldName ); }
+    void ClearAllColumnFilters() { m_colFilters.clear(); }
+
+    bool HasColumnFilter( const wxString& aFieldName ) const
+    {
+        return m_colFilters.count( aFieldName ) > 0;
+    }
+
+    bool HasAnyColumnFilter() const { return !m_colFilters.empty(); }
+
+    const std::set<wxString>* GetColumnFilter( const wxString& aFieldName ) const
+    {
+        auto it = m_colFilters.find( aFieldName );
+        return it == m_colFilters.end() ? nullptr : &it->second;
+    }
+
+    /**
+     * Return the distinct values a column takes over the rows that pass every filter
+     * except this column's own one (Excel AutoFilter semantics), naturally sorted.
+     */
+    std::vector<wxString> GetColumnUniqueValues( int aCol );
+
     void  SetScope( SCOPE aScope ) { m_scope = aScope; }
     SCOPE GetScope() { return m_scope; }
 
@@ -353,6 +396,9 @@ private:
     bool unitMatch( const SCH_REFERENCE& lhRef, const SCH_REFERENCE& rhRef );
     bool groupMatch( const SCH_REFERENCE& lhRef, const SCH_REFERENCE& rhRef );
 
+    /// True if aRow's values pass every active column filter (aExcludeField's one excepted).
+    bool rowPassesColumnFilters( const DATA_MODEL_ROW& aRow, const wxString& aExcludeField );
+
     // Helper functions to deal with translating wxGrid values to and from
     // named field values like ${DNP}
     bool     isAttribute( const wxString& aFieldName );
@@ -418,6 +464,12 @@ protected:
 
     std::vector<DATA_MODEL_COL> m_cols;
     std::vector<DATA_MODEL_ROW> m_rows;
+
+    /// Active per-column filters: canonical field name -> allowed displayed values
+    std::map<wxString, std::set<wxString>> m_colFilters;
+
+    /// The grouped rows before column filters were applied (for AutoFilter value lists)
+    std::vector<DATA_MODEL_ROW> m_unfilteredRows;
 
     // Data store
     // The data model is fundamentally m_componentRefs X m_fieldNames.

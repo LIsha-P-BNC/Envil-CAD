@@ -537,7 +537,7 @@ bool DIALOG_FIELD_PROPERTIES::TransferDataFromWindow()
         m_text = UnescapeString( m_StyledTextCtrl->GetValue() );
 
     if( m_fieldId == FIELD_T::SHEET_FILENAME )
-        m_text = EnsureFileExtension( m_text, FILEEXT::KiCadSchematicFileExtension );
+        m_text = FILEEXT::EnsureNativeSchExtension( m_text );
 
     m_position = VECTOR2I( m_posX.GetIntValue(), m_posY.GetIntValue() );
     m_size = m_textSize.GetIntValue();

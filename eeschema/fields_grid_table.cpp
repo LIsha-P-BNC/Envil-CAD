@@ -328,6 +328,7 @@ void FIELDS_GRID_TABLE::initGrid( WX_GRID* aGrid )
     // Create a wild card using wxFileDialog syntax.
     wxString wildCard( _( "Schematic Files" ) );
     std::vector<std::string> exts;
+    exts.push_back( FILEEXT::AnvilSchematicFileExtension );
     exts.push_back( FILEEXT::KiCadSchematicFileExtension );
     wildCard += AddFileExtListToFilter( exts );
 
@@ -908,7 +909,7 @@ void FIELDS_GRID_TABLE::SetValue( int aRow, int aCol, const wxString &aValue )
     case FDC_VALUE:
         if( m_parentType == SCH_SHEET_T && field.GetId() == FIELD_T::SHEET_FILENAME )
         {
-            value = EnsureFileExtension( value, FILEEXT::KiCadSchematicFileExtension );
+            value = FILEEXT::EnsureNativeSchExtension( value );
         }
         else if( m_parentType == LIB_SYMBOL_T && field.GetId() == FIELD_T::VALUE )
         {

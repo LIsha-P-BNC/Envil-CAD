@@ -711,6 +711,23 @@ public:
     static void ActivateWindowMenuTarget( EDA_BASE_FRAME* aFrame );
 
     /**
+     * AnvilCAD MCP: control hooks behind the shared "AnvilCAD MCP" top-level menu.
+     *
+     * The MCP socket server lives in the shell (kicad.exe), which registers these hooks at
+     * startup; the unified menu bar then shows the menu in every editor.  When no controller
+     * is registered (standalone editors — no MCP server in the process) the menu is omitted.
+     */
+    struct MCP_MENU_CONTROLLER
+    {
+        std::function<bool()> isRunning;   ///< true while the MCP socket is listening
+        std::function<bool()> start;       ///< begin listening; false if the port is taken
+        std::function<void()> stop;        ///< stop listening and drop connected clients
+        std::function<int()>  port;        ///< loopback port shown in the status line
+    };
+
+    static void SetMcpMenuController( MCP_MENU_CONTROLLER aController );
+
+    /**
      * Anvil Next: fill @p aMenu with this frame's dockable-panel toggle actions (the content
      * of its View → Panels submenu).  Shared by the View menu and the shell's status-bar
      * Panels button.  Default: this frame has no panels.

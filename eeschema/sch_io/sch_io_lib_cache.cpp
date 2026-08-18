@@ -94,8 +94,12 @@ long long SCH_IO_LIB_CACHE::GetLibModificationTime()
     else
     {
         m_isWritable = fn.IsDirWritable();
-        wildcard = wxS( "*." ) + wxString( FILEEXT::KiCadSymbolLibFileExtension );
-        return KIPLATFORM::IO::TimestampDir( fn.GetPath(), wildcard );
+
+        // Combine both native extensions so a change to either invalidates the cache.
+        return KIPLATFORM::IO::TimestampDir( fn.GetPath(),
+                       wxS( "*." ) + wxString( FILEEXT::KiCadSymbolLibFileExtension ) )
+               + KIPLATFORM::IO::TimestampDir( fn.GetPath(),
+                       wxS( "*." ) + wxString( FILEEXT::AnvilSymbolLibFileExtension ) );
     }
 }
 
@@ -134,6 +138,8 @@ bool SCH_IO_LIB_CACHE::IsFileChanged() const
     {
         return KIPLATFORM::IO::TimestampDir( fn.GetPath(),
                              wxS( "*." ) + wxString( FILEEXT::KiCadSymbolLibFileExtension ) )
+                       + KIPLATFORM::IO::TimestampDir( fn.GetPath(),
+                             wxS( "*." ) + wxString( FILEEXT::AnvilSymbolLibFileExtension ) )
                != m_fileModTime;
     }
 

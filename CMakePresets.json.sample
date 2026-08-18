@@ -151,6 +151,7 @@
   "testPresets": [
     {
       "name": "test-base",
+      "hidden": true,
       "environment": {
         "KICAD_RUN_FROM_BUILD_DIR": "1"
       },

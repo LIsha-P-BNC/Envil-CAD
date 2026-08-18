@@ -356,6 +356,19 @@ public:
     }
 
     /**
+     * Live check for another running instance of this application.
+     *
+     * wxSingleInstanceChecker::IsAnotherRunning() records its answer ONCE at startup, so
+     * if a second instance existed then (e.g. the installer's post-install launch while a
+     * dev build was still open) it keeps answering true for the whole session even after
+     * the other instance exits.  That permanently disables the silent stale-self-lock
+     * override in LockFile() and every file open pops the scary "already open by ... at
+     * ..." dialog.  On Windows this instead counts processes with our own executable name
+     * right now; elsewhere it falls back to the startup snapshot.
+     */
+    bool IsAnotherInstanceRunningLive() const;
+
+    /**
      * Starts a background job to preload the global and project design block libraries.
      * Design block handling code is not associated with a particular KIFACE so this is
      * handled here unlike symbol/footprint loading which are taken care of by the KIFACEs.

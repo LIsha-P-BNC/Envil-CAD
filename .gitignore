@@ -182,3 +182,7 @@ INSTALL.*
 PACKAGE.*
 RUN_TESTS.*
 ZERO_CHECK.*
+
+# Anvil auth deployment values - never commit the real .env (.env.example is the template)
+.env
+!.env.example

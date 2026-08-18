@@ -51,6 +51,12 @@ public:
     void ShowExportTab();
     void ShowHideColumn( int aCol, bool aShow );
 
+    /// Show the Excel-style value-checklist filter dialog for a grid column.
+    void ShowColumnFilterDialog( int aCol );
+
+    /// Rebuild rows and refresh the grid and its header after column filters changed.
+    void OnColumnFiltersChanged();
+
 private:
     void SetupColumnProperties( int aCol );
     void SetupAllColumnProperties();

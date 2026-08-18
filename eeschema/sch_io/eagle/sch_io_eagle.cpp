@@ -146,7 +146,7 @@ wxFileName SCH_IO_EAGLE::getLibFileName()
     wxCHECK( m_schematic, fn );
 
     fn.Assign( m_schematic->Project().GetProjectPath(), getLibName(),
-               FILEEXT::KiCadSymbolLibFileExtension );
+               FILEEXT::AnvilSymbolLibFileExtension );
 
     return fn;
 }
@@ -379,7 +379,7 @@ SCH_SHEET* SCH_IO_EAGLE::LoadSchematicFile( const wxString& aFileName, SCHEMATIC
     unique_ptr<SCH_SHEET> deleter( aAppendToMe ? nullptr : m_rootSheet );
 
     wxFileName newFilename( m_filename );
-    newFilename.SetExt( FILEEXT::KiCadSchematicFileExtension );
+    newFilename.SetExt( FILEEXT::AnvilSchematicFileExtension );
 
     if( aAppendToMe )
     {
@@ -901,7 +901,7 @@ void SCH_IO_EAGLE::loadSheet( const std::unique_ptr<ESHEET>& aSheet )
         std::string filename;
         wxFileName  fn = m_filename;
 
-        fn.SetExt( FILEEXT::KiCadSchematicFileExtension );
+        fn.SetExt( FILEEXT::AnvilSchematicFileExtension );
 
         filename = wxString::Format( wxT( "%s_%d" ), m_filename.GetName(), m_sheetIndex );
 
@@ -1067,7 +1067,7 @@ void SCH_IO_EAGLE::loadModuleInstance( const std::unique_ptr<EMODULEINST>& aModu
 
     wxFileName fn = m_filename;
     fn.SetName( aModuleInstance->moduleinst );
-    fn.SetExt( FILEEXT::KiCadSchematicFileExtension );
+    fn.SetExt( FILEEXT::AnvilSchematicFileExtension );
 
     VECTOR2I portExtWireEndpoint;
     VECTOR2I size( it->second->dx.ToSchUnits(), it->second->dy.ToSchUnits() );

@@ -370,6 +370,7 @@ set( EESCHEMA_SRCS
     annotate.cpp
     autoplace_fields.cpp
     bom_plugins.cpp
+    bom_xlsx_writer.cpp
     bus-wire-junction.cpp
     connection_graph.cpp
     cross-probing.cpp

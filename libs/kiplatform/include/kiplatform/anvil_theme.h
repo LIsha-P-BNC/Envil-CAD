@@ -57,6 +57,17 @@ inline const wxColour HOVER       (  30,  72,  60 );   // #1E483C subtle button 
 inline const wxColour CAP_INACTIVE(  22,  22,  21 );   // #161615 inactive pane caption
 inline const wxColour SASH        (  22,  22,  21 );   // #161615 dock sash (same value as CAP_INACTIVE)
 
+// Login / sign-in screen (NEMI Suite sign-in look: emerald brand panel + light grid surface)
+inline const wxColour LOGIN_GRAD_TOP    (   7,  26,  20 );   // #071A14 brand panel gradient start (near-black emerald)
+inline const wxColour LOGIN_GRAD_BOTTOM (  13,  95,  74 );   // #0D5F4A brand panel gradient end (rich emerald)
+inline const wxColour LOGIN_SURFACE     ( 255, 255, 255 );   // #FFFFFF right-hand form surface
+inline const wxColour LOGIN_GRID        ( 234, 237, 235 );   // #EAEDEB fine blueprint grid line on the surface
+inline const wxColour LOGIN_INK         (  17,  24,  21 );   // #111815 headings / primary text on the light surface
+inline const wxColour LOGIN_MUTED       ( 108, 120, 114 );   // #6C7872 secondary text on the light surface
+inline const wxColour LOGIN_FIELD_BG    ( 235, 241, 250 );   // #EBF1FA email input fill (pale blue like the comp)
+inline const wxColour LOGIN_FIELD_BORDER( 199, 210, 222 );   // #C7D2DE email input edge
+inline const wxColour LOGIN_ERROR       ( 196,  61,  61 );   // #C43D3D inline validation / server error text
+
 // Text tiers / misc
 inline const wxColour DIM         ( 150, 160, 150 );   // dim / disabled / secondary text (GRAYTEXT)
 inline const wxColour DIM_MENU    ( 140, 150, 140 );   // dim text in popups / inactive glyphs

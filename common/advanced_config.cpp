@@ -321,7 +321,9 @@ ADVANCED_CFG::ADVANCED_CFG()
     m_LibTableSelfHeal = true;    // on: rebuild an empty/broken global sym/fp-lib-table from installed libs; see header
     m_ConfirmComponentPackage = false;   // opt-in: ask THT/SMD + library choice before placing/creating a symbol; see header
     m_AnvilAutoSaveRealFile = false;   // opt-in: autosave writes the real .kicad_sch/.kicad_pcb (not .history) so the AI sees manual edits; see header
-    m_AnvilPurpleFrame = false;   // opt-in: vibrant-purple dark chrome on the schematic editor frame; see header
+    m_AnvilPurpleFrame = true;    // ships ON: the Anvil dark chrome the custom title bar is painted for
+                                  // (with it OFF the title bar keeps the light OS menubar colour while its
+                                  // labels stay ANVIL::BONE - unreadable light-on-light); see header
     m_AnvilEmeraldIcons = false;  // ships OFF: whole icon set is rich MULTI-COLOUR (native palette + custom multi-colour
                                   // editor icons); set AnvilEmeraldIcons=1 to opt back into the single-emerald recolor
     m_AnvilTooltipDelayMs = 200;  // ships ON: toolbar tooltips appear after 200ms instead of the ~1s OS

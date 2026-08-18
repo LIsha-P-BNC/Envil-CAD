@@ -590,7 +590,7 @@ void CADSTAR_SCH_ARCHIVE_LOADER::loadSheets()
                                                  getSheetNumber( rootSheetID ) )
                                        .ToStdString();
         ReplaceIllegalFileNameChars( filename );
-        filename += wxT( "." ) + wxString( FILEEXT::KiCadSchematicFileExtension );
+        filename += wxT( "." ) + wxString( FILEEXT::AnvilSchematicFileExtension );
 
         wxFileName fn( m_schematic->Project().GetProjectPath() + filename );
         m_rootSheet->GetScreen()->SetFileName( fn.GetFullPath() );
@@ -2490,7 +2490,7 @@ void CADSTAR_SCH_ARCHIVE_LOADER::loadSheetAndChildSheets( const LAYER_ID&       
     std::string filename = wxString::Format( "%s_%02d", loadedFilename, sheetNum ).ToStdString();
 
     ReplaceIllegalFileNameChars( filename );
-    filename += wxT( "." ) + wxString( FILEEXT::KiCadSchematicFileExtension );
+    filename += wxT( "." ) + wxString( FILEEXT::AnvilSchematicFileExtension );
 
     sheet->GetField( FIELD_T::SHEET_FILENAME )->SetText( filename );
 

@@ -85,6 +85,7 @@
 
 #include <functional>
 #include <kiface_ids.h>
+#include <widgets/ui_common.h>
 
 #ifdef KICAD_IPC_API
 #include <api/api_server.h>
@@ -270,11 +271,10 @@ EDA_BASE_FRAME::EDA_BASE_FRAME( wxWindow* aParent, FRAME_T aFrameType, const wxS
             changed = true;
         }
 
-        if( !acfg.m_AnvilUiFontFace.IsEmpty() )
-        {
-            uiFont.SetFaceName( acfg.m_AnvilUiFontFace );
+        // Only mark the font changed when the brand face actually exists here: SetFaceName()
+        // invalidates the font when it does not, and SetFont() would then push a null font.
+        if( KIUI::ApplyFontFace( uiFont, acfg.m_AnvilUiFontFace ) )
             changed = true;
-        }
 
         if( changed )
             SetFont( uiFont );

@@ -20,6 +20,7 @@
 
 #include <math/util.h>
 #include <wx/dcclient.h>
+#include <wx/msgdlg.h>
 
 #include "panel_package.h"
 
@@ -197,7 +198,16 @@ void PANEL_PACKAGE::OnButtonClicked( wxCommandEvent& event )
         wxString version = GetPreferredVersion();
 
         if( version.IsEmpty() )
+        {
+            // Don't swallow the click: without this the button just does nothing and the user
+            // has no way to tell the package apart from one that failed to install.
+            wxMessageBox( wxString::Format( _( "Package '%s' has no version that can be installed "
+                                               "with this version of KiCad on this platform." ),
+                                            m_data.package.name ),
+                          _( "Install package" ), wxICON_INFORMATION | wxOK,
+                          wxGetTopLevelParent( this ) );
             return;
+        }
 
         m_actionCallback( m_data, PPA_INSTALL, version );
     }

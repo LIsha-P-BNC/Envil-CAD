@@ -138,14 +138,31 @@ void SCH_IO_KICAD_SEXPR_LIB_CACHE::Load()
 
         wxFileName tmp( m_libFileName.GetPath(), wxS( "dummy" ), wxString( FILEEXT::KiCadSymbolLibFileExtension ) );
         wxDir dir( m_libFileName.GetPath() );
-        wxString fileSpec = wxS( "*." ) + wxString( FILEEXT::KiCadSymbolLibFileExtension );
 
-        if( dir.GetFirst( &libFileName, fileSpec ) )
+        // A folder library may hold .anvil_sym (native) and/or .kicad_sym files.
+        wxArrayString libFileNames;
+
+        for( const std::string& ext : { FILEEXT::AnvilSymbolLibFileExtension,
+                                        FILEEXT::KiCadSymbolLibFileExtension } )
+        {
+            wxString fileSpec = wxS( "*." ) + wxString( ext );
+
+            if( dir.GetFirst( &libFileName, fileSpec ) )
+            {
+                do
+                {
+                    libFileNames.Add( libFileName );
+                } while( dir.GetNext( &libFileName ) );
+            }
+        }
+
+        if( !libFileNames.IsEmpty() )
         {
             wxString errorCache;
 
-            do
+            for( const wxString& scannedFileName : libFileNames )
             {
+                libFileName = scannedFileName;
                 tmp.SetFullName( libFileName );
                 wxString sourceFilePath = tmp.GetFullPath();
 
@@ -208,7 +225,7 @@ void SCH_IO_KICAD_SEXPR_LIB_CACHE::Load()
                     errorCache += wxString::Format( _( "Unable to read file '%s'" ) + '\n', sourceFilePath );
                     errorCache += ioe.What();
                 }
-            } while( dir.GetNext( &libFileName ) );
+            }
 
             if( !errorCache.IsEmpty() )
             {
@@ -434,7 +451,7 @@ void SCH_IO_KICAD_SEXPR_LIB_CACHE::writeAggregateCache( long long aDirTimestamp 
                 baseName = wxFileName( it->second ).GetFullName();
             else
                 baseName = EscapeString( name, CTX_FILENAME ) + wxT( "." )
-                           + wxString( FILEEXT::KiCadSymbolLibFileExtension );
+                           + wxString( FILEEXT::AnvilSymbolLibFileExtension );
 
             out << wxT( "S\t" ) << name << wxT( "\t" ) << baseName << wxT( "\n" );
         }
@@ -537,7 +554,7 @@ void SCH_IO_KICAD_SEXPR_LIB_CACHE::Save( const std::optional<bool>& aOpt )
                 // New symbol without source file - create individual file
                 wxFileName saveFn( fn );
                 saveFn.SetName( EscapeString( name, CTX_FILENAME ) );
-                saveFn.SetExt( FILEEXT::KiCadSymbolLibFileExtension );
+                saveFn.SetExt( FILEEXT::AnvilSymbolLibFileExtension );
 
                 symbolsByFile[ saveFn.GetFullPath() ].push_back( symbol );
             }

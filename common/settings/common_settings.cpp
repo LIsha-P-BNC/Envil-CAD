@@ -319,8 +319,11 @@ COMMON_SETTINGS::COMMON_SETTINGS() :
     m_params.emplace_back( new PARAM<int>( "graphics.canvas_type",
             &m_Graphics.canvas_type, EDA_DRAW_PANEL_GAL::GAL_TYPE_OPENGL ) );
 
+    // Default antialiasing OFF: our target machines run integrated GPUs (Intel UHD), where
+    // mode 2 makes the whole canvas (zoom/pan/draw) visibly lag.  Preferences > Graphics
+    // still lets users with real GPUs turn it back up.
     m_params.emplace_back( new PARAM<int>( "graphics.antialiasing_mode",
-            &m_Graphics.aa_mode, 2, 0, 2 ) );
+            &m_Graphics.aa_mode, 0, 0, 2 ) );
 
     m_params.emplace_back( new PARAM<bool>( "system.local_history_enabled",
             &m_System.local_history_enabled, true ) );

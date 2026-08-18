@@ -159,6 +159,12 @@ void KICAD_MANAGER_FRAME::doReCreateMenuBar()
     fileMenu->Add( KICAD_MANAGER_ACTIONS::unarchiveProject );
 
     fileMenu->AppendSeparator();
+    fileMenu->Add( _( "Sign Out..." ),
+                   _( "Sign out of the Anvil session and return to the login screen" ),
+                   ID_ANVIL_SIGN_OUT,
+                   BITMAPS::exit );
+
+    fileMenu->AppendSeparator();
     fileMenu->AddQuitOrClose( nullptr, wxS( "Anvil" ) );
 
     //-- Edit menu -----------------------------------------------------------
@@ -391,6 +397,12 @@ void KICAD_MANAGER_FRAME::buildFileMenu( ACTION_MENU* fileMenu )
     fileMenu->AppendSeparator();
     fileMenu->Add( KICAD_MANAGER_ACTIONS::archiveProject );
     fileMenu->Add( KICAD_MANAGER_ACTIONS::unarchiveProject );
+
+    fileMenu->AppendSeparator();
+    fileMenu->Add( _( "Sign Out..." ),
+                   _( "Sign out of the Anvil session and return to the login screen" ),
+                   ID_ANVIL_SIGN_OUT,
+                   BITMAPS::exit );
 
     fileMenu->AppendSeparator();
     fileMenu->AddQuitOrClose( nullptr, wxS( "Anvil" ) );

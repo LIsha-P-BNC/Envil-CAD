@@ -159,6 +159,8 @@ public:
     /// (anvil_pro vs kicad_pro) so saves/locks/labels don't silently rename the project.
     void SetProjectFileExt( const wxString& aExt ) { m_projFileExt = aExt; }
 
+    wxString GetProjectFileExt() const { return m_projFileExt; }
+
 protected:
     wxString m_projFileExt;
 

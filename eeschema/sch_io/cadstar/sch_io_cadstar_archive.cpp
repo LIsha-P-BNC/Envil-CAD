@@ -111,7 +111,7 @@ SCH_SHEET* SCH_IO_CADSTAR_ARCHIVE::LoadSchematicFile( const wxString&        aFi
     wxString libName = CADSTAR_SCH_ARCHIVE_LOADER::CreateLibName( prj_fn, nullptr );
 
     wxFileName libFileName( aSchematic->Project().GetProjectPath(), libName,
-                            FILEEXT::KiCadSymbolLibFileExtension );
+                            FILEEXT::AnvilSymbolLibFileExtension );
 
     IO_RELEASER<SCH_IO> sch_plugin( SCH_IO_MGR::FindPlugin( SCH_IO_MGR::SCH_KICAD ) );
 

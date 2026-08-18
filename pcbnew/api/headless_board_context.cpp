@@ -90,8 +90,18 @@ bool HEADLESS_BOARD_CONTEXT::SaveBoard()
     if( success )
     {
         wxFileName pro = fileName;
-        pro.SetExt( FILEEXT::ProjectFileExtension );
+        pro.SetExt( FILEEXT::AnvilProjectFileExtension );
         pro.MakeAbsolute();
+
+        // Keep writing to an existing KiCad-extension project instead of creating a sibling.
+        if( !pro.FileExists() )
+        {
+            wxFileName kicadPro( pro );
+            kicadPro.SetExt( FILEEXT::ProjectFileExtension );
+
+            if( kicadPro.FileExists() )
+                pro = kicadPro;
+        }
 
         Pgm().GetSettingsManager().SaveProjectAs( pro.GetFullPath(), m_board->GetProject() );
     }
@@ -112,7 +122,7 @@ bool HEADLESS_BOARD_CONTEXT::SavePcbCopy( const wxString& aFileName, bool aCreat
     if( success && aCreateProject )
     {
         wxFileName pro = aFileName;
-        pro.SetExt( FILEEXT::ProjectFileExtension );
+        pro.SetExt( FILEEXT::AnvilProjectFileExtension );
         pro.MakeAbsolute();
 
         Pgm().GetSettingsManager().SaveProjectAs( pro.GetFullPath(), m_board->GetProject() );

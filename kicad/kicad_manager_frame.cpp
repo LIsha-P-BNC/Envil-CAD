@@ -103,6 +103,8 @@
 #include <envil_ai/envil_ai_tool_server.h> // MCP tool socket (external Claude clients)
 #include <nlohmann/json.hpp>               // parse the open_project IPC payload
 #include <paths.h>                         // PATHS::GetStockDataPath (locate chat.html)
+#include <anvil_auth/anvil_auth.h>         // sign-out (File > Sign Out)
+#include <dialogs/dialog_anvil_login.h>    // re-login after sign-out
 #include <wx/stdpaths.h>
 #include <wx/file.h>                       // read ipc_port.txt for the AI IPC client
 #include <wx/utils.h>                      // wxGetEnv / wxGetHomeDir (IPC port discovery)
@@ -140,6 +142,7 @@
 #include "settings/kicad_settings.h"
 
 #include <project/project_file.h>
+#include <widgets/ui_common.h>
 
 
 #define EDITORS_CAPTION _( "Editors" )
@@ -184,11 +187,9 @@ public:
             rowChanged = true;
         }
 
-        if( !acfg.m_AnvilUiFontFace.IsEmpty() )
-        {
-            rowFont.SetFaceName( acfg.m_AnvilUiFontFace );
+        // Brand face only when it is installed — SetFaceName() invalidates the font otherwise.
+        if( KIUI::ApplyFontFace( rowFont, acfg.m_AnvilUiFontFace ) )
             rowChanged = true;
-        }
 
         if( rowChanged )
             SetFont( rowFont );
@@ -546,8 +547,7 @@ public:
         else if( acfg.m_AnvilUiFontPt > 0.0 )
             labelFont.SetFractionalPointSize( acfg.m_AnvilUiFontPt );
 
-        if( !acfg.m_AnvilUiFontFace.IsEmpty() )
-            labelFont.SetFaceName( acfg.m_AnvilUiFontFace );
+        KIUI::ApplyFontFace( labelFont, acfg.m_AnvilUiFontFace );
 
         SetFont( labelFont );
 
@@ -1321,6 +1321,7 @@ BEGIN_EVENT_TABLE( KICAD_MANAGER_FRAME, EDA_BASE_FRAME )
     EVT_MENU( wxID_EXIT, KICAD_MANAGER_FRAME::OnExit )
     EVT_MENU( ID_EDIT_LOCAL_FILE_IN_TEXT_EDITOR, KICAD_MANAGER_FRAME::OnOpenFileInTextEditor )
     EVT_MENU( ID_EDIT_ADVANCED_CFG, KICAD_MANAGER_FRAME::OnEditAdvancedCfg )
+    EVT_MENU( ID_ANVIL_SIGN_OUT, KICAD_MANAGER_FRAME::OnAnvilSignOut )
     EVT_MENU( ID_IMPORT_CADSTAR_ARCHIVE_PROJECT, KICAD_MANAGER_FRAME::OnImportCadstarArchiveFiles )
     EVT_MENU( ID_IMPORT_EAGLE_PROJECT, KICAD_MANAGER_FRAME::OnImportEagleFiles )
     EVT_MENU( ID_IMPORT_EASYEDA_PROJECT, KICAD_MANAGER_FRAME::OnImportEasyEdaFiles )
@@ -1839,14 +1840,29 @@ KICAD_MANAGER_FRAME::KICAD_MANAGER_FRAME( wxWindow* parent, const wxString& titl
 
     // Envil AI MCP tool socket: lets an external Claude client (via the envil-mcp bridge)
     // place parts in the schematic on the user's own subscription — an alternative to the
-    // in-app API-key agent. Loopback only, always on so MCP works regardless of CommonAiPanel.
+    // in-app API-key agent. Loopback only, started at launch; the "AnvilCAD MCP" menu can
+    // stop and restart it at any time.
     m_envilToolServer = std::make_unique<ENVIL_AI_TOOL_SERVER>( &Kiway(), this );
 
     if( !m_envilToolServer->Start() )
-    {
         wxLogDebug( wxT( "Envil AI: MCP tool socket failed to start (port in use?)" ) );
-        m_envilToolServer.reset();
-    }
+
+    // Hooks behind the unified menu bar's "AnvilCAD MCP" menu (shown in every editor).
+    EDA_BASE_FRAME::MCP_MENU_CONTROLLER mcpCtl;
+
+    mcpCtl.isRunning = [this]() { return m_envilToolServer && m_envilToolServer->IsRunning(); };
+    mcpCtl.start     = [this]() { return m_envilToolServer && m_envilToolServer->Start(); };
+    mcpCtl.stop      = [this]()
+                       {
+                           if( m_envilToolServer )
+                               m_envilToolServer->Stop();
+                       };
+    mcpCtl.port      = [this]()
+                       {
+                           return m_envilToolServer ? m_envilToolServer->GetPort() : 0;
+                       };
+
+    EDA_BASE_FRAME::SetMcpMenuController( std::move( mcpCtl ) );
 
     // Restore the AI panel's saved width now that the pane exists (AddPane only set BestSize).
     if( m_aiChatPanel )
@@ -2024,6 +2040,9 @@ void KICAD_MANAGER_FRAME::OnAiIpcRetryTimer( wxTimerEvent& )
 
 KICAD_MANAGER_FRAME::~KICAD_MANAGER_FRAME()
 {
+    // Drop the MCP menu hooks first: their lambdas capture this frame.
+    EDA_BASE_FRAME::SetMcpMenuController( {} );
+
     // Stop the editor pre-warm before anything else so a queued tick cannot fire mid-teardown.
     m_prewarmTimer.Stop();
 
@@ -3529,13 +3548,6 @@ void KICAD_MANAGER_FRAME::OnSize( wxSizeEvent& event )
     if( m_auimgr.GetManagedWindow() )
         m_auimgr.Update();
 
-#ifdef __WXMSW__
-    // Keep the title-bar maximize/restore glyph in sync when the window is maximized
-    // or restored via the OS (double-click caption, snap, Win+Up) — not just the button.
-    if( m_titleBar )
-        m_titleBar->UpdateMaximizeGlyph();
-#endif
-
     PrintPrjInfo();
 
 #if defined( _WIN32 )
@@ -3877,8 +3889,9 @@ bool KICAD_MANAGER_FRAME::LoadProject( const wxFileName& aProjectFileNameIn )
         {
             // If we cannot acquire the lock but we appear to be the one who locked it, check to
             // see if there is another Anvil instance running. If not, then we can override the
-            // lock. This could happen if Anvil crashed or was interrupted.
-            if( !Pgm().SingleInstance()->IsAnotherRunning() )
+            // lock. This could happen if Anvil crashed or was interrupted.  Live check, not the
+            // startup snapshot — see PGM_BASE::IsAnotherInstanceRunningLive().
+            if( !Pgm().IsAnotherInstanceRunningLive() )
                 lockFile.OverrideLock();
         }
 
@@ -4047,8 +4060,12 @@ void KICAD_MANAGER_FRAME::CreateNewProject( const wxFileName& aProjectFileName, 
             // Copy template project file from template folder.
             wxString srcFileName = sys_search().FindValidPath( "kicad.kicad_pro" );
 
+            // Preserve the requested native extension: forcing .kicad_pro here left a stray
+            // Anvil project file next to every freshly created .anvil_pro project.
             wxFileName destFileName( aProjectFileName );
-            destFileName.SetExt( FILEEXT::ProjectFileExtension );
+
+            if( destFileName.GetExt() != FILEEXT::AnvilProjectFileExtension )
+                destFileName.SetExt( FILEEXT::ProjectFileExtension );
 
             // Create a minimal project file if the template project file could not be copied
             if( !wxFileName::FileExists( srcFileName )
@@ -4170,6 +4187,30 @@ void KICAD_MANAGER_FRAME::OnEditAdvancedCfg( wxCommandEvent& WXUNUSED( event ) )
 }
 
 
+void KICAD_MANAGER_FRAME::OnAnvilSignOut( wxCommandEvent& WXUNUSED( event ) )
+{
+    if( !IsOK( this, _( "Sign out of Anvil?  Unsaved work will be kept, but you will need "
+                        "to sign in again to continue." ) ) )
+    {
+        return;
+    }
+
+    {
+        // Best-effort server-side logout; the local session is wiped regardless, so a dead
+        // network cannot pin the user signed in.
+        wxBusyCursor busy;
+        ANVIL_AUTH::Logout();
+    }
+
+    // Back to the gate: a fresh sign-in lets the user continue where they left off;
+    // cancelling means "actually, close the application".
+    DIALOG_ANVIL_LOGIN loginDlg( this );
+
+    if( loginDlg.ShowModal() != wxID_OK )
+        Close( false );
+}
+
+
 void KICAD_MANAGER_FRAME::RefreshProjectTree()
 {
     m_projectTreePane->ReCreateTreePrj();
@@ -4235,8 +4276,9 @@ void KICAD_MANAGER_FRAME::ProjectChanged()
             // If we cannot acquire the lock but we appear to be the one who
             // locked it, check to see if there is another Anvil instance running.
             // If there is not, then we can override the lock.  This could happen if
-            // Anvil crashed or was interrupted
-            if( !Pgm().SingleInstance()->IsAnotherRunning() )
+            // Anvil crashed or was interrupted.  Live check, not the startup
+            // snapshot — see PGM_BASE::IsAnotherInstanceRunningLive().
+            if( !Pgm().IsAnotherInstanceRunningLive() )
             {
                 lockFile.OverrideLock();
             }

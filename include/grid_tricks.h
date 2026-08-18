@@ -102,7 +102,7 @@ protected:
     void onGridCellLeftDClick( wxGridEvent& event );
     void onGridCellRightClick( wxGridEvent& event );
     void onGridLabelLeftClick( wxGridEvent& event );
-    void onGridLabelRightClick( wxGridEvent& event );
+    virtual void onGridLabelRightClick( wxGridEvent& event );
     void onPopupSelection( wxCommandEvent& event );
     void onKeyDown( wxKeyEvent& event );
     void onCharHook( wxKeyEvent& event );
