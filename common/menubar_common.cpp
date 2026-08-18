@@ -214,8 +214,8 @@ private:
 
 /**
  * The "AnvilCAD MCP" menu: Start / Stop the process-wide MCP socket through the controller
- * hooks the shell registered.  Item enable-state and the status line are refreshed each time
- * the menu is opened, so they always reflect whether the server is currently listening.
+ * hooks the shell registered.  Item enable-state is refreshed each time the menu is opened,
+ * so it always reflects whether the server is currently listening.
  */
 class MCP_MENU : public ACTION_MENU
 {
@@ -228,9 +228,6 @@ public:
 
         m_startItem = Append( wxID_ANY, _( "Start MCP Connection" ) );
         m_stopItem  = Append( wxID_ANY, _( "Stop MCP Connection" ) );
-        AppendSeparator();
-        m_statusItem = Append( wxID_ANY, _( "Status: unknown" ) );
-        m_statusItem->Enable( false );
 
         // Same routing as WINDOW_MENU: item commands are handled by the menu itself, while
         // menubar open events arrive at the owning frame.
@@ -264,16 +261,9 @@ private:
     void refresh()
     {
         bool running = s_mcpMenuController.isRunning && s_mcpMenuController.isRunning();
-        int  port    = s_mcpMenuController.port ? s_mcpMenuController.port() : 0;
 
         m_startItem->Enable( !running );
         m_stopItem->Enable( running );
-
-        if( running )
-            m_statusItem->SetItemLabel( wxString::Format( _( "Status: running on 127.0.0.1:%d" ),
-                                                          port ) );
-        else
-            m_statusItem->SetItemLabel( _( "Status: stopped" ) );
     }
 
     void onCommand( wxCommandEvent& aEvent )
@@ -308,7 +298,6 @@ private:
     EDA_BASE_FRAME* m_owner;
     wxMenuItem*     m_startItem;
     wxMenuItem*     m_stopItem;
-    wxMenuItem*     m_statusItem;
 };
 
 } // namespace
