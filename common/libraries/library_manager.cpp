@@ -1293,11 +1293,14 @@ std::vector<std::pair<wxString, LIB_STATUS>> LIBRARY_MANAGER_ADAPTER::GetLibrary
         }
         else
         {
-            // This should probably never happen, but until that can be proved...
+            // No status entry yet means the async loader hasn't picked this row up
+            // (queued / still in flight).  Report it as loading rather than as an
+            // error -- otherwise a status snapshot taken before the async load
+            // finishes spams "Library not found in library table" for perfectly
+            // valid libraries.
             ret.emplace_back( std::make_pair( row->Nickname(),
                                               LIB_STATUS( {
-                                                  .load_status = LOAD_STATUS::LOAD_ERROR,
-                                                  .error = LIBRARY_ERROR( _( "Library not found in library table" ) )
+                                                  .load_status = LOAD_STATUS::LOADING
                                               } ) ) );
         }
     }
