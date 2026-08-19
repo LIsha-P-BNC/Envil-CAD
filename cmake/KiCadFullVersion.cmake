@@ -27,12 +27,17 @@
 # repository), or the version from KiCadVersion.cmake. The user-provided
 # KICAD_VERSION_EXTRA is then appended to the base version string.
 
-# Use git to determine the version string if it's available.
+# Use git to determine the commit hash / build rev (KICAD_COMMIT_HASH, KICAD_GIT_REV
+# are still useful for the Win32 FILEVERSION build number).
 include( ${KICAD_CMAKE_MODULE_PATH}/CreateGitVersionHeader.cmake )
 create_git_version_header( ${SRC_PATH} )
 
-# $KICAD_VERSION is set in KiCadVersion.cmake or by git (if it is available).
-set( KICAD_VERSION_FULL "${KICAD_VERSION}" )
+# Anvil: the git tag is the upstream KiCad tag (e.g. 10.99.0), which is NOT our
+# product version. Pin the USER-FACING version strings to the clean semantic
+# version from KiCadVersion.cmake so the About dialog, title bar and build-version
+# string all show 1.0.x -- not "10.99.0-<n>-g<hash>-dirty".
+set( KICAD_VERSION      "${KICAD_SEMANTIC_VERSION}" )
+set( KICAD_VERSION_FULL "${KICAD_SEMANTIC_VERSION}" )
 
 # Optional user version information defined at configuration.
 if( KICAD_VERSION_EXTRA )
