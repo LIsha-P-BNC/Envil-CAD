@@ -1030,7 +1030,7 @@ int render_perftest_main_func( int argc, char* argv[] )
     std::shared_ptr<BOARD> brd ( loadBoard( argv[1] ) );
     cnt.Stop();
 
-    KI_TRACE( traceGalProfile, "%s\n", cnt.to_string() );
+    wxLogTrace( traceGalProfile, "%s", cnt.to_string() );
 
     frame->SetBoard2( brd );
 

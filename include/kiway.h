@@ -116,7 +116,6 @@ class KICAD_API_SERVER;
 // be mangled.
 #define KIFACE_INSTANCE_NAME_AND_VERSION   "KIFACE_1"
 
-#ifndef SWIG
 #if defined(__linux__) || defined(__FreeBSD__)
  #define LIB_ENV_VAR    wxT( "LD_LIBRARY_PATH" )
 #elif defined(__WXMAC__)
@@ -126,7 +125,6 @@ class KICAD_API_SERVER;
 #else
  #error Platform support missing
 #endif
-#endif  // SWIG
 
 class wxConfigBase;
 class wxWindow;
@@ -621,8 +619,6 @@ extern KIWAY Kiway;
 typedef KIFACE* KIFACE_GETTER_FUNC( int* aKIFACEversion, int aKIWAYversion, PGM_BASE* aProgram );
 
 
-#ifndef SWIG
-
 /// No name mangling.  Each KIFACE (DSO/DLL) will implement this once.
 extern "C" {
 #if defined(BUILD_KIWAY_DLL)
@@ -631,7 +627,5 @@ extern "C" {
     KIFACE* KIFACE_GETTER(  int* aKIFACEversion, int aKIWAYversion, PGM_BASE* aProgram );
 #endif
 }
-
-#endif  // SWIG
 
 #endif  // KIWAY_H_

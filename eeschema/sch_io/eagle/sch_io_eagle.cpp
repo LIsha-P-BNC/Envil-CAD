@@ -1,5 +1,5 @@
 /*
- * This program source code file is part of Anvil, a free EDA CAD application.
+ * This program source code file is part of KiCad, a free EDA CAD application.
  *
  * Copyright (C) 2017 CERN
  * Copyright The KiCad Developers, see AUTHORS.txt for contributors.
@@ -62,12 +62,12 @@
 
 
 // Eagle schematic axes are aligned with x increasing left to right and Y increasing bottom to top
-// Anvil schematic axes are aligned with x increasing left to right and Y increasing top to bottom.
+// KiCad schematic axes are aligned with x increasing left to right and Y increasing top to bottom.
 
 using namespace std;
 
 /**
- * Map of EAGLE pin type values to Anvil pin type values
+ * Map of EAGLE pin type values to KiCad pin type values
  */
 static const std::map<wxString, ELECTRICAL_PINTYPE> pinDirectionsMap = {
     { wxT( "sup" ),    ELECTRICAL_PINTYPE::PT_POWER_IN },
@@ -146,7 +146,7 @@ wxFileName SCH_IO_EAGLE::getLibFileName()
     wxCHECK( m_schematic, fn );
 
     fn.Assign( m_schematic->Project().GetProjectPath(), getLibName(),
-               FILEEXT::AnvilSymbolLibFileExtension );
+               FILEEXT::KiCadSymbolLibFileExtension );
 
     return fn;
 }
@@ -158,7 +158,7 @@ void SCH_IO_EAGLE::loadLayerDefs( const std::vector<std::unique_ptr<ELAYER>>& aL
     for( const std::unique_ptr<ELAYER>& elayer : aLayers )
     {
         /**
-         * Layers in Anvil schematics are not actually layers, but abstract groups mainly used to
+         * Layers in KiCad schematics are not actually layers, but abstract groups mainly used to
          * decide item colors.
          *
          * <layers>
@@ -201,7 +201,7 @@ SCH_LAYER_ID SCH_IO_EAGLE::kiCadLayer( int aEagleLayer )
 }
 
 
-// Return the Anvil symbol orientation based on eagle rotation degrees.
+// Return the KiCad symbol orientation based on eagle rotation degrees.
 static SYMBOL_ORIENTATION_T kiCadComponentRotation( float eagleDegrees )
 {
     int roti = int( eagleDegrees );
@@ -375,11 +375,12 @@ SCH_SHEET* SCH_IO_EAGLE::LoadSchematicFile( const wxString& aFileName, SCHEMATIC
     if( m_progressReporter )
         m_progressReporter->SetNumPhases( static_cast<int>( GetNodeCount( currentNode ) ) );
 
-    // Delete on exception, if I own m_rootSheet, according to aAppendToMe
-    unique_ptr<SCH_SHEET> deleter( aAppendToMe ? nullptr : m_rootSheet );
-
     wxFileName newFilename( m_filename );
-    newFilename.SetExt( FILEEXT::AnvilSchematicFileExtension );
+    newFilename.SetExt( FILEEXT::KiCadSchematicFileExtension );
+
+    // Owns the temporary VR for the non-append path so it is freed when this scope exits.
+    // The actual schematic VR will be created by SetTopLevelSheets() inside loadSchematic().
+    unique_ptr<SCH_SHEET> tempVROwner;
 
     if( aAppendToMe )
     {
@@ -404,10 +405,12 @@ SCH_SHEET* SCH_IO_EAGLE::LoadSchematicFile( const wxString& aFileName, SCHEMATIC
     }
     else
     {
-        m_rootSheet = new SCH_SHEET( aSchematic );
+        // Create a temporary local VR used only to anchor m_sheetPath during loading.
+        // loadSchematic() will call SetTopLevelSheets() with the real Eagle pages, which
+        // creates the actual schematic VR and re-parents the pages to it.
+        tempVROwner = std::make_unique<SCH_SHEET>( aSchematic );
+        m_rootSheet = tempVROwner.get();
         const_cast<KIID&>( m_rootSheet->m_Uuid ) = niluuid;
-        m_rootSheet->SetFileName( newFilename.GetFullPath() );
-        aSchematic->SetTopLevelSheets( { m_rootSheet } );
     }
 
     if( !m_rootSheet->GetScreen() )
@@ -441,7 +444,7 @@ SCH_SHEET* SCH_IO_EAGLE::LoadSchematicFile( const wxString& aFileName, SCHEMATIC
         LIBRARY_TABLE_ROW& row = table->InsertRow();
         row.SetNickname( getLibName() );
         row.SetURI( libTableUri );
-        row.SetType( "Anvil" );
+        row.SetType( "KiCad" );
 
         table->Save();
 
@@ -458,20 +461,7 @@ SCH_SHEET* SCH_IO_EAGLE::LoadSchematicFile( const wxString& aFileName, SCHEMATIC
     loadDrawing( m_eagleDoc->drawing );
 
     if( !aAppendToMe )
-    {
-        std::vector<SCH_SHEET*> topLevelSheets;
-
-        for( SCH_SHEET* sheet : aSchematic->GetTopLevelSheets() )
-        {
-            if( sheet && !sheet->IsVirtualRootSheet() )
-                topLevelSheets.push_back( sheet );
-        }
-
-        if( !topLevelSheets.empty() )
-            aSchematic->SetTopLevelSheets( topLevelSheets );
-
         m_rootSheet = &aSchematic->Root();
-    }
 
     m_pi->SaveLibrary( getLibFileName().GetFullPath() );
 
@@ -765,7 +755,11 @@ void SCH_IO_EAGLE::loadSchematic( const ESCHEMATIC& aSchematic )
     // local labels will be used for nets found only on that sheet.
     countNets( aSchematic );
 
-    // Create all Eagle pages as top-level sheets (direct children of the root)
+    // Create all Eagle pages as top-level sheets (direct children of the virtual root).
+    // Collect them first so we can atomically replace any spurious default sheet created
+    // during schematic construction with exactly the set of real Eagle pages.
+    std::vector<SCH_SHEET*> eaglePages;
+    eaglePages.reserve( aSchematic.sheets.size() );
 
     for( const std::unique_ptr<ESHEET>& esheet : aSchematic.sheets )
     {
@@ -774,7 +768,6 @@ void SCH_IO_EAGLE::loadSchematic( const ESCHEMATIC& aSchematic )
         std::unique_ptr<SCH_SHEET> sheet = std::make_unique<SCH_SHEET>( m_rootSheet );
         SCH_SCREEN* screen = new SCH_SCREEN( m_schematic );
         sheet->SetScreen( screen );
-        screen->SetFileName( sheet->GetFileName() );
 
         wxCHECK2( sheet && screen, continue );
 
@@ -786,14 +779,27 @@ void SCH_IO_EAGLE::loadSchematic( const ESCHEMATIC& aSchematic )
         m_sheetPath.SetPageNumber( pageNo );
         m_sheetPath.pop_back();
 
-        SCH_SCREEN* currentScreen = m_rootSheet->GetScreen();
-
-        wxCHECK2( currentScreen, continue );
-
-        sheet->SetParent( m_sheetPath.Last() );
-        m_schematic->AddTopLevelSheet( sheet.release() );
+        eaglePages.push_back( sheet.release() );
 
         m_sheetIndex++;
+    }
+
+    if( !eaglePages.empty() )
+    {
+        // In the append path m_rootSheet is already the schematic's VR.  Use
+        // AddTopLevelSheet to avoid discarding sheets already in the target.
+        // In the fresh-import path m_rootSheet is a temporary local VR, so we use
+        // SetTopLevelSheets to atomically replace any spurious default sheet with
+        // exactly the Eagle pages.
+        if( m_rootSheet == &m_schematic->Root() )
+        {
+            for( SCH_SHEET* page : eaglePages )
+                m_schematic->AddTopLevelSheet( page );
+        }
+        else
+        {
+            m_schematic->SetTopLevelSheets( eaglePages );
+        }
     }
 
     // Handle the missing symbol units that need to be instantiated
@@ -899,9 +905,6 @@ void SCH_IO_EAGLE::loadSheet( const std::unique_ptr<ESHEET>& aSheet )
     if( m_modules.empty() )
     {
         std::string filename;
-        wxFileName  fn = m_filename;
-
-        fn.SetExt( FILEEXT::AnvilSchematicFileExtension );
 
         filename = wxString::Format( wxT( "%s_%d" ), m_filename.GetName(), m_sheetIndex );
 
@@ -913,7 +916,12 @@ void SCH_IO_EAGLE::loadSheet( const std::unique_ptr<ESHEET>& aSheet )
         ReplaceIllegalFileNameChars( filename );
         replace( filename.begin(), filename.end(), ' ', '_' );
 
+        // Use the project directory so saved pages land alongside the project file,
+        // not in the Eagle source directory.
+        wxFileName fn;
+        fn.SetPath( m_schematic->Project().GetProjectPath() );
         fn.SetName( filename );
+        fn.SetExt( FILEEXT::KiCadSchematicFileExtension );
 
         sheet->SetFileName( fn.GetFullName() );
         screen->SetFileName( fn.GetFullPath() );
@@ -1067,7 +1075,7 @@ void SCH_IO_EAGLE::loadModuleInstance( const std::unique_ptr<EMODULEINST>& aModu
 
     wxFileName fn = m_filename;
     fn.SetName( aModuleInstance->moduleinst );
-    fn.SetExt( FILEEXT::AnvilSchematicFileExtension );
+    fn.SetExt( FILEEXT::KiCadSchematicFileExtension );
 
     VECTOR2I portExtWireEndpoint;
     VECTOR2I size( it->second->dx.ToSchUnits(), it->second->dy.ToSchUnits() );
@@ -1080,7 +1088,7 @@ void SCH_IO_EAGLE::loadModuleInstance( const std::unique_ptr<EMODULEINST>& aModu
 
     std::unique_ptr<SCH_SHEET> newSheet = std::make_unique<SCH_SHEET>( currentSheet, pos, size );
 
-    // The Eagle module for this instance (SCH_SCREEN in Anvil) may have already been loaded.
+    // The Eagle module for this instance (SCH_SCREEN in KiCad) may have already been loaded.
     SCH_SCREEN* newScreen = nullptr;
     SCH_SCREENS schFiles( m_rootSheet );
 
@@ -1165,7 +1173,7 @@ void SCH_IO_EAGLE::loadModuleInstance( const std::unique_ptr<EMODULEINST>& aModu
             else
                 pinType = LABEL_FLAG_SHAPE::L_UNSPECIFIED;
 
-            // Anvil does not support passive, power, open collector, or no-connect sheet
+            // KiCad does not support passive, power, open collector, or no-connect sheet
             // pins that Eagle ports support.  They are set to unspecified to minimize
             // ERC issues.
         }
@@ -1485,7 +1493,7 @@ void SCH_IO_EAGLE::loadSegments( const std::vector<std::unique_ptr<ESEGMENT>>& a
 
         for( const std::unique_ptr<ELABEL>& elabel : esegment->labels )
         {
-            SCH_TEXT* label = loadLabel( elabel, netName );
+            SCH_LABEL_BASE* label = loadLabel( elabel, netName );
             screen->Append( label );
 
             wxASSERT( segDesc.labels.empty()
@@ -1529,10 +1537,20 @@ void SCH_IO_EAGLE::loadSegments( const std::vector<std::unique_ptr<ESEGMENT>>& a
                 label->SetTextSize( VECTOR2I( schIUScale.MilsToIU( 40 ),
                                               schIUScale.MilsToIU( 40 ) ) );
 
-                if( firstWire.B.x > firstWire.A.x )
-                    label->SetSpinStyle( SPIN_STYLE::LEFT );
-                else
-                    label->SetSpinStyle( SPIN_STYLE::RIGHT );
+                if( firstWire.A.y == firstWire.B.y )         // Horizontal wire.
+                {
+                    if( firstWire.B.x > firstWire.A.x )
+                        label->SetSpinStyle( SPIN_STYLE::LEFT );
+                    else
+                        label->SetSpinStyle( SPIN_STYLE::RIGHT );
+                }
+                else if( firstWire.A.x == firstWire.B.x )    // Vertical wire.
+                {
+                    if( firstWire.B.y > firstWire.A.y )
+                        label->SetSpinStyle( SPIN_STYLE::BOTTOM );
+                    else
+                        label->SetSpinStyle( SPIN_STYLE::UP );
+                }
 
                 screen->Append( label.release() );
             }
@@ -1586,7 +1604,12 @@ SCH_ITEM* SCH_IO_EAGLE::loadWire( const std::unique_ptr<EWIRE>& aWire, SEG& endp
     // For segment wires.
     endpoints = SEG( start, end );
 
-    if( aWire->curve )
+    int kicadLayer = kiCadLayer( aWire->layer );
+
+    // Don't process curved wires on an electrical layer into arcs, they aren't supported
+    // in the rest of the code
+    // TODO: When curved wires/buses are added, remove this restriction
+    if( (kicadLayer == LAYER_NOTES) && aWire->curve )
     {
         std::unique_ptr<SCH_SHAPE> arc = std::make_unique<SCH_SHAPE>( SHAPE_T::ARC );
 
@@ -1594,7 +1617,7 @@ SCH_ITEM* SCH_IO_EAGLE::loadWire( const std::unique_ptr<EWIRE>& aWire, SEG& endp
         arc->SetCenter( center );
         arc->SetStart( start );
 
-        // Anvil rotates the other way.
+        // KiCad rotates the other way.
         arc->SetArcAngleAndEnd( -EDA_ANGLE( *aWire->curve, DEGREES_T ), true );
         arc->SetLayer( kiCadLayer( aWire->layer ) );
         arc->SetStroke( STROKE_PARAMS( aWire->width.ToSchUnits(), LINE_STYLE::SOLID ) );
@@ -1669,8 +1692,7 @@ SCH_JUNCTION* SCH_IO_EAGLE::loadJunction( const std::unique_ptr<EJUNCTION>&  aJu
 }
 
 
-SCH_TEXT* SCH_IO_EAGLE::loadLabel( const std::unique_ptr<ELABEL>& aLabel,
-                                   const wxString& aNetName )
+SCH_LABEL_BASE* SCH_IO_EAGLE::loadLabel( const std::unique_ptr<ELABEL>& aLabel, const wxString& aNetName )
 {
     VECTOR2I elabelpos( aLabel->x.ToSchUnits(), -aLabel->y.ToSchUnits() );
 
@@ -1707,7 +1729,7 @@ SCH_TEXT* SCH_IO_EAGLE::loadLabel( const std::unique_ptr<ELABEL>& aLabel,
                 else
                     type = LABEL_SHAPE::LABEL_PASSIVE;
 
-                // Anvil does not support passive, power, open collector, or no-connect sheet
+                // KiCad does not support passive, power, open collector, or no-connect sheet
                 // pins that Eagle ports support.  They are set to unspecified to minimize
                 // ERC issues.
                 label->SetLabelShape( type );
@@ -1736,11 +1758,24 @@ SCH_TEXT* SCH_IO_EAGLE::loadLabel( const std::unique_ptr<ELABEL>& aLabel,
 
     if( aLabel->rot )
     {
-        for( int i = 0; i < KiROUND( aLabel->rot->degrees / 90.0 ) %4; ++i )
-            label->Rotate90( false );
+        // According to the Eagle DTD, labels can only be rotated in 90 degree increments.
+        int angle = KiROUND( aLabel->rot->degrees );
 
-        if( aLabel->rot->mirror )
-            label->MirrorSpinStyle( false );
+        switch( angle )
+        {
+        case 90:
+            label->SetSpinStyle( aLabel->rot->mirror ? SPIN_STYLE::BOTTOM : SPIN_STYLE::UP );
+            break;
+        case 180:
+            label->SetSpinStyle( aLabel->rot->mirror ? SPIN_STYLE::RIGHT : SPIN_STYLE::LEFT );
+            break;
+        case 270:
+            label->SetSpinStyle( aLabel->rot->mirror ? SPIN_STYLE::UP : SPIN_STYLE::BOTTOM );
+            break;
+        default:
+            label->SetSpinStyle( aLabel->rot->mirror ? SPIN_STYLE::LEFT : SPIN_STYLE::RIGHT );
+            break;
+        }
     }
 
     return label.release();
@@ -1936,13 +1971,13 @@ void SCH_IO_EAGLE::loadInstance( const std::unique_ptr<EINSTANCE>& aInstance,
     if( reference.find_last_not_of( wxT( "0123456789" ) ) == ( reference.Length()-1 ) )
         reference.Append( wxT( "0" ) );
 
-    // EAGLE allows references to be single digits.  This breaks Anvil netlisting, which requires
+    // EAGLE allows references to be single digits.  This breaks KiCad netlisting, which requires
     // parts to have non-digit + digit annotation.  If the reference begins with a number,
     // we prepend 'UNK' (unknown) for the symbol designator
     if( reference.find_first_not_of( wxT( "0123456789" ) ) != 0 )
         reference.Prepend( wxT( "UNK" ) );
 
-    // EAGLE allows designator to start with # but that is used in Anvil
+    // EAGLE allows designator to start with # but that is used in KiCad
     // for symbols which do not have a footprint
     if( aInstance->part.find_first_not_of( wxT( "#" ) ) != 0 )
         reference.Prepend( wxT( "UNK" ) );
@@ -2056,7 +2091,7 @@ void SCH_IO_EAGLE::loadInstance( const std::unique_ptr<EINSTANCE>& aInstance,
     }
 
     // Eagle has a brain dead module reference scheme where the module names separated by colons
-    // are prefixed to the symbol references.  This will get blown away in Anvil the first time
+    // are prefixed to the symbol references.  This will get blown away in KiCad the first time
     // any annotation is performed.  It is required for the initial synchronization between the
     // schematic and the board.
     wxString refPrefix;
@@ -2070,13 +2105,11 @@ void SCH_IO_EAGLE::loadInstance( const std::unique_ptr<EINSTANCE>& aInstance,
 
     symbol->AddHierarchicalReference( m_sheetPath.Path(), refPrefix + reference, unit );
 
-    // Save the pin positions
-    LIB_SYMBOL* libSymbol =
-            PROJECT_SCH::SymbolLibAdapter( &m_schematic->Project() )->LoadSymbol( symbol->GetLibId() );
-
-    wxCHECK( libSymbol, /*void*/ );
-
-    symbol->SetLibSymbol( new LIB_SYMBOL( *libSymbol ) );
+    // Cache the lib symbol so pin positions are available for connection-point tracking.
+    // Use the already-loaded `part` directly rather than re-fetching through the adapter,
+    // because the .kicad_sym library is still buffered in m_pi and has not yet been saved to
+    // disk at the time loadInstance runs.
+    symbol->SetLibSymbol( new LIB_SYMBOL( *part ) );
 
     for( const SCH_PIN* pin : symbol->GetLibPins() )
         m_connPoints[symbol->GetPinPhysicalPosition( pin )].emplace( pin );
@@ -2116,7 +2149,7 @@ EAGLE_LIBRARY* SCH_IO_EAGLE::loadLibrary( const ELIBRARY* aLibrary, EAGLE_LIBRAR
             if( edevice->package )
                 aEagleLibrary->package[symbolName] = edevice->package.Get();
 
-            // Create Anvil symbol.
+            // Create KiCad symbol.
             std::unique_ptr<LIB_SYMBOL> libSymbol = std::make_unique<LIB_SYMBOL>( symbolName );
 
             // Process each gate in the deviceset for this device.
@@ -2461,7 +2494,7 @@ SCH_ITEM* SCH_IO_EAGLE::loadSymbolWire( std::unique_ptr<LIB_SYMBOL>& aSymbol,
         arc->SetCenter( center );
         arc->SetStart( begin );
 
-        // Anvil rotates the other way.
+        // KiCad rotates the other way.
         arc->SetArcAngleAndEnd( -EDA_ANGLE( *aWire->curve, DEGREES_T ), true );
         arc->SetUnit( aGateNumber );
 
@@ -2709,7 +2742,7 @@ void SCH_IO_EAGLE::loadFieldAttributes( SCH_FIELD* aField, const SCH_TEXT* aText
 void SCH_IO_EAGLE::adjustNetLabels()
 {
     // Eagle supports detached labels, so a label does not need to be placed on a wire
-    // to be associated with it. Anvil needs to move them, so the labels actually touch the
+    // to be associated with it. KiCad needs to move them, so the labels actually touch the
     // corresponding wires.
 
     // Sort the intersection points to speed up the search process
@@ -2724,7 +2757,7 @@ void SCH_IO_EAGLE::adjustNetLabels()
 
     for( SEG_DESC& segDesc : m_segments )
     {
-        for( SCH_TEXT* label : segDesc.labels )
+        for( SCH_LABEL_BASE* label : segDesc.labels )
         {
             VECTOR2I   labelPos( label->GetPosition() );
             const SEG* segAttached = segDesc.LabelAttached( label );
@@ -2744,11 +2777,17 @@ void SCH_IO_EAGLE::adjustNetLabels()
 
             // Create a vector pointing in the direction of the wire, 50 mils long
             VECTOR2I wireDirection( segAttached->B - segAttached->A );
+
+            if( ( wireDirection.x == 0 ) && (wireDirection.y == 0 ) )
+                continue;
+
             wireDirection = wireDirection.Resize( schIUScale.MilsToIU( 50 ) );
             const VECTOR2I origPos( labelPos );
 
             // Flags determining the search direction
-            bool checkPositive = true, checkNegative = true, move = false;
+            bool checkPositive = true;
+            bool checkNegative = true;
+            bool move = false;
             int  trial = 0;
 
             // Be sure the label is not placed on a wire intersection
@@ -2772,7 +2811,24 @@ void SCH_IO_EAGLE::adjustNetLabels()
             }
 
             if( move )
+            {
                 label->SetPosition( VECTOR2I( labelPos ) );
+
+                if( wireDirection.x == 0 )        // Moved vertically
+                {
+                    if( wireDirection.y < 0 )
+                        label->SetSpinStyle( SPIN_STYLE::UP );
+                    else
+                        label->SetSpinStyle( SPIN_STYLE::BOTTOM );
+                }
+                else if( wireDirection.y == 0 )   // Moved horizontally
+                {
+                    if( wireDirection.x < 0 )
+                        label->SetSpinStyle( SPIN_STYLE::LEFT );
+                    else
+                        label->SetSpinStyle( SPIN_STYLE::RIGHT );
+                }
+            }
         }
     }
 
@@ -3382,7 +3438,7 @@ void SCH_IO_EAGLE::addBusEntries()
 }
 
 
-const SEG* SCH_IO_EAGLE::SEG_DESC::LabelAttached( const SCH_TEXT* aLabel ) const
+const SEG* SCH_IO_EAGLE::SEG_DESC::LabelAttached( const SCH_LABEL_BASE* aLabel ) const
 {
     wxCHECK( aLabel, nullptr );
 
@@ -3532,7 +3588,7 @@ wxString SCH_IO_EAGLE::translateEagleBusName( const wxString& aEagleName ) const
         wxString member = tokenizer.GetNextToken();
 
         // In Eagle, overbar text is automatically stopped at the end of the net name, even when
-        // that net name is part of a bus definition.  In Anvil, we don't (currently) do that, so
+        // that net name is part of a bus definition.  In KiCad, we don't (currently) do that, so
         // if there is an odd number of overbar markers in this net name, we need to append one
         // to close it out before appending the space.
 

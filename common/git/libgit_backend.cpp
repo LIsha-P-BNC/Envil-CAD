@@ -87,6 +87,32 @@ void LIBGIT_BACKEND::Init()
 
 void LIBGIT_BACKEND::Shutdown()
 {
+    // Wait for any abandoned git cleanup threads to finish before tearing
+    // down libgit2.  A worker still inside libgit2 (for example, blocked on
+    // recv() under git_remote_fetch) would otherwise race teardown and
+    // invoke undefined behaviour.  Five seconds is long enough to cover a
+    // transport error timeout but short enough to avoid a perceptibly slow
+    // exit when the remote is truly unreachable.
+
+    constexpr auto kOrphanJoinTimeout = std::chrono::seconds( 5 );
+    size_t         stuck = m_orphanRegistry.JoinAll( kOrphanJoinTimeout );
+
+    if( stuck > 0 )
+    {
+        wxLogTrace( traceGit,
+                    "LIBGIT_BACKEND::Shutdown(): %zu orphan git thread(s) "
+                    "did not finish within %lld ms; skipping libgit2 shutdown",
+                    stuck,
+                    static_cast<long long>( kOrphanJoinTimeout.count() ) );
+
+        // A stuck worker is still executing inside libgit2.  Calling
+        // git_libgit2_shutdown() now would free state the worker is actively
+        // reading.  Leave libgit2 initialised and let the OS reclaim
+        // resources when the process exits.
+
+        return;
+    }
+
     git_libgit2_shutdown();
 }
 
@@ -143,7 +169,7 @@ bool LIBGIT_BACKEND::Clone( GIT_CLONE_HANDLER* aHandler )
     if( git_clone( &newRepo, remote.mbc_str(), aHandler->GetClonePath().mbc_str(),
                    &cloneOptions ) != 0 )
     {
-        aHandler->AddErrorString( wxString::Format( _( "Could not clone repository '%s'" ), remote ) );
+        aHandler->AddErrorString( wxString::Format( _( "Could not clone repository '%s' : %s" ), remote, KIGIT_COMMON::GetLastGitError() ) );
         return false;
     }
 
@@ -270,7 +296,112 @@ CommitResult LIBGIT_BACKEND::Commit( GIT_COMMIT_HANDLER* aHandler,
 }
 
 
-PushResult LIBGIT_BACKEND::Push( GIT_PUSH_HANDLER* aHandler )
+CommitResult LIBGIT_BACKEND::Amend( GIT_COMMIT_HANDLER* aHandler, const std::vector<wxString>& aFiles,
+                                    const wxString& aMessage, const wxString& aAuthorName,
+                                    const wxString& aAuthorEmail )
+{
+    git_repository* repo = aHandler->GetRepo();
+
+    if( !repo )
+        return CommitResult::Error;
+
+    if( git_repository_head_unborn( repo ) != 0 )
+    {
+        aHandler->AddErrorString( _( "Cannot amend: the branch has no commits yet." ) );
+        return CommitResult::Error;
+    }
+
+    git_reference* headRef = nullptr;
+
+    if( git_repository_head( &headRef, repo ) != 0 )
+    {
+        aHandler->AddErrorString(
+                wxString::Format( _( "Failed to get HEAD reference: %s" ), KIGIT_COMMON::GetLastGitError() ) );
+        return CommitResult::Error;
+    }
+
+    KIGIT::GitReferencePtr headRefPtr( headRef );
+    git_commit*            headCommit = nullptr;
+
+    if( git_reference_peel( (git_object**) &headCommit, headRef, GIT_OBJECT_COMMIT ) != 0 )
+    {
+        aHandler->AddErrorString(
+                wxString::Format( _( "Failed to get HEAD commit: %s" ), KIGIT_COMMON::GetLastGitError() ) );
+        return CommitResult::Error;
+    }
+
+    KIGIT::GitCommitPtr headCommitPtr( headCommit );
+    git_index*          index = nullptr;
+
+    if( git_repository_index( &index, repo ) != 0 )
+    {
+        aHandler->AddErrorString(
+                wxString::Format( _( "Failed to get repository index: %s" ), KIGIT_COMMON::GetLastGitError() ) );
+        return CommitResult::Error;
+    }
+
+    KIGIT::GitIndexPtr indexPtr( index );
+
+    for( const wxString& file : aFiles )
+    {
+        if( git_index_add_bypath( index, file.mb_str() ) != 0 )
+        {
+            aHandler->AddErrorString(
+                    wxString::Format( _( "Failed to add file to index: %s" ), KIGIT_COMMON::GetLastGitError() ) );
+            return CommitResult::Error;
+        }
+    }
+
+    if( git_index_write( index ) != 0 )
+    {
+        aHandler->AddErrorString(
+                wxString::Format( _( "Failed to write index: %s" ), KIGIT_COMMON::GetLastGitError() ) );
+        return CommitResult::Error;
+    }
+
+    git_oid tree_id;
+
+    if( git_index_write_tree( &tree_id, index ) != 0 )
+    {
+        aHandler->AddErrorString(
+                wxString::Format( _( "Failed to write tree: %s" ), KIGIT_COMMON::GetLastGitError() ) );
+        return CommitResult::Error;
+    }
+
+    git_tree* tree = nullptr;
+
+    if( git_tree_lookup( &tree, repo, &tree_id ) != 0 )
+    {
+        aHandler->AddErrorString(
+                wxString::Format( _( "Failed to lookup tree: %s" ), KIGIT_COMMON::GetLastGitError() ) );
+        return CommitResult::Error;
+    }
+
+    KIGIT::GitTreePtr treePtr( tree );
+    git_signature*    author = nullptr;
+
+    if( git_signature_now( &author, aAuthorName.mb_str(), aAuthorEmail.mb_str() ) != 0 )
+    {
+        aHandler->AddErrorString(
+                wxString::Format( _( "Failed to create author signature: %s" ), KIGIT_COMMON::GetLastGitError() ) );
+        return CommitResult::Error;
+    }
+
+    KIGIT::GitSignaturePtr authorPtr( author );
+    git_oid                oid;
+
+    if( git_commit_amend( &oid, headCommit, "HEAD", author, author, nullptr, aMessage.mb_str(), tree ) != 0 )
+    {
+        aHandler->AddErrorString(
+                wxString::Format( _( "Failed to amend commit: %s" ), KIGIT_COMMON::GetLastGitError() ) );
+        return CommitResult::Error;
+    }
+
+    return CommitResult::Success;
+}
+
+
+PushResult LIBGIT_BACKEND::Push( GIT_PUSH_HANDLER* aHandler, bool aForce )
 {
     KIGIT_COMMON* common = aHandler->GetCommon();
     std::unique_lock<std::mutex> lock( common->m_gitActionMutex, std::try_to_lock );
@@ -283,11 +414,14 @@ PushResult LIBGIT_BACKEND::Push( GIT_PUSH_HANDLER* aHandler )
 
     PushResult result = PushResult::Success;
 
+    wxString    remoteName = common->GetRemoteNameOrDefault();
+    std::string remoteNameUtf8 = remoteName.utf8_string();
     git_remote* remote = nullptr;
 
-    if( git_remote_lookup( &remote, aHandler->GetRepo(), "origin" ) != 0 )
+    if( git_remote_lookup( &remote, aHandler->GetRepo(), remoteNameUtf8.c_str() ) != 0 )
     {
-        aHandler->AddErrorString( _( "Could not lookup remote" ) );
+        aHandler->AddErrorString( wxString::Format( _( "Could not lookup remote '%s'" ),
+                                                    remoteName ) );
         return PushResult::Error;
     }
 
@@ -328,16 +462,44 @@ PushResult LIBGIT_BACKEND::Push( GIT_PUSH_HANDLER* aHandler )
 
     KIGIT::GitReferencePtr headPtr( head );
 
-    const char* refs[1];
-    refs[0] = git_reference_name( head );
+    // Force push prepends "+" to the refspec source, matching `git push --force`.
+    wxString           refspec = ( aForce ? wxS( "+" ) : wxS( "" ) ) + wxString( git_reference_name( head ) );
+    std::string        refspecUtf8 = refspec.utf8_string();
+    const char*        refs[1] = { refspecUtf8.c_str() };
     const git_strarray refspecs = { (char**) refs, 1 };
 
     if( git_remote_push( remote, &refspecs, &pushOptions ) )
     {
-        aHandler->AddErrorString( wxString::Format( _( "Could not push to remote: %s" ),
-                                                    KIGIT_COMMON::GetLastGitError() ) );
+        wxString errorMsg = KIGIT_COMMON::GetLastGitError();
+        aHandler->AddErrorString( wxString::Format( _( "Could not push to remote: %s" ), errorMsg ) );
         git_remote_disconnect( remote );
+
+        wxString lower = errorMsg.Lower();
+
+        if( lower.Contains( wxS( "non-fast-forward" ) ) || lower.Contains( wxS( "non-fastforwardable" ) )
+            || lower.Contains( wxS( "would not be" ) ) )
+        {
+            return PushResult::NonFastForward;
+        }
+
         return PushResult::Error;
+    }
+
+    // First push from this branch: point it at where we just pushed (git push -u).
+    if( git_reference_is_branch( head ) )
+    {
+        git_reference* upstreamRef = nullptr;
+        int            rc = git_branch_upstream( &upstreamRef, head );
+
+        if( rc == GIT_ENOTFOUND )
+        {
+            wxString upstreamName = wxString::Format( "%s/%s", remoteName, git_reference_shorthand( head ) );
+            git_branch_set_upstream( head, upstreamName.utf8_string().c_str() );
+        }
+        else if( rc == GIT_OK )
+        {
+            KIGIT::GitReferencePtr upstreamPtr( upstreamRef );
+        }
     }
 
     git_remote_disconnect( remote );
@@ -605,7 +767,17 @@ bool LIBGIT_BACKEND::SetupRemote( GIT_INIT_HANDLER* aHandler, const RemoteConfig
 
     if( aConfig.connType == KIGIT_COMMON::GIT_CONN_TYPE::GIT_CONN_SSH )
     {
-        fullURL = aConfig.username + "@" + aConfig.url;
+        wxString userPrefix;
+
+        if( !aConfig.url.Contains( "@" ) && !aConfig.username.IsEmpty() )
+            userPrefix = aConfig.username + "@";
+
+        if( aConfig.url.StartsWith( "ssh://" ) )
+            fullURL = "ssh://" + userPrefix + aConfig.url.Mid( 6 );
+        else if( aConfig.url.Contains( ":" ) )
+            fullURL = userPrefix + aConfig.url;
+        else
+            fullURL = "ssh://" + userPrefix + aConfig.url;
     }
     else if( aConfig.connType == KIGIT_COMMON::GIT_CONN_TYPE::GIT_CONN_HTTPS )
     {
@@ -638,18 +810,30 @@ bool LIBGIT_BACKEND::SetupRemote( GIT_INIT_HANDLER* aHandler, const RemoteConfig
         fullURL = aConfig.url;
     }
 
-    int error = git_remote_create_with_fetchspec( &remote, repo, "origin",
-                                                  fullURL.ToStdString().c_str(),
-                                                  "+refs/heads/*:refs/remotes/origin/*" );
+    int error;
 
-    KIGIT::GitRemotePtr remotePtr( remote );
+    if( git_remote_lookup( &remote, repo, "origin" ) == GIT_OK )
+    {
+        KIGIT::GitRemotePtr remotePtr( remote );
+        error = git_remote_set_url( repo, "origin", fullURL.ToStdString().c_str() );
+    }
+    else
+    {
+        error = git_remote_create_with_fetchspec( &remote, repo, "origin", fullURL.ToStdString().c_str(),
+                                                  "+refs/heads/*:refs/remotes/origin/*" );
+        KIGIT::GitRemotePtr remotePtr( remote );
+    }
 
     if( error != GIT_OK )
     {
-        aHandler->AddErrorString( wxString::Format( _( "Failed to create remote: %s" ),
-                                                    KIGIT_COMMON::GetLastGitError() ) );
+        aHandler->AddErrorString(
+                wxString::Format( _( "Failed to set up remote: %s" ), KIGIT_COMMON::GetLastGitError() ) );
         return false;
     }
+
+    // Sync the remote URL onto common so subsequent fetch/push see the right
+    // connection type; otherwise credentials_cb short-circuits as local.
+    aHandler->GetCommon()->SetRemote( fullURL );
 
     wxLogTrace( traceGit, "Successfully set up remote origin" );
     return true;
@@ -755,12 +939,16 @@ bool LIBGIT_BACKEND::PerformFetch( GIT_PULL_HANDLER* aHandler, bool aSkipLock )
         return false;
     }
 
+    wxString    remoteName = aHandler->GetCommon()->GetRemoteNameOrDefault();
+    std::string remoteNameUtf8 = remoteName.utf8_string();
     git_remote* remote = nullptr;
 
-    if( git_remote_lookup( &remote, aHandler->GetRepo(), "origin" ) != 0 )
+    if( git_remote_lookup( &remote, aHandler->GetRepo(), remoteNameUtf8.c_str() ) != 0 )
     {
-        wxLogTrace( traceGit, "GIT_PULL_HANDLER::PerformFetch() - Failed to lookup remote 'origin'" );
-        aHandler->AddErrorString( wxString::Format( _( "Could not lookup remote '%s'" ), "origin" ) );
+        wxLogTrace( traceGit, "GIT_PULL_HANDLER::PerformFetch() - Failed to lookup remote '%s'",
+                    remoteName );
+        aHandler->AddErrorString( wxString::Format( _( "Could not lookup remote '%s'" ),
+                                                    remoteName ) );
         return false;
     }
 
@@ -781,8 +969,8 @@ bool LIBGIT_BACKEND::PerformFetch( GIT_PULL_HANDLER* aHandler, bool aSkipLock )
     {
         wxString errorMsg = KIGIT_COMMON::GetLastGitError();
         wxLogTrace( traceGit, "GIT_PULL_HANDLER::PerformFetch() - Failed to connect to remote: %s", errorMsg );
-        aHandler->AddErrorString( wxString::Format( _( "Could not connect to remote '%s': %s" ), "origin",
-                                                    errorMsg ) );
+        aHandler->AddErrorString( wxString::Format( _( "Could not connect to remote '%s': %s" ),
+                                                    remoteName, errorMsg ) );
         return false;
     }
 
@@ -794,8 +982,8 @@ bool LIBGIT_BACKEND::PerformFetch( GIT_PULL_HANDLER* aHandler, bool aSkipLock )
     {
         wxString errorMsg = KIGIT_COMMON::GetLastGitError();
         wxLogTrace( traceGit, "GIT_PULL_HANDLER::PerformFetch() - Failed to fetch from remote: %s", errorMsg );
-        aHandler->AddErrorString( wxString::Format( _( "Could not fetch data from remote '%s': %s" ), "origin",
-                                                    errorMsg ) );
+        aHandler->AddErrorString( wxString::Format( _( "Could not fetch data from remote '%s': %s" ),
+                                                    remoteName, errorMsg ) );
         return false;
     }
 
@@ -823,6 +1011,49 @@ PullResult LIBGIT_BACKEND::PerformPull( GIT_PULL_HANDLER* aHandler )
     if( git_repository_fetchhead_foreach( aHandler->GetRepo(), fetchhead_foreach_cb, &pull_merge_oid ) )
     {
         aHandler->AddErrorString( _( "Could not read 'FETCH_HEAD'" ) );
+        return PullResult::Error;
+    }
+
+    // Add Version Control doesn't write branch.<name>.merge, so FETCH_HEAD has no
+    // merge-marked entry.  Fall back to refs/remotes/<remote>/<branch> and persist
+    // the upstream so subsequent pulls take the normal path.
+#if ( LIBGIT2_VER_MAJOR >= 1 ) || ( LIBGIT2_VER_MINOR >= 99 )
+    if( git_oid_is_zero( &pull_merge_oid ) )
+#else
+    if( git_oid_iszero( &pull_merge_oid ) )
+#endif
+    {
+        git_reference* head_ref = nullptr;
+
+        if( git_repository_head( &head_ref, aHandler->GetRepo() ) == GIT_OK )
+        {
+            KIGIT::GitReferencePtr headRefPtr( head_ref );
+
+            if( git_reference_is_branch( head_ref ) )
+            {
+                const char* branch_shorthand = git_reference_shorthand( head_ref );
+                wxString    remoteName = aHandler->GetCommon()->GetRemoteNameOrDefault();
+                wxString    remoteRefName = wxString::Format( "refs/remotes/%s/%s", remoteName, branch_shorthand );
+
+                if( git_reference_name_to_id( &pull_merge_oid, aHandler->GetRepo(),
+                                              remoteRefName.utf8_string().c_str() )
+                    == GIT_OK )
+                {
+                    wxString upstream = wxString::Format( "%s/%s", remoteName, branch_shorthand );
+                    git_branch_set_upstream( head_ref, upstream.utf8_string().c_str() );
+                }
+            }
+        }
+    }
+
+#if ( LIBGIT2_VER_MAJOR >= 1 ) || ( LIBGIT2_VER_MINOR >= 99 )
+    if( git_oid_is_zero( &pull_merge_oid ) )
+#else
+    if( git_oid_iszero( &pull_merge_oid ) )
+#endif
+    {
+        aHandler->AddErrorString( _( "Nothing to pull: the remote has no branch matching "
+                                     "the current local branch." ) );
         return PullResult::Error;
     }
 

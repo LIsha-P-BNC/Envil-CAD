@@ -225,7 +225,7 @@ static wxString filterFootprints( const wxString& aFilterJson )
 
         return wxString::FromUTF8( output.dump() );
     }
-    catch( const std::exception& e )
+    catch( const std::exception& )
     {
         return wxS( "[]" );
     }
@@ -392,7 +392,7 @@ static struct IFACE : public KIFACE_BASE, public UNITS_PROVIDER
             for( ACTION_TOOLBAR_CONTROL* control : ACTION_TOOLBAR::GetCustomControlList( FRAME_FOOTPRINT_EDITOR ) )
                 controls.push_back( control );
 
-            return new PANEL_TOOLBAR_CUSTOMIZATION( aParent, cfg, tb, actions, controls );
+            return new PANEL_TOOLBAR_CUSTOMIZATION( aParent, cfg, tb, FRAME_FOOTPRINT_EDITOR, actions, controls );
         }
 
         case PANEL_FP_COLORS:
@@ -463,7 +463,7 @@ static struct IFACE : public KIFACE_BASE, public UNITS_PROVIDER
             for( ACTION_TOOLBAR_CONTROL* control : ACTION_TOOLBAR::GetCustomControlList( FRAME_PCB_EDITOR ) )
                 controls.push_back( control );
 
-            return new PANEL_TOOLBAR_CUSTOMIZATION( aParent, cfg, tb, actions, controls );
+            return new PANEL_TOOLBAR_CUSTOMIZATION( aParent, cfg, tb, FRAME_PCB_EDITOR, actions, controls );
         }
 
         case PANEL_PCB_ACTION_PLUGINS:
@@ -492,7 +492,7 @@ static struct IFACE : public KIFACE_BASE, public UNITS_PROVIDER
             for( ACTION_TOOLBAR_CONTROL* control : ACTION_TOOLBAR::GetCustomControlList( FRAME_PCB_DISPLAY3D ) )
                 controls.push_back( control );
 
-            return new PANEL_TOOLBAR_CUSTOMIZATION( aParent, cfg, tb, actions, controls );
+            return new PANEL_TOOLBAR_CUSTOMIZATION( aParent, cfg, tb, FRAME_PCB_DISPLAY3D, actions, controls );
         }
 
         default:
@@ -804,6 +804,10 @@ void IFACE::closeCurrentDocument( KICAD_API_SERVER* aServer )
     }
 
     m_openContext.reset();
+
+    // The jobs handler caches the last-loaded board. Clear it so the next job
+    // uses the board from the newly opened document rather than a stale copy.
+    m_jobHandler->ClearCachedBoard();
 }
 
 
@@ -827,6 +831,11 @@ bool IFACE::HandleApiOpenDocument( const wxString& aPath, KICAD_API_SERVER* aSer
         projectPath.SetExt( FILEEXT::ProjectFileExtension );
 
     projectPath.MakeAbsolute();
+
+    // Close any existing document before loading a new project. LoadProject with
+    // aSetActive=true destroys the old PROJECT, which would leave the old board and
+    // context holding dangling m_project pointers.
+    closeCurrentDocument( aServer );
 
     SETTINGS_MANAGER& settingsManager = Pgm().GetSettingsManager();
 
@@ -896,7 +905,6 @@ bool IFACE::HandleApiOpenDocument( const wxString& aPath, KICAD_API_SERVER* aSer
         return false;
     }
 
-    closeCurrentDocument( aServer );
     m_openContext = std::move( newContext );
 
     m_openHandler = std::make_unique<API_HANDLER_PCB>( m_openContext, nullptr );

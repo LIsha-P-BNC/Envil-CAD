@@ -365,7 +365,7 @@ BOOST_FIXTURE_TEST_CASE( SetBoardDesignRules_SeverityOverrides, API_SERVER_E2E_F
         *setRequest.mutable_board() = document;
 
         kiapi::board::DrcSeveritySetting* setting = setRequest.mutable_rules()->add_severities();
-        setting->set_error_key( "unconnected_items" );
+        setting->set_rule_type( kiapi::board::DrcErrorType::DRCET_UNCONNECTED_ITEMS );
         setting->set_severity( aSeverity );
 
         kiapi::common::ApiResponse setApiResponse;
@@ -379,12 +379,12 @@ BOOST_FIXTURE_TEST_CASE( SetBoardDesignRules_SeverityOverrides, API_SERVER_E2E_F
 
         bool found = false;
 
-        for( const kiapi::board::DrcSeveritySetting& setting : verifyResponse.rules().severities() )
+        for( const kiapi::board::DrcSeveritySetting& severity : verifyResponse.rules().severities() )
         {
-            if( setting.error_key() == "unconnected_items" )
+            if( severity.rule_type() == kiapi::board::DrcErrorType::DRCET_UNCONNECTED_ITEMS )
             {
                 found = true;
-                BOOST_CHECK( setting.severity() == aSeverity );
+                BOOST_CHECK( severity.severity() == aSeverity );
                 break;
             }
         }

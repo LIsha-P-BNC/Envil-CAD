@@ -38,6 +38,7 @@
 #include <sch_io/sch_io.h>
 #include <eda_dde.h>
 #include <connection_graph.h>
+#include <sch_netchain.h>
 #include <sch_sheet.h>
 #include <sch_symbol.h>
 #include <sch_reference_list.h>
@@ -245,6 +246,16 @@ void SCH_EDIT_FRAME::ExecuteRemoteCommand( const char* cmdline )
             m_highlightedConn = sg->GetDriverConnection()->Name();
         else
             m_highlightedConn = wxEmptyString;
+
+        // If the incoming net belongs to a net chain, also turn on chain
+        // highlight so the schematic mirrors what the PCB editor is doing.
+        if( CONNECTION_GRAPH* graph = Schematic().ConnectionGraph() )
+        {
+            if( SCH_NETCHAIN* chain = graph->GetNetChainForNet( m_highlightedConn ) )
+                SetHighlightedNetChain( chain->GetName() );
+            else
+                SetHighlightedNetChain( wxEmptyString );
+        }
 
         GetToolManager()->RunAction( SCH_ACTIONS::updateNetHighlighting );
         RefreshNetNavigator();
@@ -493,7 +504,7 @@ bool findSymbolsAndPins(
 
     SCH_REFERENCE_LIST references;
 
-    aSheetPath.GetSymbols( references, false, true );
+    aSheetPath.GetSymbols( references, SYMBOL_FILTER_NON_POWER, true );
 
     for( unsigned ii = 0; ii < references.GetCount(); ii++ )
     {
@@ -580,7 +591,7 @@ bool sheetContainsOnlyWantedItems(
     }
 
     SCH_REFERENCE_LIST references;
-    aSheetPath.GetSymbols( references, false, true );
+    aSheetPath.GetSymbols( references, SYMBOL_FILTER_NON_POWER, true );
 
     if( references.GetCount() == 0 )    // Empty sheet, obviously do not contain wanted items
     {
@@ -1172,7 +1183,7 @@ void SCH_EDIT_FRAME::KiwayMailIn( KIWAY_MAIL_EVENT& mail )
             wxString errors = adapter->GetLibraryLoadErrors();
 
             if( !errors.IsEmpty() )
-                statusBar->SetLoadWarningMessages( errors );
+                statusBar->AddWarningMessages( "load", errors );
         }
 
         break;

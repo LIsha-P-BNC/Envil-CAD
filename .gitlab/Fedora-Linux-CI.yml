@@ -45,6 +45,7 @@
       - build/linux/common/gal/libkigal.so*
       - build/linux/eeschema/_eeschema.kiface
       - build/linux/cvpcb/_cvpcb.kiface
+      - build/linux/gerbview/_gerbview.kiface
       - build/linux/kicad/kicad-cli
       - build/linux/pcbnew/_pcbnew.kiface
       - build/linux/pcbnew/_pcbnew.so

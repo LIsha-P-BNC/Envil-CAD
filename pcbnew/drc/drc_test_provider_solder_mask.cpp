@@ -216,6 +216,9 @@ void DRC_TEST_PROVIDER_SOLDER_MASK::buildRTrees()
 
     m_fullSolderMaskRTree->Insert( solderMask, F_Mask );
     m_fullSolderMaskRTree->Insert( solderMask, B_Mask );
+    m_fullSolderMaskRTree->Build();
+
+    m_itemTree->Build();
 
     m_checkedPairs.clear();
 }
