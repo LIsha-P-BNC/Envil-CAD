@@ -23,11 +23,15 @@
 #include <dialog_shim.h>
 
 #include <atomic>
+#include <functional>
+#include <memory>
+#include <mutex>
 #include <wx/timer.h>
 
 class wxSimplebook;
 class wxStaticText;
 class wxTextCtrl;
+class wxTopLevelWindow;
 class ANVIL_LOGIN_BUTTON;
 
 
@@ -51,7 +55,15 @@ class ANVIL_LOGIN_BUTTON;
 class KICOMMON_API DIALOG_ANVIL_LOGIN : public DIALOG_SHIM
 {
 public:
-    explicit DIALOG_ANVIL_LOGIN( wxWindow* aParent );
+    /**
+     * @param aParent is the usual dialog parent, and is normally nullptr: the gate is a
+     *                top-level surface of its own, not a box floating over a window.
+     * @param aCoverWindow, when given, is the window whose place on screen this gate takes
+     *                (the main frame during a re-login).  The gate then opens on that
+     *                window's display, matching its size and maximized state, so swapping
+     *                one for the other reads as a single window changing what it shows.
+     */
+    explicit DIALOG_ANVIL_LOGIN( wxWindow* aParent, wxTopLevelWindow* aCoverWindow = nullptr );
     ~DIALOG_ANVIL_LOGIN() override;
 
     /**
@@ -90,6 +102,16 @@ private:
 
     void showError( const wxString& aMessage );
 
+    /**
+     * Run @a aCall on the thread pool and hand its result back on the UI thread.
+     *
+     * The task holds no pointer to the dialog: it takes a share of m_async, whose mutex the
+     * destructor takes to mark the dialog gone.  A late result is then dropped rather than
+     * waited for, so closing the gate mid-request never freezes the window.
+     */
+    void runAsync( std::function<void( bool&, wxString& )> aCall,
+                   std::function<void( bool, const wxString& )> aOnResult );
+
 
     void clearError();
     void setBusy( bool aBusy );
@@ -98,10 +120,23 @@ private:
 
     static bool isPlausibleEmail( const wxString& aEmail );
 
-    /// Set the minimum and windowed ("restore down") geometry, then show maximized.
+    /// Set the minimum and windowed ("restore down") geometry, then show maximized (or, when
+    /// covering a window, take over exactly the geometry that window occupies).
     void applyStartupGeometry();
 
+    /// Shared between the dialog and its in-flight pool tasks; see runAsync().
+    struct ASYNC_GATE
+    {
+        std::mutex    mutex;
+        bool          alive = true;
+        wxEvtHandler* handler = nullptr;
+    };
+
 private:
+    wxTopLevelWindow*   m_coverWindow;      // window whose place on screen we take, or null
+
+    std::shared_ptr<ASYNC_GATE> m_async;
+
     wxSimplebook*       m_book;
 
     // shared card header
@@ -125,7 +160,6 @@ private:
     int                 m_resendRemaining;
 
     std::atomic<bool>   m_busy;             // a network call is in flight
-    std::atomic<bool>   m_closed;           // dialog is going away; drop late results
 };
 
 #endif // DIALOG_ANVIL_LOGIN_H_

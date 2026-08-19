@@ -81,6 +81,16 @@ public:
     static bool Logout( wxString* aError = nullptr );
 
     /**
+     * End the session without ever blocking the caller: the local session is wiped before
+     * this returns (so IsLoggedIn() is already false), and the server-side logout is posted
+     * on the shared thread pool with the credentials captured beforehand.
+     *
+     * This is what interactive sign-out should call — Logout() blocks on the network for as
+     * long as the connect timeout allows, which freezes the window it was called from.
+     */
+    static void LogoutDetached();
+
+    /**
      * Ask the server for the latest released version for this platform (POST latest).
      * Wired but intentionally not called at startup yet.
      */

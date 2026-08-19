@@ -41,6 +41,8 @@ enum MAIL_T
     MAIL_SELECTION_FORCE,          // Explicit selection of SCH->PCB selection synchronization.
     MAIL_ASSIGN_FOOTPRINTS,        // CVPCB->SCH footprint stuffing
     MAIL_SCH_SAVE,                 // CVPCB->SCH save the schematic
+    MAIL_PCB_SAVE,                 // ->PCB save the board; payload comes back "success" on a
+                                   // successful write and is left untouched otherwise
     MAIL_EESCHEMA_NETLIST,         // SCH->CVPCB netlist immediately after launching CVPCB
     MAIL_SYMBOL_NETLIST,           // SCH->FP_CHOOSER symbol pin & fp_filter information
     MAIL_PCB_UPDATE,               // SCH->PCB forward update

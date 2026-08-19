@@ -27,6 +27,7 @@
 
 #include <build_version.h>
 #include <json_common.h>
+#include <thread_pool.h>
 
 #include <cstdlib>
 #include <optional>
@@ -416,6 +417,46 @@ bool ANVIL_AUTH::Logout( wxString* aError )
         *aError = error;
 
     return serverOk;
+}
+
+
+void ANVIL_AUTH::LogoutDetached()
+{
+    // Read the session (a cheap local secret-store hit) and drop it before returning: the
+    // caller is signed out the instant this call is done, so the UI can move straight on to
+    // the sign-in gate instead of waiting on the network.
+    std::optional<SESSION> session = loadSession();
+
+    WipeSession();
+
+    if( !session || session->email.IsEmpty() )
+        return;
+
+    // The server is told on a worker thread, using the credentials captured above.  Nothing
+    // it does afterwards touches the secret store, so a sign-in that lands while the request
+    // is still in flight cannot have its fresh session wiped by this task.
+    const wxString email = session->email;
+    const wxString token = session->token;
+
+    GetKiCadThreadPool().detach_task(
+            [email, token]()
+            {
+                // Nothing may escape a pool task.
+                try
+                {
+                    nlohmann::json body = {
+                        { ANVIL_API::F_EMAIL, std::string( email.utf8_str() ) }
+                    };
+
+                    std::string response;
+                    wxString    error;
+
+                    postJson( ANVIL_API::LOGOUT_PATH, body, response, error, token );
+                }
+                catch( ... )
+                {
+                }
+            } );
 }
 
 

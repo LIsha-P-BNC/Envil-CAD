@@ -727,21 +727,49 @@ int KICAD_MANAGER_CONTROL::SignOut( const TOOL_EVENT& aEvent )
         return 0;
     }
 
+    // The local session goes now; the server is told from a worker thread.  Signing out must
+    // never sit on a network round trip with the window frozen behind it.
+    ANVIL_AUTH::LogoutDetached();
+
+    // Hand the screen over to the gate the way startup does: it stands where the workspace
+    // stood, so this reads as one window changing what it shows rather than a dialog thrown
+    // over a live application.  The workspace comes back only once a sign-in lands; anything
+    // else means "actually, close the application".
+    DIALOG_ANVIL_LOGIN loginDlg( nullptr, m_frame );
+
+    // Hide the workspace from inside the modal loop, i.e. once the gate is already on screen:
+    // hiding it first would flash the desktop between the two windows.
+    m_frame->CallAfter( [frame = m_frame]()
+                        {
+                            frame->Hide();
+                        } );
+
+    const bool signedIn = loginDlg.ShowModal() == wxID_OK;
+
+    if( signedIn )
     {
-        // Best-effort server-side logout; the local session is wiped either way, so a dead
-        // network cannot pin the user signed in.
-        wxBusyCursor busy;
-        ANVIL_AUTH::Logout();
+        // ShowModal() hid the gate; bring it straight back as a plain window so it keeps
+        // covering the screen — showing "opening your workspace" — while the workspace comes
+        // back up behind it.
+        loginDlg.Show( true );
+        loginDlg.Raise();
     }
 
-    // Back to the gate.  A fresh sign-in lets the user carry on in the same session;
-    // cancelling means "actually, close the application".
-    DIALOG_ANVIL_LOGIN loginDlg( m_frame );
+    // Whatever happens next the frame has to come back: on success it is the workspace again,
+    // and on cancel it has to be visible to run its normal close (save prompts and all).
+    m_frame->Show( true );
 
-    if( loginDlg.ShowModal() != wxID_OK )
+    if( !signedIn )
+    {
         m_frame->Close( false );
-    else
-        m_frame->ReCreateMenuBar();   // the account block names the newly signed-in user
+        return 0;
+    }
+
+    m_frame->ReCreateMenuBar();   // the account block names the newly signed-in user
+    m_frame->Raise();
+
+    // Workspace is up: retire the cover.  (The dialog itself dies at the end of this scope.)
+    loginDlg.Hide();
 
     return 0;
 }

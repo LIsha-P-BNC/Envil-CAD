@@ -35,6 +35,7 @@
 #include <vector>
 
 #include <wx/dcbuffer.h>
+#include <wx/dcmemory.h>
 #include <wx/display.h>
 #include <wx/datetime.h>
 #include <wx/graphics.h>
@@ -354,19 +355,43 @@ void addRoundedPolyline( wxGraphicsPath& aPath, const std::vector<wxPoint2DDoubl
 
 /// The light page's ground, expressed in dialog coordinates and shifted into the local space of
 /// a window whose top-left corner is at @a aOrigin.
+///
+/// The gradient runs perpendicular to the cut, not straight down: the paper is shaded where
+/// the board lies over it and opens out to clean stock under the card.  That is what carries
+/// the board across the split — the page reads as one sheet the board is resting on, so the
+/// green joins the form instead of stopping dead at the seam.
 wxGraphicsBrush pageGroundBrush( wxGraphicsContext* aGc, const wxPoint& aOrigin,
                                  const wxSize& aWindow )
 {
-    return aGc->CreateLinearGradientBrush( 0, -aOrigin.y, 0, aWindow.y - aOrigin.y,
-                                           ANVIL::LOGIN_PAGE_TOP, ANVIL::LOGIN_PAGE_BG );
+    const double midY = aWindow.y * 0.5;
+    const double runX = brandSeamX( aWindow, aWindow.y ) - brandSeamX( aWindow, 0.0 );
+    const double len = std::max( 1.0, std::hypot( runX, (double) aWindow.y ) );
+
+    // Unit normal of the cut, pointing east into the page.  The cut leans west as it
+    // descends ( runX < 0 ), so this also carries the axis slightly downhill.
+    const double nx = aWindow.y / len;
+    const double ny = -runX / len;
+
+    const double startX = brandSeamX( aWindow, midY );
+    const double reach = ( aWindow.x - startX ) / std::max( 0.001, nx );
+
+    return aGc->CreateLinearGradientBrush( startX - aOrigin.x, midY - aOrigin.y,
+                                           startX + nx * reach - aOrigin.x,
+                                           midY + ny * reach - aOrigin.y,
+                                           ANVIL::LOGIN_PAGE_BG, ANVIL::LOGIN_PAGE_TOP );
 }
 
 
-/// The page side of the cut: nothing but the thin shadow the board throws onto the paper,
-/// tight enough that it reads as the edge itself rather than as a band beside it.  The split
-/// has to be one line — no echo tracks, no second edge.  Both windows that touch the page
-/// paint this from the same dialog-space equations, which is what lets the shading run
-/// straight through the boundary between them.
+/// The cut where the board meets the paper, painted as a milled edge rather than as a mask
+/// boundary: the routed face catches light on the board side, and the paper takes a short
+/// graded shadow on the other.  That pair is the whole trick — a single hard split reads as
+/// two flat colours butted together, where a lit rim over a seated shadow reads as one
+/// physical edge with the two materials merging along it.
+///
+/// Still one edge, though: the shadow grades away over a few pixels and never gains enough
+/// weight to read as a second line beside the first.  Both windows that touch the page paint
+/// this from the same dialog-space equations, which is what lets the shading run straight
+/// through the boundary between them.
 void paintPageEdge( wxGraphicsContext* aGc, const wxPoint& aOrigin, const wxSize& aWindow,
                     double aPx )
 {
@@ -386,9 +411,37 @@ void paintPageEdge( wxGraphicsContext* aGc, const wxPoint& aOrigin, const wxSize
         aGc->StrokePath( path );
     };
 
-    // One shadow only, hugging the cut: enough to seat the board over the paper, too tight
-    // to read as a second edge of its own.
-    strokeAt( 1.5, wxColour( 12, 34, 27, 30 ), 3.0 );
+    // A soft band, built as a ramp of narrow overlapping strokes walking away from the cut
+    // with the alpha falling off under @a aExponent.  A handful of wide strokes would be
+    // cheaper, but each one's outer boundary shows up as a step, and a step beside the cut
+    // is exactly the second edge this seam must not have.  @a aSpan is signed: negative
+    // walks west onto the board, positive walks east onto the paper.
+    auto ramp = [&]( double aSpan, const wxColour& aInk, double aBaseAlpha, double aExponent )
+    {
+        constexpr int STEPS = 10;
+        const double  reach = std::abs( aSpan );
+        const double  sign = aSpan < 0 ? -1.0 : 1.0;
+
+        // Far to near, so the densest part of the band ends up hard against the cut.
+        for( int i = STEPS - 1; i >= 0; --i )
+        {
+            const double d = ( i + 0.75 ) * reach / STEPS;
+            const double alpha = aBaseAlpha * std::pow( 1.0 - d / reach, aExponent );
+
+            if( alpha >= 1.0 )
+                strokeAt( sign * d, withAlpha( aInk, (unsigned char) alpha ), 3.0 );
+        }
+    };
+
+    // Board side: light spilling off the routed face, then the milled edge itself.  The
+    // bloom is what softens the meeting — without it the rim is a bright line ruled onto a
+    // flat fill rather than a lit edge the two materials merge along.
+    ramp( -16.0, ANVIL::LOGIN_BOARD_EDGE, 15.0, 1.4 );
+    strokeAt( -0.6, withAlpha( ANVIL::LOGIN_BOARD_EDGE, 110 ), 1.5 );
+
+    // Paper side: the shadow the board casts onto the sheet, seating it there instead of
+    // letting it float.
+    ramp( 21.0, wxColour( 12, 34, 27 ), 26.0, 1.6 );
 }
 
 
@@ -2594,6 +2647,12 @@ private:
                         withAlpha( ANVIL::ACCENT, 215 ), 1.8 * aPx );
     }
 
+    /**
+     * The board artwork is a few hundred antialiased vector shapes and does not change unless
+     * the geometry it is derived from does, so it is rendered once into a bitmap and blitted
+     * from there.  Without this, every paint during a window resize re-runs the whole scene
+     * and the drag visibly stutters.
+     */
     void onPaint( wxPaintEvent& )
     {
         wxAutoBufferedPaintDC dc( this );
@@ -2601,6 +2660,28 @@ private:
         const wxPoint org = originInDialog( this );
         const wxSize  win = dialogClientSize( this );
 
+        if( sz.x < 1 || sz.y < 1 )
+            return;
+
+        // The cache is a plain 1:1 buffer in the paint DC's own units — the same thing
+        // wxAutoBufferedPaintDC keeps internally — so it blits without any scaling.
+        if( !m_cache.IsOk() || m_cacheClient != sz || m_cacheOrigin != org || m_cacheWindow != win )
+        {
+            m_cache = wxBitmap( sz, 24 );
+
+            wxMemoryDC memDC( m_cache );
+            renderArtwork( memDC, sz, org, win );
+
+            m_cacheClient = sz;
+            m_cacheOrigin = org;
+            m_cacheWindow = win;
+        }
+
+        dc.DrawBitmap( m_cache, 0, 0, false );
+    }
+
+    void renderArtwork( wxMemoryDC& dc, const wxSize& sz, const wxPoint& org, const wxSize& win )
+    {
         std::unique_ptr<wxGraphicsContext> gc( wxGraphicsContext::Create( dc ) );
 
         if( !gc )
@@ -2723,6 +2804,12 @@ private:
             y += cardH + cardGap;
         }
     }
+
+private:
+    wxBitmap m_cache;                       // rendered artwork for the geometry below
+    wxSize   m_cacheClient = wxDefaultSize;
+    wxPoint  m_cacheOrigin = wxDefaultPosition;
+    wxSize   m_cacheWindow = wxDefaultSize;
 };
 
 
@@ -2775,10 +2862,12 @@ private:
 // DIALOG_ANVIL_LOGIN
 // -----------------------------------------------------------------------------------------
 
-DIALOG_ANVIL_LOGIN::DIALOG_ANVIL_LOGIN( wxWindow* aParent ) :
+DIALOG_ANVIL_LOGIN::DIALOG_ANVIL_LOGIN( wxWindow* aParent, wxTopLevelWindow* aCoverWindow ) :
         DIALOG_SHIM( aParent, wxID_ANY, wxS( "ANVIL CAD | EDA DESIGN SUITE" ), wxDefaultPosition,
                      wxDefaultSize, wxDEFAULT_DIALOG_STYLE | wxMINIMIZE_BOX | wxMAXIMIZE_BOX
                              | wxRESIZE_BORDER ),
+        m_coverWindow( aCoverWindow ),
+        m_async( std::make_shared<ASYNC_GATE>() ),
         m_book( nullptr ),
         m_headingLabel( nullptr ),
         m_subLabel( nullptr ),
@@ -2791,9 +2880,10 @@ DIALOG_ANVIL_LOGIN::DIALOG_ANVIL_LOGIN( wxWindow* aParent ) :
         m_errorLabel( nullptr ),
         m_resendTimer( this ),
         m_resendRemaining( 0 ),
-        m_busy( false ),
-        m_closed( false )
+        m_busy( false )
 {
+    m_async->handler = this;
+
     wxBoxSizer* split = new wxBoxSizer( wxHORIZONTAL );
 
     split->Add( new BRAND_PANEL( this ), 13, wxEXPAND );
@@ -2894,13 +2984,47 @@ DIALOG_ANVIL_LOGIN::DIALOG_ANVIL_LOGIN( wxWindow* aParent ) :
 
 DIALOG_ANVIL_LOGIN::~DIALOG_ANVIL_LOGIN()
 {
-    m_closed = true;
     m_resendTimer.Stop();
 
-    // A worker may still be talking to the server; give it a bounded chance to notice
-    // m_closed and unwind before the members it might touch go away.
-    for( int i = 0; i < 100 && m_busy.load(); ++i )
-        wxMilliSleep( 50 );
+    // Close the gate on any request still in flight.  Taking the mutex only serialises us
+    // against a worker in the act of posting its result — never against the network call
+    // itself — so closing this dialog is instant even mid-request.  Anything the worker has
+    // already posted dies with our pending-event queue.
+    std::lock_guard<std::mutex> lock( m_async->mutex );
+    m_async->alive = false;
+    m_async->handler = nullptr;
+}
+
+
+void DIALOG_ANVIL_LOGIN::runAsync( std::function<void( bool&, wxString& )> aCall,
+                                   std::function<void( bool, const wxString& )> aOnResult )
+{
+    GetKiCadThreadPool().detach_task(
+            [gate = m_async, call = std::move( aCall ), onResult = std::move( aOnResult )]()
+            {
+                wxString error;
+                bool     ok = false;
+
+                // Nothing may escape a pool task: an exception here would bypass the result
+                // hand-off below and leave the dialog stuck in its busy state.
+                try
+                {
+                    call( ok, error );
+                }
+                catch( const std::exception& e )
+                {
+                    error = wxString::FromUTF8( e.what() );
+                }
+                catch( ... )
+                {
+                    error = _( "Unexpected failure while contacting the server." );
+                }
+
+                std::lock_guard<std::mutex> lock( gate->mutex );
+
+                if( gate->alive && gate->handler )
+                    gate->handler->CallAfter( [onResult, ok, error]() { onResult( ok, error ); } );
+            } );
 }
 
 
@@ -3006,7 +3130,11 @@ wxWindow* DIALOG_ANVIL_LOGIN::buildOpeningPage( wxWindow* aParent )
 
 void DIALOG_ANVIL_LOGIN::applyStartupGeometry()
 {
-    int index = wxDisplay::GetFromWindow( this );
+    // Size ourselves on the display of the window we are taking over from, not on whatever
+    // display an unshown dialog happens to report.
+    wxWindow* reference = m_coverWindow ? static_cast<wxWindow*>( m_coverWindow ) : this;
+
+    int index = wxDisplay::GetFromWindow( reference );
 
     if( index == wxNOT_FOUND )
         index = 0;
@@ -3023,6 +3151,19 @@ void DIALOG_ANVIL_LOGIN::applyStartupGeometry()
     const wxSize restored( std::min( FromDIP( 1280 ), work.width ),
                            std::min( FromDIP( 820 ), work.height ) );
 
+    // Taking over from a windowed main frame: stand exactly where it stands, so the swap
+    // reads as one window changing what it shows rather than a second window appearing.
+    // (Its rect is read even while it is hidden — during a re-login it is hidden behind us,
+    // and that is exactly the geometry we have to keep standing in for.)
+    if( m_coverWindow && !m_coverWindow->IsMaximized() && !m_coverWindow->IsIconized() )
+    {
+        const wxRect frameRect = m_coverWindow->GetRect();
+
+        SetSize( wxRect( frameRect.x, frameRect.y, std::max( frameRect.width, restored.x ),
+                         std::max( frameRect.height, restored.y ) ) );
+        return;
+    }
+
     SetSize( wxRect( work.x + ( work.width - restored.x ) / 2,
                      work.y + ( work.height - restored.y ) / 2, restored.x, restored.y ) );
 
@@ -3032,14 +3173,17 @@ void DIALOG_ANVIL_LOGIN::applyStartupGeometry()
 
 bool DIALOG_ANVIL_LOGIN::Show( bool aShow )
 {
-    const bool ret = DIALOG_SHIM::Show( aShow );
-
-    // DIALOG_SHIM restores a saved position/size keyed on the dialog title; for a full-page
-    // sign-in screen that is never what we want, so take the geometry back afterwards.
     if( aShow )
+    {
+        // The sign-in screen is a full page, never a remembered floating box.  Drop the
+        // geometry DIALOG_SHIM saved for it (it would otherwise re-position the window right
+        // after it appears, which shows up as a jump) and size ourselves here, while the
+        // window is still off screen.
+        resetSize();
         applyStartupGeometry();
+    }
 
-    return ret;
+    return DIALOG_SHIM::Show( aShow );
 }
 
 
@@ -3149,56 +3293,32 @@ void DIALOG_ANVIL_LOGIN::onSendOtp()
     setBusy( true );
     m_sendButton->SetLabelText( _( "Sending…" ) );
 
-    GetKiCadThreadPool().detach_task(
-            [this, email]()
-            {
-                wxString error;
-                bool     ok = false;
+    runAsync( [email]( bool& aOk, wxString& aError )
+              {
+                  aOk = ANVIL_AUTH::RequestOtp( email, aError );
+              },
+              [this, email]( bool aOk, const wxString& aError )
+              {
+                  m_busy = false;
+                  setBusy( false );
 
-                // Nothing may escape a pool task: an exception here would bypass the
-                // m_busy reset below and leave the dialog stuck in its "Sending…" state.
-                try
-                {
-                    ok = ANVIL_AUTH::RequestOtp( email, error );
-                }
-                catch( const std::exception& e )
-                {
-                    error = wxString::FromUTF8( e.what() );
-                }
-                catch( ... )
-                {
-                    error = _( "Unexpected failure while contacting the server." );
-                }
-
-                if( !m_closed )
-                {
-                    CallAfter(
-                            [this, ok, error, email]()
-                            {
-                                setBusy( false );
-
-                                if( ok )
-                                {
-                                    m_email = email;
-                                    setHeader( _( "Check your email" ),
-                                               wxString::Format(
-                                                       _( "We sent a %d-digit code to %s." ),
-                                                       ANVIL_API::OTP_LENGTH, email ) );
-                                    m_book->SetSelection( 1 );
-                                    m_otpCtrl->Clear();
-                                    m_otpCtrl->SetFocus();
-                                    startResendCooldown();
-                                    Layout();
-                                }
-                                else
-                                {
-                                    showError( error );
-                                }
-                            } );
-                }
-
-                m_busy = false;
-            } );
+                  if( aOk )
+                  {
+                      m_email = email;
+                      setHeader( _( "Check your email" ),
+                                 wxString::Format( _( "We sent a %d-digit code to %s." ),
+                                                   ANVIL_API::OTP_LENGTH, email ) );
+                      m_book->SetSelection( 1 );
+                      m_otpCtrl->Clear();
+                      m_otpCtrl->SetFocus();
+                      startResendCooldown();
+                      Layout();
+                  }
+                  else
+                  {
+                      showError( aError );
+                  }
+              } );
 }
 
 
@@ -3223,48 +3343,29 @@ void DIALOG_ANVIL_LOGIN::onVerifyOtp()
 
     const wxString email = m_email;
 
-    GetKiCadThreadPool().detach_task(
-            [this, email, otp]()
-            {
-                wxString error;
-                bool     ok = false;
+    runAsync( [email, otp]( bool& aOk, wxString& aError )
+              {
+                  aOk = ANVIL_AUTH::VerifyOtp( email, otp, aError );
+              },
+              [this]( bool aOk, const wxString& aError )
+              {
+                  m_busy = false;
+                  setBusy( false );
 
-                // See onSendOtp(): a pool task must never let an exception escape.
-                try
-                {
-                    ok = ANVIL_AUTH::VerifyOtp( email, otp, error );
-                }
-                catch( const std::exception& e )
-                {
-                    error = wxString::FromUTF8( e.what() );
-                }
-                catch( ... )
-                {
-                    error = _( "Unexpected failure while contacting the server." );
-                }
-
-                if( !m_closed )
-                {
-                    CallAfter(
-                            [this, ok, error]()
-                            {
-                                setBusy( false );
-
-                                if( ok )
-                                {
-                                    EndModal( wxID_OK );
-                                }
-                                else
-                                {
-                                    showError( error );
-                                    m_otpCtrl->SelectAll();
-                                    m_otpCtrl->SetFocus();
-                                }
-                            } );
-                }
-
-                m_busy = false;
-            } );
+                  if( aOk )
+                  {
+                      // Turn to the hand-off page before the modal loop unwinds: the caller
+                      // brings the workspace up next, and the gate stays on screen saying so.
+                      ShowOpeningState();
+                      EndModal( wxID_OK );
+                  }
+                  else
+                  {
+                      showError( aError );
+                      m_otpCtrl->SelectAll();
+                      m_otpCtrl->SetFocus();
+                  }
+              } );
 }
 
 
