@@ -2679,13 +2679,11 @@ private:
         // left over is split above and below so the block sits centred under the plate.
         double cardH = 97 * px;
         double cardGap = 6 * px;
-        double bottomH = 92 * px;
         double leadIn = 56 * px;
 
         auto blockHeight = [&]()
         {
-            return leadIn + 32 * px + headingH + 34 * px + 3 * ( cardH + cardGap ) + 22 * px
-                   + bottomH;
+            return leadIn + 32 * px + headingH + 34 * px + 3 * ( cardH + cardGap );
         };
 
         const double avail = sz.y - y - 44 * px;
@@ -2696,7 +2694,6 @@ private:
             const double k = std::min( std::max( avail / needed, 0.62 ), 1.30 );
             cardH *= k;
             cardGap *= k;
-            bottomH *= k;
             leadIn *= k;
         }
 
@@ -2725,50 +2722,6 @@ private:
             paintFeature( gc.get(), feature, margin, y, contentW, cardH, px );
             y += cardH + cardGap;
         }
-
-        // --- closing card ----------------------------------------------------------------
-        y += 22 * px - cardGap;
-
-        drawRoundedBox( gc.get(), margin, y, contentW, bottomH, 12 * px,
-                        withAlpha( ANVIL::CAP_ACTIVE, 95 ),
-                        withAlpha( ANVIL::LOGIN_TILE_BORDER, 165 ), 1.3 * px );
-
-        const double discR = bottomH * 0.24;
-        const double discX = margin + 26 * px;
-        const double discY = y + bottomH * 0.5 - discR;
-
-        gc->SetPen( *wxTRANSPARENT_PEN );
-        gc->SetBrush( wxBrush( ANVIL::ACCENT ) );
-        gc->DrawEllipse( discX, discY, discR * 2, discR * 2 );
-
-        drawShieldGlyph( gc.get(), discX + discR * 0.52, discY + discR * 0.44, discR * 0.96,
-                         discR * 1.12, ANVIL::ON_ACCENT, true, 0.0 );
-        drawCheckGlyph( gc.get(), discX + discR * 0.70, discY + discR * 0.62, discR * 0.60,
-                        discR * 0.76, ANVIL::CAP_ACTIVE, 1.8 * px );
-
-        wxFont claim = base;
-        claim.MakeBold();
-        claim.SetFractionalPointSize( base.GetFractionalPointSize() * 1.30 );
-
-        wxFont claimSub = base;
-        claimSub.SetFractionalPointSize( base.GetFractionalPointSize() * 1.31 );
-
-        const double claimX = discX + discR * 2 + 20 * px;
-
-        gc->SetFont( claim, ANVIL::ACCENT );
-        const double claimH = lineHeightGC( gc.get() );
-
-        gc->SetFont( claimSub, withAlpha( ANVIL::BONE, 190 ) );
-        const double claimSubH = lineHeightGC( gc.get() );
-
-        const double claimY = y + ( bottomH - ( claimH + claimSubH + 5 * px ) ) * 0.5;
-
-        gc->SetFont( claim, ANVIL::ACCENT );
-        drawTrackedGC( gc.get(), _( "ONE PROJECT. EVERY LAYER." ), claimX, claimY, 1.6 * px );
-
-        gc->SetFont( claimSub, withAlpha( ANVIL::BONE, 190 ) );
-        gc->DrawText( _( "Built for precision. Designed for engineers." ), claimX,
-                      claimY + claimH + 5 * px );
     }
 };
 
@@ -2916,29 +2869,6 @@ DIALOG_ANVIL_LOGIN::DIALOG_ANVIL_LOGIN( wxWindow* aParent ) :
 
     column->Add( card, 0, wxEXPAND );
     column->AddStretchSpacer( 1 );
-
-    // footer: © line, on the page rather than on the card
-    {
-        // Note SetLabelText, not the ctor label: the text contains '&', which a plain label
-        // would eat as a mnemonic marker.  The build version rides along here because the
-        // brand plate no longer carries it and support needs it readable before sign-in.
-        wxStaticText* footer = new wxStaticText( form, wxID_ANY, wxEmptyString );
-        footer->SetLabelText( wxString::Format( wxS( "© %d Anvil CAD · " ),
-                                                wxDateTime::Now().GetYear() )
-                              + _( "Confidential & Proprietary" )
-                              + wxString::Format( wxS( " · v%s" ), GetSemanticVersion() ) );
-        footer->SetForegroundColour( ANVIL::LOGIN_MUTED );
-        footer->SetBackgroundColour( ANVIL::LOGIN_PAGE_BG );
-
-        wxFont footerFont = KIUI::GetMonospacedUIFont();
-        footerFont.SetFractionalPointSize( base.GetFractionalPointSize() * 0.72 );
-        footer->SetFont( footerFont );
-
-        // Wrapped and non-expanding: as the widest child it would otherwise dictate the
-        // column width and stretch the card across the display.
-        footer->Wrap( FromDIP( 440 ) );
-        column->Add( footer, 0, wxALIGN_CENTER_HORIZONTAL | wxBOTTOM, FromDIP( 22 ) );
-    }
 
     formOuter->AddStretchSpacer( 1 );
     formOuter->Add( column, 0, wxEXPAND );
