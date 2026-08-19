@@ -1,5 +1,5 @@
 /*
- * Envil AI — board-side executor for AI tool calls. See envil_pcb_tool_exec.h.
+ * Anvil AI — board-side executor for AI tool calls. See anvil_pcb_tool_exec.h.
  *
  * Mirrors the schematic tool set so the agent works the same way on both documents:
  * read (get_board), check (run_drc), and edit (move_footprint / add_track / add_via /
@@ -7,7 +7,7 @@
  * to switch conventions mid-design.
  */
 
-#include "envil_pcb_tool_exec.h"
+#include "anvil_pcb_tool_exec.h"
 
 #include <map>
 #include <set>
@@ -789,7 +789,7 @@ std::string EnvilCaptureBoardFootprints( PCB_EDIT_FRAME* aFrame )
 }
 
 
-std::string EnvilExecPcbTool( PCB_EDIT_FRAME* aFrame, const std::string& aRequestJson )
+std::string AnvilExecPcbTool( PCB_EDIT_FRAME* aFrame, const std::string& aRequestJson )
 {
     json result;
 

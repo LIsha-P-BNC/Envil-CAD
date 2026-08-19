@@ -1,29 +1,29 @@
 /*
- * Envil AI — board-side executor for AI tool calls.
+ * Anvil AI — board-side executor for AI tool calls.
  *
  * The PCB counterpart of eeschema's envil_ai_tool_exec: the agent (in-app panel or an
- * external MCP client) reaches this through MAIL_ENVIL_PCB_TOOL, so board work goes through
+ * external MCP client) reaches this through MAIL_ANVIL_PCB_TOOL, so board work goes through
  * exactly the same request/response path as schematic work.
  *
  * Declared without json/pcbnew types so cross-probing.cpp can call it without pulling
  * nlohmann in.
  */
 
-#ifndef ENVIL_PCB_TOOL_EXEC_H
-#define ENVIL_PCB_TOOL_EXEC_H
+#ifndef ANVIL_PCB_TOOL_EXEC_H
+#define ANVIL_PCB_TOOL_EXEC_H
 
 #include <string>
 
 class PCB_EDIT_FRAME;
 
 /**
- * Execute one Envil AI board tool. Must run on the UI thread.
+ * Execute one Anvil AI board tool. Must run on the UI thread.
  *
  * @param aFrame the board editor to act on.
  * @param aRequestJson {"tool":"add_track","input":{...}}
  * @return {"ok":true|false,"message":"..."} — never throws; failures come back as ok:false.
  */
-std::string EnvilExecPcbTool( PCB_EDIT_FRAME* aFrame, const std::string& aRequestJson );
+std::string AnvilExecPcbTool( PCB_EDIT_FRAME* aFrame, const std::string& aRequestJson );
 
 /**
  * Write the board's footprints to a project-local <project>.pretty library and register it
@@ -34,4 +34,4 @@ std::string EnvilExecPcbTool( PCB_EDIT_FRAME* aFrame, const std::string& aReques
  */
 std::string EnvilCaptureBoardFootprints( PCB_EDIT_FRAME* aFrame );
 
-#endif // ENVIL_PCB_TOOL_EXEC_H
+#endif // ANVIL_PCB_TOOL_EXEC_H

@@ -1,2631 +1,378 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta charset="UTF-8">
+<meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Anvil AI</title>
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
 <style>
+  /* ---- Anvil brand (NEMI): Space Grotesk / IBM Plex Mono,
+     Signal Emerald #10A37E, Warm Graphite #292926, Black Ground #070707, Bone #ECE7DD ---- */
   :root {
-    color-scheme: dark;
-    /* NEMI LMM emerald — matches the app chrome. */
-    --bg-0:        #070707;
-    --bg-1:        #161615;
-    --bg-2:        #292926;
-    --bg-3:        #0a4938;
-    --bg-input:    #101010;
-    --border-1:    #1a2e28;
-    --border-2:    #234a40;
-    --border-acc:  #10a37e;
-    --text-1:      #ece7dd;
-    --text-2:      #cbd5c9;
-    --text-3:      #8a8a85;
-    --text-4:      #5a6b60;
-    --user-grad-1: #0a4938;
-    --user-grad-2: #10a37e;
-    --ai-bubble:   #161615;
-    --ai-border:   #234a40;
-    --accent:      #10a37e;
-    --accent-hi:   #2dd4bf;
-    --accent-soft: rgba(16,163,126,.14);
-    --ok:          #34d399;
-    --warn:        #fbbf24;
-    --err:         #f87171;
-    --shadow-sm:   0 1px 2px rgba(0,0,0,.4);
-    --shadow-md:   0 4px 16px rgba(0,0,0,.45);
-    --radius-sm:   6px;
-    --radius:      10px;
-    --radius-lg:   14px;
+    --emerald:      #10A37E;
+    --emerald-dim:  #0B7A5E;
+    --emerald-soft: rgba(16,163,126,.14);
+    --ground:       #070707;
+    --graphite:     #292926;
+    --graphite-2:   #33332F;
+    --bone:         #ECE7DD;
+    --bone-dim:     #B8B4AA;
+    --err:          #D9544F;
+    --radius:       10px;
+    --mono: "IBM Plex Mono", Consolas, "Courier New", monospace;
+    --sans: "Space Grotesk", "Segoe UI", system-ui, sans-serif;
   }
-
   * { box-sizing: border-box; margin: 0; padding: 0; }
   html, body { height: 100%; }
   body {
-    background: var(--bg-0);
-    color: var(--text-1);
-    font: 14px/1.5 "Space Grotesk", "Inter", -apple-system, "Segoe UI", Roboto, sans-serif;
-    font-feature-settings: "cv11", "ss01", "ss03";
-    display: flex; flex-direction: column;
+    background: var(--ground);
+    color: var(--bone);
+    font-family: var(--sans);
+    font-size: 13.5px;
+    display: flex;
+    flex-direction: column;
     overflow: hidden;
-    -webkit-font-smoothing: antialiased;
   }
-  ::-webkit-scrollbar { width: 8px; height: 8px; }
-  ::-webkit-scrollbar-track { background: transparent; }
-  ::-webkit-scrollbar-thumb { background: var(--border-2); border-radius: 4px; }
-  ::-webkit-scrollbar-thumb:hover { background: var(--border-acc); }
 
-  /* ── Header ─────────────────────────────────────────── */
-  header {
-    display: flex; align-items: center; justify-content: space-between;
-    padding: 14px 18px;
-    background: var(--bg-1);
-    border-bottom: 1px solid var(--border-1);
-    flex-shrink: 0;
-  }
-  .brand { display: flex; align-items: center; gap: 10px; }
-  .brand-logo {
-    width: 34px; height: 34px;
-    display: grid; place-items: center;
-  }
-  .brand-logo img { width: 34px; height: 34px; object-fit: contain; display: block; }
-  .brand-text .name { font-weight: 600; font-size: 14px; letter-spacing: -0.01em; }
-  .brand-text .sub  { font-size: 11px; color: var(--text-3); margin-top: 1px; }
-
-  .status {
+  /* ---------- header ---------- */
+  #hdr {
     display: flex; align-items: center; gap: 8px;
-    padding: 5px 10px;
-    background: var(--bg-2);
-    border: 1px solid var(--border-1);
-    border-radius: 999px;
-    font-size: 11px; font-weight: 500;
-    color: var(--text-2);
-  }
-  .dot { width: 7px; height: 7px; border-radius: 50%; background: var(--text-4); }
-  .dot.connected   { background: var(--ok);  box-shadow: 0 0 8px rgba(52,211,153,.6); }
-  .dot.connecting  { background: var(--warn); animation: pulse 1.2s infinite; }
-  .dot.disconnected { background: var(--err); }
-  @keyframes pulse { 0%,100% { opacity: 1 } 50% { opacity: .35 } }
-  .header-right { display: flex; align-items: center; gap: 10px; }
-  .newchat-btn { color: var(--text-2); }
-  .newchat-btn:hover { color: var(--accent-hi); background: var(--accent-soft); }
-
-  /* ── Context bar ────────────────────────────────────── */
-  #ctxBar {
-    display: none;
-    padding: 8px 18px; font-size: 12px; color: var(--text-2);
-    background: var(--bg-2); border-bottom: 1px solid var(--border-1);
-  }
-  #ctxBar.active { display: flex; align-items: center; gap: 7px; }
-  #ctxBar .label { color: var(--text-3); }
-  #ctxBar .ctx-proj {
-    color: var(--text-2); font-weight: 600;
-  }
-  #ctxBar .ctx-sep { color: var(--text-3); opacity: .6; }
-  #ctxBar code {
-    color: var(--accent-hi);
-    font-family: "JetBrains Mono", ui-monospace, Consolas, monospace;
-    font-size: 11px;
-  }
-  /* "whole project" hint dot — signals the AI sees the entire project,
-     this file is just the one in focus. */
-  #ctxBar .ctx-scope {
-    margin-left: auto; color: var(--text-3); font-size: 10.5px;
-    opacity: .8; white-space: nowrap;
-  }
-
-  /* ── Messages ───────────────────────────────────────── */
-  #messages {
-    flex: 1; overflow-y: auto;
-    padding: 20px 18px;
-    display: flex; flex-direction: column; gap: 14px;
-    scroll-behavior: smooth;
-  }
-  .row { display: flex; gap: 10px; align-items: flex-start; max-width: 100%; }
-  .row.user { flex-direction: row-reverse; }
-  .avatar {
-    flex-shrink: 0; width: 28px; height: 28px;
-    border-radius: 8px;
-    display: grid; place-items: center;
-    font-size: 12px; font-weight: 600; color: #fff;
-    box-shadow: var(--shadow-sm);
-  }
-  .avatar.ai   { background: transparent; }
-  .avatar.user { background: linear-gradient(135deg, #444c66, #2a3148); color: var(--text-1); }
-  .avatar svg  { width: 14px; height: 14px; }
-
-  .bubble {
-    max-width: 100%;
     padding: 10px 14px;
-    border-radius: var(--radius-lg);
-    font-size: 13.5px; line-height: 1.55;
-    word-wrap: break-word; overflow-wrap: break-word;
-  }
-  .bubble.user {
-    background: linear-gradient(135deg, var(--user-grad-1), var(--user-grad-2));
-    color: #fff;
-    border-bottom-right-radius: 4px;
-    box-shadow: var(--shadow-sm);
-  }
-  .bubble.ai {
-    background: var(--ai-bubble);
-    border: 1px solid var(--ai-border);
-    color: var(--text-1);
-    border-bottom-left-radius: 4px;
-  }
-  .bubble.ai p, .bubble.user p { white-space: pre-wrap; }
-
-  .bubble code {
-    background: rgba(0,0,0,.3); padding: 1px 6px; border-radius: 4px;
-    font-family: "JetBrains Mono", ui-monospace, Consolas, monospace;
-    font-size: 12.5px;
-  }
-  .bubble.user code { background: rgba(255,255,255,.15); }
-  .bubble pre {
-    background: var(--bg-0);
-    border: 1px solid var(--border-1);
-    padding: 10px 12px; border-radius: var(--radius-sm);
-    overflow-x: auto; margin: 8px 0; font-size: 12.5px;
-  }
-  .bubble pre code { background: transparent; padding: 0; font-size: inherit; }
-  .bubble strong { font-weight: 600; }
-
-  .system-msg {
-    align-self: center;
-    color: var(--text-3); font-size: 11.5px;
-    padding: 4px 12px; background: var(--bg-2);
-    border-radius: 999px; border: 1px solid var(--border-1);
-    max-width: 80%; text-align: center;
-  }
-
-  /* ─── Schematic summary card ─────────────────────────────────────── */
-  .anvil-summary {
-    align-self: stretch;
-    margin: 6px 0 4px;
-    padding: 14px 16px;
-    background: var(--bg-2);
-    border: 1px solid var(--border-1);
-    border-radius: var(--radius);
-    font-size: 12.5px; color: var(--text-1);
-    box-shadow: 0 1px 0 rgba(0,0,0,.15);
-  }
-  .es-head {
-    display: flex; align-items: baseline; justify-content: space-between;
-    gap: 12px; margin-bottom: 10px;
-  }
-  .es-file {
-    font-size: 13.5px; font-weight: 600; color: var(--text-1);
-    letter-spacing: -.01em;
-  }
-  .es-stats { font-size: 11.5px; color: var(--text-3); white-space: nowrap; }
-  .es-rails {
-    display: flex; flex-wrap: wrap; gap: 6px;
-    margin-bottom: 12px;
-  }
-  .es-chip {
-    display: inline-block;
-    padding: 2px 8px;
-    background: rgba(16,163,126,.12);
-    border: 1px solid rgba(16,163,126,.3);
-    border-radius: 999px;
-    font-size: 11px; font-weight: 500; color: #a7f3d0;
-    font-family: ui-monospace, "Cascadia Code", Consolas, monospace;
-  }
-  .es-status {
-    display: flex; align-items: center; gap: 8px;
-    padding: 8px 12px;
-    border-radius: var(--radius-sm);
-    margin-bottom: 12px;
-    font-size: 12px; font-weight: 500;
-  }
-  .es-status-icon {
-    display: inline-flex; align-items: center; justify-content: center;
-    width: 20px; height: 20px; border-radius: 50%;
-    font-size: 12px; font-weight: 700;
-    background: rgba(255,255,255,.15);
-  }
-  .es-status-label { flex: 1; }
-  .es-status-count { font-size: 11px; opacity: .75; font-weight: 400; }
-  .es-status-ok   { background: rgba(74,222,128,.10); border: 1px solid rgba(74,222,128,.3); color: #86efac; }
-  .es-status-info { background: rgba(16,163,126,.10); border: 1px solid rgba(16,163,126,.3); color: #a7f3d0; }
-  .es-status-warn { background: rgba(251,191,36,.10); border: 1px solid rgba(251,191,36,.3); color: #fcd34d; }
-  .es-status-err  { background: rgba(248,113,113,.10); border: 1px solid rgba(248,113,113,.35); color: #fca5a5; }
-
-  .es-sev {
-    margin-top: 8px;
-    border: 1px solid var(--border-1);
-    border-radius: var(--radius-sm);
-    background: var(--bg-3);
-    overflow: hidden;
-  }
-  .es-sev > summary {
-    list-style: none;
-    display: flex; align-items: center; gap: 8px;
-    padding: 8px 12px;
-    cursor: pointer;
-    font-size: 12px; font-weight: 500;
+    background: var(--graphite);
+    border-bottom: 1px solid #000;
     user-select: none;
   }
-  .es-sev > summary::-webkit-details-marker { display: none; }
-  .es-sev > summary:hover { background: rgba(255,255,255,.03); }
-  .es-sev-dot {
-    width: 8px; height: 8px; border-radius: 50%;
-    flex-shrink: 0;
+  #hdr .mark {
+    width: 22px; height: 22px; border-radius: 6px;
+    background: var(--emerald);
+    display: grid; place-items: center;
+    font-weight: 700; color: #04120D; font-size: 13px;
   }
-  .es-sev-name { flex: 1; color: var(--text-1); }
-  .es-sev-num {
-    font-size: 11px; padding: 1px 8px;
-    background: rgba(255,255,255,.06);
-    border-radius: 999px; color: var(--text-2);
+  #hdr .title { font-weight: 600; letter-spacing: .02em; }
+  #hdr .spacer { flex: 1; }
+  #dot {
+    width: 9px; height: 9px; border-radius: 50%;
+    background: #6b6b64; transition: background .25s;
   }
-  .es-sev-crit .es-sev-dot { background: #f87171; box-shadow: 0 0 0 2px rgba(248,113,113,.18); }
-  .es-sev-high .es-sev-dot { background: #fb923c; box-shadow: 0 0 0 2px rgba(251,146,60,.18); }
-  .es-sev-med  .es-sev-dot { background: #fcd34d; box-shadow: 0 0 0 2px rgba(252,211,77,.18); }
+  #dot.ok   { background: var(--emerald); box-shadow: 0 0 6px var(--emerald); }
+  #dot.busy { background: #d9a63f; }
+  #dot.err  { background: var(--err); }
+  #stat { color: var(--bone-dim); font-size: 11.5px; }
+  #newBtn {
+    background: none; border: 1px solid var(--graphite-2); color: var(--bone-dim);
+    border-radius: 7px; padding: 3px 10px; font: inherit; font-size: 11.5px; cursor: pointer;
+  }
+  #newBtn:hover { border-color: var(--emerald); color: var(--emerald); }
 
-  .es-cat {
-    padding: 6px 12px 4px;
-    font-size: 10.5px; font-weight: 600;
-    color: var(--text-3);
-    text-transform: uppercase; letter-spacing: .06em;
+  /* ---------- context strip ---------- */
+  #ctx {
+    padding: 5px 14px;
+    font-family: var(--mono); font-size: 10.5px;
+    color: var(--bone-dim);
+    background: #0d0d0c;
+    border-bottom: 1px solid #1a1a18;
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
   }
-  .es-cat-num { font-weight: 400; opacity: .7; }
-  .es-items {
-    list-style: none;
-    margin: 0; padding: 0 12px 8px;
-  }
-  .es-items li {
-    display: flex; flex-wrap: wrap; gap: 6px;
-    align-items: baseline;
-    padding: 4px 0;
-    font-size: 12px; line-height: 1.45;
-    border-top: 1px solid rgba(255,255,255,.04);
-  }
-  .es-items li:first-child { border-top: none; }
-  .es-ref {
-    display: inline-block;
-    padding: 1px 6px;
-    background: rgba(255,255,255,.06);
-    border-radius: 4px;
-    font-family: ui-monospace, "Cascadia Code", Consolas, monospace;
-    font-size: 11px; color: var(--text-1);
-    flex-shrink: 0;
-  }
-  .es-title { color: var(--text-1); font-weight: 500; }
-  .es-detail {
-    flex-basis: 100%;
-    color: var(--text-3); font-size: 11px;
-    padding-left: 0; margin-top: 2px;
-  }
-  .es-empty {
-    padding: 10px 12px;
-    background: rgba(74,222,128,.06);
-    border: 1px dashed rgba(74,222,128,.25);
-    border-radius: var(--radius-sm);
-    color: #86efac; font-size: 12px; text-align: center;
-  }
-  .es-circuit {
-    padding: 6px 10px;
-    margin-bottom: 8px;
-    background: rgba(16,163,126,.10);
-    border-left: 3px solid rgba(16,163,126,.55);
-    border-radius: 4px;
-    font-size: 12.5px; font-weight: 600;
-    color: #cbd5e1;
-    font-family: ui-monospace, "Cascadia Code", Consolas, monospace;
-    letter-spacing: -.01em;
-  }
-  .error-msg {
-    align-self: center;
-    color: var(--err); font-size: 12.5px;
-    padding: 8px 14px;
-    background: rgba(248,113,113,.08);
-    border: 1px solid rgba(248,113,113,.3);
-    border-radius: var(--radius);
-    max-width: 90%;
-  }
+  #ctx b { color: var(--emerald); font-weight: 500; }
 
-  .attachment {
-    display: inline-flex; align-items: center; gap: 8px;
-    padding: 6px 10px; margin-top: 8px;
-    background: rgba(0,0,0,.25); border: 1px solid var(--border-acc);
-    border-radius: var(--radius-sm);
-    font-size: 11.5px; color: var(--text-2);
+  /* ---------- messages ---------- */
+  #msgs {
+    flex: 1; overflow-y: auto; overflow-x: hidden;
+    padding: 14px;
+    display: flex; flex-direction: column; gap: 10px;
+    scroll-behavior: smooth;
   }
-  .attachment img {
-    max-height: 120px; max-width: 240px; border-radius: 4px;
-    display: block; margin: 0;
-  }
-  .attachment.image { padding: 4px; background: transparent; border: 1px solid var(--border-acc); }
+  #msgs::-webkit-scrollbar { width: 8px; }
+  #msgs::-webkit-scrollbar-thumb { background: var(--graphite-2); border-radius: 4px; }
 
-  .thinking {
-    display: none;
-    padding: 6px 18px; font-size: 12px; color: var(--text-3);
-    align-items: center; gap: 8px;
-  }
-  .thinking.active { display: flex; }
-  .think-dots span {
-    display: inline-block; width: 5px; height: 5px; border-radius: 50%;
-    background: var(--text-3); margin: 0 1px;
-    animation: bounce 1.4s infinite ease-in-out both;
-  }
-  .think-dots span:nth-child(2) { animation-delay: .15s; }
-  .think-dots span:nth-child(3) { animation-delay: .3s; }
-  @keyframes bounce {
-    0%, 80%, 100% { transform: scale(.6); opacity: .4; }
-    40%           { transform: scale(1.0); opacity: 1; }
-  }
-
-  /* ── Live activity feed (Claude-Code-style tool timeline) ─────────────
-     Names what Anvil is doing right now — one line per tool call, with a
-     spinner while it runs and a green check once it's done, plus an elapsed
-     timer. Pinned above the footer; auto-hides shortly after the turn ends.
-     This replaces the old generic "Analyzing/Designing/Processing" loop. */
-  .activity {
-    display: none;
-    margin: 4px 14px 10px;
-    border: 1px solid var(--border-1);
-    border-radius: var(--radius-sm);
-    background: var(--bg-2);
-    overflow: hidden;
-    box-shadow: var(--shadow-sm);
-  }
-  .activity.active { display: block; }
-  .act-head {
-    display: flex; align-items: center; gap: 8px;
+  .msg { max-width: 92%; line-height: 1.5; word-wrap: break-word; }
+  .msg.user {
+    align-self: flex-end;
+    background: var(--emerald-soft);
+    border: 1px solid rgba(16,163,126,.35);
+    border-radius: var(--radius) var(--radius) 3px var(--radius);
     padding: 8px 12px;
-    font-size: 12.5px; font-weight: 600; color: var(--text-1);
-    border-bottom: 1px solid var(--border-1);
   }
-  .act-head .dot {
-    width: 7px; height: 7px; border-radius: 50%;
-    background: var(--accent-hi); box-shadow: 0 0 8px rgba(167,139,250,.6);
-    animation: pulse 1.2s infinite; flex-shrink: 0;
+  .msg.ai {
+    align-self: flex-start;
+    background: var(--graphite);
+    border: 1px solid #1c1c1a;
+    border-radius: var(--radius) var(--radius) var(--radius) 3px;
+    padding: 9px 13px;
   }
-  .act-title { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-  .act-timer {
-    font-size: 11px; font-weight: 500; color: var(--text-3);
-    font-family: "JetBrains Mono", ui-monospace, Consolas, monospace;
+  .msg.sys {
+    align-self: center;
+    color: var(--bone-dim); font-size: 11px;
+    font-family: var(--mono);
+    padding: 1px 8px;
   }
-  .act-list { padding: 4px 0; max-height: 148px; overflow-y: auto; }
-  .act-step {
-    display: flex; align-items: center; gap: 9px;
-    padding: 4px 12px; font-size: 12px; color: var(--text-2);
-  }
-  .act-ico { width: 13px; height: 13px; flex-shrink: 0; display: grid; place-items: center; }
-  .act-ico svg { width: 13px; height: 13px; }
-  .act-label { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-  .act-step.done { color: var(--text-3); }
-  .act-step.done .act-ico { color: var(--ok); }
-  .act-step.run  { color: var(--text-1); font-weight: 500; }
-  .act-spin {
-    width: 11px; height: 11px;
-    border: 2px solid var(--border-acc); border-top-color: var(--accent-hi);
-    border-radius: 50%; animation: act-spin .7s linear infinite;
-  }
-  @keyframes act-spin { to { transform: rotate(360deg); } }
-  /* Backend has gone quiet for longer than its heartbeat interval. The feed stays put —
-     it just stops claiming everything is fine. Silently hiding it is what used to make a
-     live turn look like a crash. */
-  .activity.stalled .act-head .dot { background: var(--warn, #e0a33e); box-shadow: none; }
-  .activity.stalled .act-timer { color: var(--warn, #e0a33e); }
-
-  /* Collapsible "Thinking" panel — streams the model's real reasoning
-     (Claude.ai-style). Expanded while the model reasons, auto-collapses
-     once the actual reply starts; click the header to toggle. Only ever
-     rendered when chat_ui.thinking is enabled server-side. */
-  .think-panel {
-    margin: 4px 18px 10px; border: 1px solid var(--border-1);
-    border-radius: var(--radius-sm); background: var(--bg-3);
-    font-size: 12px; overflow: hidden;
-  }
-  .think-panel .tp-head {
-    display: flex; align-items: center; gap: 7px;
-    padding: 7px 10px; cursor: pointer; user-select: none;
-    color: var(--text-2);
-  }
-  .think-panel .tp-head:hover { color: var(--accent-hi); }
-  .think-panel .tp-chevron {
-    display: inline-flex; transition: transform .15s ease; opacity: .8;
-  }
-  .think-panel.collapsed .tp-chevron { transform: rotate(-90deg); }
-  .think-panel .tp-label { flex: 1; }
-  .think-panel .tp-spark {
-    display: inline-block; width: 6px; height: 6px; border-radius: 50%;
-    background: var(--accent-hi);
-    animation: bounce 1.4s infinite ease-in-out both;
-  }
-  .think-panel.done .tp-spark { display: none; }
-  .think-panel .tp-body {
-    padding: 2px 12px 10px 12px; color: var(--text-3);
-    white-space: pre-wrap; word-break: break-word;
-    max-height: 260px; overflow-y: auto; line-height: 1.5;
-    border-top: 1px solid var(--border-1);
-  }
-  .think-panel.collapsed .tp-body { display: none; }
-
-  .ops {
-    margin-top: 10px; padding: 10px 12px;
-    background: var(--bg-3); border: 1px solid var(--border-1);
-    border-radius: var(--radius-sm);
-  }
-  .ops-title {
-    font-size: 11px; font-weight: 600; color: var(--text-3);
-    text-transform: uppercase; letter-spacing: .05em; margin-bottom: 6px;
-  }
-  .op-item {
-    font-family: "JetBrains Mono", ui-monospace, Consolas, monospace;
-    font-size: 11.5px; color: var(--text-1);
-    padding: 3px 0; border-bottom: 1px dashed var(--border-1);
-  }
-  .op-item:last-child { border-bottom: none; }
-
-  .btn-row { display: flex; gap: 8px; margin-top: 12px; }
-  .btn {
-    border: none; cursor: pointer;
-    padding: 7px 16px; font: inherit; font-weight: 500; font-size: 12.5px;
-    border-radius: var(--radius-sm);
-    transition: background .12s, transform .05s, box-shadow .12s;
-  }
-  .btn.primary {
-    background: var(--accent); color: #0b0d12;
-    box-shadow: 0 1px 0 rgba(255,255,255,.1) inset, 0 2px 8px rgba(16,163,126,.35);
-  }
-  .btn.primary:hover { background: var(--accent-hi); }
-  .btn.secondary {
-    background: transparent; color: var(--text-2);
-    border: 1px solid var(--border-2);
-  }
-  .btn.secondary:hover { color: var(--text-1); border-color: var(--border-acc); }
-  .btn:active { transform: translateY(1px); }
-  .btn:disabled { opacity: .5; cursor: not-allowed; }
-
-  /* ── Footer ─────────────────────────────────────────── */
-  footer {
-    background: var(--bg-1);
-    border-top: 1px solid var(--border-1);
-    padding: 12px 14px 14px;
-    flex-shrink: 0;
-  }
-  .pending {
-    display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 8px;
-  }
-  .chip {
-    display: inline-flex; align-items: center; gap: 6px;
-    padding: 4px 4px 4px 10px;
-    background: var(--bg-2); border: 1px solid var(--border-1);
-    color: var(--text-2); font-size: 11.5px;
-    border-radius: 999px;
-  }
-  .chip .x {
-    cursor: pointer; color: var(--text-3); padding: 0 6px;
-    border-radius: 999px; line-height: 1;
-  }
-  .chip .x:hover { color: var(--err); background: rgba(248,113,113,.1); }
-
-  .input-shell {
-    display: flex; gap: 8px; align-items: flex-end;
-    background: var(--bg-input);
-    border: 1px solid var(--border-1);
+  .msg.err {
+    align-self: stretch;
+    border: 1px solid rgba(217,84,79,.5);
+    background: rgba(217,84,79,.08);
+    color: #f0b5b2;
     border-radius: var(--radius);
-    padding: 8px 8px 8px 12px;
-    transition: border-color .15s;
-  }
-  .input-shell:focus-within {
-    border-color: var(--border-acc);
-    box-shadow: 0 0 0 3px var(--accent-soft);
-  }
-  #input {
-    flex: 1; background: transparent; color: var(--text-1);
-    border: none; font: inherit; font-size: 13.5px;
-    resize: none; max-height: 140px; line-height: 1.5;
-    padding: 4px 0;
-  }
-  #input:focus { outline: none; }
-  #input::placeholder { color: var(--text-4); }
-
-  .icon-btn {
-    background: transparent; border: none; cursor: pointer;
-    color: var(--text-3); width: 32px; height: 32px;
-    border-radius: var(--radius-sm);
-    display: grid; place-items: center;
-    transition: background .12s, color .12s;
-  }
-  .icon-btn:hover { background: var(--bg-2); color: var(--text-1); }
-  .icon-btn svg { width: 16px; height: 16px; }
-  .send-btn {
-    background: var(--accent); color: #0b0d12;
-    box-shadow: 0 2px 6px rgba(16,163,126,.3);
-    transition: background .12s, color .12s;
-  }
-  .send-btn:hover { background: var(--accent-hi); color: #0b0d12; }
-  /* Stop button — NEMI emerald theme, same family as the send button */
-  .send-btn.stop-mode {
-    background: var(--bg-3);
-    color: var(--accent-hi);
-    box-shadow: 0 0 0 2px var(--border-acc);
-    border: none;
-  }
-  .send-btn.stop-mode:hover { background: var(--border-acc); color: #fff; }
-
-  /* ── Claude-style message action row ─────────────────────
-     Sits below each bubble, hidden until the row is hovered.
-     AI messages: left-aligned (under the bubble).
-     User messages: right-aligned (mirror of the bubble).       */
-  .msg-actions {
-    display: flex; align-items: center; gap: 2px;
-    margin-top: 4px;
-    opacity: 0.3;
-    transition: opacity 150ms ease;
-    height: 26px;
-  }
-  .row:hover .msg-actions,
-  .row.hov   .msg-actions { opacity: 1; }
-  .row.user  .msg-actions { justify-content: flex-end; }
-
-  .act-btn {
-    display: flex; align-items: center; justify-content: center;
-    width: 26px; height: 26px; padding: 0;
-    border: none; border-radius: 6px;
-    background: transparent;
-    color: var(--text-3);
-    cursor: pointer;
-    transition: background 120ms, color 120ms;
-    flex-shrink: 0;
-  }
-  .act-btn svg { width: 14px; height: 14px; }
-  .act-btn:hover { background: var(--bg-3); color: var(--accent-hi); }
-  /* Confirmed (copy success) state: brief green flash */
-  .act-btn.copied { color: var(--ok); }
-  /* User bubble: slightly lighter base so icons read on the dark panel bg */
-  .row.user .act-btn { color: var(--text-3); }
-  .row.user .act-btn:hover { background: var(--bg-2); color: var(--accent-hi); }
-
-  .footer-hint {
-    font-size: 11px; color: var(--text-4); margin-top: 8px; text-align: center;
-  }
-  .footer-hint kbd {
-    background: var(--bg-2); border: 1px solid var(--border-1);
-    padding: 1px 5px; border-radius: 3px;
-    font-family: "JetBrains Mono", ui-monospace, Consolas, monospace;
-    font-size: 10px; color: var(--text-2);
+    padding: 8px 12px;
+    font-size: 12.5px;
   }
 
-  /* ── Empty state ────────────────────────────────────── */
-  .empty {
-    display: flex; flex-direction: column; align-items: center;
-    text-align: center; margin: 60px 20px 0;
-    color: var(--text-2);
+  /* markdown-lite inside ai messages */
+  .msg.ai code {
+    font-family: var(--mono); font-size: 12px;
+    background: #0d0d0c; border: 1px solid #1c1c1a;
+    border-radius: 4px; padding: 1px 5px;
   }
-  .empty-icon {
-    width: 56px; height: 56px; border-radius: 16px;
-    background: linear-gradient(135deg, var(--accent), #0a4938);
-    display: grid; place-items: center;
-    margin-bottom: 16px;
-    box-shadow: 0 8px 24px rgba(16,163,126,.25);
+  .msg.ai pre {
+    font-family: var(--mono); font-size: 12px;
+    background: #0d0d0c; border: 1px solid #1c1c1a;
+    border-radius: 8px; padding: 10px 12px; margin: 7px 0;
+    overflow-x: auto; white-space: pre;
   }
-  .empty-icon svg { width: 28px; height: 28px; color: #fff; }
-  .empty h2 {
-    font-size: 17px; font-weight: 600; color: var(--text-1);
-    margin-bottom: 8px; letter-spacing: -0.01em;
-  }
-  .empty p { font-size: 13px; color: var(--text-3); max-width: 320px; }
-  .examples {
-    display: flex; flex-wrap: wrap; gap: 8px; justify-content: center;
-    margin-top: 22px;
-  }
-  .ex-chip {
-    background: var(--bg-2); border: 1px solid var(--border-1);
-    color: var(--text-2); padding: 6px 12px; border-radius: 999px;
-    font-size: 12px; cursor: pointer;
-    transition: all .12s;
-  }
-  .ex-chip:hover {
-    border-color: var(--accent); color: var(--text-1);
-    background: var(--bg-3);
-  }
+  .msg.ai pre code { background: none; border: none; padding: 0; }
+  .msg.ai strong { color: var(--emerald); font-weight: 600; }
+  .msg.ai ul { margin: 5px 0 5px 18px; }
+  .msg.ai li { margin: 2px 0; }
 
-  /* ── Rich markdown inside AI bubbles ─────────────────── */
-  .bubble h1, .bubble h2, .bubble h3, .bubble h4 {
-    line-height: 1.3; font-weight: 600; color: var(--text-1);
-    margin: 12px 0 6px; letter-spacing: -.01em;
+  /* tool/status chip while working */
+  #busy {
+    display: none;
+    align-self: flex-start; align-items: center; gap: 8px;
+    color: var(--bone-dim); font-size: 11.5px; font-family: var(--mono);
+    padding: 4px 10px;
   }
-  .bubble h1:first-child, .bubble h2:first-child,
-  .bubble h3:first-child, .bubble h4:first-child { margin-top: 0; }
-  .bubble h1 { font-size: 17px; }
-  .bubble h2 { font-size: 15.5px; }
-  .bubble h3 { font-size: 14px; }
-  .bubble h4 { font-size: 13px; color: var(--text-2); }
-  .bubble p  { margin: 0 0 8px; }
-  .bubble p:last-child { margin-bottom: 0; }
-  .bubble ul, .bubble ol { margin: 4px 0 8px; padding-left: 20px; }
-  .bubble li { margin: 2px 0; }
-  .bubble li::marker { color: var(--accent-hi); }
-  .bubble a { color: var(--accent-hi); text-decoration: underline; text-underline-offset: 2px; }
-  .bubble a:hover { color: var(--text-1); }
-  .bubble blockquote {
-    margin: 6px 0; padding: 2px 0 2px 12px;
-    border-left: 3px solid var(--border-acc); color: var(--text-2);
+  #busy.on { display: flex; }
+  #busy .pulse {
+    width: 8px; height: 8px; border-radius: 50%; background: var(--emerald);
+    animation: pulse 1.1s ease-in-out infinite;
   }
-  .bubble hr { border: 0; border-top: 1px solid var(--border-1); margin: 12px 0; }
-  .bubble table {
-    border-collapse: collapse; margin: 8px 0; width: 100%;
-    font-size: 12.5px; display: block; overflow-x: auto;
-  }
-  .bubble th, .bubble td { border: 1px solid var(--border-1); padding: 5px 9px; text-align: left; }
-  .bubble th { background: var(--bg-2); font-weight: 600; color: var(--text-1); }
+  @keyframes pulse { 0%,100% { opacity: .25; transform: scale(.8);} 50% { opacity: 1; transform: scale(1);} }
 
-  /* ── Code block: language bar + per-block copy ───────── */
-  .code-wrap {
-    margin: 8px 0; border: 1px solid var(--border-1);
-    border-radius: var(--radius-sm); overflow: hidden; background: var(--bg-0);
+  /* ---------- input ---------- */
+  #inbar {
+    display: flex; gap: 8px; align-items: flex-end;
+    padding: 10px 12px 12px;
+    background: var(--graphite);
+    border-top: 1px solid #000;
   }
-  .code-bar {
-    display: flex; align-items: center; justify-content: space-between;
-    padding: 3px 6px 3px 10px; background: var(--bg-2);
-    border-bottom: 1px solid var(--border-1);
+  #inp {
+    flex: 1; resize: none;
+    min-height: 38px; max-height: 130px;
+    background: #171716; color: var(--bone);
+    border: 1px solid var(--graphite-2); border-radius: var(--radius);
+    padding: 9px 12px;
+    font: inherit; line-height: 1.4;
+    outline: none;
   }
-  .code-lang {
-    font-size: 10.5px; font-weight: 600; letter-spacing: .04em;
-    text-transform: uppercase; color: var(--text-3);
-    font-family: "JetBrains Mono", ui-monospace, Consolas, monospace;
+  #inp:focus { border-color: var(--emerald); }
+  #inp::placeholder { color: #6f6b62; }
+  .abtn {
+    height: 38px; min-width: 62px;
+    border: none; border-radius: var(--radius);
+    font: inherit; font-weight: 600; cursor: pointer;
   }
-  .code-lang::before { content: attr(data-lang); }
-  .code-copy {
-    display: flex; align-items: center; justify-content: center;
-    width: 24px; height: 22px; padding: 0; border: 0; border-radius: 4px;
-    background: transparent; color: var(--text-3); cursor: pointer;
-    transition: background 120ms, color 120ms;
-  }
-  .code-copy:hover { background: var(--bg-3); color: var(--text-1); }
-  .code-copy svg { width: 13px; height: 13px; }
-  .code-wrap pre { margin: 0; border: 0; border-radius: 0; }
-
-  /* ── Streaming caret ─────────────────────────────────── */
-  .bubble.ai.streaming::after {
-    content: "▋"; display: inline-block; margin-left: 1px;
-    color: var(--accent-hi); font-size: 12px; line-height: 1;
-    animation: caret-blink 1s steps(1) infinite;
-  }
-  @keyframes caret-blink { 0%,50% { opacity: 1 } 50.01%,100% { opacity: 0 } }
-
-  /* ── Jump-to-latest button ───────────────────────────── */
-  #scrollBtn {
-    position: fixed; right: 18px; bottom: 88px;
-    width: 34px; height: 34px; border-radius: 50%;
-    background: var(--bg-3); border: 1px solid var(--border-2);
-    color: var(--text-1); cursor: pointer; z-index: 30;
-    display: flex; align-items: center; justify-content: center;
-    box-shadow: var(--shadow-md);
-    opacity: 0; transform: translateY(6px); pointer-events: none;
-    transition: opacity 150ms ease, transform 150ms ease;
-  }
-  #scrollBtn.show { opacity: 1; transform: translateY(0); pointer-events: auto; }
-  #scrollBtn:hover { background: var(--border-acc); }
-  #scrollBtn svg { width: 18px; height: 18px; }
+  #send { background: var(--emerald); color: #04120D; }
+  #send:hover { background: #13B98F; }
+  #send:disabled { background: var(--graphite-2); color: #6f6b62; cursor: default; }
+  #stop { background: none; border: 1px solid var(--err); color: var(--err); display: none; }
+  #stop.on { display: block; }
 </style>
 </head>
 <body>
 
-<header>
-  <div class="brand">
-    <div class="brand-logo">
-      <img src="anvil_logo.png" alt="Anvil AI" />
-    </div>
-    <div class="brand-text">
-      <div class="name">Anvil AI</div>
-      <div class="sub">Schematic &amp; PCB assistant</div>
-    </div>
+  <div id="hdr">
+    <div class="mark">A</div>
+    <div class="title">Anvil&nbsp;AI</div>
+    <div class="spacer"></div>
+    <span id="stat">starting…</span>
+    <div id="dot"></div>
+    <button id="newBtn" title="Start a new conversation">New</button>
   </div>
-  <div class="header-right">
-    <button id="newChatBtn" class="icon-btn newchat-btn" title="New chat (Ctrl+N)" aria-label="New chat">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
-        <line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/>
-      </svg>
-    </button>
-    <div class="status">
-      <span id="dot" class="dot disconnected"></span>
-      <span id="statusText">Connecting</span>
-    </div>
+
+  <div id="ctx">no project</div>
+
+  <div id="msgs">
+    <div class="msg sys">Anvil AI — design circuits, edit the open schematic, run ERC/DRC. Type below.</div>
+    <div id="busy"><div class="pulse"></div><span id="busyTxt">working…</span></div>
   </div>
-</header>
 
-<div id="ctxBar" title="The AI has full context of the whole project. This is just the file you're focused on right now — you can ask it to read or edit any file in the project.">
-  <span class="ctx-proj" id="ctxProj"></span><span class="ctx-sep" id="ctxSep"></span><span class="label">in focus:</span><code id="ctxFile"></code><span class="ctx-scope">· full project in context</span>
-</div>
-
-<div id="messages" aria-live="polite" aria-atomic="false">
-  <div id="empty" class="empty">
-    <div class="empty-icon">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-        <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
-      </svg>
-    </div>
-    <h2 id="emptyTitle">How can I help with your schematic?</h2>
-    <p id="emptyBlurb">Describe a circuit to add, ask for a review, or attach an image / PDF datasheet to extract from.</p>
-    <div class="examples" id="emptyChipsSch">
-      <span class="ex-chip" data-msg="Add a 100nF decoupling capacitor near U1 VCC">Add decoupling cap</span>
-      <span class="ex-chip" data-msg="Review this design and give me a scored report of the real issues in this file">Review design</span>
-      <span class="ex-chip" data-msg="Add a 10k pull-up on RESET to 3V3">RESET pull-up</span>
-      <span class="ex-chip" data-msg="Design a 5V to 3.3V LDO regulator">5V → 3V3 LDO</span>
-    </div>
-    <div class="examples" id="emptyChipsPcb" style="display:none">
-      <span class="ex-chip" data-msg="Run DRC and fix everything you can, then tell me what is left and why">Run DRC &amp; fix</span>
-      <span class="ex-chip" data-msg="Review this board layout and give me a scored report of the real issues">Review layout</span>
-      <span class="ex-chip" data-msg="Route the remaining unrouted nets">Route the rest</span>
-      <span class="ex-chip" data-msg="Capture the board's footprints into the project library">Fix footprint libs</span>
-    </div>
+  <div id="inbar">
+    <textarea id="inp" rows="1" placeholder="Describe a circuit, or ask for a change…"></textarea>
+    <button id="stop" class="abtn">Stop</button>
+    <button id="send" class="abtn">Send</button>
   </div>
-</div>
-
-<button id="scrollBtn" title="Jump to latest" aria-label="Jump to latest">
-  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14"/><path d="m19 12-7 7-7-7"/></svg>
-</button>
-
-<div id="thinking" class="thinking">
-  <span class="think-dots"><span></span><span></span><span></span></span>
-  <span id="thinkLabel">Analyzing</span>
-</div>
-
-<div id="activity" class="activity" aria-live="polite">
-  <div class="act-head">
-    <span class="dot"></span>
-    <span class="act-title" id="actTitle">Anvil is working</span>
-    <span class="act-timer" id="actTimer"></span>
-  </div>
-  <div class="act-list" id="actList"></div>
-</div>
-
-<footer>
-  <div id="pending" class="pending"></div>
-  <div class="input-shell">
-    <button class="icon-btn" id="attachBtn" title="Attach image, PDF, or ERC report (.rpt / .txt)">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-        <path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48"/>
-      </svg>
-    </button>
-    <input type="file" id="fileInput" accept="image/*,.pdf,application/pdf,.rpt,.txt,text/plain" hidden multiple>
-    <textarea id="input" placeholder="Describe a circuit or ask a question…" rows="1"></textarea>
-    <button class="icon-btn send-btn" id="sendBtn" title="Send (Enter)">
-      <svg id="sendIcon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
-        <line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/>
-      </svg>
-      <svg id="stopIcon" viewBox="0 0 24 24" fill="currentColor" style="display:none">
-        <rect x="6" y="6" width="12" height="12" rx="3"/>
-      </svg>
-    </button>
-  </div>
-</footer>
 
 <script>
 "use strict";
+/* =============================================================
+   Anvil AI chat — fresh UI.
+   Bridge OUT (JS -> C++): window.anvilSend.postMessage(JSON string)
+     kinds: hello | message{text} | cancel | reset | ping
+   Bridge IN  (C++ -> JS): window.anvilRecv(JSON string)
+     kinds: ready | status{text} | thinking{text} | reply{text}
+            | done | error{text} | pong
+   Context   (C++ -> JS): window.anvilSetContext(project, sch, pcb, app)
+   ============================================================= */
 
-const params      = new URLSearchParams(location.search);
-const backendHost = params.get("backend") || "localhost:8765";
-const wsUrl       = "ws://" + backendHost + "/ws/chat";
-const httpBase    = "http://" + backendHost;
-let projectPath = decodeURIComponent(params.get("project")   || "");
-let schematic   = decodeURIComponent(params.get("schematic") || "");
-let pcbFile     = decodeURIComponent(params.get("pcb")       || "");
+const $ = (id) => document.getElementById(id);
+const msgs = $("msgs"), busy = $("busy"), busyTxt = $("busyTxt");
+const inp = $("inp"), sendBtn = $("send"), stopBtn = $("stop");
+const dot = $("dot"), stat = $("stat"), ctxEl = $("ctx");
 
-// Page-scope auto-detect. The same chat.html is shipped into both the
-// eeschema and pcbnew resource trees; we figure out which editor is
-// hosting the panel by inspecting the URL path KiCad loaded us from.
-// Priority order:
-//   1) explicit ?app= query param  (lets a dev override during testing)
-//   2) window.KICAD_APP global     (if a future KiCad build injects one)
-//   3) pathname containing "pcbnew" or "eeschema"
-//   4) fallback ""                 (server treats as unscoped / legacy)
-let appCtx = (params.get("app") || "").toLowerCase();
-if (!appCtx && typeof window.KICAD_APP === "string") {
-  appCtx = window.KICAD_APP.toLowerCase();
-}
-if (!appCtx) {
-  const pn = (location.pathname || "").toLowerCase();
-  if (pn.includes("pcbnew"))        appCtx = "pcb";
-  else if (pn.includes("eeschema")) appCtx = "schematic";
-}
-// URL-param heuristic — works even on KiCad builds that don't pass
-// `?app=` yet. eeschema's chat URL has `?...&schematic=<path>`; pcbnew's
-// doesn't (it currently passes no file path). So if we still don't know
-// the app, presence of `schematic=` says eeschema, presence of `pcb=`
-// says pcbnew. Absence of BOTH → assume pcbnew because that's the only
-// editor whose C++ side passes no file params.
-if (!appCtx) {
-  if (params.has("schematic")) appCtx = "schematic";
-  else if (params.has("pcb"))  appCtx = "pcb";
-  else                         appCtx = "pcb";
-}
-// Normalise aliases so the rest of this file uses one of two values.
-if (appCtx === "pcbnew" || appCtx === "board") appCtx = "pcb";
-if (appCtx === "sch" || appCtx === "eeschema") appCtx = "schematic";
+let sessionSeq = 1;
+let turnOpen = false;
+let curAiEl = null;              // streaming target for reply chunks
+let ctx = { project: "", sch: "", pcb: "", app: "" };
 
-// Derive the sibling file when only one path is known — KiCad projects
-// keep matching basenames for .kicad_sch and .kicad_pcb. This is the
-// same convention ship_design.py uses on the backend.
-// Guess the other document's path from this one. Anvil projects use .anvil_sch/.anvil_pcb
-// and KiCad ones .kicad_sch/.kicad_pcb, so the sibling has to keep the family it came from --
-// matching only the kicad_* pair left an Anvil board showing the schematic's own path.
-function deriveSiblingFile() {
-  if (schematic && !pcbFile) {
-    pcbFile = schematic.replace(/\.anvil_sch$/i, ".anvil_pcb")
-                       .replace(/\.kicad_sch$/i, ".kicad_pcb");
-  }
-  if (pcbFile && !schematic) {
-    schematic = pcbFile.replace(/\.anvil_pcb$/i, ".anvil_sch")
-                       .replace(/\.kicad_pcb$/i, ".kicad_sch");
-  }
-}
-deriveSiblingFile();
-
-// Called by the eeschema C++ side after every project / schematic open so the
-// chat panel always knows the live filename. Without this the URL params are
-// frozen to whatever Schematic().GetFileName() returned at panel-construction
-// time (= "untitled.kicad_sch" before any file is loaded), and both the
-// "Editing X" display AND the schematic_file sent to the Python backend would
-// be stuck on that stale value.
-window.anvilSetSchematic = function (newProject, newSchematic) {
-  // A genuine switch to a DIFFERENT schematic (new project / tab) must start a
-  // fresh conversation — the previous project's context must not bleed in.
-  const changed = !!schematic && !!newSchematic && newSchematic !== schematic;
-  if (newProject)   projectPath = newProject;
-  if (newSchematic) schematic   = newSchematic;
-  // C++ calling anvilSetSchematic == this panel lives in eeschema.
-  // URL-path detection (location.pathname) is unreliable because KiCad
-  // loads chat.html from the shared share/kicad/ai_chat/ folder for
-  // both editors. This setter (and anvilSetPcb below) is the authoritative
-  // app-context signal.
-  appCtx = "schematic";
-  deriveSiblingFile();
-  showCtxFile(schematic);
-  // On a real file change, wipe the transcript + rotate session + tell the agent
-  // to reset before re-helloing with the new path.
-  if (changed) newChat();
-  // Native transport: re-hello so the agent tracks the new schematic path.
-  send({ kind: "hello", project_path: projectPath,
-         schematic_file: schematic, pcb_file: pcbFile, app: appCtx });
-};
-
-// Symmetric setter the pcbnew C++ side can call after every board open.
-// Mirrors anvilSetSchematic. KiCad's pcbnew panel-launch code should
-// invoke this so the chat tracks the live .kicad_pcb path the same way
-// the schematic panel tracks .kicad_sch.
-window.anvilSetPcb = function (newProject, newPcb) {
-  const changed = !!pcbFile && !!newPcb && newPcb !== pcbFile;
-  if (newProject) projectPath = newProject;
-  if (newPcb)     pcbFile     = newPcb;
-  // C++ calling anvilSetPcb == this panel lives in pcbnew. See the
-  // anvilSetSchematic comment above for why this setter is the
-  // authoritative signal (URL pathname is the same for both editors).
-  appCtx = "pcb";
-  deriveSiblingFile();
-  showCtxFile(pcbFile || schematic);
-  if (changed) newChat();
-  send({ kind: "hello", project_path: projectPath,
-         schematic_file: schematic, pcb_file: pcbFile, app: appCtx });
-};
-
-let ws = null;
-let sessionId = localStorage.getItem("anvil_session_id") || null;
-let currentStream = null;
-let currentBuf = "";
-// Live "Thinking" panel for the current turn (collapsible reasoning, Claude
-// style). Null until the first `thinking` event of a turn arrives.
-let currentThink = null;     // the .think-panel element
-let currentThinkBody = null; // its scrollable body
-let currentThinkBuf = "";    // accumulated reasoning text
-let thinkStartMs = 0;        // for the "Thought for Ns" label on collapse
-let reconnectMs = 1000;
-let reconnectTimer = null;
-let keepalive = null;
-const pending = [];
-
-const $       = (id) => document.getElementById(id);
-const msgsEl  = $("messages");
-const emptyEl = $("empty");
-const dotEl   = $("dot");
-const stxtEl  = $("statusText");
-const ctxBar  = $("ctxBar");
-const ctxFile = $("ctxFile");
-const ctxProj = $("ctxProj");
-const ctxSep  = $("ctxSep");
-const inputEl = $("input");
-const thinkEl = $("thinking");
-const thinkLabelEl = $("thinkLabel");
-const THINK_LABELS = ["Analyzing", "Designing", "Processing"];
-let thinkTimer = null;
-const actEl      = $("activity");
-const actListEl  = $("actList");
-const actTitleEl = $("actTitle");
-const actTimerEl = $("actTimer");
-const pendEl  = $("pending");
-const scrollBtnEl = $("scrollBtn");
-// Auto-scroll only sticks to the bottom while the user is already there. If they
-// scroll up to read mid-stream, new tokens no longer yank them down (a 2026 chat
-// UX baseline). Reset to true whenever the user sends or hits the jump button.
-let stickToBottom = true;
-// True only while a real model turn is in flight (a prompt was sent and we're
-// awaiting the reply). Gates the "working" spinner so New Chat and bare status
-// acks never trigger it without a prompt — matches Cursor/Claude, where the
-// thinking indicator appears only after you submit a prompt. See send() and the
-// "status" handler in handleSrv().
-let turnActive = false;
-// Set once the agent sends its first {kind:"progress"} heartbeat. A heartbeat-capable
-// agent also sends exactly one {kind:"done"} per turn, so the UI can stop guessing when a
-// turn is over from timers — guessing is what dropped the "working" state mid-turn.
-let hasHeartbeat = false;
-// True between pressing Stop and the agent confirming; suppresses late events from
-// re-opening the feed after the user has already walked away from the turn.
-let turnCancelled = false;
-
-const SVG_USER = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>';
-// AI avatar: Anvil "A" logo image instead of the robot SVG
-const SVG_AI   = '<img src="anvil_logo.png" alt="A" style="width:18px;height:18px;object-fit:contain;display:block;">';
-// Proper inline-SVG copy / check icons for the per-message copy button (the old
-// unicode clipboard glyph rendered as tofu in WebView2).
-const SVG_COPY  = '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="14" height="14" x="8" y="8" rx="2" ry="2"/><path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"/></svg>';
-const SVG_CHECK = '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>';
-
-function setStatus(state, text) { dotEl.className = "dot " + state; stxtEl.textContent = text; }
-
-// The panel is loaded from the same chat.html in both editors, so the empty state has to
-// follow appCtx rather than the markup's schematic-flavoured default -- offering "Add
-// decoupling cap" on a finished board reads as if the AI can't see what it's looking at.
-function applyCtxFlavour() {
-  const pcb = appCtx === "pcb";
-  const title = $("emptyTitle"), blurb = $("emptyBlurb");
-  const sch = $("emptyChipsSch"), brd = $("emptyChipsPcb");
-
-  if (title) title.textContent = pcb ? "How can I help with your board?"
-                                     : "How can I help with your schematic?";
-  if (blurb) blurb.textContent = pcb
-      ? "Ask for a DRC pass, a layout review, or routing — or attach an image / PDF to work from."
-      : "Describe a circuit to add, ask for a review, or attach an image / PDF datasheet to extract from.";
-  if (sch) sch.style.display = pcb ? "none" : "";
-  if (brd) brd.style.display = pcb ? "" : "none";
+/* ---------- outbound bridge ---------- */
+function post(obj) {
+  obj.seq = sessionSeq;
+  try {
+    if (window.anvilSend && window.anvilSend.postMessage)
+      window.anvilSend.postMessage(JSON.stringify(obj));
+    else
+      setStatus("err", "no bridge");
+  } catch (e) { setStatus("err", "bridge error"); }
 }
 
-function showCtxFile(path) {
-  applyCtxFlavour();
-  if (!path) { ctxBar.classList.remove("active"); return; }
-  ctxFile.textContent = path.split(/[\\/]/).pop();
-  // Project name = the folder the design lives in (or the .kicad_pro stem).
-  // Shows "<project> / in focus: <file> · full project in context" so it reads
-  // as whole-project awareness, not a single-file lock.
-  let proj = "";
-  if (projectPath) {
-    proj = String(projectPath).replace(/[\\/]+$/, "").split(/[\\/]/).pop() || "";
-  }
-  if (proj && ctxProj) { ctxProj.textContent = proj; if (ctxSep) ctxSep.textContent = "/"; }
-  else { if (ctxProj) ctxProj.textContent = ""; if (ctxSep) ctxSep.textContent = ""; }
-  ctxBar.classList.add("active");
+/* ---------- UI helpers ---------- */
+function setStatus(kind, text) {
+  dot.className = kind === "ok" ? "ok" : kind === "busy" ? "busy" : kind === "err" ? "err" : "";
+  stat.textContent = text || "";
+}
+function scrollEnd() { msgs.scrollTop = msgs.scrollHeight; }
+
+function addMsg(cls, text) {
+  const d = document.createElement("div");
+  d.className = "msg " + cls;
+  if (cls === "ai") d.innerHTML = mdLite(text);
+  else d.textContent = text;
+  msgs.insertBefore(d, busy);
+  scrollEnd();
+  return d;
 }
 
-function hideEmpty() { if (emptyEl) emptyEl.style.display = "none"; }
-function nearBottom() {
-  return msgsEl.scrollHeight - msgsEl.scrollTop - msgsEl.clientHeight < 80;
+/* minimal safe markdown: escape first, then bold/code/fences/bullets */
+function esc(s) {
+  return s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
 }
-function updateScrollBtn() {
-  if (scrollBtnEl) scrollBtnEl.classList.toggle("show", !nearBottom());
-}
-function scroll() {
-  if (stickToBottom) msgsEl.scrollTop = msgsEl.scrollHeight;
-  updateScrollBtn();
-}
-function jumpToBottom() {
-  stickToBottom = true;
-  msgsEl.scrollTop = msgsEl.scrollHeight;
-  updateScrollBtn();
-}
-msgsEl.addEventListener("scroll", () => { stickToBottom = nearBottom(); updateScrollBtn(); });
-if (scrollBtnEl) scrollBtnEl.onclick = jumpToBottom;
-
-// Shared clipboard helper (message copy button + per-code-block copy button),
-// with an execCommand fallback for WebView2 builds without the async API.
-function copyText(text, onDone) {
-  const fb = () => {
-    const ta = document.createElement("textarea");
-    ta.value = text; document.body.appendChild(ta); ta.select();
-    try { document.execCommand("copy"); onDone && onDone(); } catch (_) {}
-    ta.remove();
-  };
-  if (navigator.clipboard && navigator.clipboard.writeText)
-    navigator.clipboard.writeText(text).then(() => onDone && onDone()).catch(fb);
-  else fb();
-}
-// showThinking now just opens/holds the turn's UI (stop button + live activity
-// feed). It no longer drives a generic looping "Analyzing/Designing" label —
-// the activity feed below names the real work instead. Turning it "off" is a
-// no-op: the feed closes itself via its idle watchdog (or an explicit end on
-// reply/error/cancel), so streaming/reasoning can't yank the stop button away
-// mid-turn.
-function showThinking(on) {
-  thinkEl.classList.remove("active");   // legacy dots retired in favour of the feed
-  if (thinkTimer) { clearInterval(thinkTimer); thinkTimer = null; }
-  if (on) { setBusy(true); activityStart(); }
-}
-
-// ── Live activity feed ─────────────────────────────────────────────────────
-// Turns the backend's {kind:"status", text:"Running <tool>"} stream into a
-// readable, Claude-Code-style timeline. Every step gets a friendly label; the
-// current one spins, finished ones get a check.
-const SVG_CHECK_SM =
-  '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3.2" '
-  + 'stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>';
-
-// Raw tool name (Claude built-ins + Anvil's eeschema/pcbnew MCP tools) → plain
-// English. Unknown names fall back to Title-Cased words.
-const TOOL_LABELS = {
-  Read:"Reading a file", Write:"Writing a file", Edit:"Editing a file",
-  MultiEdit:"Editing a file", NotebookEdit:"Editing a file", LS:"Listing files",
-  Bash:"Running a command", Glob:"Searching for files", Grep:"Searching the code",
-  TodoWrite:"Planning the steps", Task:"Working on a sub-task",
-  WebFetch:"Reading a web page", WebSearch:"Searching the web",
-  // eeschema
-  get_schematic:"Reading the schematic", run_erc:"Checking rules (ERC)",
-  snap_to_grid:"Snapping parts to grid", annotate:"Annotating parts",
-  add_component:"Placing a component", add_wire:"Drawing a wire",
-  add_label:"Adding a net label", add_junction:"Adding a junction",
-  add_no_connect:"Marking a no-connect", edit_value:"Editing a value",
-  move_component:"Moving a component", delete_component:"Deleting a component",
-  delete_at:"Deleting an item",
-  // pcbnew
-  get_board:"Reading the board", run_drc:"Checking rules (DRC)",
-  add_footprint:"Placing a footprint", move_footprint:"Moving a footprint",
-  add_track:"Routing a track", add_via:"Adding a via",
-  delete_track_at:"Removing a track", set_text_variable:"Setting a variable",
-  capture_footprints:"Capturing footprints into the library",
-};
-function humanizeTool(name) {
-  let n = String(name || "").trim();
-  const p = n.lastIndexOf("__");             // strip any mcp__envil-cad__ prefix
-  if (p !== -1) n = n.slice(p + 2);
-  if (TOOL_LABELS[n]) return TOOL_LABELS[n];
-  return n.replace(/[_-]+/g, " ").replace(/\b\w/g, c => c.toUpperCase()) || "Working";
-}
-
-// "192s" tells you nothing at a glance; "3m 12s" does. Used for the live timer and for
-// the end-of-turn summary line.
-function fmtDur(ms) {
-  const s = Math.max(0, Math.round(ms / 1000));
-  return s < 60 ? s + "s" : Math.floor(s / 60) + "m " + String(s % 60).padStart(2, "0") + "s";
-}
-
-let actSteps    = [];    // the step rows currently in the DOM
-let actRunning  = false;
-let actStartMs  = 0;
-let actTimerInt = null;  // 1/2s tick updating the elapsed timer
-let actEndTimer = null;  // short close scheduled after the model's reply
-let actSafety   = null;  // fires when the agent has gone quiet for longer than expected
-let actStalled  = false;
-let actStallShown = false;
-let actLastMs   = 0;     // when we last heard anything at all from the agent
-// The agent heartbeats about every 3s, so this much silence means it really has stopped
-// talking — not that it is busy.
-const STALL_MS  = 45000;
-
-function activityStart() {
-  if (actRunning) { keepActivity(); return; }
-  actRunning = true;
-  actStartMs = Date.now();
-  actLastMs  = actStartMs;
-  actStalled = false; actStallShown = false;
-  actEl.classList.remove("stalled");
-  actListEl.innerHTML = ""; actSteps = [];
-  actTitleEl.textContent = "Anvil is working";
-  actTimerEl.textContent = "0s";
-  actEl.classList.add("active");
-  if (actTimerInt) clearInterval(actTimerInt);
-  // The ticking clock is the cheapest proof of life there is: it keeps moving even
-  // between the agent's own updates, so a long silent step never reads as frozen.
-  actTimerInt = setInterval(() => {
-    actTimerEl.textContent = fmtDur(Date.now() - actStartMs);
-  }, 500);
-  keepActivity();
-  scroll();
-}
-
-function markLastDone() {
-  const prev = actSteps[actSteps.length - 1];
-  if (prev && prev.classList.contains("run")) {
-    prev.classList.remove("run"); prev.classList.add("done");
-    const ic = prev.querySelector(".act-ico");
-    if (ic) ic.innerHTML = SVG_CHECK_SM;
-  }
-}
-
-// Add one step to the timeline (finishing the previous one).
-function activityStep(label) {
-  activityStart();
-  // The agent re-states its phase after every tool result, so the same label can arrive
-  // several times in a row. Refresh the live step instead of stacking duplicates.
-  const cur = actSteps[actSteps.length - 1];
-  if (cur && cur.classList.contains("run") && cur.dataset.label === label) {
-    actTitleEl.textContent = label;
-    keepActivity();
-    return;
-  }
-  markLastDone();
-  const row = document.createElement("div");
-  row.className = "act-step run";
-  row.dataset.label = label;
-  row.innerHTML = '<span class="act-ico"><span class="act-spin"></span></span>'
-                + '<span class="act-label"></span>';
-  row.querySelector(".act-label").textContent = label;
-  actListEl.appendChild(row);
-  actSteps.push(row);
-  // Keep only the most recent handful of rows — the reply bubbles carry the
-  // full narrative, this is just a live "what's happening now" strip.
-  while (actSteps.length > 6) actSteps.shift().remove();
-  actTitleEl.textContent = label;
-  actListEl.scrollTop = actListEl.scrollHeight;
-  keepActivity();
-  scroll();
-}
-
-// Cancel any pending close and re-arm the stall watchdog. Called on every inbound turn
-// event, including the agent's ~3s heartbeat, so the feed survives slow single tool calls
-// (a long ERC/DRC run emits no intermediate events) and long silent thinking.
-//
-// It no longer closes the feed on a timer. The old 90s backstop silently cleared the
-// "working" state on any long step, which is precisely what made a running turn look
-// frozen: the spinner, the stop button and the timer all disappeared while the agent was
-// still going. Silence now raises a visible warning instead, and only the agent's own
-// {kind:"done"} (or Stop) ends a turn.
-function keepActivity() {
-  if (!actRunning) return;
-  actLastMs = Date.now();
-  if (actEndTimer) { clearTimeout(actEndTimer); actEndTimer = null; }
-  if (actStalled) { actStalled = false; actEl.classList.remove("stalled"); }
-  if (actSafety)   clearTimeout(actSafety);
-  actSafety = setTimeout(activityStall, STALL_MS);
-}
-
-// The agent has stopped heartbeating. Say so plainly and keep the turn open — the user
-// can decide to wait or press Stop. Never silently pretend the turn finished.
-function activityStall() {
-  if (!actRunning) return;
-  actStalled = true;
-  actEl.classList.add("stalled");
-  actTitleEl.textContent = "No update for " + fmtDur(Date.now() - actLastMs);
-  if (!actStallShown) {
-    actStallShown = true;
-    addSystem("⏳ No update from Anvil for " + fmtDur(Date.now() - actLastMs)
-      + ". It may still be working on a long step — press Stop if you want to cancel.");
-  }
-  actSafety = setTimeout(activityStall, STALL_MS);
-}
-
-// Reply text used to be treated as "the turn is winding down". On the CLI transport it
-// isn't: a reply is routinely followed by more tool calls. With a heartbeat-capable agent
-// the turn ends when the agent says it ends, so just close off the current step and wait.
-// The timer path is kept only for an older agent build that never sends "done".
-function scheduleActivityEnd() {
-  if (!actRunning) return;
-  markLastDone();
-  if (hasHeartbeat) { keepActivity(); return; }
-  if (actEndTimer) clearTimeout(actEndTimer);
-  actEndTimer = setTimeout(activityEnd, 1500);
-}
-
-function activityEnd() {
-  if (actEndTimer)  { clearTimeout(actEndTimer);  actEndTimer = null; }
-  if (actSafety)    { clearTimeout(actSafety);    actSafety   = null; }
-  if (actTimerInt)  { clearInterval(actTimerInt); actTimerInt = null; }
-  markLastDone();
-  actRunning = false;
-  turnActive = false;
-  actStalled = false; actStallShown = false;
-  setBusy(false);
-  actEl.classList.remove("active");
-  actEl.classList.remove("stalled");
-  actListEl.innerHTML = ""; actSteps = [];
-}
-
-function escHtml(s) {
-  return String(s).replace(/[&<>"']/g, c => ({ "&":"&amp;", "<":"&lt;", ">":"&gt;", '"':"&quot;", "'":"&#39;" }[c]));
-}
-// Inline markdown (links, bold, italic, inline code) applied to already-
-// HTML-escaped text. Inline code runs first so * / _ inside a code span are
-// left alone.
-function renderInline(s) {
-  s = s.replace(/`([^`\n]+)`/g, (_, c) => "<code>" + c + "</code>");
+function mdLite(raw) {
+  let s = esc(raw);
+  s = s.replace(/```([\s\S]*?)```/g, (m, body) => "<pre><code>" + body.replace(/^\n/, "") + "</code></pre>");
+  s = s.replace(/`([^`\n]+)`/g, "<code>$1</code>");
   s = s.replace(/\*\*([^*\n]+)\*\*/g, "<strong>$1</strong>");
-  s = s.replace(/(^|[^*\w])\*([^*\n]+)\*(?!\*)/g, "$1<em>$2</em>");
-  s = s.replace(/(^|[^_\w])_([^_\n]+)_(?![_\w])/g, "$1<em>$2</em>");
-  // Links — only http(s) or root-relative targets (URL is already escaped).
-  s = s.replace(/\[([^\]]+)\]\((https?:\/\/[^\s)]+|\/[^\s)]+)\)/g,
-    (_, t, u) => '<a href="' + u + '" target="_blank" rel="noopener noreferrer">' + t + '</a>');
+  // bullet lines -> list items (simple, per-line)
+  s = s.replace(/(^|\n)[ \t]*[-•] (.+)/g, "$1<li>$2</li>");
+  s = s.replace(/(<li>[\s\S]*?<\/li>)(?!\s*<li>)/g, "<ul>$1</ul>");
+  s = s.replace(/\n/g, "<br>");
+  s = s.replace(/<\/li><br>/g, "</li>").replace(/<\/ul><br>/g, "</ul>").replace(/<br><ul>/g, "<ul>").replace(/<br><pre>/g, "<pre>").replace(/<\/pre><br>/g, "</pre>");
   return s;
 }
 
-// Markdown -> safe HTML. Fenced code is pulled out to placeholders first so the
-// block/inline passes never touch it, then restored as <pre data-lang><code>.
-// Adds headings, ordered/unordered lists, blockquotes, tables and rules on top
-// of the original bold / inline-code / bullet support.
-function renderMd(text) {
-  let s = escHtml(text);
-
-  // Progressive streaming: an unclosed fence (odd ``` count) is closed for this
-  // render so the in-progress block shows as code, not raw backticks.
-  if (((s.match(/```/g) || []).length) % 2 === 1) s += "\n```";
-
-  const blocks = [];
-  s = s.replace(/```([\w-]*)\n?([\s\S]*?)```/g, (_, lang, code) => {
-    blocks.push({ lang: (lang || "").trim(), code: code.replace(/\n+$/, "") });
-    return "C" + (blocks.length - 1) + "";
-  });
-
-  const out = [];
-  let list = null;     // { type:"ul"|"ol", items:[] }
-  let table = null;    // array of cell-arrays
-  let para = [];
-  const flushPara  = () => { if (para.length) { out.push("<p>" + renderInline(para.join("<br>")) + "</p>"); para = []; } };
-  const flushList  = () => { if (list) { out.push("<" + list.type + ">" + list.items.map(i => "<li>" + renderInline(i) + "</li>").join("") + "</" + list.type + ">"); list = null; } };
-  const flushTable = () => {
-    if (table && table.length) {
-      let h = "<table><thead><tr>" + table[0].map(c => "<th>" + renderInline(c.trim()) + "</th>").join("") + "</tr></thead><tbody>";
-      for (let r = 2; r < table.length; r++) h += "<tr>" + table[r].map(c => "<td>" + renderInline(c.trim()) + "</td>").join("") + "</tr>";
-      out.push(h + "</tbody></table>");
-      table = null;
-    }
-  };
-  const flushAll = () => { flushPara(); flushList(); flushTable(); };
-
-  for (const line of s.split("\n")) {
-    if (/^C\d+$/.test(line)) { flushAll(); out.push(line); continue; }
-    if (/^\s*\|.*\|\s*$/.test(line)) {                       // table row
-      flushPara(); flushList();
-      (table = table || []).push(line.trim().replace(/^\||\|$/g, "").split("|"));
-      continue;
-    }
-    if (table) flushTable();
-    let m = line.match(/^\s*(#{1,4})\s+(.*)$/);              // heading
-    if (m) { flushAll(); const n = m[1].length; out.push("<h" + n + ">" + renderInline(m[2].trim()) + "</h" + n + ">"); continue; }
-    if (/^\s*([-*_])\1\1+\s*$/.test(line)) { flushAll(); out.push("<hr>"); continue; }   // rule
-    m = line.match(/^\s*>\s?(.*)$/);                         // blockquote
-    if (m) { flushPara(); flushList(); out.push("<blockquote>" + renderInline(m[1]) + "</blockquote>"); continue; }
-    m = line.match(/^\s*\d+[.)]\s+(.*)$/);                   // ordered item
-    if (m) { flushPara(); if (list && list.type !== "ol") flushList(); (list = list || { type: "ol", items: [] }).items.push(m[1]); continue; }
-    m = line.match(/^\s*[-*]\s+(.*)$/);                      // unordered item
-    if (m) { flushPara(); if (list && list.type !== "ul") flushList(); (list = list || { type: "ul", items: [] }).items.push(m[1]); continue; }
-    if (/^\s*$/.test(line)) { flushPara(); flushList(); continue; }   // blank line
-    flushList();
-    para.push(line);
-  }
-  flushAll();
-
-  let html = out.join("\n");
-  html = html.replace(/C(\d+)/g, (_, i) => {
-    const b = blocks[+i];
-    return "<pre" + (b.lang ? ' data-lang="' + b.lang + '"' : "") + "><code>" + b.code + "</code></pre>";
-  });
-  return html;
+function setBusy(on, text) {
+  busy.className = on ? "on" : "";
+  if (text) busyTxt.textContent = text;
+  stopBtn.className = "abtn" + (on ? " on" : "");
+  sendBtn.disabled = on;
+  if (on) setStatus("busy", "working"); else setStatus("ok", "ready");
+  scrollEnd();
 }
 
-// Add a header bar (language label + copy button) to each code block in a
-// rendered bubble. Idempotent via a data-flag so re-renders never double-wrap.
-function decorateCodeBlocks(container) {
-  container.querySelectorAll("pre").forEach(pre => {
-    if (pre.dataset.decorated) return;
-    pre.dataset.decorated = "1";
-    const code = pre.querySelector("code");
-    const bar = document.createElement("div");
-    bar.className = "code-bar";
-    const label = document.createElement("span");
-    label.className = "code-lang";
-    // data-lang via CSS ::before so the label never lands in the message-copy text.
-    label.setAttribute("data-lang", pre.getAttribute("data-lang") || "code");
-    const btn = document.createElement("button");
-    btn.type = "button"; btn.className = "code-copy"; btn.title = "Copy code";
-    btn.innerHTML = SVG_COPY;
-    btn.addEventListener("click", () => copyText(code ? code.innerText : pre.innerText,
-      () => { btn.innerHTML = SVG_CHECK; setTimeout(() => { btn.innerHTML = SVG_COPY; }, 900); }));
-    bar.appendChild(label); bar.appendChild(btn);
-    const wrap = document.createElement("div");
-    wrap.className = "code-wrap";
-    pre.parentNode.insertBefore(wrap, pre);
-    wrap.appendChild(bar);
-    wrap.appendChild(pre);
-  });
-}
-
-// SVG icons for the action row
-const SVG_ACT_COPY = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="14" height="14" x="8" y="8" rx="2"/><path d="M4 16V6a2 2 0 0 1 2-2h10"/></svg>';
-const SVG_ACT_CHECK = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>';
-
-function makeActBtn(icon, title) {
-  const b = document.createElement("button");
-  b.type = "button"; b.className = "act-btn"; b.title = title;
-  b.innerHTML = icon;
-  return b;
-}
-
-function addRow(role, html) {
-  hideEmpty();
-  const row = document.createElement("div");
-  row.className = "row " + role;
-  row.addEventListener("mouseenter", () => row.classList.add("hov"));
-  row.addEventListener("mouseleave", () => row.classList.remove("hov"));
-
-  const av = document.createElement("div");
-  av.className = "avatar " + role;
-  av.innerHTML = role === "ai" ? SVG_AI : SVG_USER;
-
-  // Bubble + action-row live in a flex-column wrapper so the action row
-  // sits flush below the bubble (Claude / ChatGPT style).
-  // flex:1 + min-width:0 lets the bubble use available space without double-
-  // constraining (the bubble's own max-width handles capping).
-  const col = document.createElement("div");
-  col.style.cssText = "display:flex;flex-direction:column;flex:1;min-width:0;";
-
-  const bub = document.createElement("div");
-  bub.className = "bubble " + role;
-  bub.innerHTML = html;
-
-  const actions = buildActionRow(bub);
-
-  col.appendChild(bub);
-  col.appendChild(actions);
-  row.appendChild(av);
-  row.appendChild(col);
-  msgsEl.appendChild(row);
-  scroll();
-  return bub;
-}
-
-// Returns the action row div; also stores a ref on bub so streaming can refresh it.
-function buildActionRow(bub) {
-  const actions = document.createElement("div");
-  actions.className = "msg-actions";
-
-  const copyBtn = makeActBtn(SVG_ACT_COPY, "Copy message");
-  copyBtn.addEventListener("click", () => {
-    const text = bub.innerText.trim();
-    copyText(text, () => {
-      copyBtn.innerHTML = SVG_ACT_CHECK;
-      copyBtn.classList.add("copied");
-      setTimeout(() => {
-        copyBtn.innerHTML = SVG_ACT_COPY;
-        copyBtn.classList.remove("copied");
-      }, 1200);
-    });
-  });
-
-  actions.appendChild(copyBtn);
-  bub._actionRow = actions;   // ref so streaming re-uses same row
-  return actions;
-}
-
-// Called after streaming finalises innerHTML — re-wires the copy button
-// (streaming resets innerHTML, which drops any previously appended child).
-function attachCopyButton(bub) {
-  if (bub._actionRow) {
-    // Action row already exists below the bubble (added by addRow).
-    // Nothing to do — the copy button is already wired.
-    return;
-  }
-  // Fallback: streaming added a bubble directly without going through addRow.
-  const col = bub.parentElement;
-  if (col) {
-    const actions = buildActionRow(bub);
-    col.appendChild(actions);
-  }
-}
-
-function addSystem(text) {
-  hideEmpty();
-  const el = document.createElement("div");
-  el.className = "system-msg";
-  el.textContent = text;
-  msgsEl.appendChild(el);
-  scroll();
-}
-function addError(text) {
-  hideEmpty();
-  const el = document.createElement("div");
-  el.className = "error-msg";
-  el.textContent = text;
-  msgsEl.appendChild(el);
-  scroll();
-}
-
-// Replace any prior auto-summary card so opening a different file doesn't pile
-// stacks of them up in the conversation. Identifiable by data-anvil-summary.
-const READINESS_BADGE = {
-  ready:        { label: "Production ready",  cls: "ok",   icon: "✓" },
-  minor_polish: { label: "Minor polish needed", cls: "info", icon: "•" },
-  needs_review: { label: "Needs review",      cls: "warn", icon: "!" },
-  not_ready:    { label: "Not ready for production", cls: "err", icon: "✕" },
-};
-const SEV_META = {
-  critical: { label: "Critical", cls: "es-sev-crit", order: 0 },
-  high:     { label: "High",     cls: "es-sev-high", order: 1 },
-  medium:   { label: "Medium",   cls: "es-sev-med",  order: 2 },
-};
-
-function renderSchematicSummary(m) {
-  document.querySelectorAll('[data-anvil-summary]').forEach(n => n.remove());
-  const issues = m.issues || [];
-  const circuit = (m.circuit || "").trim();
-  // Render NOTHING when nothing useful to show: no detected circuit AND no
-  // critical/high/medium issues. Silence is the success signal.
-  if (!circuit && !issues.length) return;
-  hideEmpty();
-  const el = document.createElement("div");
-  el.className = "anvil-summary";
-  el.setAttribute("data-anvil-summary", "1");
-
-  // Group by severity → category.
-  const bySev = { critical: [], high: [], medium: [] };
-  for (const it of issues) {
-    if (bySev[it.severity]) bySev[it.severity].push(it);
-  }
-
-  let html = "";
-  if (circuit) {
-    html += '<div class="es-circuit">' + escHtml(circuit) + '</div>';
-  }
-  const sevOrder = ["critical", "high", "medium"];
-  for (const sev of sevOrder) {
-    const list = bySev[sev];
-    if (!list || !list.length) continue;
-    const meta = SEV_META[sev];
-    const byCat = {};
-    for (const it of list) (byCat[it.category] || (byCat[it.category] = [])).push(it);
-    const cats = Object.keys(byCat).sort();
-    html += '<details class="es-sev ' + meta.cls + '" open>';
-    html +=   '<summary><span class="es-sev-dot"></span><span class="es-sev-name">' + meta.label + '</span><span class="es-sev-num">' + list.length + '</span></summary>';
-    for (const cat of cats) {
-      html += '<div class="es-cat">' + escHtml(cat) + '</div>';
-      html += '<ul class="es-items">';
-      for (const it of byCat[cat]) {
-        const ref = it.refs ? '<span class="es-ref">' + escHtml(it.refs) + '</span>' : "";
-        html += '<li>' + ref + '<span class="es-title">' + escHtml(it.title) + '</span></li>';
-      }
-      html += '</ul>';
-    }
-    html += '</details>';
-  }
-
-  el.innerHTML = html;
-  msgsEl.appendChild(el);
-  scroll();
-}
-
-function addUserRow(text, attachments) {
-  stickToBottom = true;   // sending always jumps you to the latest message
-  const bub = addRow("user", escHtml(text));
-  for (const a of (attachments || [])) {
-    const div = document.createElement("div");
-    div.className = "attachment" + (a.kind === "image" ? " image" : "");
-    if (a.kind === "image" && a.dataUrl) {
-      const img = document.createElement("img");
-      img.src = a.dataUrl;
-      div.appendChild(img);
-    } else {
-      const icon = a.kind === "pdf"        ? "📄  "
-                 : a.kind === "erc_report"  ? "📝  "
-                 :                            "📎  ";
-      div.textContent = icon + a.name;
-    }
-    bub.appendChild(div);
-  }
-  return bub;
-}
-
-// Native transport: messages go to the C++ host over the wxWebView bridge
-// (window.envilSend.postMessage) instead of a WebSocket to a Python backend.
-// The C++ side pushes server messages back by calling window.appendServerMessage().
-function send(obj) {
-  obj.session_id = sessionId;
-  if (obj.kind === "message" || obj.kind === "export_gerbers") { turnActive = true; turnCancelled = false; }
-  else if (obj.kind === "reset") turnActive = false;
-  try {
-    window.envilSend.postMessage(JSON.stringify(obj));
-  } catch (e) {
-    console.error("[envil] bridge send failed", e);
-    return false;
-  }
-  return true;
-}
-
-function connect() {
-  // Native agent lives in-process; treat as always connected.
-  // (Upstream's WebSocket connect to the Python backend is intentionally dropped
-  // here — the native ENVIL_AI_AGENT / MCP bridge replaces it.)
-  setStatus("connected", "Native");
-  send({ kind: "hello", project_path: projectPath,
-         schematic_file: schematic, pcb_file: pcbFile, app: appCtx });
-  showCtxFile(appCtx === "pcb" ? (pcbFile || schematic) : schematic);
-}
-
-function scheduleReconnect() { /* native transport: no reconnect needed */ }
-
-function handleSrv(m) {
-  if (m.session_id) {
-    sessionId = m.session_id;
-    localStorage.setItem("anvil_session_id", sessionId);
-  }
-  switch (m.kind) {
-    case "ready":   return;
-    case "pong":    return;
-    case "status": {
-      // Bare status acks (e.g. "Conversation reset." after New Chat, "Opened the
-      // folder.") arrive without a live turn — never open the feed for those.
-      // Within a turn every status is a named phase from the agent ("Starting Claude
-      // Code", "Reading your design", "Running add_component", "Writing the answer"),
-      // so each one becomes a timeline step. Previously anything that wasn't
-      // "Running <tool>" collapsed into a generic kick-off and the user was left
-      // staring at one unchanging label for the whole turn.
-      if (!turnActive || turnCancelled) return;
-      setBusy(true);
-      const raw = (m.text || "").trim();
-      if (!raw) return;
-      const mm = raw.match(/^Running\s+(.+)$/i);
-      activityStep(mm ? humanizeTool(mm[1]) : raw);
-      return;
-    }
-    case "progress": {
-      // Liveness heartbeat, ~every 3s for as long as the turn runs. It carries no new
-      // work — its whole job is to prove the agent is still there while the model is
-      // silent, and to re-open the feed if anything closed it early.
-      hasHeartbeat = true;
-      if (turnCancelled) return;
-      turnActive = true;
-      setBusy(true);
-      if (!actRunning) activityStart();
-      if (m.text && !actSteps.length) actTitleEl.textContent = m.text;
-      keepActivity();
-      return;
-    }
-    case "done": {
-      // The agent's authoritative end-of-turn. Every exit path sends exactly one, so
-      // the UI never has to infer that a turn is over.
-      const secs = m.elapsed_s || 0;
-      showThinking(false);
-      collapseThink();
-      finalizeStream();
-      activityEnd();
-      turnCancelled = false;
-      if (m.reason === "cancelled")  addSystem("■ Stopped after " + fmtDur(secs * 1000) + ".");
-      else if (m.reason === "ok" && secs >= 20) addSystem("✓ Finished in " + fmtDur(secs * 1000) + ".");
-      return;
-    }
-    case "notice":
-      // Plain talk from the agent about the turn itself (busy, stopped). Not an error,
-      // but it must be visible: this is what a dropped message used to look like.
-      if (m.text) addSystem(m.text);
-      keepActivity();
-      return;
-    case "thinking":
-      // Streamed reasoning -> live collapsible panel (created lazily).
-      appendThinking(m.text || "");
-      keepActivity();
-      return;
-    case "chunk":
-      appendStream(m.text || "");
-      keepActivity();
-      return;
-    case "reply":
-      // Don't force turnActive off here: on the CLI transport a turn is several
-      // interleaved reply/status events, and reply text is routinely followed by more
-      // tool calls. Only the agent's "done" ends a turn.
-      showThinking(false);
-      collapseThink();
-      finalizeStream(m.text);
-      scheduleActivityEnd();
-      if (m.action_id && Array.isArray(m.ops) && m.ops.length) renderApproval(m);
-      return;
-    case "applied":
-      keepActivity();
-      addSystem("✓ Applied " + (m.count ?? 0) + "/" + (m.total ?? m.count ?? 0) + " operations"
-        + (m.file_path ? " → " + m.file_path.split(/[\\/]/).pop() : ""));
-      // Surface per-op warnings (e.g. fuzzy lib_id substitutions) and missing-library
-      // errors so the user knows when the AI couldn't find a symbol exactly.
-      for (const r of (m.results || [])) {
-        if (r.needs_user || (r.ok === false && r.lib_id)) {
-          addError("❗ " + (r.message || r.op || "missing library"));
-        } else if (r.warning) {
-          addSystem("⚠ " + r.warning);
-        }
-      }
-      return;
-    case "schematic_summary":
-      renderSchematicSummary(m);
-      return;
-    case "page_summary":
-      // Server-side deterministic page-summary card emitted right
-      // after `hello`. Tells the user what's on the page they just
-      // opened on (schematic or PCB) and offers click-to-send
-      // suggestion chips so they can start without typing.
-      renderPageSummary(m);
-      return;
-    case "previews":
-      // Inline schematic preview disabled per user request — server still
-      // generates the SVG (used for ERC/visual analysis) but the chat UI
-      // no longer embeds it.
-      return;
-    case "confirm_buttons":
-      // Generic 3-button confirmation strip for the "Allow / Cancel /
-      // Ask for change?" preview flow. Each option carries a label and
-      // either a `send` text (auto-reply) or an `ask:true` flag (focus
-      // input box for free-form reply).
-      renderConfirmButtons(m.options || []);
-      return;
-    case "gerbers_ready":
-      // Fab bundle is on disk. Show a card with an "Open Folder" button so
-      // the user can grab the zip and upload it to the factory.
-      showThinking(false);
-      activityEnd();
-      renderGerbersReady(m);
-      return;
+/* ---------- inbound bridge ---------- */
+window.anvilRecv = function (jsonStr) {
+  let ev;
+  try { ev = JSON.parse(jsonStr); } catch { return; }
+  switch (ev.kind) {
+    case "ready":
+      setStatus("ok", "ready");
+      break;
+    case "pong":
+      break;
+    case "status":                       // tool / phase updates while working
+      setBusy(true, ev.text || "working…");
+      break;
+    case "thinking":                     // model reasoning summary (optional)
+      setBusy(true, ev.text ? ("thinking: " + ev.text.slice(0, 60)) : "thinking…");
+      break;
+    case "reply":                        // assistant text (may arrive in chunks)
+      if (!curAiEl) curAiEl = addMsg("ai", "");
+      curAiEl._raw = (curAiEl._raw || "") + (ev.text || "");
+      curAiEl.innerHTML = mdLite(curAiEl._raw);
+      scrollEnd();
+      break;
+    case "done":
+      turnOpen = false; curAiEl = null;
+      setBusy(false);
+      break;
     case "error":
-      showThinking(false);
-      collapseThink();
-      addError(m.text || "Unknown error");
-      // A heartbeat-capable agent always follows an error with "done", which does the
-      // closing. Close here only for an older build that doesn't.
-      if (!hasHeartbeat) activityEnd();
-      return;
-    default:
-      console.warn("[anvil] unhandled", m.kind, m);
+      addMsg("err", ev.text || "Unknown error");
+      turnOpen = false; curAiEl = null;
+      setBusy(false); setStatus("err", "error");
+      break;
   }
-}
-
-function renderPreviews(svgPaths) {
-  if (!Array.isArray(svgPaths) || svgPaths.length === 0) return;
-  const last = msgsEl.lastElementChild;
-  let target;
-  if (last && last.classList.contains("row") && last.classList.contains("ai")) {
-    target = last.querySelector(".bubble") || addRow("ai", "");
-  } else {
-    target = addRow("ai", "");
-  }
-  const grid = document.createElement("div");
-  grid.className = "preview-grid";
-  grid.style.cssText = "display:flex;flex-direction:column;gap:8px;margin-top:8px;";
-  for (const p of svgPaths) {
-    const wrap = document.createElement("div");
-    wrap.style.cssText = "border:1px solid #d0d0d0;border-radius:6px;overflow:hidden;background:#fff;";
-    const caption = document.createElement("div");
-    caption.textContent = p.split(/[\\/]/).pop();
-    caption.style.cssText = "padding:4px 8px;font-size:11px;color:#666;background:#f5f5f5;border-bottom:1px solid #e0e0e0;";
-    const img = document.createElement("img");
-    img.src = httpBase + "/api/preview?path=" + encodeURIComponent(p);
-    img.alt = p;
-    img.loading = "lazy";
-    img.style.cssText = "display:block;max-width:100%;height:auto;cursor:zoom-in;";
-    img.onclick = () => window.open(img.src, "_blank");
-    wrap.appendChild(caption); wrap.appendChild(img);
-    grid.appendChild(wrap);
-  }
-  target.appendChild(grid);
-  scroll();
-}
-
-function renderPageSummary(m) {
-  // m: { kind:"page_summary", app, state, title, body, suggestions[],
-  //      stats? }. Render once at the top of the conversation as an
-  // AI bubble so the user knows what is currently on the open file
-  // without typing anything. Suggestion chips re-use the same send()
-  // pipeline as typed messages — clicking a chip is equivalent to
-  // typing the suggestion and pressing Enter.
-  const title  = m.title || (m.app === "pcb" ? "PCB" : "Schematic");
-  const body   = m.body  || "";
-  const sugg   = Array.isArray(m.suggestions) ? m.suggestions : [];
-  const scope  = (m.app === "pcb") ? "PCB Editor"
-               : (m.app === "schematic") ? "Schematic Editor"
-               : "Editor";
-
-  const target = addRow("ai", "");
-  // Title line. No `color:` override so the green inherits from the
-  // CSS variable / theme and the title text doesn't get clipped by
-  // the bubble's dark/light theme. Green-only for the accent.
-  const titleEl = document.createElement("div");
-  titleEl.style.cssText =
-    "font-weight:600;font-size:13px;margin-bottom:4px;color:#3ec97a;";
-  titleEl.textContent = `${scope} — ${title}`;
-  target.appendChild(titleEl);
-  // Body line — use renderMd (XSS-safe: escapes HTML first, then
-  // converts **bold** / `code` / ```pre```). The deep summary template
-  // uses **bold** to highlight the circuit type; without renderMd
-  // it would show literal ** characters.
-  // No `color:` override here — body inherits the bubble's text color
-  // so the card stays readable on both dark and light themes. The
-  // earlier `color:#222` was invisible on the default dark panel.
-  if (body) {
-    const bodyEl = document.createElement("div");
-    bodyEl.style.cssText = "font-size:13px;line-height:1.45;";
-    bodyEl.innerHTML = renderMd(body);
-    target.appendChild(bodyEl);
-  }
-  // "Open PCB" button — jumps the app to the PCB page. The board is generated
-  // at build time (pcb_gen writes the .kicad_pcb with footprints placed + nets),
-  // so this just asks the backend to open it: kind:"open_pcb" -> IPC -> eeschema
-  // OnOpenPcbnew() opens/docks the PCB editor as a tab. Hidden when already on
-  // the PCB page (nothing to switch to).
-  if (m.app !== "pcb") {
-    const pcbRow = document.createElement("div");
-    pcbRow.style.cssText = "margin-top:8px;";
-    const openBtn = document.createElement("button");
-    openBtn.textContent = "Open PCB";
-    openBtn.className = "btn primary";
-    openBtn.style.cssText =
-      "background:#3ec97a;color:#0b1f14;border:none;padding:5px 14px;"
-      + "border-radius:14px;cursor:pointer;font-size:12px;font-weight:600;";
-    openBtn.onclick = () => {
-      openBtn.disabled = true;
-      openBtn.style.opacity = "0.7";
-      openBtn.textContent = "Opening PCB…";
-      send({
-        kind: "open_pcb",
-        project_path: projectPath,
-        schematic_file: schematic,
-        pcb_file: pcbFile,
-        app: appCtx,
-      });
-    };
-    pcbRow.appendChild(openBtn);
-    target.appendChild(pcbRow);
-  } else {
-    // Already on the PCB page — offer the one-click fab export instead.
-    // Makes Gerbers + drill + pick&place + zip without the KiCad menus.
-    const gRow = document.createElement("div");
-    gRow.style.cssText = "margin-top:8px;";
-    gRow.appendChild(makeGerbersButton("⬇ Download Gerbers"));
-    target.appendChild(gRow);
-  }
-
-  // Suggestion chips
-  if (sugg.length) {
-    const hint = document.createElement("div");
-    hint.style.cssText =
-      "font-size:11px;opacity:0.7;margin-top:8px;margin-bottom:4px;";
-    hint.textContent = "Try one of these:";
-    target.appendChild(hint);
-    const row = document.createElement("div");
-    row.style.cssText =
-      "display:flex;gap:6px;margin-top:2px;flex-wrap:wrap;";
-    const buttons = [];
-    for (const s of sugg) {
-      const btn = document.createElement("button");
-      btn.textContent = s;
-      btn.className = "btn secondary";
-      btn.style.cssText =
-        "background:#eef3ff;color:#1c3d8c;border:1px solid #c7d4f3;"
-        + "padding:4px 10px;border-radius:14px;cursor:pointer;font-size:12px;";
-      btn.onclick = () => {
-        for (const b of buttons) b.disabled = true;
-        btn.style.opacity = "0.7";
-        addUserRow(s, []);
-        showThinking(true);
-        send({
-          kind: "message",
-          text: s,
-          project_path: projectPath,
-          schematic_file: schematic,
-          pcb_file: pcbFile,
-          app: appCtx,
-          attachments: [],
-        });
-      };
-      buttons.push(btn);
-      row.appendChild(btn);
-    }
-    target.appendChild(row);
-  }
-  scroll();
-}
-
-function renderConfirmButtons(options) {
-  if (!Array.isArray(options) || options.length === 0) return;
-  const last = msgsEl.lastElementChild;
-  let target;
-  if (last && last.classList.contains("row") && last.classList.contains("ai")) {
-    target = last.querySelector(".bubble") || addRow("ai", "");
-  } else {
-    target = addRow("ai", "");
-  }
-  const row = document.createElement("div");
-  row.className = "btn-row confirm-row";
-  row.style.cssText = "display:flex;gap:8px;margin-top:10px;flex-wrap:wrap;";
-  const buttons = [];
-  for (const opt of options) {
-    const btn = document.createElement("button");
-    btn.textContent = opt.label || "?";
-    btn.className = "btn " + (opt.primary ? "primary" : "secondary");
-    btn.style.cssText = opt.primary
-      ? "background:#0e7c3a;color:#fff;border:0;padding:6px 14px;border-radius:4px;cursor:pointer;"
-      : "background:#e8e8e8;color:#333;border:1px solid #ccc;padding:6px 14px;border-radius:4px;cursor:pointer;";
-    btn.onclick = () => {
-      // Single-shot: disable all sibling buttons on click
-      for (const b of buttons) b.disabled = true;
-      btn.style.opacity = "0.7";
-      if (opt.ask) {
-        // Focus the input so user can type a free-form change request.
-        if (typeof inputEl !== "undefined" && inputEl) {
-          inputEl.focus();
-        }
-        return;
-      }
-      const txt = (opt.send || "").trim();
-      if (!txt) return;
-      // Echo as a user message so the conversation reads naturally,
-      // then send via the same path /ws/chat uses for typed input.
-      addUserRow(txt, []);
-      showThinking(true);
-      send({
-        kind: "message",
-        text: txt,
-        project_path: projectPath,
-        schematic_file: schematic,
-        pcb_file: pcbFile,
-        app: appCtx,
-        attachments: [],
-      });
-    };
-    buttons.push(btn);
-    row.appendChild(btn);
-  }
-  target.appendChild(row);
-  scroll();
-}
-
-// --- Gerbers / fab bundle --------------------------------------------------
-// One-click "Download Gerbers" flow. The button sends {kind:"export_gerbers"};
-// the server runs DRC + export_pcb (no LLM) and replies with {kind:
-// "gerbers_ready"}. We then show a card with an "Open Folder" button that
-// reveals the zip in the file manager so the user can upload it to the fab.
-function gerbersTrigger(btn) {
-  if (btn) { btn.disabled = true; btn.style.opacity = "0.7"; }
-  addUserRow("Download the Gerber files", []);
-  showThinking(true);
-  send({
-    kind: "export_gerbers",
-    project_path: projectPath,
-    schematic_file: schematic,
-    pcb_file: pcbFile,
-    app: appCtx,
-  });
-}
-
-function makeGerbersButton(label) {
-  const b = document.createElement("button");
-  b.textContent = label || "⬇ Download Gerbers";
-  b.className = "btn primary";
-  b.style.cssText =
-    "background:#3ec97a;color:#0b1f14;border:none;padding:6px 14px;"
-    + "border-radius:14px;cursor:pointer;font-size:12px;font-weight:600;";
-  b.onclick = () => gerbersTrigger(b);
-  return b;
-}
-
-function renderGerbersReady(m) {
-  const target = addRow("ai", "");
-  const card = document.createElement("div");
-  card.style.cssText =
-    "border:1px solid #2f5d43;border-radius:10px;overflow:hidden;"
-    + "background:rgba(62,201,122,0.07);";
-
-  const head = document.createElement("div");
-  head.style.cssText =
-    "font-weight:600;font-size:13px;padding:10px 13px;color:#3ec97a;"
-    + "border-bottom:1px solid rgba(62,201,122,0.25);";
-  head.textContent = "✅ Gerber files are ready";
-  card.appendChild(head);
-
-  const body = document.createElement("div");
-  body.style.cssText = "padding:10px 13px;font-size:12.5px;line-height:1.5;";
-  const nFiles = Array.isArray(m.files) ? m.files.length : 0;
-  const zipName = (m.zip_path || "").split(/[\\/]/).pop();
-  let txt = "";
-  if (nFiles) txt += "Made " + nFiles + " files";
-  if (zipName) txt += (txt ? " + " : "Made ") + "a zip: <b>" + escHtml(zipName) + "</b>";
-  txt += ".<br>Click <b>Open Folder</b>, then upload the zip to JLCPCB or PCBWay.";
-  body.innerHTML = txt;
-
-  // Honest DRC line. -1 = the AI/natural-language path didn't measure here,
-  // so we say nothing (the AI already reported DRC in its own words).
-  if (typeof m.drc_errors === "number" && m.drc_errors >= 0) {
-    const drc = document.createElement("div");
-    drc.style.cssText = "margin-top:8px;font-size:12px;padding:6px 9px;border-radius:6px;";
-    if (m.drc_clean) {
-      drc.style.background = "rgba(62,201,122,0.14)";
-      drc.style.color = "#3ec97a";
-      drc.textContent = "DRC clean (0 problems) — safe to order.";
-    } else {
-      drc.style.background = "rgba(230,170,40,0.14)";
-      drc.style.color = "#e0a020";
-      drc.textContent = "⚠ The board still has " + m.drc_errors
-        + " DRC problem(s). The factory may build it wrong — fix these first.";
-    }
-    body.appendChild(drc);
-  }
-  card.appendChild(body);
-
-  const row = document.createElement("div");
-  row.style.cssText =
-    "display:flex;gap:8px;flex-wrap:wrap;padding:0 13px 12px;";
-  const openBtn = document.createElement("button");
-  openBtn.textContent = "📂 Open Folder";
-  openBtn.className = "btn primary";
-  openBtn.style.cssText =
-    "background:#3ec97a;color:#0b1f14;border:none;padding:6px 14px;"
-    + "border-radius:14px;cursor:pointer;font-size:12px;font-weight:600;";
-  openBtn.onclick = () => {
-    send({ kind: "open_path", path: m.output_dir || "",
-           project_path: projectPath, app: appCtx });
-  };
-  row.appendChild(openBtn);
-  card.appendChild(row);
-
-  target.appendChild(card);
-  scroll();
-}
-
-// --- Thinking panel --------------------------------------------------------
-// Streams the model's reasoning into one collapsible panel per turn. The panel
-// is created lazily on the first `thinking` chunk, stays expanded + live while
-// reasoning streams, and is collapsed to a "Thought for Ns" summary the moment
-// the real reply text begins (collapseThink). Click the header to re-toggle.
-const SVG_CHEVRON =
-  '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" '
-  + 'stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round">'
-  + '<polyline points="6 9 12 15 18 9"/></svg>';
-
-function appendThinking(chunk) {
-  if (!chunk) return;
-  hideEmpty();
-  if (!currentThink) {
-    thinkStartMs = Date.now();
-    currentThinkBuf = "";
-    const panel = document.createElement("div");
-    panel.className = "think-panel";
-    const head = document.createElement("div");
-    head.className = "tp-head";
-    head.innerHTML =
-      '<span class="tp-chevron">' + SVG_CHEVRON + '</span>'
-      + '<span class="tp-label">Thinking</span>'
-      + '<span class="tp-spark"></span>';
-    head.onclick = () => panel.classList.toggle("collapsed");
-    const body = document.createElement("div");
-    body.className = "tp-body";
-    panel.appendChild(head);
-    panel.appendChild(body);
-    msgsEl.appendChild(panel);
-    currentThink = panel;
-    currentThinkBody = body;
-  }
-  // The thinking spinner placeholder is now redundant — the live panel IS the
-  // working indicator.
-  showThinking(false);
-  currentThinkBuf += chunk;
-  currentThinkBody.textContent = currentThinkBuf;
-  currentThinkBody.scrollTop = currentThinkBody.scrollHeight;
-  scroll();
-}
-
-// Collapse the live panel into a "Thought for Ns" summary. Called when the
-// real reply starts (or the turn ends) so the reasoning tucks away like
-// Cursor/Claude. Idempotent and a no-op when no panel exists.
-function collapseThink() {
-  if (!currentThink) return;
-  const secs = Math.max(1, Math.round((Date.now() - thinkStartMs) / 1000));
-  const label = currentThink.querySelector(".tp-label");
-  if (label) label.textContent = "Thought for " + secs + "s";
-  currentThink.classList.add("done", "collapsed");
-  // Detach from the live refs so the next turn starts a fresh panel but this
-  // one stays in the transcript, re-expandable on click.
-  currentThink = null;
-  currentThinkBody = null;
-  currentThinkBuf = "";
-}
-
-function appendStream(chunk) {
-  // First real reply token -> tuck the reasoning panel away.
-  if (currentThink) collapseThink();
-  if (!currentStream) { currentStream = addRow("ai", ""); currentBuf = ""; }
-  currentBuf += chunk;
-  // Hide raw JSON envelope ({"message":..., "ops":[...]}) while streaming —
-  // wait for the parsed `reply` to arrive and replace with clean message.
-  const trimmed = currentBuf.trimStart();
-  if (trimmed.startsWith("{") || trimmed.startsWith("```")) {
-    showThinking(true);
-    return;
-  }
-  currentStream.classList.add("streaming");   // blinking caret while tokens arrive
-  currentStream.innerHTML = renderMd(currentBuf);
-  scroll();
-}
-
-// --- Architecture card -----------------------------------------------------
-// The Intake Brain's ARCHITECTURE_FIRST reply is structured plain text
-// (a "**Architecture — <domain>**" title, "- Block: detail" bullets, an
-// "Estimated:" line and a "Want me to build it?" prompt). Render it as a
-// neat card instead of a bubble of bullets. Detection is conservative
-// (title + >=2 bullets) so ordinary replies are never reshaped.
-const ARCH_STYLE_ID = "arch-card-styles";
-function ensureArchStyles() {
-  if (document.getElementById(ARCH_STYLE_ID)) return;
-  const st = document.createElement("style");
-  st.id = ARCH_STYLE_ID;
-  st.textContent =
-    ".bubble.has-card{background:transparent;border:none;padding:0;box-shadow:none;}" +
-    ".arch-card{background:var(--bg-2);border:1px solid var(--border-2);border-radius:var(--radius,10px);overflow:hidden;box-shadow:var(--shadow-md);}" +
-    ".arch-head{display:flex;align-items:center;gap:9px;padding:10px 13px;background:linear-gradient(135deg,var(--accent-soft),transparent);border-bottom:1px solid var(--border-1);}" +
-    ".arch-ico{width:22px;height:22px;flex:0 0 22px;display:flex;align-items:center;justify-content:center;border-radius:6px;background:linear-gradient(135deg,var(--accent),#0a4938);color:#0b0d12;font-size:13px;font-weight:700;}" +
-    ".arch-title{font-weight:600;color:var(--text-1);font-size:13.5px;flex:1;letter-spacing:.1px;}" +
-    ".arch-badge{font-size:11px;color:var(--accent-hi);background:var(--accent-soft);border:1px solid var(--border-acc);border-radius:999px;padding:2px 9px;white-space:nowrap;}" +
-    ".arch-blocks{padding:4px 13px 6px;}" +
-    ".arch-block{display:flex;gap:11px;padding:7px 0;border-bottom:1px dashed var(--border-1);}" +
-    ".arch-block:last-child{border-bottom:none;}" +
-    ".arch-bname{flex:0 0 96px;color:var(--accent-hi);font-weight:600;font-size:12.5px;}" +
-    ".arch-bdesc{flex:1;color:var(--text-2);font-size:12.5px;line-height:1.45;}" +
-    ".arch-foot{padding:9px 13px;border-top:1px solid var(--border-1);background:var(--bg-1);color:var(--text-1);font-size:12.5px;font-weight:500;}";
-  document.head.appendChild(st);
-}
-
-function parseArchitecture(text) {
-  const blocks = [];
-  let domain = null, est = "", foot = "";
-  for (const raw of String(text).split("\n")) {
-    const ln = raw.trim();
-    if (!ln) continue;
-    let m;
-    if (!domain && (m = ln.match(/^\*{0,2}\s*Architecture\s*[—\-–:]\s*(.+?)\s*\*{0,2}$/i))) {
-      domain = m[1].replace(/\*+$/, "").trim(); continue;
-    }
-    if ((m = ln.match(/^[-*]\s+(.+)$/))) {
-      const body = m[1].replace(/\*\*/g, "");
-      const c = body.match(/^(.+?)\s*:\s*(.+)$/);
-      blocks.push(c ? { name: c[1].trim(), desc: c[2].trim() } : { name: "", desc: body.trim() });
-      continue;
-    }
-    if ((m = ln.match(/^Estimated\s*:\s*(.+)$/i))) { est = m[1].trim(); continue; }
-    if (/build it\s*\?/i.test(ln)) { foot = ln.replace(/\*+/g, "").trim(); continue; }
-  }
-  return { domain, blocks, est, foot };
-}
-
-function looksLikeArchitecture(text) {
-  if (!text || !/Architecture\s*[—\-–:]/i.test(text)) return false;
-  const a = parseArchitecture(text);
-  return !!a.domain && a.blocks.length >= 2;
-}
-
-function badgeFromEst(est) {
-  if (!est) return "";
-  const comp = est.match(/~?\s*(\d+)\s*comp/i);
-  const sh = est.match(/(\d+)\s*sheet/i);
-  if (comp && sh) return "~" + comp[1] + " parts · " + sh[1] + " sheets";
-  if (comp) return "~" + comp[1] + " parts";
-  return est;
-}
-
-function renderArchitectureCard(text) {
-  ensureArchStyles();
-  const a = parseArchitecture(text);
-  let h = '<div class="arch-card"><div class="arch-head"><span class="arch-ico">▣</span>';
-  h += '<span class="arch-title">' + escHtml(a.domain || "Architecture") + '</span>';
-  const badge = badgeFromEst(a.est);
-  if (badge) h += '<span class="arch-badge">' + escHtml(badge) + '</span>';
-  h += '</div><div class="arch-blocks">';
-  for (const b of a.blocks) {
-    h += '<div class="arch-block">';
-    if (b.name) h += '<span class="arch-bname">' + escHtml(b.name) + '</span>';
-    h += '<span class="arch-bdesc">' + escHtml(b.desc) + '</span></div>';
-  }
-  h += '</div>';
-  if (a.foot) h += '<div class="arch-foot">' + escHtml(a.foot) + '</div>';
-  h += '</div>';
-  return h;
-}
-
-// --- Clarify (intake) question card ---------------------------------------
-// The Intake Brain's ASK_QUESTIONS reply is structured plain text: a short
-// bold intro, then "- <Label>: <choice> / <choice> / ..." bullets. Render it
-// as clickable option chips (single-select per question) with a Continue
-// button so the user picks instead of typing. Detection mirrors the
-// architecture card: conservative, only fires on the strict slash-option
-// layout, and never on an architecture / confirm reply.
-const CLR_STYLE_ID = "clarify-card-styles";
-function ensureClarifyStyles() {
-  if (document.getElementById(CLR_STYLE_ID)) return;
-  const st = document.createElement("style");
-  st.id = CLR_STYLE_ID;
-  st.textContent =
-    ".bubble.has-card{background:transparent;border:none;padding:0;box-shadow:none;}" +
-    ".clr-card{background:var(--bg-2);border:1px solid var(--border-2);border-radius:var(--radius,10px);overflow:hidden;box-shadow:var(--shadow-md);}" +
-    ".clr-head{display:flex;align-items:center;gap:9px;padding:10px 13px;background:linear-gradient(135deg,var(--accent-soft),transparent);border-bottom:1px solid var(--border-1);}" +
-    ".clr-ico{width:22px;height:22px;flex:0 0 22px;display:flex;align-items:center;justify-content:center;border-radius:6px;background:linear-gradient(135deg,var(--accent),#0a4938);color:#0b0d12;font-size:14px;font-weight:700;}" +
-    ".clr-title{font-weight:600;color:var(--text-1);font-size:13.5px;flex:1;letter-spacing:.1px;}" +
-    ".clr-body{padding:8px 13px 2px;}" +
-    ".clr-q{padding:6px 0 9px;border-bottom:1px dashed var(--border-1);}" +
-    ".clr-q:last-child{border-bottom:none;}" +
-    ".clr-qlabel{color:var(--text-2);font-size:12px;font-weight:600;margin-bottom:7px;}" +
-    ".clr-opts{display:flex;flex-wrap:wrap;gap:6px;}" +
-    ".clr-opt{cursor:pointer;font:inherit;font-size:12.5px;padding:5px 12px;border-radius:999px;background:var(--bg-3);color:var(--text-1);border:1px solid var(--border-2);transition:background .12s,border-color .12s,color .12s;}" +
-    ".clr-opt:hover{border-color:var(--accent);background:var(--bg-1);}" +
-    ".clr-opt.sel{background:var(--accent);color:#0b0d12;border-color:var(--accent);font-weight:600;}" +
-    // Checkbox-style options (used for "package" questions: THT vs SMD).
-    ".clr-checks{display:flex;flex-wrap:wrap;gap:6px;}" +
-    ".clr-check{display:flex;align-items:center;gap:8px;cursor:pointer;font:inherit;font-size:12.5px;padding:6px 12px;border-radius:var(--radius-sm,6px);background:var(--bg-3);color:var(--text-1);border:1px solid var(--border-2);transition:background .12s,border-color .12s;}" +
-    ".clr-check:hover{border-color:var(--accent);background:var(--bg-1);}" +
-    ".clr-box{width:15px;height:15px;flex:0 0 15px;display:flex;align-items:center;justify-content:center;border-radius:4px;border:1.5px solid var(--border-2);background:var(--bg-1);color:#0b0d12;font-size:11px;font-weight:800;line-height:1;transition:background .12s,border-color .12s;}" +
-    ".clr-check.sel{border-color:var(--accent);}" +
-    ".clr-check.sel .clr-box{background:var(--accent);border-color:var(--accent);}" +
-    ".clr-foot{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:9px 13px;border-top:1px solid var(--border-1);background:var(--bg-1);}" +
-    ".clr-hint{font-size:11px;color:var(--text-3);}" +
-    ".clr-go{border:0;cursor:pointer;font:inherit;font-weight:600;font-size:12.5px;padding:7px 16px;border-radius:var(--radius-sm,6px);background:var(--accent);color:#0b0d12;box-shadow:0 2px 8px rgba(16,163,126,.35);}" +
-    ".clr-go:hover{background:var(--accent-hi);}" +
-    ".clr-card.done{opacity:.6;pointer-events:none;}";
-  document.head.appendChild(st);
-}
-
-function parseClarify(text) {
-  let intro = "";
-  const questions = [];
-  for (const raw of String(text).split("\n")) {
-    const ln = raw.trim();
-    if (!ln) continue;
-    let m;
-    // First standalone **bold** (non-bullet) line is the intro.
-    if (!intro && !/^[-*]\s/.test(ln) && (m = ln.match(/^\*\*(.+?)\*\*:?$/))) {
-      intro = m[1].trim(); continue;
-    }
-    // "- Label: a / b / c" — only counts as a question when the value side
-    // is a " / "-separated list of short choices.
-    m = ln.match(/^[-*]\s+(.+?)\s*:\s*(.+?)\s*\??$/);
-    if (m && m[2].includes("/")) {
-      const label = m[1].replace(/\*\*/g, "").trim();
-      const opts = m[2].replace(/\*\*/g, "").split("/")
-        .map(s => s.trim()).filter(Boolean);
-      if (opts.length >= 2 && opts.every(o => o.length > 0 && o.length <= 26)) {
-        questions.push({ label, options: opts });
-      }
-    }
-  }
-  return { intro, questions };
-}
-
-function looksLikeClarify(text) {
-  if (!text) return false;
-  if (looksLikeArchitecture(text)) return false;
-  if (/build it\s*\?|\ballow\b|\bcancel\b/i.test(text)) return false;
-  return parseClarify(text).questions.length >= 1;
-}
-
-function renderClarifyInto(bubble, text) {
-  ensureClarifyStyles();
-  const data = parseClarify(text);
-  bubble.classList.add("has-card");
-  bubble.innerHTML = "";
-  const card = document.createElement("div");
-  card.className = "clr-card";
-
-  const head = document.createElement("div");
-  head.className = "clr-head";
-  head.innerHTML = '<span class="clr-ico">?</span><span class="clr-title">'
-    + escHtml(data.intro || "A few details first") + '</span>';
-  card.appendChild(head);
-
-  const body = document.createElement("div");
-  body.className = "clr-body";
-  const selected = new Array(data.questions.length).fill(null);
-  data.questions.forEach((q, qi) => {
-    const qd = document.createElement("div");
-    qd.className = "clr-q";
-    const lab = document.createElement("div");
-    lab.className = "clr-qlabel";
-    lab.textContent = q.label;
-    qd.appendChild(lab);
-    // Package questions (THT vs SMD) render as checkbox rows; every other
-    // question keeps the pill-chip look. Both stay single-select and store a
-    // single string in selected[qi], so the "Label: choice" text sent on
-    // Continue is unchanged (the backend _detect_package_preference regex
-    // still parses it).
-    const isPackage = /\bpackage\b/i.test(q.label);
-    const opts = document.createElement("div");
-    opts.className = isPackage ? "clr-checks" : "clr-opts";
-    q.options.forEach(opt => {
-      const b = document.createElement("button");
-      b.type = "button";
-      if (isPackage) {
-        b.className = "clr-check";
-        b.innerHTML = '<span class="clr-box"></span>';
-        const t = document.createElement("span");
-        t.textContent = opt;
-        b.appendChild(t);
-      } else {
-        b.className = "clr-opt";
-        b.textContent = opt;
-      }
-      b.onclick = () => {
-        if (card.classList.contains("done")) return;
-        for (const sib of opts.children) sib.classList.remove("sel");
-        b.classList.add("sel");
-        if (isPackage) {
-          const box = b.querySelector(".clr-box");
-          for (const sib of opts.children) {
-            const sbox = sib.querySelector(".clr-box");
-            if (sbox) sbox.textContent = "";
-          }
-          if (box) box.textContent = "✓";  // checkmark on the picked box
-        }
-        selected[qi] = opt;
-      };
-      opts.appendChild(b);
-    });
-    qd.appendChild(opts);
-    body.appendChild(qd);
-  });
-  card.appendChild(body);
-
-  const foot = document.createElement("div");
-  foot.className = "clr-foot";
-  const hint = document.createElement("span");
-  hint.className = "clr-hint";
-  hint.textContent = "Pick options or type your own below";
-  const go = document.createElement("button");
-  go.type = "button";
-  go.className = "clr-go";
-  go.textContent = "Continue";
-  go.onclick = () => {
-    if (card.classList.contains("done")) return;
-    const picks = [];
-    data.questions.forEach((q, qi) => {
-      if (selected[qi]) picks.push(q.label + ": " + selected[qi]);
-    });
-    if (!picks.length) { if (inputEl) inputEl.focus(); return; }
-    card.classList.add("done");
-    const txt = picks.join(". ") + ".";
-    addUserRow(txt, []);
-    showThinking(true);
-    send({
-      kind: "message",
-      text: txt,
-      project_path: projectPath,
-      schematic_file: schematic,
-      pcb_file: pcbFile,
-      app: appCtx,
-      attachments: [],
-    });
-  };
-  foot.appendChild(hint);
-  foot.appendChild(go);
-  card.appendChild(foot);
-
-  bubble.appendChild(card);
-  scroll();
-}
-
-function finalizeStream(finalText) {
-  let target = currentStream;
-  if (!target && finalText) target = addRow("ai", "");
-  if (target) target.classList.remove("streaming");   // stop the caret
-  if (target && finalText) {
-    if (looksLikeArchitecture(finalText)) {
-      target.classList.add("has-card");
-      target.innerHTML = renderArchitectureCard(finalText);
-    } else if (looksLikeClarify(finalText)) {
-      renderClarifyInto(target, finalText);
-    } else {
-      target.innerHTML = renderMd(finalText);
-      decorateCodeBlocks(target);
-      attachCopyButton(target);   // streaming's innerHTML resets wiped the one addRow() added
-    }
-  }
-  currentStream = null;
-  currentBuf = "";
-}
-
-function renderApproval(m) {
-  const last = msgsEl.lastElementChild;
-  let target;
-  if (last && last.classList.contains("row") && last.classList.contains("ai")) {
-    target = last.querySelector(".bubble");
-  } else {
-    target = addRow("ai", "");
-  }
-  if (Array.isArray(m.ops) && m.ops.length) {
-    const wrap = document.createElement("div");
-    wrap.className = "ops";
-    const title = document.createElement("div");
-    title.className = "ops-title";
-    title.textContent = "Proposed operations (" + m.ops.length + ")";
-    wrap.appendChild(title);
-    for (const o of m.ops) {
-      const t = o.op || o.type || "op";
-      const args = Object.entries(o)
-        .filter(([k]) => k !== "op" && k !== "type")
-        .map(([k,v]) => k + "=" + JSON.stringify(v)).join(", ");
-      const div = document.createElement("div");
-      div.className = "op-item";
-      div.textContent = t + "(" + args + ")";
-      wrap.appendChild(div);
-    }
-    target.appendChild(wrap);
-  }
-  const row = document.createElement("div");
-  row.className = "btn-row";
-  const yes = document.createElement("button");
-  yes.className = "btn primary"; yes.textContent = "Apply changes";
-  const no = document.createElement("button");
-  no.className = "btn secondary"; no.textContent = "Cancel";
-  yes.onclick = () => {
-    yes.disabled = true; no.disabled = true; yes.textContent = "Applying…";
-    send({ kind: "approve", action_id: m.action_id });
-  };
-  no.onclick = () => {
-    send({ kind: "reject", action_id: m.action_id });
-    addSystem("Rejected.");
-    row.remove();
-  };
-  row.appendChild(yes); row.appendChild(no);
-  target.appendChild(row);
-  scroll();
-}
-
-function readAsDataUrl(file) {
-  return new Promise((res, rej) => {
-    const r = new FileReader();
-    r.onload = () => res(r.result);
-    r.onerror = rej;
-    r.readAsDataURL(file);
-  });
-}
-
-async function uploadFile(file) {
-  const fd = new FormData();
-  fd.append("file", file);
-  fd.append("session_id", sessionId || "");
-  const r = await fetch(httpBase + "/api/upload", { method: "POST", body: fd });
-  if (!r.ok) throw new Error("HTTP " + r.status);
-  return r.json();
-}
-
-function renderPending() {
-  pendEl.innerHTML = "";
-  pending.forEach((p, i) => {
-    const chip = document.createElement("span");
-    chip.className = "chip";
-    const icon = p.kind === "image" ? "🖼  "
-               : p.kind === "pdf"   ? "📄  "
-               : p.kind === "erc_report" ? "📝  "
-               : "📎  ";
-    chip.appendChild(document.createTextNode(icon + p.name));
-    const x = document.createElement("span");
-    x.className = "x"; x.textContent = "×";
-    x.onclick = () => { pending.splice(i, 1); renderPending(); };
-    chip.appendChild(x);
-    pendEl.appendChild(chip);
-  });
-}
-
-async function attach(file) {
-  const isImg = /^image\//.test(file.type);
-  const isPdf = /\/pdf$/.test(file.type) || /\.pdf$/i.test(file.name);
-  const nameLc = (file.name || "").toLowerCase();
-  const isReport = /\.rpt$/i.test(nameLc)
-                || /\.erc\.txt$/i.test(nameLc)
-                || (/\.txt$/i.test(nameLc) && nameLc.includes("erc"));
-  if (!isImg && !isPdf && !isReport) {
-    addError("Only image, PDF, or ERC report (.rpt / .txt) files are supported.");
-    return;
-  }
-  const kind = isImg ? "image" : (isPdf ? "pdf" : "erc_report");
-  const dataUrl = isImg ? await readAsDataUrl(file) : null;
-  const entry = { name: file.name, kind, file, dataUrl, attachment_id: null };
-  pending.push(entry);
-  renderPending();
-  try {
-    const r = await uploadFile(file);
-    entry.attachment_id = r.attachment_id || null;
-    entry.server_name = r.filename || file.name;
-  } catch (e) {
-    addError("Upload failed: " + e.message);
-    pending.splice(pending.indexOf(entry), 1);
-    renderPending();
-  }
-}
-
-async function sendChat() {
-  const text = inputEl.value.trim();
-  if (!text && pending.length === 0) return;
-
-  if (text === "/clear" || text === "/reset") {
-    inputEl.value = ""; autosize();
-    if (send({ kind: "reset" })) addSystem("Conversation reset.");
-    return;
-  }
-
-  const attachments = pending.slice();
-  addUserRow(text || "(attachments only)", attachments);
-  inputEl.value = ""; autosize();
-  pending.length = 0; renderPending();
-  showThinking(true);
-
-  const ok = send({
-    kind: "message",
-    text,
-    project_path: projectPath,
-    schematic_file: schematic,
-    pcb_file: pcbFile,
-    app: appCtx,
-    attachments: attachments.map(a => ({
-      kind: a.kind,
-      name: a.server_name || a.name,
-      attachment_id: a.attachment_id
-    }))
-  });
-  if (!ok) { showThinking(false); addError("Not connected — reconnecting."); connect(); }
-}
-
-// Cursor-style clean slate. Toggling the panel preserves the chat (the
-// panel is a persistent shared webview, so the transcript otherwise lives
-// for the whole app session); "New chat" is the explicit reset, matching
-// Cursor's verified behaviour — brand-new session, zero prior memory, no
-// summary carried forward. Bound to the + button and Ctrl/Cmd+N.
-function newChat() {
-  // 1) Drop the CURRENT session's memory on the server (uses the old id,
-  //    which send() injects) BEFORE we rotate to a new one.
-  send({ kind: "reset" });
-  // 2) Rotate to a brand-new session id so the next turn starts empty.
-  sessionId = (window.crypto && crypto.randomUUID)
-    ? crypto.randomUUID().replace(/-/g, "")
-    : ("s" + Date.now().toString(36) + Math.random().toString(36).slice(2, 10));
-  localStorage.setItem("anvil_session_id", sessionId);
-  // 3) Wipe the visible transcript but keep the empty-state welcome node.
-  for (const node of Array.from(msgsEl.children)) {
-    if (node !== emptyEl) node.remove();
-  }
-  if (emptyEl) emptyEl.style.display = "";
-  // 4) Reset transient UI state.
-  showThinking(false);
-  activityEnd();
-  currentStream = null; currentBuf = "";
-  currentThink = null; currentThinkBody = null; currentThinkBuf = "";
-  pending.length = 0; renderPending();
-  inputEl.value = ""; autosize();
-  // 5) Re-anchor the fresh session on the server (page_summary is disabled,
-  //    so this emits no card — the panel stays blank like Cursor's new chat).
-  if (ws && ws.readyState === WebSocket.OPEN) {
-    send({ kind: "hello", project_path: projectPath,
-           schematic_file: schematic, pcb_file: pcbFile, app: appCtx });
-  }
-  inputEl.focus();
-}
-
-function hasConversation() {
-  for (const node of msgsEl.children) {
-    if (node !== emptyEl) return true;
-  }
-  return false;
-}
-
-// Called by the C++ shell ONLY when the AI pane is actually shown (panel
-// reopened) — NOT on schematic<->pcb tab flips. This is what gives the
-// Cursor-style "blank on open": every time you reopen the panel it starts
-// fresh. Guarded so it never destroys work in progress: skipped while a
-// build is running, and a no-op when the panel is already blank.
-window.anvilPanelOpened = function () {
-  if (actRunning || turnActive) return;   // build in flight — keep it
-  if (!hasConversation()) return;         // already blank
-  newChat();
 };
 
-function autosize() {
-  inputEl.style.height = "auto";
-  inputEl.style.height = Math.min(inputEl.scrollHeight, 140) + "px";
+/* C++ pushes live document context here (any arg may be empty) */
+window.anvilSetContext = function (project, sch, pcb, app) {
+  const changedProject = project && project !== ctx.project;
+  ctx = { project: project || "", sch: sch || "", pcb: pcb || "", app: app || ctx.app };
+  const bits = [];
+  if (ctx.project) bits.push("<b>proj</b> " + esc(shortPath(ctx.project)));
+  if (ctx.sch) bits.push("<b>sch</b> " + esc(baseName(ctx.sch)));
+  if (ctx.pcb) bits.push("<b>pcb</b> " + esc(baseName(ctx.pcb)));
+  ctxEl.innerHTML = bits.length ? bits.join(" &nbsp;·&nbsp; ") : "no project";
+  if (changedProject) newChat(true);     // different project => fresh conversation
+};
+function baseName(p) { return (p || "").split(/[\\/]/).pop(); }
+function shortPath(p) {
+  const parts = (p || "").split(/[\\/]/).filter(Boolean);
+  return parts.length > 2 ? "…/" + parts.slice(-2).join("/") : p;
 }
 
-inputEl.addEventListener("input", autosize);
-inputEl.addEventListener("keydown", (e) => {
+/* panel shown (C++ calls when user opens the AI pane) */
+window.anvilPanelOpened = function () { inp.focus(); };
+
+/* ---------- actions ---------- */
+function sendChat() {
+  const text = inp.value.trim();
+  if (!text || turnOpen) return;
+  addMsg("user", text);
+  inp.value = ""; autoSize();
+  turnOpen = true; curAiEl = null;
+  setBusy(true, "working…");
+  post({ kind: "message", text: text, context: ctx });
+}
+function newChat(silent) {
+  sessionSeq++;
+  turnOpen = false; curAiEl = null;
+  post({ kind: "reset" });
+  if (!silent) {
+    msgs.querySelectorAll(".msg").forEach(m => m.remove());
+    addMsg("sys", "new conversation");
+  }
+  setBusy(false);
+}
+
+sendBtn.addEventListener("click", sendChat);
+stopBtn.addEventListener("click", () => { post({ kind: "cancel" }); setBusy(false); });
+$("newBtn").addEventListener("click", () => newChat(false));
+
+inp.addEventListener("keydown", (e) => {
   if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); sendChat(); }
 });
-// Ctrl/Cmd+N → new chat, matching Cursor's clean-slate shortcut.
-window.addEventListener("keydown", (e) => {
-  if ((e.ctrlKey || e.metaKey) && (e.key === "n" || e.key === "N")) {
-    e.preventDefault();
-    newChat();
-  }
-});
-$("attachBtn").onclick = () => $("fileInput").click();
-const sendBtnEl  = $("sendBtn");
-const sendIconEl = $("sendIcon");
-const stopIconEl = $("stopIcon");
-
-function setBusy(on) {
-  if (on) {
-    sendBtnEl.classList.add("stop-mode");
-    sendBtnEl.title = "Stop generation";
-    sendIconEl.style.display = "none";
-    stopIconEl.style.display = "";
-  } else {
-    sendBtnEl.classList.remove("stop-mode");
-    sendBtnEl.title = "Send (Enter)";
-    sendIconEl.style.display = "";
-    stopIconEl.style.display = "none";
-  }
+function autoSize() {
+  inp.style.height = "auto";
+  inp.style.height = Math.min(inp.scrollHeight, 130) + "px";
 }
+inp.addEventListener("input", autoSize);
 
-sendBtnEl.onclick = () => {
-  if (sendBtnEl.classList.contains("stop-mode")) {
-    // Stop: tell the agent to cancel, immediately reset UI. The latch stops the
-    // agent's in-flight heartbeats from re-opening the feed before its "done" lands.
-    turnCancelled = true;
-    send({ kind: "cancel" });
-    showThinking(false);
-    activityEnd();          // clears the feed + turnActive + stop button
-    if (currentStream) {
-      currentStream.classList.remove("streaming");
-      if (!currentStream.innerText.trim()) currentStream.innerHTML = "<em style='opacity:.5'>Stopped.</em>";
-    }
-    currentStream = null; currentBuf = "";
-  } else {
-    sendChat();
-  }
-};
-$("newChatBtn").onclick = () => newChat();
-$("fileInput").onchange = async (e) => {
-  for (const f of e.target.files) await attach(f);
-  e.target.value = "";
-};
-document.querySelectorAll(".ex-chip").forEach(el => {
-  el.onclick = () => { inputEl.value = el.dataset.msg; inputEl.focus(); autosize(); };
-});
-
-window.addEventListener("dragover", (e) => { e.preventDefault(); });
-window.addEventListener("drop", async (e) => {
-  e.preventDefault();
-  for (const f of e.dataTransfer.files) await attach(f);
-});
-
-async function handlePaste(e) {
-  const cd = e.clipboardData || window.clipboardData;
-  if (!cd) return;
-  const files = [];
-  if (cd.files && cd.files.length) {
-    for (const f of cd.files) files.push(f);
-  } else if (cd.items) {
-    for (const it of cd.items) {
-      if (it.kind === "file") {
-        const f = it.getAsFile();
-        if (f) files.push(f);
-      }
-    }
-  }
-  if (!files.length) return;
-  e.preventDefault();
-  for (const f of files) {
-    let file = f;
-    if (!f.name || f.name === "image.png" || /^file$/i.test(f.name)) {
-      const ext = (f.type.split("/")[1] || "png").replace("jpeg", "jpg");
-      const ts = new Date().toISOString().replace(/[:.]/g, "-").slice(0, 19);
-      file = new File([f], `pasted-${ts}.${ext}`, { type: f.type });
-    }
-    await attach(file);
-  }
-}
-window.addEventListener("paste", handlePaste);
-
-window.appendServerMessage = (s) => { try { handleSrv(JSON.parse(s)); } catch(e) { console.error(e); } };
-
-// Host-side prompt suggestion: pre-fill the composer (does NOT auto-send, so the user
-// stays in control of when a turn starts). Used after an import to offer a cleanup pass.
-window.anvilSuggestPrompt = function (text) {
-  if (!inputEl || !text) return;
-  inputEl.value = text;
-  autosize();
-  inputEl.focus();
-  if (emptyEl) emptyEl.style.display = "none";
-};
-window.updateFileContext = (_t, path) => showCtxFile(path);
-
-console.log("[anvil] chat.html loaded — backend=" + backendHost);
-connect();
+/* ---------- boot ---------- */
+(function boot() {
+  // context may arrive via query params on first load
+  const q = new URLSearchParams(location.search);
+  window.anvilSetContext(q.get("project") || "", q.get("schematic") || "", q.get("pcb") || "", q.get("app") || "");
+  post({ kind: "hello", context: ctx });
+  setStatus("ok", "ready");
+  autoSize();
+})();
 </script>
-
 </body>
 </html>

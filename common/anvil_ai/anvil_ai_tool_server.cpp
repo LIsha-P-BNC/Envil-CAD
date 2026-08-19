@@ -1,9 +1,9 @@
 /*
- * Envil AI — MCP tool socket server. See envil_ai_tool_server.h.
+ * Anvil AI — live tool socket server. See anvil_ai_tool_server.h.
  */
 
-#include <envil_ai/envil_ai_tool_server.h>
-#include <envil_ai/envil_ai_tool_bridge.h>
+#include <anvil_ai/anvil_ai_tool_server.h>
+#include <anvil_ai/anvil_ai_tool_bridge.h>
 
 #include <wx/socket.h>
 #include <wx/sckaddr.h>
@@ -13,20 +13,20 @@
 
 enum
 {
-    ID_ENVIL_SOCK_SERVER = 5701,
-    ID_ENVIL_SOCK_CLIENT
+    ID_ANVIL_SOCK_SERVER = 5711,
+    ID_ANVIL_SOCK_CLIENT
 };
 
 
-ENVIL_AI_TOOL_SERVER::ENVIL_AI_TOOL_SERVER( KIWAY* aKiway, wxWindow* aParent ) :
+ANVIL_AI_TOOL_SERVER::ANVIL_AI_TOOL_SERVER( KIWAY* aKiway, wxWindow* aParent ) :
         m_kiway( aKiway ),
         m_parent( aParent ),
-        m_port( ENVIL_MCP_DEFAULT_PORT ),
+        m_port( ANVIL_MCP_DEFAULT_PORT ),
         m_server( nullptr )
 {
     wxString portStr;
 
-    if( wxGetEnv( wxS( "ENVIL_MCP_PORT" ), &portStr ) && !portStr.IsEmpty() )
+    if( wxGetEnv( wxS( "ANVIL_MCP_PORT" ), &portStr ) && !portStr.IsEmpty() )
     {
         long p = 0;
 
@@ -34,20 +34,20 @@ ENVIL_AI_TOOL_SERVER::ENVIL_AI_TOOL_SERVER( KIWAY* aKiway, wxWindow* aParent ) :
             m_port = (int) p;
     }
 
-    // Bound once for the object's lifetime so that repeated Start()/Stop() cycles (driven by
-    // the AnvilCAD MCP menu) never stack duplicate handlers.
-    Bind( wxEVT_SOCKET, &ENVIL_AI_TOOL_SERVER::onServerEvent, this, ID_ENVIL_SOCK_SERVER );
-    Bind( wxEVT_SOCKET, &ENVIL_AI_TOOL_SERVER::onClientEvent, this, ID_ENVIL_SOCK_CLIENT );
+    // Bound once for the object's lifetime so that repeated Start()/Stop() cycles (driven
+    // by the AnvilCAD MCP menu) never stack duplicate handlers.
+    Bind( wxEVT_SOCKET, &ANVIL_AI_TOOL_SERVER::onServerEvent, this, ID_ANVIL_SOCK_SERVER );
+    Bind( wxEVT_SOCKET, &ANVIL_AI_TOOL_SERVER::onClientEvent, this, ID_ANVIL_SOCK_CLIENT );
 }
 
 
-ENVIL_AI_TOOL_SERVER::~ENVIL_AI_TOOL_SERVER()
+ANVIL_AI_TOOL_SERVER::~ANVIL_AI_TOOL_SERVER()
 {
     Stop();
 }
 
 
-void ENVIL_AI_TOOL_SERVER::Stop()
+void ANVIL_AI_TOOL_SERVER::Stop()
 {
     for( wxSocketBase* sock : m_clients )
     {
@@ -67,12 +67,12 @@ void ENVIL_AI_TOOL_SERVER::Stop()
         m_server->Destroy();
         m_server = nullptr;
 
-        wxLogTrace( wxS( "ENVIL" ), wxS( "Envil AI tool server stopped" ) );
+        wxLogTrace( wxS( "ANVIL" ), wxS( "Anvil AI tool server stopped" ) );
     }
 }
 
 
-bool ENVIL_AI_TOOL_SERVER::Start()
+bool ANVIL_AI_TOOL_SERVER::Start()
 {
     if( m_server )
         return true;    // already listening
@@ -85,24 +85,24 @@ bool ENVIL_AI_TOOL_SERVER::Start()
 
     if( !m_server->IsOk() )
     {
-        wxLogTrace( wxS( "ENVIL" ), wxS( "Envil AI tool server: could not bind port %d" ),
+        wxLogTrace( wxS( "ANVIL" ), wxS( "Anvil AI tool server: could not bind port %d" ),
                     m_port );
         m_server->Destroy();
         m_server = nullptr;
         return false;
     }
 
-    m_server->SetEventHandler( *this, ID_ENVIL_SOCK_SERVER );
+    m_server->SetEventHandler( *this, ID_ANVIL_SOCK_SERVER );
     m_server->SetNotify( wxSOCKET_CONNECTION_FLAG );
     m_server->Notify( true );
 
-    wxLogTrace( wxS( "ENVIL" ), wxS( "Envil AI tool server listening on 127.0.0.1:%d" ),
+    wxLogTrace( wxS( "ANVIL" ), wxS( "Anvil AI tool server listening on 127.0.0.1:%d" ),
                 m_port );
     return true;
 }
 
 
-void ENVIL_AI_TOOL_SERVER::onServerEvent( wxSocketEvent& aEvent )
+void ANVIL_AI_TOOL_SERVER::onServerEvent( wxSocketEvent& aEvent )
 {
     if( aEvent.GetSocketEvent() != wxSOCKET_CONNECTION )
         return;
@@ -115,13 +115,13 @@ void ENVIL_AI_TOOL_SERVER::onServerEvent( wxSocketEvent& aEvent )
     m_clients.push_back( sock );
     m_rxAccum.clear();
 
-    sock->SetEventHandler( *this, ID_ENVIL_SOCK_CLIENT );
+    sock->SetEventHandler( *this, ID_ANVIL_SOCK_CLIENT );
     sock->SetNotify( wxSOCKET_INPUT_FLAG | wxSOCKET_LOST_FLAG );
     sock->Notify( true );
 }
 
 
-void ENVIL_AI_TOOL_SERVER::onClientEvent( wxSocketEvent& aEvent )
+void ANVIL_AI_TOOL_SERVER::onClientEvent( wxSocketEvent& aEvent )
 {
     wxSocketBase* sock = aEvent.GetSocket();
 
@@ -174,11 +174,11 @@ void ENVIL_AI_TOOL_SERVER::onClientEvent( wxSocketEvent& aEvent )
 }
 
 
-void ENVIL_AI_TOOL_SERVER::handleLine( wxSocketBase* aSock, const std::string& aLine )
+void ANVIL_AI_TOOL_SERVER::handleLine( wxSocketBase* aSock, const std::string& aLine )
 {
     // We are already on the GUI thread (wxSocket events dispatch on the event loop), so the
     // KIWAY round-trip into the editor is safe to run directly.
-    std::string result = EnvilSendTool( m_kiway, m_parent, aLine );
+    std::string result = AnvilSendTool( m_kiway, m_parent, aLine );
     result.push_back( '\n' );
 
     aSock->Write( result.data(), (wxUint32) result.size() );

@@ -118,7 +118,28 @@ enum MAIL_T
      * nowhere -- this gives them a real, editable Anvil library. Request/response: payload
      * replaced with "OK <n> footprints" or "ERROR <message>".
      */
-    MAIL_ENVIL_CAPTURE_FOOTPRINTS
+    MAIL_ENVIL_CAPTURE_FOOTPRINTS,
+
+    /**
+     * Anvil AI: run one live AI tool call against the schematic (SHELL/AI->SCH).
+     *
+     * Request/response: the payload carries the tool request as JSON in, and the handler
+     * overwrites it with the result JSON out (KIWAY dispatch is synchronous and hands the
+     * SAME event to the recipient, so writes to the payload are visible to the sender when
+     * dispatch returns). This is what lets the shell-owned Anvil AI panel — which lives in
+     * kicad.exe and cannot see SCH_EDIT_FRAME across the KIFACE boundary — edit the open
+     * schematic.
+     *
+     * In:  {"tool":"add_component","input":{ ... }}
+     * Out: {"ok":true|false,"message":"..."}
+     */
+    MAIL_ANVIL_AI_TOOL,
+
+    /**
+     * Anvil AI: run one live AI tool call against the board (SHELL/AI->PCB).
+     * The board-side twin of MAIL_ANVIL_AI_TOOL with the same request/response contract.
+     */
+    MAIL_ANVIL_PCB_TOOL
 };
 
 #endif  // MAIL_TYPE_H_

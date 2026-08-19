@@ -1,5 +1,5 @@
 /*
- * Envil AI — schematic-side executor for AI tool calls. See envil_ai_tool_exec.h.
+ * Anvil AI — schematic-side executor for AI tool calls. See anvil_ai_tool_exec.h.
  *
  * The op vocabulary mirrors the one the Python (Nemi) backend used, so the model can drive
  * the schematic the same way: add_component / add_wire / add_label / add_junction /
@@ -9,7 +9,7 @@
  * contract rather than silently mixing conventions.
  */
 
-#include "envil_ai_tool_exec.h"
+#include "anvil_ai_tool_exec.h"
 
 #include <algorithm>
 #include <vector>
@@ -879,7 +879,7 @@ std::string EnvilConvertSymbolLib( const std::string& aRequest )
 }
 
 
-std::string EnvilExecAiTool( SCH_EDIT_FRAME* aFrame, const std::string& aRequestJson )
+std::string AnvilExecAiTool( SCH_EDIT_FRAME* aFrame, const std::string& aRequestJson )
 {
     json result;
 

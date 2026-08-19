@@ -86,8 +86,7 @@ set( KICOMMON_SRCS
     # here: it needs WEBVIEW_PANEL, which lives in `common`, and `common` already links
     # kicommon -- so it is compiled into each consumer instead (see kicad/eeschema
     # CMakeLists), mirroring how widgets/ai_ipc_client.cpp is handled.
-    envil_ai/envil_ai_client.cpp
-    envil_ai/envil_ai_tool_bridge.cpp
+    anvil_ai/anvil_ai_tool_bridge.cpp
 
     # Fonts
     newstroke_font.cpp

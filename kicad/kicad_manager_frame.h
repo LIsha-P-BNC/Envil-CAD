@@ -44,8 +44,8 @@ class LOCAL_HISTORY_PANE;
 class UPDATE_MANAGER;
 class WEBVIEW_PANEL;
 class AI_IPC_CLIENT;
-class ENVIL_AI_AGENT;
-class ENVIL_AI_TOOL_SERVER;
+class ANVIL_AI_AGENT;
+class ANVIL_AI_TOOL_SERVER;
 
 /**
  * The main Anvil project manager frame.  It is not a KIWAY_PLAYER.
@@ -533,8 +533,8 @@ private:
     };
     std::vector<HOISTED_EDITOR_TOOLBAR> m_hoistedToolbars;
     WEBVIEW_PANEL*        m_aiChatPanel;  ///< Shell-owned common AI panel; only when CommonAiPanel + shell
-    ENVIL_AI_AGENT*       m_envilAgent;   ///< Native Claude agent driving m_aiChatPanel
-    std::unique_ptr<ENVIL_AI_TOOL_SERVER> m_envilToolServer;  ///< MCP tool socket (loopback)
+    ANVIL_AI_AGENT*       m_anvilAgent;   ///< Native Claude agent driving m_aiChatPanel
+    std::unique_ptr<ANVIL_AI_TOOL_SERVER> m_anvilToolServer;  ///< MCP tool socket (loopback)
 
     /// Single-window shell: true while the title-bar menu shows an editor's menu (vs the
     /// Project Manager's own menu).  Lets focus changes flip the menu without rebuilding it

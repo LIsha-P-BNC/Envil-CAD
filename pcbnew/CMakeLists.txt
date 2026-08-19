@@ -482,7 +482,7 @@ set( PCBNEW_CLASS_SRCS
 
     widgets/appearance_controls.cpp
     widgets/appearance_controls_base.cpp
-    widgets/envil_pcb_tool_exec.cpp
+    widgets/anvil_pcb_tool_exec.cpp
     widgets/footprint_wizard_properties_panel.cpp
     widgets/panel_footprint_chooser.cpp
     widgets/panel_selection_filter.cpp
@@ -684,7 +684,7 @@ endif()
 # Skip PCH for the nlohmann/json users to avoid symbol conflicts
 set_source_files_properties(
     ${CMAKE_SOURCE_DIR}/common/widgets/ai_ipc_client.cpp
-    ${CMAKE_CURRENT_SOURCE_DIR}/widgets/envil_pcb_tool_exec.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/widgets/anvil_pcb_tool_exec.cpp
     PROPERTIES SKIP_PRECOMPILE_HEADERS ON
 )
 

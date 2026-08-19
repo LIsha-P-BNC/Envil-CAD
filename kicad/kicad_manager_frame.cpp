@@ -99,8 +99,8 @@
 #include <widgets/wx_aui_utils.h>          // SetAuiPaneSize (common AI panel width restore)
 #include <widgets/webview_panel.h>         // shell-owned common AI chat panel
 #include <widgets/ai_ipc_client.h>         // shell-side backend command channel (open_project)
-#include <envil_ai/envil_ai_agent.h>       // native Claude agent driving the shell AI panel
-#include <envil_ai/envil_ai_tool_server.h> // MCP tool socket (external Claude clients)
+#include <anvil_ai/anvil_ai_agent.h>       // native Claude agent driving the shell AI panel
+#include <anvil_ai/anvil_ai_tool_server.h> // MCP tool socket (external Claude clients)
 #include <nlohmann/json.hpp>               // parse the open_project IPC payload
 #include <paths.h>                         // PATHS::GetStockDataPath (locate chat.html)
 #include <anvil_auth/anvil_auth.h>         // sign-out (File > Sign Out)
@@ -1359,7 +1359,7 @@ KICAD_MANAGER_FRAME::KICAD_MANAGER_FRAME( wxWindow* parent, const wxString& titl
         m_historyPane( nullptr ),
         m_editorTabs( nullptr ),
         m_aiChatPanel( nullptr ),
-        m_envilAgent( nullptr ),
+        m_anvilAgent( nullptr ),
         m_launcher( nullptr ),
         m_lastToolbarIconSize( 0 ),
         m_pcmButton( nullptr ),
@@ -1694,11 +1694,11 @@ KICAD_MANAGER_FRAME::KICAD_MANAGER_FRAME( wxWindow* parent, const wxString& titl
             m_aiChatPanel = new WEBVIEW_PANEL( this );
 
             // Envil native AI agent: drives this panel from an in-process C++ Claude agent
-            // (no Python backend).  Attached before the page loads so window.envilSend
+            // (no Python backend).  Attached before the page loads so window.anvilSend
             // exists when chat.html runs.  Tool calls reach the schematic editor over
-            // MAIL_ENVIL_AI_TOOL, since kicad.exe cannot see SCH_EDIT_FRAME directly.
-            m_envilAgent = new ENVIL_AI_AGENT( &Kiway(), this, m_aiChatPanel );
-            m_envilAgent->Attach();
+            // MAIL_ANVIL_AI_TOOL, since kicad.exe cannot see SCH_EDIT_FRAME directly.
+            m_anvilAgent = new ANVIL_AI_AGENT( &Kiway(), this, m_aiChatPanel );
+            m_anvilAgent->Attach();
 
             // Locate chat.html the same way the editors do: stock data path, then the exe
             // directory (build output), then the wx resources dir.
@@ -1838,28 +1838,28 @@ KICAD_MANAGER_FRAME::KICAD_MANAGER_FRAME( wxWindow* parent, const wxString& titl
 
     m_auimgr.Update();
 
-    // Envil AI MCP tool socket: lets an external Claude client (via the envil-mcp bridge)
+    // Anvil AI MCP tool socket: lets an external client (the SKiDL live tools or any MCP
     // place parts in the schematic on the user's own subscription — an alternative to the
     // in-app API-key agent. Loopback only, started at launch; the "AnvilCAD MCP" menu can
     // stop and restart it at any time.
-    m_envilToolServer = std::make_unique<ENVIL_AI_TOOL_SERVER>( &Kiway(), this );
+    m_anvilToolServer = std::make_unique<ANVIL_AI_TOOL_SERVER>( &Kiway(), this );
 
-    if( !m_envilToolServer->Start() )
+    if( !m_anvilToolServer->Start() )
         wxLogDebug( wxT( "Envil AI: MCP tool socket failed to start (port in use?)" ) );
 
     // Hooks behind the unified menu bar's "AnvilCAD MCP" menu (shown in every editor).
     EDA_BASE_FRAME::MCP_MENU_CONTROLLER mcpCtl;
 
-    mcpCtl.isRunning = [this]() { return m_envilToolServer && m_envilToolServer->IsRunning(); };
-    mcpCtl.start     = [this]() { return m_envilToolServer && m_envilToolServer->Start(); };
+    mcpCtl.isRunning = [this]() { return m_anvilToolServer && m_anvilToolServer->IsRunning(); };
+    mcpCtl.start     = [this]() { return m_anvilToolServer && m_anvilToolServer->Start(); };
     mcpCtl.stop      = [this]()
                        {
-                           if( m_envilToolServer )
-                               m_envilToolServer->Stop();
+                           if( m_anvilToolServer )
+                               m_anvilToolServer->Stop();
                        };
     mcpCtl.port      = [this]()
                        {
-                           return m_envilToolServer ? m_envilToolServer->GetPort() : 0;
+                           return m_anvilToolServer ? m_anvilToolServer->GetPort() : 0;
                        };
 
     EDA_BASE_FRAME::SetMcpMenuController( std::move( mcpCtl ) );
@@ -2665,29 +2665,21 @@ void KICAD_MANAGER_FRAME::syncAiPanelToActiveTab()
     if( !editor )
         return;   // launcher / no editor tab — leave the panel's current context
 
-    wxString setter;
+    bool isSch = editor->GetFrameType() == FRAME_SCH;
+    bool isPcb = editor->GetFrameType() == FRAME_PCB_EDITOR;
 
-    if( editor->GetFrameType() == FRAME_SCH )
-        setter = wxT( "anvilSetSchematic" );
-    else if( editor->GetFrameType() == FRAME_PCB_EDITOR )
-        setter = wxT( "anvilSetPcb" );
-    else
+    if( !isSch && !isPcb )
         return;   // a non-schematic/PCB tab (Gerber, Calculator, …) — keep current context
 
     wxString projPath = Prj().GetProjectPath();
     wxString file     = editor->GetCurrentFileName();
 
-    projPath.Replace( wxT( "\\" ), wxT( "/" ) );
-    projPath.Replace( wxT( "\"" ), wxT( "\\\"" ) );
-    file.Replace( wxT( "\\" ), wxT( "/" ) );
-    file.Replace( wxT( "\"" ), wxT( "\\\"" ) );
-
-    // anvilSetSchematic / anvilSetPcb set the panel's app context AND re-hello the backend
-    // with the new file, so the one shell panel always acts on the front tab's document.
-    wxString script = wxString::Format(
-            wxT( "if (window.%s) window.%s(\"%s\", \"%s\");" ),
-            setter, setter, projPath, file );
-    m_aiChatPanel->RunScriptAsync( script );
+    // The agent both remembers the context (for the model's system prompt) and pushes it
+    // into the page via window.anvilSetContext, so the one shell panel always shows and
+    // acts on the front tab's document.
+    if( m_anvilAgent )
+        m_anvilAgent->SetDocumentContext( projPath, isSch ? file : wxString(),
+                                          isPcb ? file : wxString() );
 }
 
 

@@ -1,8 +1,8 @@
 /*
- * Envil AI — tool bridge. See envil_ai_tool_bridge.h.
+ * Anvil AI — tool bridge. See anvil_ai_tool_bridge.h.
  */
 
-#include <envil_ai/envil_ai_tool_bridge.h>
+#include <anvil_ai/anvil_ai_tool_bridge.h>
 
 #include <kiway.h>
 #include <kiway_mail.h>
@@ -13,7 +13,7 @@
 #include <set>
 
 
-std::string EnvilSendSchematicTool( KIWAY* aKiway, wxWindow* aSource,
+std::string AnvilSendSchematicTool( KIWAY* aKiway, wxWindow* aSource,
                                     const std::string& aRequestJson )
 {
     // The payload is held BY REFERENCE by KIWAY_MAIL_EVENT and KIWAY::ProcessEvent
@@ -24,7 +24,7 @@ std::string EnvilSendSchematicTool( KIWAY* aKiway, wxWindow* aSource,
     if( !aKiway )
         return R"({"ok":false,"message":"No KIWAY available."})";
 
-    KIWAY_MAIL_EVENT mail( FRAME_SCH, MAIL_ENVIL_AI_TOOL, payload, aSource );
+    KIWAY_MAIL_EVENT mail( FRAME_SCH, MAIL_ANVIL_AI_TOOL, payload, aSource );
 
     if( !aKiway->ProcessEvent( mail ) )
     {
@@ -36,14 +36,14 @@ std::string EnvilSendSchematicTool( KIWAY* aKiway, wxWindow* aSource,
 }
 
 
-std::string EnvilSendBoardTool( KIWAY* aKiway, wxWindow* aSource, const std::string& aRequestJson )
+std::string AnvilSendBoardTool( KIWAY* aKiway, wxWindow* aSource, const std::string& aRequestJson )
 {
     std::string payload = aRequestJson;
 
     if( !aKiway )
         return R"({"ok":false,"message":"No KIWAY available."})";
 
-    KIWAY_MAIL_EVENT mail( FRAME_PCB_EDITOR, MAIL_ENVIL_PCB_TOOL, payload, aSource );
+    KIWAY_MAIL_EVENT mail( FRAME_PCB_EDITOR, MAIL_ANVIL_PCB_TOOL, payload, aSource );
 
     if( !aKiway->ProcessEvent( mail ) )
     {
@@ -55,7 +55,7 @@ std::string EnvilSendBoardTool( KIWAY* aKiway, wxWindow* aSource, const std::str
 }
 
 
-bool EnvilIsBoardTool( const std::string& aToolName )
+bool AnvilIsBoardTool( const std::string& aToolName )
 {
     static const std::set<std::string> boardTools = {
         "get_board", "run_drc", "add_footprint", "move_footprint", "add_track", "add_via",
@@ -66,7 +66,7 @@ bool EnvilIsBoardTool( const std::string& aToolName )
 }
 
 
-std::string EnvilSendTool( KIWAY* aKiway, wxWindow* aSource, const std::string& aRequestJson )
+std::string AnvilSendTool( KIWAY* aKiway, wxWindow* aSource, const std::string& aRequestJson )
 {
     std::string toolName;
 
@@ -79,8 +79,8 @@ std::string EnvilSendTool( KIWAY* aKiway, wxWindow* aSource, const std::string& 
         return R"({"ok":false,"message":"Tool request was not valid JSON."})";
     }
 
-    if( EnvilIsBoardTool( toolName ) )
-        return EnvilSendBoardTool( aKiway, aSource, aRequestJson );
+    if( AnvilIsBoardTool( toolName ) )
+        return AnvilSendBoardTool( aKiway, aSource, aRequestJson );
 
-    return EnvilSendSchematicTool( aKiway, aSource, aRequestJson );
+    return AnvilSendSchematicTool( aKiway, aSource, aRequestJson );
 }

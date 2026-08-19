@@ -116,7 +116,7 @@
 #include <wx/stdpaths.h>
 #include <widgets/webview_panel.h>
 #include <widgets/ai_ipc_client.h>
-#include <envil_ai/envil_ai_agent.h>
+#include <anvil_ai/anvil_ai_agent.h>
 #include <nlohmann/json.hpp>
 #include <wx/socket.h>
 #include <wx/debug.h>
@@ -182,7 +182,7 @@ SCH_EDIT_FRAME::SCH_EDIT_FRAME( KIWAY* aKiway, wxWindow* aParent ) :
         m_designBlocksPane( nullptr ),
         m_remoteSymbolPane( nullptr ),
         m_aiChatPanel( nullptr ),
-        m_envilAgent( nullptr ),
+        m_anvilAgent( nullptr ),
         m_currentVariantCtrl( nullptr )
 {
     m_maximizeByDefault = true;
@@ -266,12 +266,12 @@ SCH_EDIT_FRAME::SCH_EDIT_FRAME( KIWAY* aKiway, wxWindow* aParent ) :
 
         // Envil native AI agent: drives the Anvil chat UI from an in-process C++ Claude
         // agent (no Python backend). Register its JS<->C++ bridge handler before the page
-        // loads so chat.html's window.envilSend is wired up. Only for this editor's own
+        // loads so chat.html's window.anvilSend is wired up. Only for this editor's own
         // panel — under CommonAiPanel the shell owns the panel and its own agent.
         if( m_aiChatPanel )
         {
-            m_envilAgent = new ENVIL_AI_AGENT( &Kiway(), this, m_aiChatPanel );
-            m_envilAgent->Attach();
+            m_anvilAgent = new ANVIL_AI_AGENT( &Kiway(), this, m_aiChatPanel );
+            m_anvilAgent->Attach();
         }
 
         // Search for chat.html in priority order:
@@ -354,7 +354,7 @@ SCH_EDIT_FRAME::SCH_EDIT_FRAME( KIWAY* aKiway, wxWindow* aParent ) :
                         p.Replace( wxT( "\"" ), wxT( "\\\"" ) );
                         s.Replace( wxT( "\"" ), wxT( "\\\"" ) );
                         wxString script = wxString::Format(
-                            wxT( "if (window.anvilSetSchematic) window.anvilSetSchematic(\"%s\", \"%s\");" ),
+                            wxT( "if (window.anvilSetContext) window.anvilSetContext(\"%s\", \"%s\", \"\", \"eeschema\");" ),
                             p, s );
                         m_aiChatPanel->RunScriptAsync( script );
                         aEvt.Skip();
