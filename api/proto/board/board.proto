@@ -319,7 +319,10 @@ enum DrcErrorType
 
 message DrcSeveritySetting
 {
-  DrcErrorType rule_type = 1;
+  // The DRC_ITEM settings key ("clearance", "silk_over_copper", ...) rather than a DrcErrorType:
+  // a new rule then needs no enumerator here, and the key is what the board settings file
+  // already stores.
+  string error_key = 1;
   kiapi.common.types.RuleSeverity severity = 2;
 }
 

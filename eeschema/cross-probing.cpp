@@ -1227,7 +1227,8 @@ std::string SCH_EDIT_FRAME::captureEmbeddedSymbols()
 
             AnnotateSymbols( &commit, ANNOTATE_ALL, SORT_BY_X_POSITION, INCREMENTAL_BY_REF,
                              false /*recursive*/, 0 /*startNum*/, false /*resetAnnotation*/,
-                             true /*regroupUnits*/, true /*repairTimestamps*/, reporter );
+                             true /*regroupUnits*/, true /*repairTimestamps*/, reporter,
+                             SYMBOL_FILTER_NON_POWER );
 
             commit.Push( _( "Anvil: annotate imported design" ) );
         }

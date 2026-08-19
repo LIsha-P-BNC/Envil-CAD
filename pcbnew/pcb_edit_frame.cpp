@@ -1360,6 +1360,10 @@ void PCB_EDIT_FRAME::OnAiIpcRetryTimer( wxTimerEvent& )
                          "switching to %d ms polling" ),
                     m_aiIpcRetryAttempts, kSlowIntervalMs );
         m_aiIpcRetryTimer.Start( kSlowIntervalMs, wxTIMER_CONTINUOUS );
+    }
+}
+
+
 void PCB_EDIT_FRAME::detachTextVarTracker()
 {
     if( GetCanvas() )
