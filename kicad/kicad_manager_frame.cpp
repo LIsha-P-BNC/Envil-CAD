@@ -1838,14 +1838,12 @@ KICAD_MANAGER_FRAME::KICAD_MANAGER_FRAME( wxWindow* parent, const wxString& titl
 
     m_auimgr.Update();
 
-    // Anvil AI MCP tool socket: lets an external client (the SKiDL live tools or any MCP
-    // place parts in the schematic on the user's own subscription — an alternative to the
-    // in-app API-key agent. Loopback only, started at launch; the "AnvilCAD MCP" menu can
-    // stop and restart it at any time.
+    // Anvil AI MCP tool socket: lets an external client (the SKiDL live tools, driven by
+    // the in-app chat or the user's own Claude client) edit the open design. Loopback
+    // only, and deliberately NOT started at launch: the user turns it on from the
+    // "AnvilCAD MCP" menu (Start), which is the explicit opt-in for anything outside this
+    // process to touch the editors. Live tools report a "click Start" hint until then.
     m_anvilToolServer = std::make_unique<ANVIL_AI_TOOL_SERVER>( &Kiway(), this );
-
-    if( !m_anvilToolServer->Start() )
-        wxLogDebug( wxT( "Envil AI: MCP tool socket failed to start (port in use?)" ) );
 
     // Hooks behind the unified menu bar's "AnvilCAD MCP" menu (shown in every editor).
     EDA_BASE_FRAME::MCP_MENU_CONTROLLER mcpCtl;
