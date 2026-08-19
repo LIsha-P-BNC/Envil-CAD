@@ -365,10 +365,10 @@ void KISTATUSBAR::layoutControls()
     if( m_panelsButton )
     {
         GetFieldRect( m_normalFieldsCount + *fieldIndex( FIELD::PANELS ), r );
-        x = r.GetLeft();
-        y = r.GetTop();
-        h = r.GetHeight();
-        buttonSize = m_panelsButton->GetEffectiveMinSize();
+        int x = r.GetLeft();
+        int y = r.GetTop();
+        int h = r.GetHeight();
+        wxSize buttonSize = m_panelsButton->GetEffectiveMinSize();
         m_panelsButton->SetPosition( { x, y } );
         m_panelsButton->SetSize( buttonSize.GetWidth() + 6, h );
     }
