@@ -66,6 +66,7 @@ public:
     int LoadProject( const TOOL_EVENT& aEvent );
 
     int ArchiveProject( const TOOL_EVENT& aEvent );
+    int SignOut( const TOOL_EVENT& aEvent );
     int UnarchiveProject( const TOOL_EVENT& aEvent );
     int ExploreProject( const TOOL_EVENT& aEvent );
     int RestoreLocalHistory( const TOOL_EVENT& aEvent );

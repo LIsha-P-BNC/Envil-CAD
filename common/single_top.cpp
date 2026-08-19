@@ -34,6 +34,7 @@
 */
 
 
+#include <memory>
 #include <typeinfo>
 #include <wx/cmdline.h>
 #include <wx/dialog.h>
@@ -404,28 +405,30 @@ bool PGM_SINGLE_TOP::OnPgmInit()
 
     // Anvil sign-in gate: standalone editors get the same email-OTP login as the project
     // manager shell, shown before any editor window exists.  Cancelling means "don't start".
+    // Anvil sign-in gate — same shape as the one in kicad.cpp: the dialog stays on screen as
+    // a cover while the editor frame is built and is destroyed only once that window shows,
+    // and wxWidgets' "last window closed => quit" rule is suspended while it is the only
+    // top-level window.
+    std::unique_ptr<DIALOG_ANVIL_LOGIN> loginDlg;
+    const bool                          exitOnDelete = App().GetExitOnFrameDelete();
+
     if( !ANVIL_AUTH::IsLoggedIn() )
     {
-        // See the matching gate in kicad.cpp: the dialog is the only top-level window here,
-        // so destroying it would trip wxWidgets' "last window closed => quit" rule and kill
-        // the app before the editor frame exists.  Suspend that rule across the gate.
-        const bool exitOnDelete = App().GetExitOnFrameDelete();
         App().SetExitOnFrameDelete( false );
 
-        int loginResult;
+        loginDlg = std::make_unique<DIALOG_ANVIL_LOGIN>( nullptr );
 
+        if( loginDlg->ShowModal() != wxID_OK )
         {
-            DIALOG_ANVIL_LOGIN loginDlg( nullptr );
-            loginResult = loginDlg.ShowModal();
-        }
-
-        App().SetExitOnFrameDelete( exitOnDelete );
-
-        if( loginResult != wxID_OK )
-        {
+            loginDlg.reset();
+            App().SetExitOnFrameDelete( exitOnDelete );
             OnPgmExit();
             return false;
         }
+
+        loginDlg->ShowOpeningState();
+        loginDlg->Show( true );
+        loginDlg->Raise();
     }
 
     // Use KIWAY to create a top window, which registers its existence also.
@@ -467,6 +470,15 @@ bool PGM_SINGLE_TOP::OnPgmInit()
     wxSafeYield();
     HideSplash();
     frame->Show();
+
+    // Editor window is up: retire the sign-in cover and restore the normal shutdown rule.
+    if( loginDlg )
+    {
+        loginDlg->Destroy();
+        loginDlg.release();     // wxWidgets owns it after Destroy()
+        App().SetExitOnFrameDelete( exitOnDelete );
+        frame->Raise();
+    }
     wxSafeYield();
 
     // Now after the frame processing, the rest of the positional args are files

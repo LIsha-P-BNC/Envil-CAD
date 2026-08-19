@@ -300,6 +300,13 @@ TOOL_ACTION KICAD_MANAGER_ACTIONS::unarchiveProject( TOOL_ACTION_ARGS()
         .Tooltip( _( "Unarchive project files from zip archive" ) )
         .Icon( BITMAPS::unzip ) );
 
+TOOL_ACTION KICAD_MANAGER_ACTIONS::signOut( TOOL_ACTION_ARGS()
+        .Name( "kicad.Control.signOut" )
+        .Scope( AS_GLOBAL )
+        .FriendlyName( _( "Sign Out..." ) )
+        .Tooltip( _( "Sign out of the Anvil session and return to the login screen" ) )
+        .Icon( BITMAPS::exit ) );
+
 TOOL_ACTION KICAD_MANAGER_ACTIONS::openProjectDirectory( TOOL_ACTION_ARGS()
         .Name( "kicad.Control.OpenProjectDirectory" )
         .Scope( AS_GLOBAL )

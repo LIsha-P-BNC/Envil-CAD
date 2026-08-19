@@ -104,30 +104,3 @@ bool ANVIL_AUTH_CONFIG::IsConfigured()
 {
     return !ApiKey().IsEmpty();
 }
-
-
-void ANVIL_AUTH_CONFIG::ReadFileValues( wxString& aApiBase, wxString& aApiKey,
-                                        wxString& aProjectId )
-{
-    aApiBase   = readValue( KEY_API_BASE );
-    aApiKey    = readValue( KEY_API_KEY );
-    aProjectId = readValue( KEY_PROJECT_ID );
-}
-
-
-bool ANVIL_AUTH_CONFIG::Save( const wxString& aApiBase, const wxString& aApiKey,
-                              const wxString& aProjectId )
-{
-    const wxString path = ConfigFilePath();
-
-    if( path.IsEmpty() )
-        return false;
-
-    wxFileConfig cfg( wxS( "" ), wxS( "" ), path );
-
-    cfg.Write( KEY_API_BASE, aApiBase );
-    cfg.Write( KEY_API_KEY, aApiKey );
-    cfg.Write( KEY_PROJECT_ID, aProjectId );
-
-    return cfg.Flush();
-}

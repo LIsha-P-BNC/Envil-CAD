@@ -59,6 +59,10 @@ inline constexpr char LATEST_PATH[]     = "https://bnc-ai.com/api/software/lates
 /// API key"; "x-api-key" is the name it actually reads.
 inline constexpr char HDR_API_KEY[] = "x-api-key";
 
+/// Session header for authenticated endpoints, sent as "Bearer <jwt>".  Verified: logout
+/// answers 401 "No token provided" with only the api-key, and reads this header when present.
+inline constexpr char HDR_AUTHORIZATION[] = "Authorization";
+
 // ---- request JSON field names ----------------------------------------------------------
 
 inline constexpr char F_EMAIL[]      = "email";
@@ -66,6 +70,15 @@ inline constexpr char F_PROJECT_ID[] = "project_id";
 inline constexpr char F_OTP[]        = "otp";
 inline constexpr char F_OS_TYPE[]    = "os_type";
 inline constexpr char F_VERSION[]    = "version";
+
+// ---- user profile field names (login response) -------------------------------------------
+// Verified against the live register response, which returns under "data":
+//   id, name, email, role, project_id, is_active, projects[…]
+// Only name and role are read: the project mapping is deliberately NOT surfaced, since it is
+// only accurate as of login and there is no endpoint to refresh it while signed in.
+
+inline constexpr char F_NAME[] = "name";
+inline constexpr char F_ROLE[] = "role";
 
 // ---- version response field names -------------------------------------------------------
 // Verified against the live endpoint, which answers under a "data" wrapper with:

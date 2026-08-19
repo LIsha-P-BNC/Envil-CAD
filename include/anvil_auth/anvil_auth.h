@@ -23,6 +23,18 @@
 #include <kicommon.h>
 #include <wx/string.h>
 
+/// The signed-in account, as shown in the app's account UI.
+struct KICOMMON_API ANVIL_USER
+{
+    wxString email;     ///< always present while signed in
+    wxString name;      ///< display name, may be empty
+    wxString role;      ///< e.g. "designer", may be empty
+
+    /// Best available label for a one-line display: name when known, else the email.
+    wxString Label() const { return name.IsEmpty() ? email : name; }
+};
+
+
 /// What the /software/latest endpoint reports about this build.
 struct KICOMMON_API ANVIL_VERSION_INFO
 {
@@ -79,6 +91,9 @@ public:
 
     /// Email of the stored session, or empty when logged out.
     static wxString GetEmail();
+
+    /// The signed-in account's details; all fields empty when logged out.
+    static ANVIL_USER GetUser();
 
     /// Remove the local session without contacting the server (e.g. after a 401).
     static void WipeSession();

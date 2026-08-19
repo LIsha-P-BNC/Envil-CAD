@@ -112,6 +112,7 @@
 #include <wx/webview.h>                    // wxWebView / wxEVT_WEBVIEW_LOADED
 #include <wx/datetime.h>                   // wxDateTime::Now (chat.html cache-buster)
 #include <wx/panel.h>
+#include <wx/display.h>                     // keep title-bar popups inside the monitor
 #include <wx/statbmp.h>
 #include <wx/stattext.h>
 #include <wx/button.h>
@@ -231,7 +232,19 @@ public:
     /// Pop the menu so its top-left sits at screen point @p aScreenPos.
     void PopupAt( const wxPoint& aScreenPos )
     {
-        Move( aScreenPos );
+        // Keep the whole menu on the monitor.  The title-bar buttons that pop these menus sit
+        // right against the window's right edge, so a menu anchored at the button's left corner
+        // runs past the screen and its labels (e.g. the account email) get clipped.
+        wxPoint      pos = aScreenPos;
+        const wxSize sz  = GetSize();
+
+        const int    idx  = wxDisplay::GetFromPoint( aScreenPos );
+        const wxRect area = wxDisplay( idx == wxNOT_FOUND ? 0u : (unsigned) idx ).GetClientArea();
+
+        pos.x = std::max( area.GetLeft(), std::min( pos.x, area.GetRight() - sz.x ) );
+        pos.y = std::max( area.GetTop(), std::min( pos.y, area.GetBottom() - sz.y ) );
+
+        Move( pos );
         Popup();
     }
 
@@ -1046,6 +1059,21 @@ public:
                                     [this]() { return m_frame->AiChatPanelShown(); } ),
                       0, wxEXPAND );
 
+        // Account: the signed-in user, one click from the caption instead of buried in
+        // File > Account.  Same rows as that submenu (see fillAccountMenu()), popped as a
+        // themed dropdown anchored under the button.
+        m_account = makeWinButton( wxUniChar( 0xE77B ), qaHover );   // MDL2 "Contact" glyph
+        m_sizer->Add( m_account, 0, wxEXPAND );
+        m_account->Bind( wxEVT_BUTTON,
+                [this]( wxCommandEvent& )
+                {
+                    m_frame->ShowAccountMenu( wxRect( m_account->GetScreenPosition(),
+                                                     m_account->GetSize() ) );
+                } );
+        m_layoutBtns.push_back( m_account );
+
+        RefreshAccount();   // tooltip names whoever is signed in right now
+
         m_sizer->AddSpacer( FromDIP( 6 ) );   // gap before the window-control buttons
 
         // Segoe MDL2 Assets caption glyphs (same as the native Windows / VS Code bar).
@@ -1194,6 +1222,23 @@ public:
             m_qaRedo->SetActiveGlyph( aCanRedo );
     }
 
+    /// Re-read the signed-in user so the account button's tooltip names them.  Called on
+    /// every menu rebuild, which is also when sign-in / sign-out lands.
+    void RefreshAccount()
+    {
+        if( !m_account )
+            return;
+
+        const ANVIL_USER user = ANVIL_AUTH::GetUser();
+
+        m_account->SetToolTip( user.email.IsEmpty()
+                                       ? _( "Account (not signed in)" )
+                                       : wxString::Format( _( "Account (%s)" ), user.Label() ) );
+
+        // Dim the glyph while signed out, matching the other stateful caption icons.
+        m_account->SetActiveGlyph( !user.email.IsEmpty() );
+    }
+
     /// Set the Altium-style document/project name shown in the centre of the title bar.
     void SetDocumentTitle( const wxString& aTitle )
     {
@@ -1300,6 +1345,7 @@ private:
     TITLEBAR_ICON_BUTTON* m_qaRedo = nullptr;
     TITLEBAR_GLYPH_BUTTON* m_gear = nullptr;     // Preferences gear (additive to the menus)
     TITLEBAR_GLYPH_BUTTON* m_openEditor = nullptr; // "Open editor" dropdown (replaces the rail)
+    TITLEBAR_GLYPH_BUTTON* m_account = nullptr;  // signed-in user dropdown (File > Account)
     wxStaticText*          m_docTitle = nullptr; // active project / document name (Altium-style)
     std::vector<wxWindow*> m_menuBtns;
     std::vector<wxMenu*>   m_ownedMenus;
@@ -1321,7 +1367,6 @@ BEGIN_EVENT_TABLE( KICAD_MANAGER_FRAME, EDA_BASE_FRAME )
     EVT_MENU( wxID_EXIT, KICAD_MANAGER_FRAME::OnExit )
     EVT_MENU( ID_EDIT_LOCAL_FILE_IN_TEXT_EDITOR, KICAD_MANAGER_FRAME::OnOpenFileInTextEditor )
     EVT_MENU( ID_EDIT_ADVANCED_CFG, KICAD_MANAGER_FRAME::OnEditAdvancedCfg )
-    EVT_MENU( ID_ANVIL_SIGN_OUT, KICAD_MANAGER_FRAME::OnAnvilSignOut )
     EVT_MENU( ID_IMPORT_CADSTAR_ARCHIVE_PROJECT, KICAD_MANAGER_FRAME::OnImportCadstarArchiveFiles )
     EVT_MENU( ID_IMPORT_EAGLE_PROJECT, KICAD_MANAGER_FRAME::OnImportEagleFiles )
     EVT_MENU( ID_IMPORT_EASYEDA_PROJECT, KICAD_MANAGER_FRAME::OnImportEasyEdaFiles )
@@ -2315,6 +2360,46 @@ void KICAD_MANAGER_FRAME::ShowOpenEditorMenu( const wxPoint& aScreenPos )
             } );
 
     popup->PopupAt( aScreenPos );
+#endif
+}
+
+
+void KICAD_MANAGER_FRAME::ShowAccountMenu( const wxRect& aButtonScreenRect )
+{
+#ifdef __WXMSW__
+    // Title-bar account dropdown: the same rows as File > Account, but flat (no nested
+    // submenu) because the button itself is already the "Account" affordance.
+    KICAD_MANAGER_CONTROL* tool = m_toolManager->GetTool<KICAD_MANAGER_CONTROL>();
+
+    ACTION_MENU* menu = new ACTION_MENU( false, tool );
+    fillAccountMenu( menu );
+
+    ANVIL_POPUP_MENU* popup = new ANVIL_POPUP_MENU( this, menu );
+
+    // The popup destroys itself on dismiss; free the menu with it.
+    popup->Bind( wxEVT_DESTROY,
+            [popup, menu]( wxWindowDestroyEvent& aEvt )
+            {
+                if( aEvt.GetEventObject() == popup )
+                    delete menu;
+
+                aEvt.Skip();
+            } );
+
+    // Right-align the menu with the button rather than left-anchoring it: the account icon sits
+    // at the far right of the caption, so a left-anchored menu would hang off the window (and,
+    // maximized, off the screen) and clip the email.
+    popup->PopupAt( wxPoint( aButtonScreenRect.GetRight() - popup->GetSize().x + 1,
+                             aButtonScreenRect.GetBottom() + 1 ) );
+#endif
+}
+
+
+void KICAD_MANAGER_FRAME::RefreshAccountButton()
+{
+#ifdef __WXMSW__
+    if( m_titleBar )
+        m_titleBar->RefreshAccount();
 #endif
 }
 
@@ -4187,30 +4272,6 @@ void KICAD_MANAGER_FRAME::OnEditAdvancedCfg( wxCommandEvent& WXUNUSED( event ) )
 }
 
 
-void KICAD_MANAGER_FRAME::OnAnvilSignOut( wxCommandEvent& WXUNUSED( event ) )
-{
-    if( !IsOK( this, _( "Sign out of Anvil?  Unsaved work will be kept, but you will need "
-                        "to sign in again to continue." ) ) )
-    {
-        return;
-    }
-
-    {
-        // Best-effort server-side logout; the local session is wiped regardless, so a dead
-        // network cannot pin the user signed in.
-        wxBusyCursor busy;
-        ANVIL_AUTH::Logout();
-    }
-
-    // Back to the gate: a fresh sign-in lets the user continue where they left off;
-    // cancelling means "actually, close the application".
-    DIALOG_ANVIL_LOGIN loginDlg( this );
-
-    if( loginDlg.ShowModal() != wxID_OK )
-        Close( false );
-}
-
-
 void KICAD_MANAGER_FRAME::RefreshProjectTree()
 {
     m_projectTreePane->ReCreateTreePrj();
@@ -4577,6 +4638,10 @@ void KICAD_MANAGER_FRAME::buildTitleBarMenuButtons()
         delete bar;
     }
 
+    // Sign-in / sign-out lands as a menu rebuild, so this is where the account button's
+    // tooltip and dimmed/lit state get re-read.
+    m_titleBar->RefreshAccount();
+
     if( m_auimgr.GetManagedWindow() )
         m_auimgr.Update();
 #endif
@@ -4595,7 +4660,28 @@ WXLRESULT KICAD_MANAGER_FRAME::MSWWindowProc( WXUINT message, WXWPARAM wParam, W
         // entire window, which removes the native title bar. (Never DefWindowProc here —
         // that re-adds the caption and was the cause of the previous double-title-bar.)
         if( wParam == TRUE )
+        {
+            // ...but a maximized window is deliberately placed at (-border, -border) with
+            // size + 2*border so that a NATIVE frame falls off-screen.  We have no native
+            // frame, so without insetting here that border's worth of real content is what
+            // falls off-screen — the clipped "Project Files" caption and status bar.
+            if( ::IsZoomed( hwnd ) )
+            {
+                NCCALCSIZE_PARAMS* params = reinterpret_cast<NCCALCSIZE_PARAMS*>( lParam );
+
+                const int bx = ::GetSystemMetrics( SM_CXFRAME )
+                               + ::GetSystemMetrics( SM_CXPADDEDBORDER );
+                const int by = ::GetSystemMetrics( SM_CYFRAME )
+                               + ::GetSystemMetrics( SM_CXPADDEDBORDER );
+
+                params->rgrc[0].left   += bx;
+                params->rgrc[0].top    += by;
+                params->rgrc[0].right  -= bx;
+                params->rgrc[0].bottom -= by;
+            }
+
             return 0;
+        }
 
         break;
 

@@ -31,6 +31,9 @@
 #include <kiplatform/secrets.h>
 #include <kiplatform/ui.h>
 #include <confirm.h>
+#include <anvil_auth/anvil_auth.h>
+#include <dialogs/dialog_anvil_login.h>
+#include <wx/utils.h>   // wxBusyCursor
 #include <kidialog.h>
 #include <project/project_file.h>
 #include <project/project_local_settings.h>
@@ -698,6 +701,34 @@ int KICAD_MANAGER_CONTROL::LoadProject( const TOOL_EVENT& aEvent )
 }
 
 
+int KICAD_MANAGER_CONTROL::SignOut( const TOOL_EVENT& aEvent )
+{
+    if( !IsOK( m_frame, _( "Sign out of Anvil?  Unsaved work will be kept, but you will need "
+                           "to sign in again to continue." ) ) )
+    {
+        return 0;
+    }
+
+    {
+        // Best-effort server-side logout; the local session is wiped either way, so a dead
+        // network cannot pin the user signed in.
+        wxBusyCursor busy;
+        ANVIL_AUTH::Logout();
+    }
+
+    // Back to the gate.  A fresh sign-in lets the user carry on in the same session;
+    // cancelling means "actually, close the application".
+    DIALOG_ANVIL_LOGIN loginDlg( m_frame );
+
+    if( loginDlg.ShowModal() != wxID_OK )
+        m_frame->Close( false );
+    else
+        m_frame->ReCreateMenuBar();   // the account block names the newly signed-in user
+
+    return 0;
+}
+
+
 int KICAD_MANAGER_CONTROL::ArchiveProject( const TOOL_EVENT& aEvent )
 {
     wxFileName fileName = m_frame->GetProjectFileName();
@@ -1187,6 +1218,7 @@ void KICAD_MANAGER_CONTROL::setTransitions()
     Go( &KICAD_MANAGER_CONTROL::ViewDroppedViewers, KICAD_MANAGER_ACTIONS::viewDroppedGerbers.MakeEvent() );
 
     Go( &KICAD_MANAGER_CONTROL::ArchiveProject,     KICAD_MANAGER_ACTIONS::archiveProject.MakeEvent() );
+    Go( &KICAD_MANAGER_CONTROL::SignOut,            KICAD_MANAGER_ACTIONS::signOut.MakeEvent() );
     Go( &KICAD_MANAGER_CONTROL::UnarchiveProject,   KICAD_MANAGER_ACTIONS::unarchiveProject.MakeEvent() );
     Go( &KICAD_MANAGER_CONTROL::ExploreProject,     KICAD_MANAGER_ACTIONS::openProjectDirectory.MakeEvent() );
     Go( &KICAD_MANAGER_CONTROL::RestoreLocalHistory, KICAD_MANAGER_ACTIONS::restoreLocalHistory.MakeEvent() );

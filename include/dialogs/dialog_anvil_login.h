@@ -28,15 +28,17 @@
 class wxSimplebook;
 class wxStaticText;
 class wxTextCtrl;
-class ANVIL_NOTCH_BUTTON;
+class ANVIL_LOGIN_BUTTON;
 
 
 /**
- * The Anvil sign-in gate — NEMI-Suite-styled email + OTP login.
+ * The Anvil CAD sign-in gate — email + OTP login.
  *
- * Layout mirrors the NEMI Suite web sign-in: an emerald gradient brand panel on the left
- * and a light, blueprint-gridded form surface on the right.  Two steps in one dialog via a
- * wxSimplebook: enter email → "SEND OTP", then enter the emailed code → "VERIFY".
+ * A circuit-board brand panel on the left and a light page carrying a single white sign-in
+ * card on the right.  Three steps in one card via a wxSimplebook: enter email → "SIGN IN
+ * WITH EMAIL OTP", then enter the emailed code → "VERIFY & CONTINUE", then the signed-in
+ * hand-off page.  The card header (shield badge, title, subtitle) is shared by all three
+ * pages and re-labelled as the book turns.
  *
  * All server traffic runs through ANVIL_AUTH on the shared thread pool; the UI thread never
  * blocks.  ShowModal() returns wxID_OK only after a successful OTP verification (the session
@@ -52,19 +54,43 @@ public:
     explicit DIALOG_ANVIL_LOGIN( wxWindow* aParent );
     ~DIALOG_ANVIL_LOGIN() override;
 
+    /**
+     * Switch to the "signed in — opening your workspace" page and repaint immediately.
+     *
+     * Call this after ShowModal() returns wxID_OK and keep the dialog on screen while the
+     * main window is built: destroying it first leaves the desktop bare for as long as
+     * startup takes, which reads as the app having restarted.
+     */
+    void ShowOpeningState();
+
+    /**
+     * Re-assert the maximized startup geometry after DIALOG_SHIM has applied whatever size
+     * and position it remembered for this dialog: the sign-in screen opens as a full page.
+     * The caption carries minimize and maximize boxes, so the user can iconize it or restore
+     * it down to the windowed size set here.
+     */
+    bool Show( bool aShow ) override;
+
 private:
     // page construction
     wxWindow* buildEmailPage( wxWindow* aParent );
     wxWindow* buildOtpPage( wxWindow* aParent );
+    wxWindow* buildOpeningPage( wxWindow* aParent );
 
     // actions
     void onSendOtp();
     void onVerifyOtp();
     void onResend();
     void onChangeEmail();
-    void onServerSettings();
+
+
+
+    /// Re-label the shared card header (title + subtitle) for the page being shown.
+    void setHeader( const wxString& aTitle, const wxString& aSubtitle );
 
     void showError( const wxString& aMessage );
+
+
     void clearError();
     void setBusy( bool aBusy );
     void startResendCooldown();
@@ -72,17 +98,23 @@ private:
 
     static bool isPlausibleEmail( const wxString& aEmail );
 
+    /// Set the minimum and windowed ("restore down") geometry, then show maximized.
+    void applyStartupGeometry();
+
 private:
     wxSimplebook*       m_book;
 
+    // shared card header
+    wxStaticText*       m_headingLabel;
+    wxStaticText*       m_subLabel;
+
     // email page
     wxTextCtrl*         m_emailCtrl;
-    ANVIL_NOTCH_BUTTON* m_sendButton;
+    ANVIL_LOGIN_BUTTON* m_sendButton;
 
     // OTP page
-    wxStaticText*       m_otpInfo;
     wxTextCtrl*         m_otpCtrl;
-    ANVIL_NOTCH_BUTTON* m_verifyButton;
+    ANVIL_LOGIN_BUTTON* m_verifyButton;
     wxStaticText*       m_resendLink;
     wxStaticText*       m_changeEmailLink;
 

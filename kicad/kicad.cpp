@@ -415,32 +415,35 @@ bool PGM_KICAD::OnPgmInit()
             m_bm.m_search.Insert( it->second.GetValue(), 0 );
     }
 
-    // Anvil sign-in gate: no window is created until the user holds a valid session.  The
-    // dialog runs BEFORE the frame exists on purpose — showing it afterwards would flash the
-    // main window for a moment before the login appeared.  Cancelling the dialog is a clean
-    // "no, don't start the app".
+    // Anvil sign-in gate.  The dialog is deliberately NOT destroyed here: it stays on screen
+    // showing "opening your workspace" while the manager frame is built, and is torn down
+    // only once that window is visible (see below).  Destroying it first would leave the
+    // desktop bare for the whole of startup, which reads as the app having restarted.
+    //
+    // While it is the only top-level window, wxWidgets' "last window closed => quit" rule
+    // must also be suspended, or its destruction would end the app.
+    std::unique_ptr<DIALOG_ANVIL_LOGIN> loginDlg;
+    const bool                          exitOnDelete = App().GetExitOnFrameDelete();
+
     if( !ANVIL_AUTH::IsLoggedIn() )
     {
-        // The dialog is the only top-level window at this point, so destroying it would
-        // trip wxWidgets' "last window closed => quit" rule and kill the app before the
-        // manager frame is ever built.  Suspend that rule across the gate.
-        const bool exitOnDelete = App().GetExitOnFrameDelete();
         App().SetExitOnFrameDelete( false );
 
-        int loginResult;
+        loginDlg = std::make_unique<DIALOG_ANVIL_LOGIN>( nullptr );
 
+        if( loginDlg->ShowModal() != wxID_OK )
         {
-            DIALOG_ANVIL_LOGIN loginDlg( nullptr );
-            loginResult = loginDlg.ShowModal();
-        }
-
-        App().SetExitOnFrameDelete( exitOnDelete );
-
-        if( loginResult != wxID_OK )
-        {
+            loginDlg.reset();
+            App().SetExitOnFrameDelete( exitOnDelete );
             OnPgmExit();
             return false;
         }
+
+        // ShowModal() hid the dialog; bring it back as a plain window so it covers the
+        // screen for the rest of startup.
+        loginDlg->ShowOpeningState();
+        loginDlg->Show( true );
+        loginDlg->Raise();
     }
 
     wxFrame*      frame = nullptr;
@@ -630,6 +633,14 @@ bool PGM_KICAD::OnPgmInit()
     }
 
     frame->Show( true );
+
+    // The workspace is up: retire the sign-in cover and restore the normal shutdown rule.
+    if( loginDlg )
+    {
+        loginDlg->Destroy();
+        loginDlg.release();     // wxWidgets owns it after Destroy()
+        App().SetExitOnFrameDelete( exitOnDelete );
+    }
     frame->Raise();
 
 #if wxUSE_IPC
