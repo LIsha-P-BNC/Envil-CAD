@@ -482,6 +482,11 @@ private:
     /// when the panel does not exist or the active tab is neither schematic nor PCB.
     void syncAiPanelToActiveTab();
 
+    /// Reflect the AnvilCAD MCP server state in the UI: when ON, an external client owns
+    /// the tool channel so the in-app chat is turned off (banner + status-bar indicator);
+    /// when OFF, the chat is re-enabled. Called from the AnvilCAD MCP menu Start/Stop.
+    void setAiMcpMode( bool aMcpOn );
+
     /// Single-window shell unified footer (m_UnifiedStatusBar): each docked editor shows its OWN
     /// native status bar (exactly like standalone Anvil); this just hides the shell's own status
     /// bar while an editor tab is in front (so there is only one footer) and shows it again on the
@@ -555,6 +560,7 @@ private:
     WEBVIEW_PANEL*        m_aiChatPanel;  ///< Shell-owned common AI panel; only when CommonAiPanel + shell
     ANVIL_AI_AGENT*       m_anvilAgent;   ///< Native Claude agent driving m_aiChatPanel
     std::unique_ptr<ANVIL_AI_TOOL_SERVER> m_anvilToolServer;  ///< MCP tool socket (loopback)
+    bool                  m_aiMcpExternalMode = false;  ///< true = external client drives (chat off)
 
     /// Single-window shell: true while the title-bar menu shows an editor's menu (vs the
     /// Project Manager's own menu).  Lets focus changes flip the menu without rebuilding it

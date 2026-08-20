@@ -7,7 +7,10 @@
 #include <cstring>
 #include <thread>
 
+#include <wx/base64.h>
+#include <wx/buffer.h>
 #include <wx/dir.h>
+#include <wx/file.h>
 #include <wx/translation.h>
 #include <wx/ffile.h>
 #include <wx/filefn.h>          // wxFileExists
@@ -105,7 +108,10 @@ void ANVIL_AI_AGENT::SetDocumentContext( const wxString& aProjectPath,
 {
     // A different project must not inherit the previous design's conversation.
     if( !m_projectPath.IsEmpty() && !aProjectPath.IsEmpty() && aProjectPath != m_projectPath )
+    {
         m_session.Clear();
+        m_sessionAttachments.Clear();
+    }
 
     if( !aProjectPath.IsEmpty() )
         m_projectPath = aProjectPath;
@@ -146,6 +152,66 @@ void ANVIL_AI_AGENT::pushContextToPage()
            << wxString::FromUTF8( args[3].dump() ) << wxS( ");" );
 
     m_panel->RunScriptAsync( script );
+}
+
+
+wxArrayString ANVIL_AI_AGENT::saveAttachments( const nlohmann::json& aAtts )
+{
+    // Each attachment arrives as a data: URL ("data:<mime>;base64,<payload>") plus a name.
+    // Decode the base64 and write the bytes to <settings>/anvil_attachments/, returning the
+    // real paths so the model can Read() them. Any single bad entry is skipped, never fatal.
+    wxArrayString paths;
+
+    wxFileName dir( SETTINGS_MANAGER::GetUserSettingsPath(), wxEmptyString );
+    dir.AppendDir( wxS( "anvil_attachments" ) );
+
+    if( !dir.DirExists() )
+        dir.Mkdir( 0700, wxPATH_MKDIR_FULL );
+
+    int idx = 0;
+
+    for( const nlohmann::json& a : aAtts )
+    {
+        if( !a.is_object() )
+            continue;
+
+        std::string dataUrl = a.value( "dataUrl", std::string() );
+        std::string name    = a.value( "name", std::string( "attachment" ) );
+
+        size_t marker = dataUrl.find( ";base64," );
+
+        if( marker == std::string::npos )
+            continue;
+
+        std::string b64 = dataUrl.substr( marker + 8 );
+        wxMemoryBuffer buf = wxBase64Decode( b64.c_str(), b64.size(), wxBase64DecodeMode_SkipWS );
+
+        if( buf.GetDataLen() == 0 )
+            continue;
+
+        // Sanitise the file name; keep the extension so the model knows the type.
+        wxString       safe = wxString::FromUTF8( name );
+        const wxString invalid = wxS( "\\/:*?\"<>|" );
+
+        for( size_t k = 0; k < invalid.length(); ++k )
+            safe.Replace( wxString( invalid[k] ), wxS( "_" ) );
+
+        if( safe.IsEmpty() )
+            safe = wxS( "attachment" );
+
+        wxFileName out( dir.GetPath(), wxString::Format( wxS( "%d_%s" ), idx++, safe ) );
+
+        wxFile f( out.GetFullPath(), wxFile::write );
+
+        if( f.IsOpened() )
+        {
+            f.Write( buf.GetData(), buf.GetDataLen() );
+            f.Close();
+            paths.Add( out.GetFullPath() );
+        }
+    }
+
+    return paths;
 }
 
 
@@ -338,6 +404,7 @@ void ANVIL_AI_AGENT::onBridgeMessage( const wxString& aJson )
         }
 
         m_session.Clear();              // fresh CLI session on the next turn
+        m_sessionAttachments.Clear();   // forget earlier attachments too
         emit( { { "kind", "status" }, { "text", "New conversation." } } );
     }
     else if( kind == "message" )
@@ -353,6 +420,32 @@ void ANVIL_AI_AGENT::onBridgeMessage( const wxString& aJson )
         }
 
         wxString text = wxString::FromUTF8( msg.value( "text", std::string() ) );
+
+        // Attachments (image / PDF / text): save each new one to disk and REMEMBER its path
+        // for the whole conversation. A follow-up turn (e.g. clicking a button) carries no
+        // attachment of its own, so without this the model would forget an earlier PDF /
+        // photo and start asking generic questions. Re-listing every session attachment on
+        // each turn lets it re-open the file at any point.
+        if( msg.contains( "attachments" ) && msg["attachments"].is_array()
+                && !msg["attachments"].empty() )
+        {
+            for( const wxString& p : saveAttachments( msg["attachments"] ) )
+            {
+                if( m_sessionAttachments.Index( p ) == wxNOT_FOUND )
+                    m_sessionAttachments.Add( p );
+            }
+        }
+
+        if( !m_sessionAttachments.IsEmpty() )
+        {
+            text << wxS( "\n\n(Files the user has attached in this conversation — open and "
+                         "use them as needed; re-read them for detail:" );
+
+            for( const wxString& p : m_sessionAttachments )
+                text << wxS( "\n" ) << p;
+
+            text << wxS( ")" );
+        }
 
         if( text.IsEmpty() )
             return;
@@ -551,17 +644,30 @@ wxString ANVIL_AI_AGENT::writeSystemPromptFile()
     }
 
     // Live context rides along so the model behaves like an assistant that can see the
-    // project rather than one that has to ask.
+    // project rather than one that has to ask. It is framed as REFERENCE, not a default
+    // target: naming it "Current project folder" made the model treat every request as an
+    // edit of the open project (it reported an unrelated open project as "already built"
+    // when asked to make a NEW one). Make clear it only matters when editing THIS design.
     wxString full = base;
 
     if( !m_projectPath.IsEmpty() )
-        full << wxS( "\n\nCurrent project folder: " ) << m_projectPath;
+    {
+        full << wxS( "\n\n--- WINDOW CONTEXT (reference only) ---\n"
+                     "The project currently open in the app window is at: " )
+             << m_projectPath << wxS( "." );
 
-    if( !m_schematicFile.IsEmpty() )
-        full << wxS( "\nOpen schematic: " ) << m_schematicFile;
+        if( !m_schematicFile.IsEmpty() )
+            full << wxS( " Open schematic: " ) << m_schematicFile << wxS( "." );
 
-    if( !m_boardFile.IsEmpty() )
-        full << wxS( "\nOpen board: " ) << m_boardFile;
+        if( !m_boardFile.IsEmpty() )
+            full << wxS( " Open board: " ) << m_boardFile << wxS( "." );
+
+        full << wxS( " Use this open project as the target ONLY when the user asks to change "
+                     "or continue THIS design. For a new circuit, a new project name, or an "
+                     "attached schematic/PDF/photo, build a SEPARATE new project (build with "
+                     "its own new name) and do NOT read, act on, or report the status of the "
+                     "open project above as if it were the new one." );
+    }
 
     wxFileName outFn( cfgDir, wxS( "anvil_ai_sysprompt.tmp" ) );
     wxFFile    out( outFn.GetFullPath(), wxS( "wb" ) );
@@ -619,12 +725,36 @@ void ANVIL_AI_AGENT::runTurn( wxString aUserText )
     }
 
     // Fixed flags + our own paths/session id only — no user text on the command line.
+    //
+    // --allowedTools mcp__anvil-cad auto-approves our MCP tools (no permission prompt).
+    // --disallowedTools removes the CLI's own file/shell tools so the model CANNOT write
+    //   files or run Python/commands itself: it is forced through the anvil-cad MCP tools,
+    //   which do that work internally. This keeps raw "grant write / run python" permission
+    //   prompts out of the chat entirely (they were leaking to the user before).
     wxString cmd;
     cmd << wxS( "\"" ) << claudeExe << wxS( "\"" )
         << wxS( " -p --output-format stream-json --verbose" )
         << wxS( " --mcp-config \"" ) << mcpCfg << wxS( "\"" )
         << wxS( " --append-system-prompt-file \"" ) << sysPrompt << wxS( "\"" )
-        << wxS( " --allowedTools " ) << wxString::FromUTF8( ANVIL_ALLOWED_TOOLS );
+        << wxS( " --allowedTools " ) << wxString::FromUTF8( ANVIL_ALLOWED_TOOLS )
+        << wxS( " --disallowedTools \"Bash Write Edit MultiEdit NotebookEdit WebFetch WebSearch\"" );
+
+    // The CLI can only read inside its working directory by default, which blocks the saved
+    // chat attachments (<settings>/anvil_attachments) and the generated project files. Grant
+    // read access so the model can open an attached datasheet PDF / circuit photo, and read
+    // the project it builds.
+    cmd << wxS( " --add-dir \"" ) << SETTINGS_MANAGER::GetUserSettingsPath() << wxS( "\"" );
+
+    if( !m_projectPath.IsEmpty() )
+    {
+        cmd << wxS( " --add-dir \"" ) << m_projectPath << wxS( "\"" );
+
+        // ...and the output root (parent of the project, e.g. F:\Anvil) where new projects
+        // are built, so the model can read a design it just generated.
+        wxFileName outRoot = wxFileName::DirName( m_projectPath );
+        outRoot.RemoveLastDir();
+        cmd << wxS( " --add-dir \"" ) << outRoot.GetPath() << wxS( "\"" );
+    }
 
     if( !m_session.IsEmpty() )
         cmd << wxS( " --resume " ) << m_session;

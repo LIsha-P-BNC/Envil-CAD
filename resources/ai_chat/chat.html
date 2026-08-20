@@ -165,6 +165,34 @@
   .bubble a { color: var(--emerald-lt); }
   .bubble ul, .bubble ol { margin: 6px 0 6px 20px; }
   .bubble li { margin: 3px 0; }
+  .bubble h4 { font-size: 13px; color: var(--bone); font-weight: 600; margin: 8px 0 4px; }
+  /* tables (safety net — chat is told to avoid them, but render cleanly if used) */
+  .bubble .tbl { overflow-x: auto; margin: 8px 0; }
+  .bubble table { border-collapse: collapse; font-size: 12px; width: 100%; }
+  .bubble th, .bubble td { border: 1px solid var(--line); padding: 5px 8px; text-align: left; white-space: nowrap; }
+  .bubble th { background: var(--ground); color: var(--emerald); font-weight: 600; }
+  /* interactive choice buttons under an AI reply */
+  .btn-group { display: flex; flex-wrap: wrap; gap: 7px; margin-top: 11px; }
+  .chat-btn {
+    padding: 7px 14px; border-radius: 9px; cursor: pointer;
+    background: var(--emerald-soft); border: 1px solid var(--emerald-line);
+    color: var(--emerald-lt); font: inherit; font-size: 12.5px; font-weight: 600;
+    transition: all .15s;
+  }
+  .chat-btn:hover { background: var(--emerald); color: #04130E; border-color: var(--emerald); }
+
+  /* MCP-mode banner: shown when the AnvilCAD MCP server is running (external client
+     is driving), which turns this chat OFF (only one at a time). */
+  #mcpBanner { display: none; }
+  #mcpBanner.on {
+    display: flex; align-items: center; gap: 8px;
+    padding: 9px 12px; margin-bottom: 9px; border-radius: 9px;
+    background: rgba(217,166,63,.10); border: 1px solid rgba(217,166,63,.4);
+    color: var(--warn); font-size: 11.5px; line-height: 1.4;
+  }
+  #mcpBanner .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--warn); flex: 0 0 auto; box-shadow: 0 0 6px var(--warn); }
+  body.mcp-off .input-wrap { opacity: .5; pointer-events: none; }
+  body.mcp-off #inp { cursor: not-allowed; }
 
   /* attachments inside a message */
   .msg-atts { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
@@ -285,6 +313,7 @@
   </main>
 
   <div id="composer">
+    <div id="mcpBanner"></div>
     <div id="tray"></div>
     <div class="input-wrap">
       <button class="icon-btn" id="attachBtn" title="Attach image, PDF, or report (.txt/.rpt)">
@@ -328,17 +357,40 @@ function scrollEnd(){ msgs.scrollTop=msgs.scrollHeight; }
 function hideEmpty(){ if(empty){ empty.style.display="none"; } }
 
 function esc(s){ return s.replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;"); }
+function inline(t){
+  t=esc(t);
+  t=t.replace(/`([^`]+)`/g,'<code>$1</code>');
+  t=t.replace(/\*\*([^*]+)\*\*/g,'<strong>$1</strong>');
+  t=t.replace(/(^|[^\*])\*([^*\n]+)\*(?!\*)/g,'$1<em>$2</em>');
+  t=t.replace(/\[([^\]]+)\]\(([^)]+)\)/g,'<a href="$2">$1</a>');
+  return t;
+}
+/* Robust line-by-line markdown: paragraphs, bullet/numbered lists, headings,
+   code fences, and TABLES (rendered cleanly so raw "| … |" pipes never show). */
 function md(raw){
-  let s=esc(raw);
-  s=s.replace(/```(\w*)\n?([\s\S]*?)```/g,(m,l,b)=>"<pre><code>"+b.replace(/\n$/,"")+"</code></pre>");
-  s=s.replace(/`([^`\n]+)`/g,"<code>$1</code>");
-  s=s.replace(/\*\*([^*\n]+)\*\*/g,"<strong>$1</strong>");
-  s=s.replace(/(^|\n)\s*[-•]\s+(.+)/g,"$1<li>$2</li>");
-  s=s.replace(/(<li>[\s\S]*?<\/li>)/g,m=>m.includes("</li><li>")||!m.match(/<li>/)?m:"<ul>"+m+"</ul>");
-  s=s.replace(/<\/li>\n?<li>/g,"</li><li>").replace(/(<li>(?:(?!<\/?ul>).)*<\/li>)/g,m=>m.startsWith("<ul>")?m:"<ul>"+m+"</ul>");
-  s=s.split(/\n{2,}/).map(x=>x.match(/^<(ul|pre|li)/)?x:"<p>"+x+"</p>").join("");
-  s=s.replace(/\n/g,"<br>").replace(/<br>(<\/?(ul|pre|li))/g,"$1").replace(/(<\/(ul|pre|li)>)<br>/g,"$1");
-  return s;
+  const L=raw.replace(/\r/g,"").split("\n");
+  const isSep=s=>/-/.test(s)&&/^\s*\|?[\s:|-]+\|[\s:|-]*$/.test(s);
+  const cells=r=>r.replace(/^\s*\|/,"").replace(/\|\s*$/,"").split("|").map(c=>c.trim());
+  let out="", i=0;
+  while(i<L.length){
+    const ln=L[i];
+    if(/^```/.test(ln)){ const b=[]; i++; while(i<L.length&&!/^```/.test(L[i])){b.push(L[i]);i++;} i++; out+="<pre><code>"+esc(b.join("\n"))+"</code></pre>"; continue; }
+    if(ln.includes("|")&&i+1<L.length&&isSep(L[i+1])){
+      const head=cells(ln); i+=2; const rows=[];
+      while(i<L.length&&L[i].includes("|")&&L[i].trim()){ rows.push(cells(L[i])); i++; }
+      out+='<div class="tbl"><table><thead><tr>'+head.map(h=>"<th>"+inline(h)+"</th>").join("")+"</tr></thead><tbody>"
+         + rows.map(r=>"<tr>"+r.map(c=>"<td>"+inline(c)+"</td>").join("")+"</tr>").join("")+"</tbody></table></div>";
+      continue;
+    }
+    const hm=ln.match(/^\s*(#{1,4})\s+(.*)/); if(hm){ out+="<h4>"+inline(hm[2])+"</h4>"; i++; continue; }
+    if(/^\s*[-•]\s+/.test(ln)){ out+="<ul>"; while(i<L.length&&/^\s*[-•]\s+/.test(L[i])){ out+="<li>"+inline(L[i].replace(/^\s*[-•]\s+/,""))+"</li>"; i++; } out+="</ul>"; continue; }
+    if(/^\s*\d+\.\s+/.test(ln)){ out+="<ol>"; while(i<L.length&&/^\s*\d+\.\s+/.test(L[i])){ out+="<li>"+inline(L[i].replace(/^\s*\d+\.\s+/,""))+"</li>"; i++; } out+="</ol>"; continue; }
+    if(!ln.trim()){ i++; continue; }
+    const para=[];
+    while(i<L.length&&L[i].trim()&&!/^```|^\s*[-•]\s|^\s*\d+\.\s|^\s*#{1,4}\s/.test(L[i])&&!(L[i].includes("|")&&i+1<L.length&&isSep(L[i+1]))){ para.push(L[i]); i++; }
+    out+="<p>"+para.map(inline).join("<br>")+"</p>";
+  }
+  return out;
 }
 
 /* ---------- rows ---------- */
@@ -355,6 +407,27 @@ function addUser(text, atts){
     b.appendChild(w); }
   row.appendChild(b); row.appendChild(userAvatar());
   msgs.insertBefore(row,busy); scrollEnd();
+}
+/* Render an AI bubble: split out "::button:: label" lines into clickable buttons,
+   render the rest as markdown. Buttons send their label as the next message. */
+function renderBubble(b){
+  const btns=[];
+  const textLines=b._raw.split("\n").filter(ln=>{
+    const m=ln.match(/^\s*::button::\s*(.+?)\s*$/);
+    if(m){ btns.push(m[1]); return false; }
+    return true;
+  });
+  b.innerHTML=md(textLines.join("\n").replace(/\n{3,}/g,"\n\n").trim());
+  if(btns.length){
+    const g=document.createElement("div"); g.className="btn-group";
+    btns.forEach(label=>{
+      const bt=document.createElement("button"); bt.className="chat-btn"; bt.type="button";
+      bt.textContent=label;
+      bt.addEventListener("click",()=>{ if(turnOpen) return; inp.value=label; sendChat(); });
+      g.appendChild(bt);
+    });
+    b.appendChild(g);
+  }
 }
 function ensureAi(){
   if(curAi) return curAi;
@@ -380,7 +453,7 @@ window.anvilRecv=function(s){
         msgs.insertBefore(t,busy); curThink=t.querySelector(".body"); }
       curThink.textContent=(curThink.textContent||"")+ev.text; scrollEnd(); break;
     case "reply":
-      { const b=ensureAi(); b._raw+=(ev.text||""); b.innerHTML=md(b._raw); scrollEnd(); } break;
+      { const b=ensureAi(); b._raw+=(ev.text||""); renderBubble(b); scrollEnd(); } break;
     case "done": turnOpen=false; curAi=null; curThink=null; setBusy(false); break;
     case "error": addErr(ev.text||"Unknown error"); turnOpen=false; curAi=null; curThink=null; setBusy(false); setStatus("err"); break;
   }
@@ -396,7 +469,24 @@ window.anvilSetContext=function(project,sch,pcb,app){
   $("hsub").textContent = ctx.app?("design · edit · verify — "+ctx.app):"design · edit · verify";
   if(changed) newChat(true);
 };
-window.anvilPanelOpened=function(){ inp.focus(); };
+window.anvilPanelOpened=function(){ if(!document.body.classList.contains("mcp-off")) inp.focus(); };
+
+/* Mutual exclusion with the AnvilCAD MCP server: when MCP is ON, an external client
+   is driving the app, so this chat is turned OFF (only one at a time). C++ calls this
+   from the MCP menu Start/Stop. */
+window.anvilSetEnabled=function(on){
+  const banner=$("mcpBanner");
+  if(on){
+    document.body.classList.remove("mcp-off");
+    banner.className=""; banner.innerHTML="";
+    inp.disabled=false; sendBtn.disabled=false;
+  } else {
+    document.body.classList.add("mcp-off");
+    banner.className="on";
+    banner.innerHTML='<span class="dot"></span><span><b>MCP mode active</b> — an external client is driving Anvil. Turn off <b>AnvilCAD MCP &rarr; Stop</b> to chat here.</span>';
+    inp.disabled=true; sendBtn.disabled=true;
+  }
+};
 function base(p){ return (p||"").split(/[\\/]/).pop(); }
 
 /* ---------- attachments ---------- */

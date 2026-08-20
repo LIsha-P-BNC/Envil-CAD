@@ -176,9 +176,17 @@ void ANVIL_AI_TOOL_SERVER::onClientEvent( wxSocketEvent& aEvent )
 
 void ANVIL_AI_TOOL_SERVER::handleLine( wxSocketBase* aSock, const std::string& aLine )
 {
-    // We are already on the GUI thread (wxSocket events dispatch on the event loop), so the
-    // KIWAY round-trip into the editor is safe to run directly.
-    std::string result = AnvilSendTool( m_kiway, m_parent, aLine );
+    // We are already on the GUI thread (wxSocket events dispatch on the event loop), so both
+    // the shell handler and the KIWAY round-trip into an editor are safe to run directly.
+    std::string result;
+
+    // Shell-level tools (open_project) first; empty result = not one, fall through.
+    if( m_shellHandler )
+        result = m_shellHandler( aLine );
+
+    if( result.empty() )
+        result = AnvilSendTool( m_kiway, m_parent, aLine );
+
     result.push_back( '\n' );
 
     aSock->Write( result.data(), (wxUint32) result.size() );

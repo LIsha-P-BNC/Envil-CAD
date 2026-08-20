@@ -17,6 +17,7 @@
 #ifndef ANVIL_AI_TOOL_SERVER_H
 #define ANVIL_AI_TOOL_SERVER_H
 
+#include <functional>
 #include <string>
 #include <vector>
 
@@ -55,6 +56,14 @@ public:
     /// Loopback port actually in use.
     int GetPort() const { return m_port; }
 
+    /// Install a handler for shell-level tools (e.g. "open_project") that the editor tool
+    /// bridge can't service. Given the raw request JSON, it returns a result JSON string,
+    /// or an EMPTY string to mean "not a shell tool — fall through to the editors".
+    void SetShellHandler( std::function<std::string( const std::string& )> aHandler )
+    {
+        m_shellHandler = std::move( aHandler );
+    }
+
 private:
     void onServerEvent( wxSocketEvent& aEvent );   // incoming connection
     void onClientEvent( wxSocketEvent& aEvent );   // data / disconnect
@@ -66,6 +75,7 @@ private:
     wxSocketServer*             m_server;
     std::vector<wxSocketBase*>  m_clients;
     std::string                 m_rxAccum;   // partial line buffer (one client at a time)
+    std::function<std::string( const std::string& )> m_shellHandler;  // open_project etc.
 };
 
 #endif // ANVIL_AI_TOOL_SERVER_H

@@ -1746,6 +1746,11 @@ KICAD_MANAGER_FRAME::KICAD_MANAGER_FRAME( wxWindow* parent, const wxString& titl
             m_anvilAgent = new ANVIL_AI_AGENT( &Kiway(), this, m_aiChatPanel );
             m_anvilAgent->Attach();
 
+            // Tell the agent which project is open right now (even on the project-manager
+            // view, before any editor tab), so it works IN that project instead of quietly
+            // creating a separate one. Refreshed on every LoadProject().
+            m_anvilAgent->SetDocumentContext( Prj().GetProjectPath(), wxString(), wxString() );
+
             // Locate chat.html the same way the editors do: stock data path, then the exe
             // directory (build output), then the wx resources dir.
             wxString      chatHtmlFound;
@@ -1884,22 +1889,60 @@ KICAD_MANAGER_FRAME::KICAD_MANAGER_FRAME( wxWindow* parent, const wxString& titl
 
     m_auimgr.Update();
 
-    // Anvil AI MCP tool socket: lets an external client (the SKiDL live tools, driven by
-    // the in-app chat or the user's own Claude client) edit the open design. Loopback
-    // only, and deliberately NOT started at launch: the user turns it on from the
-    // "AnvilCAD MCP" menu (Start), which is the explicit opt-in for anything outside this
-    // process to touch the editors. Live tools report a "click Start" hint until then.
+    // Anvil AI tool socket (127.0.0.1, loopback only): the single channel that lets an
+    // agent edit the open design or open a project. It is ALWAYS up while the app runs,
+    // because the in-app chat itself uses it (to open the project it just built, and for
+    // live edits). The "AnvilCAD MCP" menu does NOT start/stop the socket — it flips the
+    // MODE: Start = hand the app to an EXTERNAL client (chat is turned off), Stop = back to
+    // in-app chat. Only one drives at a time.
     m_anvilToolServer = std::make_unique<ANVIL_AI_TOOL_SERVER>( &Kiway(), this );
+    m_anvilToolServer->Start();
+
+    // Shell-level tool: "open_project" loads a project into THIS window (so a design the
+    // chat just built appears right here, not in a second window). Editor tools fall
+    // through to AnvilSendTool.
+    m_anvilToolServer->SetShellHandler(
+            [this]( const std::string& aReq ) -> std::string
+            {
+                try
+                {
+                    nlohmann::json j = nlohmann::json::parse( aReq );
+
+                    if( j.value( "tool", std::string() ) != "open_project" )
+                        return std::string();   // not a shell tool
+
+                    std::string path = j.contains( "input" )
+                            ? j["input"].value( "path", std::string() )
+                            : j.value( "path", std::string() );
+
+                    if( path.empty() )
+                        return R"({"ok":false,"message":"open_project needs a path."})";
+
+                    wxFileName pro( wxString::FromUTF8( path ) );
+                    CallAfter( [this, pro]() { LoadProject( pro ); } );
+                    return R"({"ok":true,"message":"Opening project in the current window."})";
+                }
+                catch( const std::exception& )
+                {
+                    return R"({"ok":false,"message":"open_project: bad request JSON."})";
+                }
+            } );
 
     // Hooks behind the unified menu bar's "AnvilCAD MCP" menu (shown in every editor).
+    // isRunning reflects the external MODE, not the socket (which is always up).
     EDA_BASE_FRAME::MCP_MENU_CONTROLLER mcpCtl;
 
-    mcpCtl.isRunning = [this]() { return m_anvilToolServer && m_anvilToolServer->IsRunning(); };
-    mcpCtl.start     = [this]() { return m_anvilToolServer && m_anvilToolServer->Start(); };
+    mcpCtl.isRunning = [this]() { return m_aiMcpExternalMode; };
+    mcpCtl.start     = [this]()
+                       {
+                           m_aiMcpExternalMode = true;
+                           setAiMcpMode( true );   // external mode -> chat OFF + banner
+                           return true;
+                       };
     mcpCtl.stop      = [this]()
                        {
-                           if( m_anvilToolServer )
-                               m_anvilToolServer->Stop();
+                           m_aiMcpExternalMode = false;
+                           setAiMcpMode( false );  // back to chat mode -> chat ON
                        };
     mcpCtl.port      = [this]()
                        {
@@ -2741,29 +2784,53 @@ void KICAD_MANAGER_FRAME::syncShellToolbarToActiveTab()
 
 void KICAD_MANAGER_FRAME::syncAiPanelToActiveTab()
 {
-    if( !m_aiChatPanel )
+    if( !m_aiChatPanel || !m_anvilAgent )
         return;
 
-    EDA_BASE_FRAME* editor = getActiveDockedEditorFrame();
+    const wxString projPath = Prj().GetProjectPath();
+    EDA_BASE_FRAME* editor   = getActiveDockedEditorFrame();
 
-    if( !editor )
-        return;   // launcher / no editor tab — leave the panel's current context
-
-    bool isSch = editor->GetFrameType() == FRAME_SCH;
-    bool isPcb = editor->GetFrameType() == FRAME_PCB_EDITOR;
-
-    if( !isSch && !isPcb )
-        return;   // a non-schematic/PCB tab (Gerber, Calculator, …) — keep current context
-
-    wxString projPath = Prj().GetProjectPath();
-    wxString file     = editor->GetCurrentFileName();
+    const bool isSch = editor && editor->GetFrameType() == FRAME_SCH;
+    const bool isPcb = editor && editor->GetFrameType() == FRAME_PCB_EDITOR;
 
     // The agent both remembers the context (for the model's system prompt) and pushes it
-    // into the page via window.anvilSetContext, so the one shell panel always shows and
-    // acts on the front tab's document.
-    if( m_anvilAgent )
+    // into the page via window.anvilSetContext, so the panel always shows and acts on the
+    // current document. On the project-manager view (no editor tab, or a Gerber/Calculator
+    // tab) still push the open PROJECT — otherwise the panel shows "no project" and the AI
+    // quietly creates a separate one instead of working in this project.
+    if( isSch || isPcb )
+    {
+        wxString file = editor->GetCurrentFileName();
         m_anvilAgent->SetDocumentContext( projPath, isSch ? file : wxString(),
                                           isPcb ? file : wxString() );
+    }
+    else
+    {
+        m_anvilAgent->SetDocumentContext( projPath, wxString(), wxString() );
+    }
+}
+
+
+void KICAD_MANAGER_FRAME::setAiMcpMode( bool aMcpOn )
+{
+    // Mutual exclusion: when the AnvilCAD MCP server is running, an external client owns
+    // the tool channel, so the in-app chat is turned OFF (only one drives the app at a
+    // time). Make the state visible in BOTH the chat panel (a banner) and the status bar.
+    if( m_aiChatPanel )
+    {
+        m_aiChatPanel->RunScriptAsync( aMcpOn
+                ? wxS( "if(window.anvilSetEnabled)window.anvilSetEnabled(false);" )
+                : wxS( "if(window.anvilSetEnabled)window.anvilSetEnabled(true);" ) );
+    }
+
+    if( wxStatusBar* sb = GetStatusBar() )
+    {
+        sb->SetStatusText( aMcpOn
+                ? wxString::Format( _( "AnvilCAD MCP: ON  ·  port %d  ·  chat paused" ),
+                                    m_anvilToolServer ? m_anvilToolServer->GetPort() : 0 )
+                : wxString(),
+                1 );
+    }
 }
 
 
@@ -4128,6 +4195,11 @@ bool KICAD_MANAGER_FRAME::LoadProject( const wxFileName& aProjectFileNameIn )
     // Now that we have a new project, trigger a library preload, which will load in any
     // project-specific symbol and footprint libraries into the manager
     PreloadAllLibraries();
+
+    // Keep the AI agent pointed at the project that is now open, so the chat works in it.
+    if( m_anvilAgent )
+        m_anvilAgent->SetDocumentContext( Prj().GetProjectPath(), wxString(), wxString() );
+
     return true;
 }
 

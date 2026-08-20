@@ -28,6 +28,7 @@
 #include <string>
 #include <thread>
 
+#include <wx/arrstr.h>
 #include <wx/string.h>
 
 #include <json_common.h>
@@ -68,6 +69,9 @@ private:
     void onBridgeMessage( const wxString& aJson );      // UI thread
     void emit( const nlohmann::json& aMsg );            // any thread -> page (marshalled)
     void pushContextToPage();                           // UI thread
+    /// Decode chat attachments (data: URLs) to <settings>/anvil_attachments/ and return
+    /// the saved file paths, so the model can read the images / PDFs / reports.
+    wxArrayString saveAttachments( const nlohmann::json& aAtts );
 
     // ---- turn lifecycle ----------------------------------------------------------------
     void runTurn( wxString aUserText );                 // worker thread
@@ -101,6 +105,7 @@ private:
     wxString        m_boardFile;
 
     wxString        m_session;          // claude CLI session id (--resume)
+    wxArrayString   m_sessionAttachments;  // files attached this conversation (re-listed each turn)
 
     std::atomic<bool> m_busy;
     std::atomic<bool> m_cancel;
