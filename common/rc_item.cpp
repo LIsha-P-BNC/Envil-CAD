@@ -26,6 +26,7 @@
 #include <wx/dataview.h>
 #include <wx/settings.h>
 #include <widgets/ui_common.h>
+#include <widgets/wx_data_view_hyperlink_renderer.h>
 #include <marker_base.h>
 #include <eda_draw_frame.h>
 #include <rc_item.h>
@@ -101,8 +102,9 @@ wxString RC_ITEM::ShowReport( UNITS_PROVIDER* aUnitsProvider, SEVERITY aSeverity
                               const std::map<KIID, EDA_ITEM*>& aItemMap ) const
 {
     wxString severity = getSeverityString( aSeverity );
+    bool     excluded = m_parent && m_parent->IsTreatedAsExcluded();
 
-    if( m_parent && m_parent->IsExcluded() )
+    if( excluded )
         severity += wxT( " (excluded)" );
 
     EDA_ITEM* mainItem = nullptr;
@@ -118,6 +120,9 @@ wxString RC_ITEM::ShowReport( UNITS_PROVIDER* aUnitsProvider, SEVERITY aSeverity
     if( ii != aItemMap.end() )
         auxItem = ii->second;
 
+    wxString errorMessage = HYPERLINK_DV_RENDERER::StripMarkup( GetErrorMessage( false ) );
+    wxString ruleDesc = HYPERLINK_DV_RENDERER::StripMarkup( GetViolatingRuleDesc( false ) );
+
     // Note: some customers machine-process these.  So:
     // 1) don't translate
     // 2) try not to re-order or change syntax
@@ -127,36 +132,24 @@ wxString RC_ITEM::ShowReport( UNITS_PROVIDER* aUnitsProvider, SEVERITY aSeverity
 
     if( mainItem && auxItem )
     {
-        msg.Printf( wxT( "[%s]: %s\n    %s; %s\n    %s: %s\n    %s: %s\n" ),
-                    GetSettingsKey(),
-                    GetErrorMessage( false ),
-                    GetViolatingRuleDesc( false ),
-                    severity,
-                    showCoord( aUnitsProvider, mainItem->GetPosition()),
+        msg.Printf( wxT( "[%s]: %s\n    %s; %s\n    %s: %s\n    %s: %s\n" ), GetSettingsKey(), errorMessage, ruleDesc,
+                    severity, showCoord( aUnitsProvider, mainItem->GetPosition() ),
                     mainItem->GetItemDescription( aUnitsProvider, true ),
-                    showCoord( aUnitsProvider, auxItem->GetPosition()),
+                    showCoord( aUnitsProvider, auxItem->GetPosition() ),
                     auxItem->GetItemDescription( aUnitsProvider, true ) );
     }
     else if( mainItem )
     {
-        msg.Printf( wxT( "[%s]: %s\n    %s; %s\n    %s: %s\n" ),
-                    GetSettingsKey(),
-                    GetErrorMessage( false ),
-                    GetViolatingRuleDesc( false ),
-                    severity,
-                    showCoord( aUnitsProvider, mainItem->GetPosition()),
+        msg.Printf( wxT( "[%s]: %s\n    %s; %s\n    %s: %s\n" ), GetSettingsKey(), errorMessage, ruleDesc, severity,
+                    showCoord( aUnitsProvider, mainItem->GetPosition() ),
                     mainItem->GetItemDescription( aUnitsProvider, true ) );
     }
     else
     {
-        msg.Printf( wxT( "[%s]: %s\n    %s; %s\n" ),
-                    GetSettingsKey(),
-                    GetErrorMessage( false ),
-                    GetViolatingRuleDesc( false ),
-                    severity );
+        msg.Printf( wxT( "[%s]: %s\n    %s; %s\n" ), GetSettingsKey(), errorMessage, ruleDesc, severity );
     }
 
-    if( m_parent && m_parent->IsExcluded() && !m_parent->GetComment().IsEmpty() )
+    if( excluded && m_parent && !m_parent->GetComment().IsEmpty() )
         msg += wxString::Format( wxS( "    %s\n" ), m_parent->GetComment() );
 
     return msg;
@@ -167,10 +160,10 @@ void RC_ITEM::GetJsonViolation( RC_JSON::VIOLATION& aViolation, UNITS_PROVIDER* 
                                 SEVERITY aSeverity, const std::map<KIID, EDA_ITEM*>& aItemMap ) const
 {
     aViolation.severity = getSeverityString( aSeverity );
-    aViolation.description = GetErrorMessage( false );
+    aViolation.description = HYPERLINK_DV_RENDERER::StripMarkup( GetErrorMessage( false ) );
     aViolation.type = GetSettingsKey();
 
-    if( m_parent && m_parent->IsExcluded() )
+    if( m_parent && m_parent->IsTreatedAsExcluded() )
     {
         aViolation.excluded = true;
         aViolation.comment = m_parent->GetComment();
@@ -262,10 +255,49 @@ RC_TREE_MODEL::RC_TREE_MODEL( EDA_DRAW_FRAME* aParentFrame, wxDataViewCtrl* aVie
 }
 
 
+RC_TREE_NODE* RC_TREE_MODEL::createNode( RC_TREE_NODE* aParent,
+                                         const std::shared_ptr<RC_ITEM>& aRcItem,
+                                         RC_TREE_NODE::NODE_TYPE aType )
+{
+    RC_TREE_NODE* node = new RC_TREE_NODE( aParent, aRcItem, aType );
+
+    m_handles.push_back( std::make_unique<RC_TREE_NODE::HANDLE>() );
+    node->m_Handle = m_handles.back().get();
+    node->m_Handle->m_Node = node;
+
+    return node;
+}
+
+
+void RC_TREE_MODEL::retireNodeTree( RC_TREE_NODE* aNode )
+{
+    if( !aNode )
+        return;
+
+    if( aNode->m_Handle )
+        aNode->m_Handle->m_Node = nullptr;
+
+    for( RC_TREE_NODE* child : aNode->m_Children )
+        retireNodeTree( child );
+}
+
+
+void RC_TREE_MODEL::deleteNodeTree( RC_TREE_NODE* aNode )
+{
+    if( !aNode )
+        return;
+
+    delete aNode;
+}
+
+
 RC_TREE_MODEL::~RC_TREE_MODEL()
 {
     for( RC_TREE_NODE* topLevelNode : m_tree )
-        delete topLevelNode;
+    {
+        retireNodeTree( topLevelNode );
+        deleteNodeTree( topLevelNode );
+    }
 }
 
 
@@ -296,9 +328,13 @@ void RC_TREE_MODEL::rebuildModel( std::shared_ptr<RC_ITEMS_PROVIDER> aProvider, 
         m_rcItemsProvider->SetSeverities( m_severities );
 
     for( RC_TREE_NODE* topLevelNode : m_tree )
-        delete topLevelNode;
+    {
+        retireNodeTree( topLevelNode );
+        deleteNodeTree( topLevelNode );
+    }
 
     m_tree.clear();
+    m_handles.clear();
 
     // wxDataView::ExpandAll() pukes with large lists
     int count = 0;
@@ -310,25 +346,25 @@ void RC_TREE_MODEL::rebuildModel( std::shared_ptr<RC_ITEMS_PROVIDER> aProvider, 
     {
         std::shared_ptr<RC_ITEM> rcItem = m_rcItemsProvider->GetItem( i );
 
-        m_tree.push_back( new RC_TREE_NODE( nullptr, rcItem, RC_TREE_NODE::MARKER ) );
+        m_tree.push_back( createNode( nullptr, rcItem, RC_TREE_NODE::MARKER ) );
         RC_TREE_NODE* n = m_tree.back();
 
         if( rcItem->GetMainItemID() != niluuid )
-            n->m_Children.push_back( new RC_TREE_NODE( n, rcItem, RC_TREE_NODE::MAIN_ITEM ) );
+            n->m_Children.push_back( createNode( n, rcItem, RC_TREE_NODE::MAIN_ITEM ) );
 
         if( rcItem->GetAuxItemID() != niluuid )
-            n->m_Children.push_back( new RC_TREE_NODE( n, rcItem, RC_TREE_NODE::AUX_ITEM ) );
+            n->m_Children.push_back( createNode( n, rcItem, RC_TREE_NODE::AUX_ITEM ) );
 
         if( rcItem->GetAuxItem2ID() != niluuid )
-            n->m_Children.push_back( new RC_TREE_NODE( n, rcItem, RC_TREE_NODE::AUX_ITEM2 ) );
+            n->m_Children.push_back( createNode( n, rcItem, RC_TREE_NODE::AUX_ITEM2 ) );
 
         if( rcItem->GetAuxItem3ID() != niluuid )
-            n->m_Children.push_back( new RC_TREE_NODE( n, rcItem, RC_TREE_NODE::AUX_ITEM3 ) );
+            n->m_Children.push_back( createNode( n, rcItem, RC_TREE_NODE::AUX_ITEM3 ) );
 
         if( MARKER_BASE* marker = rcItem->GetParent() )
         {
             if( marker->IsExcluded() && !marker->GetComment().IsEmpty() )
-                n->m_Children.push_back( new RC_TREE_NODE( n, rcItem, RC_TREE_NODE::COMMENT ) );
+                n->m_Children.push_back( createNode( n, rcItem, RC_TREE_NODE::COMMENT ) );
         }
     }
 
@@ -345,8 +381,11 @@ void RC_TREE_MODEL::rebuildModel( std::shared_ptr<RC_ITEMS_PROVIDER> aProvider, 
     m_view->AssociateModel( this );
 #endif
 
-    m_view->ClearColumns();
-    m_view->AppendTextColumn( wxEmptyString, 0, wxDATAVIEW_CELL_INERT, wxCOL_WIDTH_AUTOSIZE );
+    if( !m_enableHyperlinks )
+    {
+        m_view->ClearColumns();
+        m_view->AppendTextColumn( wxEmptyString, 0, wxDATAVIEW_CELL_INERT, wxCOL_WIDTH_AUTOSIZE );
+    }
 
     ExpandAll();
 
@@ -373,6 +412,31 @@ void RC_TREE_MODEL::Update( std::shared_ptr<RC_ITEMS_PROVIDER> aProvider, int aS
 }
 
 
+void RC_TREE_MODEL::EnableHyperlinks( bool aEnable )
+{
+    m_enableHyperlinks = aEnable;
+
+    if( !aEnable || !m_view || m_view->GetColumnCount() > 0 )
+        return;
+
+    HYPERLINK_DV_RENDERER* renderer = new HYPERLINK_DV_RENDERER();
+    m_hyperlinkColumn =
+            new wxDataViewColumn( wxEmptyString, renderer, 0, std::max( 200, m_view->GetClientSize().GetWidth() ),
+                                  wxALIGN_LEFT, wxDATAVIEW_COL_RESIZABLE );
+    m_view->AppendColumn( m_hyperlinkColumn );
+    m_view->Bind( wxEVT_SIZE, &RC_TREE_MODEL::onViewSize, this );
+}
+
+
+void RC_TREE_MODEL::onViewSize( wxSizeEvent& aEvent )
+{
+    aEvent.Skip();
+
+    if( m_view && m_hyperlinkColumn )
+        m_hyperlinkColumn->SetWidth( std::max( 200, m_view->GetClientSize().GetWidth() ) );
+}
+
+
 void RC_TREE_MODEL::ExpandAll()
 {
     for( RC_TREE_NODE* topLevelNode : m_tree )
@@ -382,16 +446,22 @@ void RC_TREE_MODEL::ExpandAll()
 
 bool RC_TREE_MODEL::IsContainer( wxDataViewItem const& aItem ) const
 {
-    if( ToNode( aItem ) == nullptr )    // must be tree root...
+    const RC_TREE_NODE* node = ToNode( aItem );
+
+    if( !aItem.IsOk() )    // tree root
         return true;
-    else
-        return ToNode( aItem )->m_Type == RC_TREE_NODE::MARKER;
+
+    if( node == nullptr )
+        return false;
+
+    return node->m_Type == RC_TREE_NODE::MARKER;
 }
 
 
 wxDataViewItem RC_TREE_MODEL::GetParent( wxDataViewItem const& aItem ) const
 {
-    return ToItem( ToNode( aItem)->m_Parent );
+    const RC_TREE_NODE* node = ToNode( aItem );
+    return node ? ToItem( node->m_Parent ) : wxDataViewItem();
 }
 
 
@@ -401,7 +471,10 @@ unsigned int RC_TREE_MODEL::GetChildren( wxDataViewItem const& aItem,
     const RC_TREE_NODE* node = ToNode( aItem );
     const std::vector<RC_TREE_NODE*>& children = node ? node->m_Children : m_tree;
 
-    for( const RC_TREE_NODE* child: children )
+    if( aItem.IsOk() && !node )
+        return 0;
+
+    for( const RC_TREE_NODE* child : children )
         aChildren.push_back( ToItem( child ) );
 
     return children.size();
@@ -411,10 +484,14 @@ unsigned int RC_TREE_MODEL::GetChildren( wxDataViewItem const& aItem,
 void RC_TREE_MODEL::GetValue( wxVariant& aVariant, wxDataViewItem const& aItem,
                               unsigned int aCol ) const
 {
-    if( !aItem.IsOk() || m_view->IsFrozen() )
+    if( !aItem.IsOk() || m_view->IsFrozen() || m_tree.empty() )
         return;
 
     const RC_TREE_NODE*            node = ToNode( aItem );
+
+    if( !node || !node->m_RcItem )
+        return;
+
     const std::shared_ptr<RC_ITEM> rcItem = node->m_RcItem;
     MARKER_BASE*                   marker = rcItem->GetParent();
     EDA_ITEM*                      item = nullptr;
@@ -486,10 +563,13 @@ bool RC_TREE_MODEL::GetAttr( wxDataViewItem const&   aItem,
                              unsigned int            aCol,
                              wxDataViewItemAttr&     aAttr ) const
 {
-    if( !aItem.IsOk() || m_view->IsFrozen() )
+    if( !aItem.IsOk() || m_view->IsFrozen() || m_tree.empty() )
         return false;
 
     const RC_TREE_NODE* node = ToNode( aItem );
+
+    if( !node || !node->m_RcItem )
+        return false;
 
     bool ret = false;
     bool heading = node->m_Type == RC_TREE_NODE::MARKER;
@@ -554,7 +634,7 @@ void RC_TREE_MODEL::ValueChanged( RC_TREE_NODE* aNode )
 
         if( needsCommentNode && !commentNode )
         {
-            commentNode = new RC_TREE_NODE( aNode, rcItem, RC_TREE_NODE::COMMENT );
+            commentNode = createNode( aNode, rcItem, RC_TREE_NODE::COMMENT );
             wxDataViewItemArray newItems;
             newItems.push_back( ToItem( commentNode ) );
 
@@ -567,7 +647,9 @@ void RC_TREE_MODEL::ValueChanged( RC_TREE_NODE* aNode )
             deletedItems.push_back( ToItem( commentNode ) );
 
             aNode->m_Children.erase( aNode->m_Children.end() - 1 );
+            retireNodeTree( commentNode );
             ItemsDeleted( markerItem, deletedItems );
+            deleteNodeTree( commentNode );
         }
     }
 }
@@ -584,9 +666,7 @@ void RC_TREE_MODEL::DeleteItems( bool aCurrentOnly, bool aIncludeExclusions, boo
     RC_TREE_NODE* current_node = m_view ? ToNode( m_view->GetCurrentItem() ) : nullptr;
     const std::shared_ptr<RC_ITEM> current_item = current_node ? current_node->m_RcItem : nullptr;
 
-    /// Keep a vector of elements to free after wxWidgets is definitely done accessing them
-    std::vector<RC_TREE_NODE*> to_delete;
-    std::vector<RC_TREE_NODE*> expanded;
+    std::vector<wxDataViewItem> expanded;
 
     if( aCurrentOnly && !current_item )
     {
@@ -601,7 +681,7 @@ void RC_TREE_MODEL::DeleteItems( bool aCurrentOnly, bool aIncludeExclusions, boo
         for( RC_TREE_NODE* node : m_tree )
         {
             if( m_view->IsExpanded( ToItem( node ) ) )
-                expanded.push_back( node );
+                expanded.push_back( ToItem( node ) );
         }
     }
 
@@ -611,12 +691,16 @@ void RC_TREE_MODEL::DeleteItems( bool aCurrentOnly, bool aIncludeExclusions, boo
     if( m_view )
     {
         m_view->UnselectAll();
-        wxSafeYield();
         m_view->Freeze();
     }
 
     if( !m_rcItemsProvider )
+    {
+        if( m_view )
+            m_view->Thaw();
+
         return;
+    }
 
     for( int i = m_rcItemsProvider->GetCount() - 1; i >= 0; --i )
     {
@@ -648,15 +732,16 @@ void RC_TREE_MODEL::DeleteItems( bool aCurrentOnly, bool aIncludeExclusions, boo
             for( RC_TREE_NODE* child : m_tree[i]->m_Children )
             {
                 childItems.push_back( ToItem( child ) );
-                to_delete.push_back( child );
+                retireNodeTree( child );
             }
 
-            m_tree[i]->m_Children.clear();
             ItemsDeleted( markerItem, childItems );
 
-            to_delete.push_back( m_tree[i] );
+            retireNodeTree( m_tree[i] );
+            RC_TREE_NODE* deletedNode = m_tree[i];
             m_tree.erase( m_tree.begin() + i );
             ItemDeleted( parentItem, markerItem );
+            deleteNodeTree( deletedNode );
         }
 
         // Only deep delete the current item here; others will be done by the caller, which
@@ -671,10 +756,8 @@ void RC_TREE_MODEL::DeleteItems( bool aCurrentOnly, bool aIncludeExclusions, boo
 
     if( m_view && aCurrentOnly && lastGood >= 0 )
     {
-        for( RC_TREE_NODE* node : expanded )
+        for( const wxDataViewItem& item : expanded )
         {
-            wxDataViewItem item = ToItem( node );
-
             if( item.IsOk() )
                 m_view->Expand( item );
         }
@@ -687,9 +770,6 @@ void RC_TREE_MODEL::DeleteItems( bool aCurrentOnly, bool aIncludeExclusions, boo
         wxDataViewEvent selectEvent( wxEVT_COMMAND_DATAVIEW_SELECTION_CHANGED, m_view, selItem );
         m_view->GetEventHandler()->ProcessEvent( selectEvent );
     }
-
-    for( RC_TREE_NODE* item : to_delete )
-        delete( item );
 
     if( m_view )
         m_view->Thaw();

@@ -712,7 +712,8 @@ static json execAnnotate( SCH_EDIT_FRAME* aFrame, const json& aInput )
 
     aFrame->AnnotateSymbols( &commit, ANNOTATE_ALL, SORT_BY_X_POSITION, INCREMENTAL_BY_REF,
                              false /*recursive*/, 0 /*startNum*/, false /*resetAnnotation*/,
-                             true /*regroupUnits*/, false /*repairTimestamps*/, reporter );
+                             true /*regroupUnits*/, false /*repairTimestamps*/, reporter,
+                             SYMBOL_FILTER_NON_POWER );
 
     commit.Push( _( "Envil AI: annotate" ) );
     aFrame->GetCanvas()->Refresh();
@@ -750,7 +751,7 @@ static json execRunErc( SCH_EDIT_FRAME* aFrame, const json& )
                                         { "message", std::string( aMsg.utf8_str() ) } } );
                 ++errors;
             },
-            ANNOTATE_ALL );
+            ANNOTATE_ALL, true, SYMBOL_FILTER_NON_POWER );
 
     (void) notAnnotated;
 

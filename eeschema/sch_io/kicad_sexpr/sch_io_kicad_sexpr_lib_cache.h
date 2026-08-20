@@ -23,6 +23,7 @@
 #define SCH_IO_KICAD_SEXPR_LIB_CACHE_H_
 
 #include "sch_io/sch_io_lib_cache.h"
+#include <set>
 
 class FILE_LINE_READER;
 class SCH_PIN;
@@ -95,6 +96,8 @@ private:
     void writeAggregateCache( long long aDirTimestamp );
 
     int m_fileFormatVersionAtLoad;
+
+    std::set<wxString> m_pendingFileDeletes;
 
     static void saveSymbolDrawItem( SCH_ITEM* aItem, OUTPUTFORMATTER& aFormatter );
     static void saveField( SCH_FIELD* aField, OUTPUTFORMATTER& aFormatter );

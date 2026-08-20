@@ -226,14 +226,16 @@ BOOST_AUTO_TEST_CASE( ForEachBusMemberExpandsEscapedVectorInGroup )
 
 BOOST_AUTO_TEST_CASE( ParsesOverbarInVectorBusPrefix )
 {
-    // Test overbar formatting in bus vector prefix (issue #22873)
+    // Overbar formatting in bus vector prefix must be preserved so expanded member
+    // net names match labels on the schematic (issue #22873, #23615).
     wxString              name;
     std::vector<wxString> members;
 
     BOOST_CHECK( NET_SETTINGS::ParseBusVector( wxS( "bus_~{label}[0..2]" ), &name, &members ) );
-    BOOST_CHECK_EQUAL( name, wxS( "bus_label" ) );
+    BOOST_CHECK_EQUAL( name, wxS( "bus_~{label}" ) );
 
-    std::vector<wxString> expected = { wxS( "bus_label0" ), wxS( "bus_label1" ), wxS( "bus_label2" ) };
+    std::vector<wxString> expected = { wxS( "bus_~{label}0" ), wxS( "bus_~{label}1" ),
+                                       wxS( "bus_~{label}2" ) };
 
     BOOST_CHECK_EQUAL_COLLECTIONS( members.begin(), members.end(), expected.begin(), expected.end() );
 }
@@ -241,14 +243,15 @@ BOOST_AUTO_TEST_CASE( ParsesOverbarInVectorBusPrefix )
 
 BOOST_AUTO_TEST_CASE( ParsesSuperscriptInVectorBusPrefix )
 {
-    // Test superscript formatting in bus vector prefix (issue #22873)
+    // Superscript formatting in bus vector prefix must be preserved (issue #23615).
     wxString              name;
     std::vector<wxString> members;
 
     BOOST_CHECK( NET_SETTINGS::ParseBusVector( wxS( "bus_^{label}[0..2]" ), &name, &members ) );
-    BOOST_CHECK_EQUAL( name, wxS( "bus_label" ) );
+    BOOST_CHECK_EQUAL( name, wxS( "bus_^{label}" ) );
 
-    std::vector<wxString> expected = { wxS( "bus_label0" ), wxS( "bus_label1" ), wxS( "bus_label2" ) };
+    std::vector<wxString> expected = { wxS( "bus_^{label}0" ), wxS( "bus_^{label}1" ),
+                                       wxS( "bus_^{label}2" ) };
 
     BOOST_CHECK_EQUAL_COLLECTIONS( members.begin(), members.end(), expected.begin(), expected.end() );
 }
@@ -256,14 +259,15 @@ BOOST_AUTO_TEST_CASE( ParsesSuperscriptInVectorBusPrefix )
 
 BOOST_AUTO_TEST_CASE( ParsesSubscriptInVectorBusPrefix )
 {
-    // Test subscript formatting in bus vector prefix (issue #22873)
+    // Subscript formatting in bus vector prefix must be preserved (issue #23615).
     wxString              name;
     std::vector<wxString> members;
 
     BOOST_CHECK( NET_SETTINGS::ParseBusVector( wxS( "bus__{label}[0..2]" ), &name, &members ) );
-    BOOST_CHECK_EQUAL( name, wxS( "bus_label" ) );
+    BOOST_CHECK_EQUAL( name, wxS( "bus__{label}" ) );
 
-    std::vector<wxString> expected = { wxS( "bus_label0" ), wxS( "bus_label1" ), wxS( "bus_label2" ) };
+    std::vector<wxString> expected = { wxS( "bus__{label}0" ), wxS( "bus__{label}1" ),
+                                       wxS( "bus__{label}2" ) };
 
     BOOST_CHECK_EQUAL_COLLECTIONS( members.begin(), members.end(), expected.begin(), expected.end() );
 }
@@ -271,12 +275,13 @@ BOOST_AUTO_TEST_CASE( ParsesSubscriptInVectorBusPrefix )
 
 BOOST_AUTO_TEST_CASE( ParsesOverbarInGroupBusPrefix )
 {
-    // Test overbar formatting in bus group prefix (issue #22873)
+    // Overbar formatting in bus group prefix must be preserved so the net prefix
+    // matches labels on the schematic (issue #22873, #23615).
     wxString              name;
     std::vector<wxString> members;
 
     BOOST_CHECK( NET_SETTINGS::ParseBusGroup( wxS( "bus_~{label}{net1 net2}" ), &name, &members ) );
-    BOOST_CHECK_EQUAL( name, wxS( "bus_label" ) );
+    BOOST_CHECK_EQUAL( name, wxS( "bus_~{label}" ) );
 
     std::vector<wxString> expected = { wxS( "net1" ), wxS( "net2" ) };
 
@@ -286,12 +291,12 @@ BOOST_AUTO_TEST_CASE( ParsesOverbarInGroupBusPrefix )
 
 BOOST_AUTO_TEST_CASE( ParsesSuperscriptInGroupBusPrefix )
 {
-    // Test superscript formatting in bus group prefix (issue #22873)
+    // Superscript formatting in bus group prefix must be preserved (issue #23615).
     wxString              name;
     std::vector<wxString> members;
 
     BOOST_CHECK( NET_SETTINGS::ParseBusGroup( wxS( "bus_^{label}{net1 net2}" ), &name, &members ) );
-    BOOST_CHECK_EQUAL( name, wxS( "bus_label" ) );
+    BOOST_CHECK_EQUAL( name, wxS( "bus_^{label}" ) );
 
     std::vector<wxString> expected = { wxS( "net1" ), wxS( "net2" ) };
 
@@ -301,12 +306,12 @@ BOOST_AUTO_TEST_CASE( ParsesSuperscriptInGroupBusPrefix )
 
 BOOST_AUTO_TEST_CASE( ParsesSubscriptInGroupBusPrefix )
 {
-    // Test subscript formatting in bus group prefix (issue #22873)
+    // Subscript formatting in bus group prefix must be preserved (issue #23615).
     wxString              name;
     std::vector<wxString> members;
 
     BOOST_CHECK( NET_SETTINGS::ParseBusGroup( wxS( "bus__{label}{net1 net2}" ), &name, &members ) );
-    BOOST_CHECK_EQUAL( name, wxS( "bus_label" ) );
+    BOOST_CHECK_EQUAL( name, wxS( "bus__{label}" ) );
 
     std::vector<wxString> expected = { wxS( "net1" ), wxS( "net2" ) };
 
@@ -352,6 +357,57 @@ BOOST_AUTO_TEST_CASE( ForEachBusMemberExpandsOverbarMembersInGroup )
 }
 
 
+BOOST_AUTO_TEST_CASE( ParsesSuperscriptInBusGroupName )
+{
+    // Regression test for issue #23615. A bus label I^{2}C{SDA SCL} must preserve
+    // the superscript marker in the group name so expanded member net names
+    // (I^{2}C.SDA, I^{2}C.SCL) match labels placed by "Unfold from Bus".
+    wxString              name;
+    std::vector<wxString> members;
+
+    BOOST_CHECK( NET_SETTINGS::ParseBusGroup( wxS( "I^{2}C{SDA SCL}" ), &name, &members ) );
+    BOOST_CHECK_EQUAL( name, wxS( "I^{2}C" ) );
+
+    std::vector<wxString> expected = { wxS( "SDA" ), wxS( "SCL" ) };
+
+    BOOST_CHECK_EQUAL_COLLECTIONS( members.begin(), members.end(), expected.begin(), expected.end() );
+}
+
+
+BOOST_AUTO_TEST_CASE( ParsesSuperscriptInBusVectorName )
+{
+    // Superscript in vector bus prefix must be preserved for net name identity.
+    wxString              name;
+    std::vector<wxString> members;
+
+    BOOST_CHECK( NET_SETTINGS::ParseBusVector( wxS( "I^{2}C[0..1]" ), &name, &members ) );
+    BOOST_CHECK_EQUAL( name, wxS( "I^{2}C" ) );
+
+    std::vector<wxString> expected = { wxS( "I^{2}C0" ), wxS( "I^{2}C1" ) };
+
+    BOOST_CHECK_EQUAL_COLLECTIONS( members.begin(), members.end(), expected.begin(), expected.end() );
+}
+
+
+BOOST_AUTO_TEST_CASE( ForEachBusMemberExpandsSuperscriptGroupBus )
+{
+    // End-to-end test for issue #23615. ForEachBusMember on I^{2}C{SDA SCL}
+    // must produce I^{2}C.SDA and I^{2}C.SCL as member names (with formatting).
+    std::vector<wxString> expandedMembers;
+    auto collector = [&expandedMembers]( const wxString& member )
+                     {
+                         expandedMembers.push_back( member );
+                     };
+
+    NET_SETTINGS::ForEachBusMember( wxS( "I^{2}C{SDA SCL}" ), collector );
+
+    std::vector<wxString> expected = { wxS( "SDA" ), wxS( "SCL" ) };
+
+    BOOST_CHECK_EQUAL_COLLECTIONS( expandedMembers.begin(), expandedMembers.end(),
+                                   expected.begin(), expected.end() );
+}
+
+
 BOOST_AUTO_TEST_CASE( PrintBusForUIUnescapesBackslashSpaces )
 {
     // Test that PrintBusForUI converts backslash-escaped spaces to regular spaces (issue #22872)
@@ -379,12 +435,44 @@ BOOST_AUTO_TEST_CASE( PrintBusForUIHandlesMixedFormatting )
     // Test that PrintBusForUI handles both super/sub/overbar formatting and escaped spaces
 
     // Overbar formatting only
-    BOOST_CHECK_EQUAL( SCH_CONNECTION::PrintBusForUI( wxS( "~{reset}" ) ),
-                       wxS( "reset" ) );
+    BOOST_CHECK_EQUAL( SCH_CONNECTION::PrintBusForUI( wxS( "~{reset}" ) ), wxS( "~reset" ) );
 
     // Both overbar and escaped space
-    BOOST_CHECK_EQUAL( SCH_CONNECTION::PrintBusForUI( wxS( "my\\ ~{signal}" ) ),
-                       wxS( "my signal" ) );
+    BOOST_CHECK_EQUAL( SCH_CONNECTION::PrintBusForUI( wxS( "my\\ ~{signal}" ) ), wxS( "my ~signal" ) );
+}
+
+
+BOOST_AUTO_TEST_CASE( PrintBusForUIUnescapesNetNameTokens )
+{
+    // Regression test for issue #24153: bus member names containing '/' are stored
+    // escaped as "{slash}" (CTX_NETNAME).  PrintBusForUI must unescape those tokens
+    // before parsing formatting markup or the '{' opens a phantom overbar group and
+    // the matching '}' gets dropped.
+
+    // Slash plus overbar (R/~{W}): escaped form has the slash token before the overbar.
+    BOOST_CHECK_EQUAL( SCH_CONNECTION::PrintBusForUI( wxS( "R{slash}~{W}" ) ), wxS( "R/~W" ) );
+
+    // Plain slash by itself round-trips to '/'.
+    BOOST_CHECK_EQUAL( SCH_CONNECTION::PrintBusForUI( wxS( "A{slash}B" ) ), wxS( "A/B" ) );
+
+    // Already-unescaped overbar still works (defensive: PrintBusForUI accepts either form).
+    BOOST_CHECK_EQUAL( SCH_CONNECTION::PrintBusForUI( wxS( "R/~{W}" ) ), wxS( "R/~W" ) );
+}
+
+
+BOOST_AUTO_TEST_CASE( ParsesOverbarWrappingNameAndRange )
+{
+    // Regression test for issue #23827: ~{BE[0..3]} where the overbar wraps
+    // both the signal name and the range must produce ~{BE0}, ~{BE1}, etc.
+    wxString              name;
+    std::vector<wxString> members;
+
+    BOOST_CHECK( NET_SETTINGS::ParseBusVector( wxS( "~{BE[0..3]}" ), &name, &members ) );
+    BOOST_CHECK_EQUAL( name, wxS( "~{BE" ) );
+
+    std::vector<wxString> expected = { wxS( "~{BE0}" ), wxS( "~{BE1}" ), wxS( "~{BE2}" ), wxS( "~{BE3}" ) };
+
+    BOOST_CHECK_EQUAL_COLLECTIONS( members.begin(), members.end(), expected.begin(), expected.end() );
 }
 
 

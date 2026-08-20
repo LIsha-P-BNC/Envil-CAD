@@ -42,6 +42,7 @@
 
 #include <project.h>
 #include <project/project_local_settings.h>
+#include <wildcards_and_files_ext.h>
 
 #include <../../tests/common/console_log.h>
 
@@ -248,21 +249,36 @@ std::unique_ptr<PNS::ITEM> PNS_LOG_FILE::parseItem( const nlohmann::json& aJSON 
 
     if( kind == wxT("segment") )
     {
-        auto shape = static_cast<const SHAPE_SEGMENT*>( parseShape( aJSON.at("shape") ).get() );
+        auto parsedShape = parseShape( aJSON.at("shape") );
+
+        if( !parsedShape )
+            return nullptr;
+
+        auto shape = static_cast<const SHAPE_SEGMENT*>( parsedShape.get() );
         std::unique_ptr<PNS::SEGMENT> seg( new PNS::SEGMENT( *shape, nullptr ) );
         parseCommonPnsProps( aJSON, seg.get() );
         return std::move( seg );
     }
     else if ( kind == wxT( "arc" ) )
     {
-        auto shape = static_cast<const SHAPE_ARC*>( parseShape( aJSON.at("shape") ).get() );
+        auto parsedShape = parseShape( aJSON.at("shape") );
+
+        if( !parsedShape )
+            return nullptr;
+
+        auto shape = static_cast<const SHAPE_ARC*>( parsedShape.get() );
         std::unique_ptr<PNS::ARC> arc( new PNS::ARC( *shape, nullptr ) );
         parseCommonPnsProps( aJSON, arc.get() );
         return std::move( arc );
     }
     else if ( kind == wxT( "via" ) )
     {
-        auto shape = static_cast<const SHAPE_CIRCLE*>( parseShape( aJSON.at("shape") ).get() );
+        auto parsedShape = parseShape( aJSON.at("shape") );
+
+        if( !parsedShape )
+            return nullptr;
+
+        auto shape = static_cast<const SHAPE_CIRCLE*>( parsedShape.get() );
         std::unique_ptr<PNS::VIA> via( new PNS::VIA() );
         parseCommonPnsProps( aJSON, via.get() );
         via->SetPos( shape->Centre() );
@@ -419,7 +435,8 @@ bool PNS_LOG_FILE::SaveLog( const wxFileName& logFileName, REPORTER* aRpt )
         return false;
     }
 
-    fp.Write( logString.GetData(), logString.Length() );
+    wxScopedCharBuffer utf8 = logString.ToUTF8();
+    fp.Write( utf8.data(), utf8.length() );
     fp.Close();
 
     return true;
@@ -486,7 +503,15 @@ bool PNS_LOG_FILE::Load( const wxFileName& logFileName, REPORTER* aRpt, const wx
         drcEngine->SetBoard( m_board.get() );
         drcEngine->SetDesignSettings( &bds );
         drcEngine->SetLogReporter( aRpt );
-        drcEngine->InitEngine( wxFileName() );
+
+        // Load the test case's custom DRC rules if it ships any.
+        wxFileName fname_rules( logFileName );
+        fname_rules.SetExt( FILEEXT::DesignRulesFileExtension );
+
+        if( fname_rules.FileExists() )
+            drcEngine->InitEngine( fname_rules );
+        else
+            drcEngine->InitEngine( wxFileName() );
     }
     catch( const PARSE_ERROR& parse_error )
     {

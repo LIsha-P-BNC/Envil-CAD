@@ -44,8 +44,8 @@
  * setup friction, not exposure — the endpoint is protected by server-side rate limiting,
  * not by hiding this file.)
  *
- * Values are re-read on every accessor call (the file is tiny), so an edit or a save from
- * the login dialog's "Server settings" pane takes effect immediately.
+ * Values are re-read on every accessor call (the file is tiny), so editing the file takes
+ * effect on the next sign-in attempt without restarting.
  */
 class KICOMMON_API ANVIL_AUTH_CONFIG
 {
@@ -68,17 +68,6 @@ public:
     /// True when an api-key is present — the one value the app cannot run without.
     static bool IsConfigured();
 
-    /**
-     * Write the values to the `.env` file (creating it if needed) — used by the login
-     * dialog's "Server settings" pane.
-     *
-     * @return false if the file could not be written (e.g. the install dir is read-only).
-     */
-    static bool Save( const wxString& aApiBase, const wxString& aApiKey,
-                      const wxString& aProjectId );
-
-    /// Current file contents, for pre-filling the "Server settings" pane.
-    static void ReadFileValues( wxString& aApiBase, wxString& aApiKey, wxString& aProjectId );
 };
 
 #endif // ANVIL_AUTH_CONFIG_H_

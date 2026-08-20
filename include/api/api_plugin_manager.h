@@ -28,6 +28,7 @@
 #include <json_schema_validator.h>
 #include <kicommon.h>
 
+class REPORTER;
 class wxTimer;
 
 /// Internal event used for handling async tasks
@@ -50,11 +51,13 @@ public:
      * @param aDirectoryToScan can be provided to scan an arbitrary directory instead of the
      *                         stock paths; provided for QA testing.
      */
-    void ReloadPlugins( std::optional<wxString> aDirectoryToScan = std::nullopt );
+    void ReloadPlugins( std::optional<wxString> aDirectoryToScan = std::nullopt,
+                        std::shared_ptr<REPORTER> aReporter = nullptr );
 
     void RecreatePluginEnvironment( const wxString& aIdentifier );
 
-    void InvokeAction( const wxString& aIdentifier );
+    void InvokeAction( const wxString& aIdentifier,
+                       std::shared_ptr<REPORTER> aReporter = nullptr );
 
     /**
      * Invokes an action synchronously, capturing its output.  Mainly used for things like
@@ -67,7 +70,8 @@ public:
      * @return the exit code from the action process
      */
     int InvokeActionSync( const wxString& aIdentifier, std::vector<wxString> aExtraArgs,
-                          wxString* aStdout = nullptr, wxString* aStderr = nullptr );
+                          wxString* aStdout = nullptr, wxString* aStderr = nullptr,
+                          std::shared_ptr<REPORTER> aReporter = nullptr );
 
     bool Busy() const;
 
@@ -79,6 +83,8 @@ public:
 
     std::map<int, wxString>& MenuBindings() { return m_menuBindings; }
 
+    std::shared_ptr<REPORTER> GetReporter() { return m_reloadReporter; }
+
 private:
     void processPluginDependencies();
 
@@ -86,7 +92,8 @@ private:
 
     int doInvokeAction( const wxString& aIdentifier, std::vector<wxString> aExtraArgs,
                         bool aSync = false, wxString* aStdout = nullptr,
-                        wxString* aStderr = nullptr );
+                        wxString* aStderr = nullptr,
+                        std::shared_ptr<REPORTER> aReporter = nullptr );
 
     wxEvtHandler* m_parent;
 
@@ -127,6 +134,8 @@ private:
     std::deque<JOB> m_jobs;
 
     std::unique_ptr<JSON_SCHEMA_VALIDATOR> m_schema_validator;
+
+    std::shared_ptr<REPORTER> m_reloadReporter;
 
     [[maybe_unused]] long     m_lastPid;
     [[maybe_unused]] wxTimer* m_raiseTimer;

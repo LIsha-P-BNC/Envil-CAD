@@ -604,6 +604,15 @@ void KIWAY::CommonSettingsChanged( int aFlags )
             top->CommonSettingsChanged( aFlags );
     }
 
+    if( aFlags & ENVVARS_CHANGED )
+    {
+        if( KIFACE* sch = KiFACE( FACE_SCH, false ) )
+            sch->PreloadLibraries( this );
+
+        if( KIFACE* pcb = KiFACE( FACE_PCB, false ) )
+            pcb->PreloadLibraries( this );
+    }
+
     for( unsigned i=0;  i < KIWAY_PLAYER_COUNT;  ++i )
     {
         KIWAY_PLAYER* frame = GetPlayerFrame( ( FRAME_T )i );
@@ -659,11 +668,13 @@ void KIWAY::ProjectChanged()
             top->ProjectChanged();
     }
 
-    // Cancel an in-progress load of libraries; handled through the schematic and PCB ifaces
-    if ( KIFACE* schface = KiFACE( KIWAY::FACE_SCH ) )
+    // Cancel an in-progress load of libraries; handled through the schematic and PCB ifaces.
+    // Use doLoad=false: only notify already-loaded kifaces, don't force-load absent ones
+    // (e.g. eeschema kiface isn't available in standalone pcbnew).
+    if ( KIFACE* schface = KiFACE( KIWAY::FACE_SCH, false ) )
         schface->ProjectChanged();
 
-    if ( KIFACE* pcbface = KiFACE( KIWAY::FACE_PCB ) )
+    if ( KIFACE* pcbface = KiFACE( KIWAY::FACE_PCB, false ) )
         pcbface->ProjectChanged();
 
     for( unsigned i=0;  i < KIWAY_PLAYER_COUNT;  ++i )

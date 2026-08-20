@@ -379,12 +379,12 @@ BOOST_FIXTURE_TEST_CASE( SetBoardDesignRules_SeverityOverrides, API_SERVER_E2E_F
 
         bool found = false;
 
-        for( const kiapi::board::DrcSeveritySetting& setting : verifyResponse.rules().severities() )
+        for( const kiapi::board::DrcSeveritySetting& severity : verifyResponse.rules().severities() )
         {
-            if( setting.error_key() == "unconnected_items" )
+            if( severity.error_key() == "unconnected_items" )
             {
                 found = true;
-                BOOST_CHECK( setting.severity() == aSeverity );
+                BOOST_CHECK( severity.severity() == aSeverity );
                 break;
             }
         }

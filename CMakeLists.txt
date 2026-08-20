@@ -314,7 +314,7 @@ get_property(IS_MULTI_CONFIG GLOBAL PROPERTY GENERATOR_IS_MULTI_CONFIG)
 if(IS_MULTI_CONFIG)
     set(KICMAKE_CFG_INTDIR "$<CONFIG>")
 else()
-    # For single-config generators (Ninja, Makefiles), default to "." 
+    # For single-config generators (Ninja, Makefiles), default to "."
     set(KICMAKE_CFG_INTDIR ".")
 endif()
 
@@ -578,7 +578,7 @@ if( MSVC )
     # /Gy: Enable Function-Level Linking
     string( APPEND CMAKE_CXX_FLAGS_RELEASE " /Gy" )
     string( APPEND CMAKE_CXX_FLAGS_RELWITHDEBINFO " /Gy" )
-    # Avoid fatal error because /GF + swig wrapper exceed standard obj file limits
+    # Avoid fatal error as we could exceed standard obj file limits
     string( APPEND CMAKE_CXX_FLAGS " /bigobj" )
     # /permissive-: This puts MSVC into compliance mode, this flag is default on with C++20
     # but we want to turn it on to enable debug performance improvements available under C++17 in MSVC 17.5+
@@ -706,7 +706,7 @@ if( NOT APPLE )
         CACHE STRING "Location of KiCad stock EDA library data" )
 
     if( WIN32 )
-        set( KICAD_PLUGINS ${KICAD_BIN}/scripting/plugins
+        set( KICAD_PLUGINS ${KICAD_DATA}/plugins
             CACHE PATH "Location of KiCad plugins." )
 
         set( KICAD_LIB ${KICAD_BIN}
@@ -770,11 +770,6 @@ else()
         CACHE PATH "Location of KiCad documentation files." FORCE )
     set( KICAD_DEMOS demos
         CACHE PATH "Location of KiCad demo files." FORCE )
-
-    # Required to run from build folder
-    if( PYTHON_FRAMEWORK )
-        list(APPEND CMAKE_BUILD_RPATH ${PYTHON_FRAMEWORK} )
-    endif()
 
     # RPATH settings for building shared libraries
     set( CMAKE_MACOSX_RPATH FALSE )
@@ -885,16 +880,20 @@ if( NOT OCC_FOUND )
                          " OpenCASCADE was not found!\n"
                          "================================================================\n")
 endif()
-if( OCC_VERSION_STRING VERSION_LESS 7.5.0 )
+if( OCC_VERSION_STRING VERSION_LESS 7.6.0 )
     MESSAGE( FATAL_ERROR "================================================================\n"
                          "OpenCASCADE version ${OCC_VERSION_STRING} was found.\n"
-                         "  KiCad requires a minimum version of 7.5.0\n"
+                         "  KiCad requires a minimum version of 7.6.0\n"
                          "================================================================\n")
 endif()
 include_directories( SYSTEM ${OCC_INCLUDE_DIR} )
 
 # Try to find Protobuf with modern approach first, fallback to legacy if needed
 set( _protobuf_found FALSE )
+
+# KiCad 11 relies on proto3 optional behavior available since 3.15
+# Should be set to 3.15 but not enforcing yet
+set( PROTOBUF_MIN_VERSION 3.12 )
 
 if( NOT KICAD_USE_CMAKE_FINDPROTOBUF )
     message( STATUS "Attempting to find Protobuf using CONFIG mode..." )
@@ -916,6 +915,17 @@ if( NOT _protobuf_found )
     if( Protobuf_FOUND )
         message( STATUS "Found Protobuf using FindProtobuf.cmake" )
     endif()
+endif()
+
+if( NOT Protobuf_VERSION )
+    message( WARNING
+             "Unable to determine the Protobuf version. KiCad requires a minimum version of ${PROTOBUF_MIN_VERSION}" )
+elseif( Protobuf_VERSION VERSION_LESS PROTOBUF_MIN_VERSION )
+    message( FATAL_ERROR
+             "================================================================\n"
+             " Protobuf version ${Protobuf_VERSION} was found.\n"
+             "  KiCad requires a minimum version of ${PROTOBUF_MIN_VERSION}\n"
+             "================================================================\n" )
 endif()
 
 if( NOT Protobuf_PROTOC_EXECUTABLE )
@@ -1045,6 +1055,13 @@ if( KICAD_USE_SENTRY )
         set( CRASHPAD_WER_ENABLED ON )
     endif()
     add_subdirectory( thirdparty/sentry-native )
+
+    if( APPLE AND TARGET crashpad_handler )
+        set_target_properties(crashpad_handler PROPERTIES
+                RUNTIME_OUTPUT_DIRECTORY "${OSX_BUNDLE_BUILD_BIN_DIR}"
+        )
+    endif()
+
     add_compile_definitions( KICAD_USE_SENTRY )
 endif()
 

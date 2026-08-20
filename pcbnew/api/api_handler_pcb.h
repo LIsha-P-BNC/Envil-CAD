@@ -228,7 +228,7 @@ protected:
         return kiapi::common::types::DOCTYPE_PCB;
     }
 
-    bool validateDocumentInternal( const DocumentSpecifier& aDocument ) const override;
+    HANDLER_RESULT<bool> validateDocumentInternal( const DocumentSpecifier& aDocument ) const override;
 
     void deleteItemsInternal( std::map<KIID, ItemDeletionStatus>& aItemsToDelete,
                               const std::string& aClientName ) override;

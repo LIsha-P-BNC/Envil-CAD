@@ -385,10 +385,16 @@ std::optional<BOARD_ITEM*> API_HANDLER_PCB::getItemById( const KIID& aId ) const
 }
 
 
-bool API_HANDLER_PCB::validateDocumentInternal( const DocumentSpecifier& aDocument ) const
+HANDLER_RESULT<bool>
+API_HANDLER_PCB::validateDocumentInternal( const DocumentSpecifier& aDocument ) const
 {
     if( aDocument.type() != DocumentType::DOCTYPE_PCB )
-        return false;
+    {
+        ApiResponseStatus e;
+        e.set_status( ApiStatusCode::AS_BAD_REQUEST );
+        e.set_error_message( "the requested document is not a board" );
+        return tl::unexpected( e );
+    }
 
     wxFileName fn( context()->GetCurrentFileName() );
     return 0 == aDocument.board_filename().compare( fn.GetFullName() );

@@ -132,6 +132,7 @@ SYMBOL_EDIT_FRAME::SYMBOL_EDIT_FRAME( KIWAY* aKiway, wxWindow* aParent ) :
     m_libMgr = nullptr;
     m_unit = 1;
     m_bodyStyle = 1;
+    m_syncLibrariesInProgress = false;
     m_aboutTitle = _HKI( "Anvil Symbol Editor" );
 
     wxIcon icon;
@@ -633,6 +634,8 @@ void SYMBOL_EDIT_FRAME::setupUIConditions()
     mgr->SetConditions( SCH_ACTIONS::drawSymbolTextBox,  EDIT_TOOL( SCH_ACTIONS::drawSymbolTextBox ) );
     mgr->SetConditions( SCH_ACTIONS::drawRectangle,      EDIT_TOOL( SCH_ACTIONS::drawRectangle ) );
     mgr->SetConditions( SCH_ACTIONS::drawCircle,         EDIT_TOOL( SCH_ACTIONS::drawCircle ) );
+    mgr->SetConditions( SCH_ACTIONS::drawEllipse, EDIT_TOOL( SCH_ACTIONS::drawEllipse ) );
+    mgr->SetConditions( SCH_ACTIONS::drawEllipseArc, EDIT_TOOL( SCH_ACTIONS::drawEllipseArc ) );
     mgr->SetConditions( SCH_ACTIONS::drawArc,            EDIT_TOOL( SCH_ACTIONS::drawArc ) );
     mgr->SetConditions( SCH_ACTIONS::drawBezier,         EDIT_TOOL( SCH_ACTIONS::drawBezier ) );
     mgr->SetConditions( SCH_ACTIONS::drawSymbolLines,    EDIT_TOOL( SCH_ACTIONS::drawSymbolLines ) );
@@ -1352,6 +1355,21 @@ wxString SYMBOL_EDIT_FRAME::getTargetLib() const
 void SYMBOL_EDIT_FRAME::SyncLibraries( bool aShowProgress, bool aPreloadCancelled,
                                        const wxString& aForceRefresh )
 {
+    // Prevent re-entrant calls.  The progress dialog yields the event loop during Sync(),
+    // which can dispatch queued UI events (e.g. menu clicks queued while the app was busy
+    // loading libraries).  A re-entrant call would corrupt the library tree mid-rebuild.
+    if( m_syncLibrariesInProgress )
+        return;
+
+    m_syncLibrariesInProgress = true;
+
+    auto resetGuard = [this]( bool* )
+    {
+        m_syncLibrariesInProgress = false;
+    };
+
+    std::unique_ptr<bool, decltype( resetGuard )> guard( &m_syncLibrariesInProgress, resetGuard );
+
     LIB_ID selected;
 
     if( m_treePane )
@@ -1425,6 +1443,7 @@ void SYMBOL_EDIT_FRAME::SyncLibraries( bool aShowProgress, bool aPreloadCancelle
             GetLibTree()->CenterLibId( current );
         }
     }
+
 }
 
 
@@ -1805,6 +1824,17 @@ void SYMBOL_EDIT_FRAME::KiwayMailIn( KIWAY_MAIL_EVENT& mail )
 
         if( !symbol )
             break;
+
+        // If the frame is disabled then a modal/quasi-modal dialog (such as the symbol
+        // properties dialog) is editing the current LIB_SYMBOL.  Refreshing it here would
+        // delete the symbol out from under the dialog and crash on dismissal.  The file
+        // watcher timer will retry the reload once the dialog has closed.
+        if( !IsEnabled() )
+        {
+            wxLogTrace( traceLibWatch,
+                        "Deferring symbol refresh; dialog is open on the symbol editor." );
+            break;
+        }
 
         wxString libName = symbol->GetLibId().GetLibNickname();
         std::optional<const LIBRARY_TABLE_ROW*> row = adapter->GetRow( libName );

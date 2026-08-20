@@ -43,7 +43,14 @@ HEADLESS_BOARD_CONTEXT::HEADLESS_BOARD_CONTEXT( std::unique_ptr<BOARD> aBoard, P
 }
 
 
-HEADLESS_BOARD_CONTEXT::~HEADLESS_BOARD_CONTEXT() = default;
+HEADLESS_BOARD_CONTEXT::~HEADLESS_BOARD_CONTEXT()
+{
+    // Sever the board↔project linkage before destruction. The PROJECT holds a raw pointer
+    // (m_BoardSettings) to the board's design settings. If the board is destroyed while the
+    // project still exists, that pointer becomes dangling.
+    if( m_board )
+        m_board->ClearProject();
+}
 
 
 BOARD* HEADLESS_BOARD_CONTEXT::GetBoard() const

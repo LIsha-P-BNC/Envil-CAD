@@ -98,7 +98,6 @@ public:
 
     void OnOpenFileInTextEditor( wxCommandEvent& event );
     void OnEditAdvancedCfg( wxCommandEvent& event );
-    void OnAnvilSignOut( wxCommandEvent& event );
 
     /// Anvil "Vibrant Purple & Indigo" theme: repaint the shell's own chrome (AUI dock area,
     /// editor/side tab strips, project tree, launcher, status bar) to match the frame theme.
@@ -391,6 +390,20 @@ protected:
     void buildPreferencesMenu( ACTION_MENU* aMenu ) override;
     void buildPanelsMenu( ACTION_MENU* aMenu ) override;
 
+    /**
+     * Append the signed-in account block to @a aMenu: an "Account" submenu naming the user
+     * and listing their email / role / project, plus the Sign Out entry.  Built fresh on
+     * every menu rebuild so it reflects whoever is signed in now.
+     */
+    void buildAccountMenu( ACTION_MENU* aMenu );
+
+    /**
+     * Append the account rows themselves (identity labels + Sign Out) directly to @a aMenu.
+     * Shared by the File > Account submenu and the title-bar account button, so the two
+     * entry points can never drift apart.
+     */
+    void fillAccountMenu( ACTION_MENU* aMenu );
+
 public:
     /**
      * Anvil Next: titlebar quick access (0=Save, 1=Undo, 2=Redo) and the Preferences gear
@@ -407,6 +420,13 @@ public:
     /// Pop the Altium "Open editor" dropdown (replaces the removed left icon rail).
     void ShowOpenEditorMenu( const wxPoint& aScreenPos );
     void buildOpenEditorMenu( ACTION_MENU* aMenu );
+
+    /// Pop the account dropdown right-aligned under the title-bar account button, whose
+    /// screen rect is @a aButtonScreenRect.
+    void ShowAccountMenu( const wxRect& aButtonScreenRect );
+
+    /// Re-read the signed-in user and refresh the title-bar account button's tooltip.
+    void RefreshAccountButton();
 
 protected:
 

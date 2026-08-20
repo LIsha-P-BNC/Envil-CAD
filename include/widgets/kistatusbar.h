@@ -29,6 +29,7 @@
 #include <optional>
 #include <mutex>
 #include <vector>
+#include <unordered_map>
 #include <widgets/report_severity.h>
 #include <wx/statusbr.h>
 
@@ -116,8 +117,16 @@ public:
      */
     void SetNotificationCount( int aCount );
 
-    void SetLoadWarningMessages( const wxString& aMessages );
-    void ClearLoadWarningMessages();
+    /**
+     * Clears all warning messages from the given source (or all sources if aSource is empty)
+     */
+    void ClearWarningMessages( const wxString& aSource = wxEmptyString );
+
+    /**
+     * Add warning/error messages (not thread-safe, use the std::vector<LOAD_MESSAGE> variant
+     * from other threads)
+     */
+    void AddWarningMessages( const wxString& aSource, const wxString& aMessages );
 
     /**
      * The Altium-style "Panels" button (PANELS_BUTTON style flag), or nullptr.  The owning
@@ -129,12 +138,14 @@ public:
      * Add warning/error messages thread-safely.
      * Can be called from any thread. UI update is deferred to main thread.
      */
-    void AddLoadWarningMessages( const std::vector<LOAD_MESSAGE>& aMessages );
+    void AddWarningMessages( const wxString& aSource, const std::vector<LOAD_MESSAGE>& aMessages );
 
     /**
      * Get current message count (thread-safe).
      */
     size_t GetLoadWarningCount() const;
+
+    virtual void SetStatusWidths( int aSize, const int* aWidths ) override;
 
 private:
     void onSize( wxSizeEvent& aEvent );
@@ -165,8 +176,8 @@ private:
     BITMAP_BUTTON* m_notificationsButton;
     BITMAP_BUTTON* m_warningButton;
     BITMAP_BUTTON* m_panelsButton;
-    mutable std::mutex m_loadWarningMutex;  ///< Protects m_loadWarningMessages
-    std::vector<LOAD_MESSAGE> m_loadWarningMessages;
+    mutable std::mutex m_warningMutex;  ///< Protects m_warningMessages
+    std::unordered_map<wxString, std::vector<LOAD_MESSAGE>> m_warningMessages;
     int            m_normalFieldsCount;
     STYLE_FLAGS    m_styleFlags;
     wxString       m_savedStatusText;       ///< Saved text from adjacent field during background jobs

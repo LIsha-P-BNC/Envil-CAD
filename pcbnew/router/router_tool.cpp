@@ -21,6 +21,7 @@
  */
 
 #include <wx/filedlg.h>
+#include <wx/filefn.h>
 #include <wx/hyperlink.h>
 #include <advanced_config.h>
 #include <kiplatform/ui.h>
@@ -49,6 +50,7 @@ using namespace std::placeholders;
 #include <dialogs/dialog_router_save_test_case.h>
 #include <math/vector2wx.h>
 #include <paths.h>
+#include <wildcards_and_files_ext.h>
 #include <confirm.h>
 #include <kidialog.h>
 #include <widgets/wx_infobar.h>
@@ -713,7 +715,7 @@ void ROUTER_TOOL::saveRouterDebugLog()
 
         if( saveDlg.ShowModal() == wxID_OK )
         {
-            wxFileName path( testCaseDir );
+            wxFileName path = wxFileName::DirName( testCaseDir );
             path.AppendDir( saveDlg.getTestCaseName() );
             logData.m_TestCaseType = saveDlg.getTestCaseType();
 
@@ -723,7 +725,7 @@ void ROUTER_TOOL::saveRouterDebugLog()
             }
             else
             {
-                wxMkdir( path.GetFullPath() );
+                path.Mkdir( wxS_DIR_DEFAULT, wxPATH_MKDIR_FULL );
             }
 
             path.SetName( wxT("pns") );
@@ -766,7 +768,7 @@ void ROUTER_TOOL::saveRouterDebugLog()
     wxFileName fname_log( logPath );
     mruPath = fname_log.GetPath();
     fname_log.SetExt( "log" );
-    printf("save log to: %s\n", fname_log.GetFullPath().c_str().AsChar() );
+    wxLogTrace( wxT( "PNS" ), wxT( "save log to: %s" ), fname_log.GetFullPath() );
 
     wxFileName fname_dump( fname_log );
     fname_dump.SetExt( "dump" );
@@ -775,6 +777,13 @@ void ROUTER_TOOL::saveRouterDebugLog()
     fname_settings.SetExt( "settings" );
 
     FILE* settings_f = wxFopen( fname_settings.GetAbsolutePath(), "wb" );
+
+    if( !settings_f )
+    {
+        DisplayError( frame(), wxString::Format( _( "Unable to write '%s'." ), fname_settings.GetAbsolutePath() ) );
+        return;
+    }
+
     std::string settingsStr = m_router->Settings().FormatAsString();
     fprintf( settings_f, "%s\n", settingsStr.c_str() );
     fclose( settings_f );
@@ -790,6 +799,19 @@ void ROUTER_TOOL::saveRouterDebugLog()
     prj->GetProjectFile().SaveAs( fname_dump.GetPath(), fname_dump.GetName() );
     prj->GetLocalSettings().SaveAs( fname_dump.GetPath(), fname_dump.GetName() );
 
+    // Copy the project's custom DRC rules
+    if( PCB_EDIT_FRAME* editFrame = getEditFrame<PCB_EDIT_FRAME>() )
+    {
+        wxString srcRules = editFrame->GetDesignRulesPath();
+
+        if( !srcRules.IsEmpty() && wxFileName::FileExists( srcRules ) )
+        {
+            wxFileName fname_rules( fname_dump );
+            fname_rules.SetExt( FILEEXT::DesignRulesFileExtension );
+            wxCopyFile( srcRules, fname_rules.GetAbsolutePath() );
+        }
+    }
+
     // Build log file:
     std::vector<PNS::ITEM*> removed;
     m_router->GetUpdatedItems( removed, logData.m_AddedItems, logData.m_Heads );
@@ -797,6 +819,9 @@ void ROUTER_TOOL::saveRouterDebugLog()
 
     for( auto item : removed )
     {
+        if( item->OfKind( PNS::ITEM::HOLE_T ) )
+            continue;
+
         wxASSERT_MSG( item->Parent() != nullptr, "removed an item with no parent uuid?" );
 
         if( item->Parent() )
@@ -2451,6 +2476,10 @@ int ROUTER_TOOL::InlineDrag( const TOOL_EVENT& aEvent )
     std::vector<PNS::ITEM*>             leaderSegments;
     bool                                singleFootprintDrag = false;
 
+    // The PNS world may be stale if the board has been modified since the last sync (e.g. by
+    // a Move operation). Sync it now so that FindItemByParent and joint lookups work correctly.
+    m_router->SyncWorld();
+
     if( !footprints.empty() )
     {
         if( footprints.size() == 1 )
@@ -2531,14 +2560,22 @@ int ROUTER_TOOL::InlineDrag( const TOOL_EVENT& aEvent )
 
     if( itemsToDrag.Count() >= 1 )
     {
-        // Snap to closest item
-        int         layer = m_iface->GetPNSLayerFromBoardLayer( m_originalActiveLayer );
-        PNS::ITEM*  closestItem = nullptr;
-        SEG::ecoord closestDistSq = std::numeric_limits<SEG::ecoord>::max();
+        // Snap to closest item. Use the frame's active layer rather than m_originalActiveLayer,
+        // which is only set during prepareInteractive() and remains UNDEFINED_LAYER for inline
+        // drag operations.
+        PCB_LAYER_ID activeLayer = frame()->GetActiveLayer();
+        int          layer = m_iface->GetPNSLayerFromBoardLayer( activeLayer );
+        PNS::ITEM*   closestItem = nullptr;
+        SEG::ecoord  closestDistSq = std::numeric_limits<SEG::ecoord>::max();
 
         for( PNS::ITEM* pitem : itemsToDrag.Items() )
         {
-            SEG::ecoord distSq = pitem->Shape( layer )->SquaredDistance( p0, 0 );
+            const SHAPE* shape = pitem->Shape( layer );
+
+            if( !shape )
+                continue;
+
+            SEG::ecoord distSq = shape->SquaredDistance( p0, 0 );
 
             if( distSq < closestDistSq )
             {

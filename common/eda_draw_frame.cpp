@@ -44,6 +44,7 @@
 #include <page_info.h>
 #include <paths.h>
 #include <pgm_base.h>
+#include <reporter.h>
 #include <render_settings.h>
 #include <settings/app_settings.h>
 #include <settings/color_settings.h>
@@ -724,38 +725,32 @@ void EDA_DRAW_FRAME::updateStatusBarWidths()
 
     std::vector<int> dims = {
         // remainder of status bar on far left is set to a default or whatever is left over.
-        -3,
+        -2,
 
         // When using GetTextSize() remember the width of character '1' is not the same
         // as the width of '0' unless the font is fixed width, and it usually won't be.
 
         // zoom:
-        KIUI::GetTextSize( wxT( "Z 762000" ), stsbar ).x,
+        KIUI::GetTextSize( wxT( "Z 762000" ), stsbar ).x + spacer,
 
         // cursor coords
-        KIUI::GetTextSize( wxT( "X 1234.1234  Y 1234.1234" ), stsbar ).x,
+        KIUI::GetTextSize( wxT( "X 00000.0000  Y 00000.0000" ), stsbar ).x + spacer,
 
         // delta distances
-        KIUI::GetTextSize( wxT( "dx 1234.1234  dy 1234.1234  dist 1234.1234" ), stsbar ).x,
+        KIUI::GetTextSize( wxT( "dx 00000.0000  dy 00000.0000  dist 00000.0000" ), stsbar ).x + spacer,
 
         // grid size
-        KIUI::GetTextSize( wxT( "grid 1234.1234 x 1234.1234" ), stsbar ).x,
+        KIUI::GetTextSize( wxT( "grid 0000.0000 x 0000.0000" ), stsbar ).x + spacer,
 
         // units display, Inches is bigger than mm
-        KIUI::GetTextSize( _( "Inches" ), stsbar ).x,
+        KIUI::GetTextSize( _( "Inches" ), stsbar ).x + spacer,
 
         // Size for the "Current Tool" panel
-        -2,
+        -1,
 
         // constraint mode
-        -2
+        KIUI::GetTextSize(  _( "Constrain to H, V, 45" ), stsbar).x + spacer
     };
-
-    for( int& dim : dims )
-    {
-        if( dim >= 0 )
-            dim += spacer;
-    }
 
     for( int idx = numLocalFields; idx < totalFields; ++idx )
         dims.emplace_back( stsbar->GetStatusWidth( idx ) );
@@ -1497,6 +1492,13 @@ void EDA_DRAW_FRAME::OnApiPluginInvoke( wxCommandEvent& aEvent )
     API_PLUGIN_MANAGER& mgr = Pgm().GetPluginManager();
 
     if( mgr.ButtonBindings().count( aEvent.GetId() ) )
-        mgr.InvokeAction( mgr.ButtonBindings().at( aEvent.GetId() ) );
+    {
+        std::shared_ptr<REPORTER> reporter;
+
+        if( KISTATUSBAR* statusBar = dynamic_cast<KISTATUSBAR*>( GetStatusBar() ) )
+            reporter = std::make_shared<STATUSBAR_WARNING_REPORTER>( statusBar, wxS( "plugin" ) );
+
+        mgr.InvokeAction( mgr.ButtonBindings().at( aEvent.GetId() ), reporter );
+    }
 #endif
 }

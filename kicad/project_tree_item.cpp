@@ -38,6 +38,7 @@
 #include <gestfich.h>
 #include <kiplatform/environment.h>
 #include <kiplatform/io.h>
+#include <wildcards_and_files_ext.h>    // FILEEXT root-sheet extensions
 #include <kiway.h>
 #include <tool/tool_manager.h>
 #include <tools/kicad_manager_actions.h>
@@ -265,7 +266,35 @@ void PROJECT_TREE_ITEM::Activate( PROJECT_TREE_PANE* aTreePrjFrame )
         if( rootSchematic.IsEmpty() )
             rootSchematic = frame->SchLegacyFileName();
 
-        if( fullFileName == rootSchematic )
+        // A project carries its root sheet under ONE of several extensions (anvil_sch /
+        // kicad_sch / legacy sch) and SchFileName() reports only the one it prefers.  When a
+        // project directory holds more than one of them -- routine after an import, which
+        // leaves the converted .kicad_sch beside the native .anvil_sch -- clicking the sibling
+        // was not recognised as "the root sheet" and fell through to the navigate-to-sheet
+        // path below, which cannot resolve a file that is not a sheet of the loaded hierarchy.
+        // Match the project's root sheet under any of its extensions so every spelling of it
+        // opens exactly the way the "Open editor" menu does.
+        bool isRootSchematic = ( fullFileName == rootSchematic );
+
+        if( !isRootSchematic && !frame->GetProjectFileName().IsEmpty() )
+        {
+            wxFileName projectSch( frame->GetProjectFileName() );
+
+            for( const std::string& ext : { FILEEXT::AnvilSchematicFileExtension,
+                                            FILEEXT::KiCadSchematicFileExtension,
+                                            FILEEXT::LegacySchematicFileExtension } )
+            {
+                projectSch.SetExt( ext );
+
+                if( fullFileName == projectSch.GetFullPath() )
+                {
+                    isRootSchematic = true;
+                    break;
+                }
+            }
+        }
+
+        if( isRootSchematic )
         {
             toolMgr->RunAction( KICAD_MANAGER_ACTIONS::editSchematic );
         }
@@ -295,17 +324,23 @@ void PROJECT_TREE_ITEM::Activate( PROJECT_TREE_PANE* aTreePrjFrame )
 
             if( isInHierarchy )
             {
-                // Open root schematic and navigate to the target sheet
+                // Open the root schematic, then navigate to the target sheet.
+                //
+                // editSchematic runs unconditionally, not just when no player exists yet:
+                // Kiway::Player() hands back an editor that was merely CREATED, which in the
+                // single-window shell is a tab sitting behind the Project Manager (and, before
+                // its first show, one with no document loaded).  Mailing that a navigate
+                // request and nothing else left the click looking like a no-op -- the very
+                // thing "Open editor > Schematic" did correctly, because it goes through this
+                // action.  ShowPlayer is idempotent: it loads the root sheet if needed and
+                // re-selects the editor's tab otherwise.
+                toolMgr->RunAction( KICAD_MANAGER_ACTIONS::editSchematic );
+
                 KIWAY_PLAYER* schFrame = kiway.Player( FRAME_SCH, false );
 
-                if( !schFrame )
-                {
-                    // Launch eeschema with the root schematic
-                    toolMgr->RunAction( KICAD_MANAGER_ACTIONS::editSchematic );
-                    schFrame = kiway.Player( FRAME_SCH, false );
-                }
-
-                if( schFrame )
+                // Only mail a navigation when the editor is not already showing that sheet;
+                // re-navigating to the open sheet would needlessly reset the view.
+                if( schFrame && schFrame->GetCurrentFileName() != fullFileName )
                 {
                     packet = fullFileName.ToStdString();
                     kiway.ExpressMail( FRAME_SCH, MAIL_SCH_NAVIGATE_TO_SHEET, packet );

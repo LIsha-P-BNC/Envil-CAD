@@ -57,16 +57,33 @@ inline const wxColour HOVER       (  30,  72,  60 );   // #1E483C subtle button 
 inline const wxColour CAP_INACTIVE(  22,  22,  21 );   // #161615 inactive pane caption
 inline const wxColour SASH        (  22,  22,  21 );   // #161615 dock sash (same value as CAP_INACTIVE)
 
-// Login / sign-in screen (NEMI Suite sign-in look: emerald brand panel + light grid surface)
-inline const wxColour LOGIN_GRAD_TOP    (   7,  26,  20 );   // #071A14 brand panel gradient start (near-black emerald)
-inline const wxColour LOGIN_GRAD_BOTTOM (  13,  95,  74 );   // #0D5F4A brand panel gradient end (rich emerald)
-inline const wxColour LOGIN_SURFACE     ( 255, 255, 255 );   // #FFFFFF right-hand form surface
-inline const wxColour LOGIN_GRID        ( 234, 237, 235 );   // #EAEDEB fine blueprint grid line on the surface
-inline const wxColour LOGIN_INK         (  17,  24,  21 );   // #111815 headings / primary text on the light surface
-inline const wxColour LOGIN_MUTED       ( 108, 120, 114 );   // #6C7872 secondary text on the light surface
-inline const wxColour LOGIN_FIELD_BG    ( 235, 241, 250 );   // #EBF1FA email input fill (pale blue like the comp)
-inline const wxColour LOGIN_FIELD_BORDER( 199, 210, 222 );   // #C7D2DE email input edge
+// Login / sign-in screen (Anvil CAD sign-in: circuit-board brand panel + light card surface)
+inline const wxColour LOGIN_GRAD_TOP    (   4,  20,  15 );   // #04140F brand panel gradient start (near-black emerald)
+inline const wxColour LOGIN_GRAD_BOTTOM (  10,  58,  44 );   // #0A3A2C brand panel gradient end (deep emerald)
+inline const wxColour LOGIN_TRACE       (  18,  92,  72 );   // #125C48 etched PCB trace artwork on the brand panel
+inline const wxColour LOGIN_TRACE_HI    (  36, 190, 145 );   // #24BE91 lit trace / via highlight
+inline const wxColour LOGIN_TILE_BG     (   9,  40,  31 );   // #09281F feature-card fill on the brand panel
+inline const wxColour LOGIN_TILE_BORDER (  27,  84,  67 );   // #1B5443 feature-card edge on the brand panel
+inline const wxColour LOGIN_BOARD_EDGE  (  46, 214, 160 );   // #2ED6A0 routed board outline on the brand panel
+inline const wxColour LOGIN_COMP_BODY   (   8,  13,  11 );   // #080D0B moulded body of a component silhouette
+inline const wxColour LOGIN_COMP_PIN    ( 127, 163, 150 );   // #7FA396 tinned lead / pin of a component silhouette
+
+inline const wxColour LOGIN_PAGE_TOP    ( 251, 253, 252 );   // #FBFDFC top of the light page's gradient
+inline const wxColour LOGIN_PAGE_BG     ( 240, 244, 242 );   // #F0F4F2 light page behind the sign-in card
+inline const wxColour LOGIN_SURFACE     ( 255, 255, 255 );   // #FFFFFF the sign-in card itself
+inline const wxColour LOGIN_GRID        ( 234, 237, 235 );   // #EAEDEB fine blueprint grid line on the page
+inline const wxColour LOGIN_CARD_BORDER ( 219, 228, 223 );   // #DBE4DF card edge
+inline const wxColour LOGIN_DIVIDER     ( 227, 233, 230 );   // #E3E9E6 hairline rules inside the card
+inline const wxColour LOGIN_BADGE_BG    ( 223, 243, 234 );   // #DFF3EA pale emerald disc behind the shield mark
+inline const wxColour LOGIN_INK         (  17,  24,  21 );   // #111815 headings / primary text on the card
+inline const wxColour LOGIN_MUTED       ( 108, 120, 114 );   // #6C7872 secondary text on the card
+inline const wxColour LOGIN_PLACEHOLDER ( 154, 166, 160 );   // #9AA6A0 input hint text
+inline const wxColour LOGIN_FIELD_BG    ( 247, 250, 249 );   // #F7FAF9 input fill
+inline const wxColour LOGIN_FIELD_BORDER( 216, 225, 220 );   // #D8E1DC input edge
+inline const wxColour LOGIN_FIELD_FOCUS ( 143, 205, 184 );   // #8FCDB8 input edge while focused
 inline const wxColour LOGIN_ERROR       ( 196,  61,  61 );   // #C43D3D inline validation / server error text
+inline const wxColour LOGIN_CARD_GLOW   (  16, 163, 126 );   // #10A37E emerald halo around the sign-in card
+inline const wxColour LOGIN_BAR_INK     ( 122, 136, 129 );   // #7A8881 icon + label of the page's status bar
 
 // Text tiers / misc
 inline const wxColour DIM         ( 150, 160, 150 );   // dim / disabled / secondary text (GRAYTEXT)

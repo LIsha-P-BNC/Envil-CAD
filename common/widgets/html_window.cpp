@@ -1,5 +1,5 @@
 /*
- * This program source code file is part of Anvil, a free EDA CAD application.
+ * This program source code file is part of KiCad, a free EDA CAD application.
  *
  * Copyright (C) 2021 Mikołaj Wielgus <wielgusmikolaj@gmail.com>
  * Copyright The KiCad Developers, see AUTHORS.TXT for contributors.
@@ -27,33 +27,18 @@
 #include <wx/log.h>
 #include <wx/settings.h>
 #include <widgets/html_window.h>
-#include <advanced_config.h>
 
 
 HTML_WINDOW::HTML_WINDOW( wxWindow* aParent, wxWindowID aId, const wxPoint& aPos,
                           const wxSize& aSize, long aStyle, const wxString& aName ) :
         wxHtmlWindow( aParent, aId, aPos, aSize, aStyle, aName )
 {
-    // NEMI brand: render HTML (reports, help, message boxes) in the app-wide UI font instead
-    // of wxHtmlWindow's OS-default font table.  Normal text = the UI face (Space Grotesk),
-    // <tt>/<code> = the mono face (IBM Plex Mono), sized to AnvilUiFontPt.  A plain SetFont()
-    // does NOT rebuild the HTML parser's font table, so SetStandardFonts() is required.
-    {
-        const ADVANCED_CFG& acfg = ADVANCED_CFG::GetCfg();
-        int      htmlPt   = ( acfg.m_AnvilUiFontPt > 0.0 )
-                                    ? static_cast<int>( acfg.m_AnvilUiFontPt + 0.5 )
-                                    : GetFont().GetPointSize();
-        wxString normFace = acfg.m_AnvilUiFontFace;    // empty -> wx keeps its default face
-        wxString fixedFace = acfg.m_AnvilMonoFontFace;
-
-        SetStandardFonts( htmlPt, normFace, fixedFace );
-    }
-
     Bind( wxEVT_SYS_COLOUR_CHANGED,
           wxSysColourChangedEventHandler( HTML_WINDOW::onThemeChanged ), this );
 
     Connect( wxEVT_RIGHT_UP, wxMouseEventHandler( HTML_WINDOW::onRightClick ), nullptr, this );
     Connect( wxEVT_COMMAND_MENU_SELECTED, wxMenuEventHandler( HTML_WINDOW::onMenuEvent ), nullptr, this );
+    Bind( wxEVT_CHAR_HOOK, wxKeyEventHandler( HTML_WINDOW::onCharHook ), this );
 }
 
 
@@ -62,6 +47,7 @@ HTML_WINDOW::~HTML_WINDOW()
 	// Disconnect Events
 	Disconnect( wxEVT_RIGHT_UP, wxMouseEventHandler( HTML_WINDOW::onRightClick ), nullptr, this );
     Disconnect( wxEVT_COMMAND_MENU_SELECTED, wxMenuEventHandler( HTML_WINDOW::onMenuEvent ), nullptr, this );
+    Unbind( wxEVT_CHAR_HOOK, wxKeyEventHandler( HTML_WINDOW::onCharHook ), this );
 }
 
 
@@ -117,31 +103,61 @@ void HTML_WINDOW::onThemeChanged( wxSysColourChangedEvent &aEvent )
 void HTML_WINDOW::onRightClick( wxMouseEvent& event )
 {
     wxMenu popup;
-    popup.Append( wxID_COPY, _( "Copy" ) );
-    popup.Append( wxID_SELECTALL, _( "Select All" ) );
+    popup.Append( ID_COPY_SELECTION, _( "Copy" ) );
+    popup.Append( ID_SELECT_ALL, _( "Select All" ) );
     PopupMenu( &popup );
 }
 
 
 void HTML_WINDOW::onMenuEvent( wxMenuEvent& event )
 {
-    if( event.GetId() == wxID_COPY )
-    {
-        wxLogNull doNotLog; // disable logging of failed clipboard actions
+    if( event.GetId() == ID_COPY_SELECTION )
+        doCopySelection();
+    else if( event.GetId() == ID_SELECT_ALL )
+        SelectAll();
+}
 
-        if( wxTheClipboard->Open() )
+
+void HTML_WINDOW::onCharHook( wxKeyEvent& aEvent )
+{
+    if( aEvent.CmdDown() || aEvent.ControlDown() )
+    {
+        switch( aEvent.GetKeyCode() )
         {
-            bool primarySelection = wxTheClipboard->IsUsingPrimarySelection();
-            wxTheClipboard->UsePrimarySelection( false );   // required to use the main clipboard
-            wxTheClipboard->SetData( new wxTextDataObject( SelectionToText() ) );
-            wxTheClipboard->Flush(); // Allow data to be available after closing Anvil
-            wxTheClipboard->Close();
-            wxTheClipboard->UsePrimarySelection( primarySelection );
+        case 'A':
+            SelectAll();
+            return;
+
+        case 'C':
+            doCopySelection();
+            return;
+
+        default:
+            break;
         }
     }
-    else if( event.GetId() == wxID_SELECTALL )
+
+    aEvent.Skip();
+}
+
+
+void HTML_WINDOW::doCopySelection()
+{
+    wxString selectedText = SelectionToText();
+
+    if( selectedText.IsEmpty() )
+        return;
+
+    wxLogNull doNotLog; // disable logging of failed clipboard actions
+
+    if( wxTheClipboard->Open() )
     {
-        SelectAll();
+        bool primarySelection = wxTheClipboard->IsUsingPrimarySelection();
+        wxTheClipboard->UsePrimarySelection( false );   // required to use the main clipboard
+        wxTheClipboard->SetData( new wxTextDataObject( selectedText ) );
+        wxTheClipboard->Flush(); // Allow data to be available after closing KiCad
+        wxTheClipboard->Close();
+        wxTheClipboard->UsePrimarySelection( primarySelection );
     }
 }
 

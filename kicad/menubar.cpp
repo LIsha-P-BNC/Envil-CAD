@@ -31,6 +31,7 @@
 #include <kiplatform/policy.h>
 #include <kiway.h>
 #include <local_history.h>
+#include <anvil_auth/anvil_auth.h>
 #include <paths.h>
 #include <policy_keys.h>
 #include <tool/action_manager.h>
@@ -159,10 +160,7 @@ void KICAD_MANAGER_FRAME::doReCreateMenuBar()
     fileMenu->Add( KICAD_MANAGER_ACTIONS::unarchiveProject );
 
     fileMenu->AppendSeparator();
-    fileMenu->Add( _( "Sign Out..." ),
-                   _( "Sign out of the Anvil session and return to the login screen" ),
-                   ID_ANVIL_SIGN_OUT,
-                   BITMAPS::exit );
+    buildAccountMenu( fileMenu );
 
     fileMenu->AppendSeparator();
     fileMenu->AddQuitOrClose( nullptr, wxS( "Anvil" ) );
@@ -290,6 +288,60 @@ void KICAD_MANAGER_FRAME::buildPanelsMenu( ACTION_MENU* aMenu )
 }
 
 
+void KICAD_MANAGER_FRAME::fillAccountMenu( ACTION_MENU* aMenu )
+{
+    const ANVIL_USER user = ANVIL_AUTH::GetUser();
+
+    // Detail rows are informational: added disabled so they read as labels, not commands.
+    auto addDetail = [&]( const wxString& aLabel, const wxString& aValue )
+    {
+        if( aValue.IsEmpty() )
+            return;
+
+        wxMenuItem* item = aMenu->Append( wxID_ANY,
+                                          wxString::Format( wxS( "%s  %s" ), aLabel, aValue ) );
+        item->Enable( false );
+    };
+
+    if( user.email.IsEmpty() )
+    {
+        wxMenuItem* item = aMenu->Append( wxID_ANY, _( "Not signed in" ) );
+        item->Enable( false );
+    }
+    else
+    {
+        addDetail( _( "Signed in as" ), user.email );
+        addDetail( _( "Name:" ), user.name );
+        addDetail( _( "Role:" ), user.role );
+    }
+
+    // A TOOL_ACTION, not a bare menu ID: the themed title-bar popups dispatch through the
+    // tool manager, and a plain wxMenu id skipped by ACTION_MENU never reaches the frame.
+    aMenu->AppendSeparator();
+    aMenu->Add( KICAD_MANAGER_ACTIONS::signOut );
+}
+
+
+void KICAD_MANAGER_FRAME::buildAccountMenu( ACTION_MENU* aMenu )
+{
+    const ANVIL_USER user = ANVIL_AUTH::GetUser();
+
+    KICAD_MANAGER_CONTROL* controlTool = m_toolManager->GetTool<KICAD_MANAGER_CONTROL>();
+    ACTION_MENU*           accountMenu = new ACTION_MENU( false, controlTool );
+
+    // Title carries the identity so it reads at a glance without opening the submenu.
+    accountMenu->SetTitle( user.email.IsEmpty()
+                                   ? _( "Account" )
+                                   : wxString::Format( _( "Account (%s)" ), user.Label() ) );
+    accountMenu->SetIcon( BITMAPS::editor );
+
+    // Same rows the title-bar account button pops, so both entry points stay in step.
+    fillAccountMenu( accountMenu );
+
+    aMenu->Add( accountMenu );
+}
+
+
 void KICAD_MANAGER_FRAME::buildOpenEditorMenu( ACTION_MENU* aMenu )
 {
     // The editors/tools the removed left icon rail used to launch (Altium "Open editor" dropdown).
@@ -399,10 +451,7 @@ void KICAD_MANAGER_FRAME::buildFileMenu( ACTION_MENU* fileMenu )
     fileMenu->Add( KICAD_MANAGER_ACTIONS::unarchiveProject );
 
     fileMenu->AppendSeparator();
-    fileMenu->Add( _( "Sign Out..." ),
-                   _( "Sign out of the Anvil session and return to the login screen" ),
-                   ID_ANVIL_SIGN_OUT,
-                   BITMAPS::exit );
+    buildAccountMenu( fileMenu );
 
     fileMenu->AppendSeparator();
     fileMenu->AddQuitOrClose( nullptr, wxS( "Anvil" ) );

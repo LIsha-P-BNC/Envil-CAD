@@ -34,6 +34,7 @@
 */
 
 
+#include <memory>
 #include <typeinfo>
 #include <wx/cmdline.h>
 #include <wx/dialog.h>
@@ -62,6 +63,8 @@
 #include <kiplatform/environment.h>
 
 #include <git2.h>
+#include <git/git_backend.h>
+#include <git/libgit_backend.h>
 #include <thread_pool.h>
 
 #include <libraries/library_manager.h>
@@ -110,7 +113,13 @@ static struct PGM_SINGLE_TOP : public PGM_BASE
         // Destroy everything in PGM_BASE, especially wxSingleInstanceCheckerImpl
         // earlier than wxApp and earlier than static destruction would.
         PGM_BASE::Destroy();
-        git_libgit2_shutdown();
+
+        if( GIT_BACKEND* backend = GetGitBackend() )
+        {
+            backend->Shutdown();
+            delete backend;
+            SetGitBackend( nullptr );
+        }
     }
 
     void MacOpenFile( const wxString& aFileName )   override
@@ -231,8 +240,14 @@ struct APP_SINGLE_TOP : public wxApp
 
     int  OnExit() override
     {
+        // Drain wxPendingDelete (frames deferred via Destroy()) before tearing down
+        // PGM_BASE singletons. On macOS the dock-quit path leaves frames in this
+        // queue at OnExit() time, and their canvas destructors call into
+        // Pgm().GetGLContextManager(). Running OnPgmExit() first would null that
+        // pointer out from under them. See https://gitlab.com/kicad/code/kicad/-/issues/23373
+        int ret = wxApp::OnExit();
         program.OnPgmExit();
-        return wxApp::OnExit();
+        return ret;
     }
 
     int OnRun() override
@@ -342,10 +357,11 @@ bool PGM_SINGLE_TOP::OnPgmInit()
     }
 #endif
 
-    // Initialize the git library before trying to initialize individual programs
-    int gitInit = git_libgit2_init();
+    // Initialize the git backend before trying to initialize individual programs
+    SetGitBackend( new LIBGIT_BACKEND() );
+    GetGitBackend()->Init();
 
-    if( gitInit < 0 )
+    if( !GetGitBackend()->IsLibraryAvailable() )
     {
         const git_error* err = git_error_last();
         wxString         msg = wxS( "Failed to initialize git library" );
@@ -404,28 +420,30 @@ bool PGM_SINGLE_TOP::OnPgmInit()
 
     // Anvil sign-in gate: standalone editors get the same email-OTP login as the project
     // manager shell, shown before any editor window exists.  Cancelling means "don't start".
+    // Anvil sign-in gate — same shape as the one in kicad.cpp: the dialog stays on screen as
+    // a cover while the editor frame is built and is destroyed only once that window shows,
+    // and wxWidgets' "last window closed => quit" rule is suspended while it is the only
+    // top-level window.
+    std::unique_ptr<DIALOG_ANVIL_LOGIN> loginDlg;
+    const bool                          exitOnDelete = App().GetExitOnFrameDelete();
+
     if( !ANVIL_AUTH::IsLoggedIn() )
     {
-        // See the matching gate in kicad.cpp: the dialog is the only top-level window here,
-        // so destroying it would trip wxWidgets' "last window closed => quit" rule and kill
-        // the app before the editor frame exists.  Suspend that rule across the gate.
-        const bool exitOnDelete = App().GetExitOnFrameDelete();
         App().SetExitOnFrameDelete( false );
 
-        int loginResult;
+        loginDlg = std::make_unique<DIALOG_ANVIL_LOGIN>( nullptr );
 
+        if( loginDlg->ShowModal() != wxID_OK )
         {
-            DIALOG_ANVIL_LOGIN loginDlg( nullptr );
-            loginResult = loginDlg.ShowModal();
-        }
-
-        App().SetExitOnFrameDelete( exitOnDelete );
-
-        if( loginResult != wxID_OK )
-        {
+            loginDlg.reset();
+            App().SetExitOnFrameDelete( exitOnDelete );
             OnPgmExit();
             return false;
         }
+
+        loginDlg->ShowOpeningState();
+        loginDlg->Show( true );
+        loginDlg->Raise();
     }
 
     // Use KIWAY to create a top window, which registers its existence also.
@@ -448,12 +466,6 @@ bool PGM_SINGLE_TOP::OnPgmInit()
     // Load library tables after startup wizard
     GetLibraryManager().LoadGlobalTables();
 
-    // Preload libraries, since for single-top this won't have been done earlier
-    if( KIFACE* topFrame = Kiway.KiFACE( KIWAY::KifaceType( TOP_FRAME ) ) )
-        topFrame->PreloadLibraries( &Kiway );
-
-    PreloadDesignBlockLibraries( &Kiway );
-
     App().SetTopWindow( frame );      // wxApp gets a face.
     App().SetAppDisplayName( frame->GetAboutTitle() );
 
@@ -467,6 +479,15 @@ bool PGM_SINGLE_TOP::OnPgmInit()
     wxSafeYield();
     HideSplash();
     frame->Show();
+
+    // Editor window is up: retire the sign-in cover and restore the normal shutdown rule.
+    if( loginDlg )
+    {
+        loginDlg->Destroy();
+        loginDlg.release();     // wxWidgets owns it after Destroy()
+        App().SetExitOnFrameDelete( exitOnDelete );
+        frame->Raise();
+    }
     wxSafeYield();
 
     // Now after the frame processing, the rest of the positional args are files
@@ -517,6 +538,11 @@ bool PGM_SINGLE_TOP::OnPgmInit()
 
         frame->OpenProjectFiles( fileArgs );
     }
+
+    if( KIFACE* topFrame = Kiway.KiFACE( KIWAY::KifaceType( TOP_FRAME ) ) )
+        topFrame->PreloadLibraries( &Kiway );
+
+    PreloadDesignBlockLibraries( &Kiway );
 
 #ifdef KICAD_IPC_API
     m_api_server->SetReadyToReply();

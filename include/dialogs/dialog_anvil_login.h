@@ -23,20 +23,26 @@
 #include <dialog_shim.h>
 
 #include <atomic>
+#include <functional>
+#include <memory>
+#include <mutex>
 #include <wx/timer.h>
 
 class wxSimplebook;
 class wxStaticText;
 class wxTextCtrl;
-class ANVIL_NOTCH_BUTTON;
+class wxTopLevelWindow;
+class ANVIL_LOGIN_BUTTON;
 
 
 /**
- * The Anvil sign-in gate — NEMI-Suite-styled email + OTP login.
+ * The Anvil CAD sign-in gate — email + OTP login.
  *
- * Layout mirrors the NEMI Suite web sign-in: an emerald gradient brand panel on the left
- * and a light, blueprint-gridded form surface on the right.  Two steps in one dialog via a
- * wxSimplebook: enter email → "SEND OTP", then enter the emailed code → "VERIFY".
+ * A circuit-board brand panel on the left and a light page carrying a single white sign-in
+ * card on the right.  Three steps in one card via a wxSimplebook: enter email → "SIGN IN
+ * WITH EMAIL OTP", then enter the emailed code → "VERIFY & CONTINUE", then the signed-in
+ * hand-off page.  The card header (shield badge, title, subtitle) is shared by all three
+ * pages and re-labelled as the book turns.
  *
  * All server traffic runs through ANVIL_AUTH on the shared thread pool; the UI thread never
  * blocks.  ShowModal() returns wxID_OK only after a successful OTP verification (the session
@@ -49,22 +55,64 @@ class ANVIL_NOTCH_BUTTON;
 class KICOMMON_API DIALOG_ANVIL_LOGIN : public DIALOG_SHIM
 {
 public:
-    explicit DIALOG_ANVIL_LOGIN( wxWindow* aParent );
+    /**
+     * @param aParent is the usual dialog parent, and is normally nullptr: the gate is a
+     *                top-level surface of its own, not a box floating over a window.
+     * @param aCoverWindow, when given, is the window whose place on screen this gate takes
+     *                (the main frame during a re-login).  The gate then opens on that
+     *                window's display, matching its size and maximized state, so swapping
+     *                one for the other reads as a single window changing what it shows.
+     */
+    explicit DIALOG_ANVIL_LOGIN( wxWindow* aParent, wxTopLevelWindow* aCoverWindow = nullptr );
     ~DIALOG_ANVIL_LOGIN() override;
+
+    /**
+     * Switch to the "signed in — opening your workspace" page and repaint immediately.
+     *
+     * Call this after ShowModal() returns wxID_OK and keep the dialog on screen while the
+     * main window is built: destroying it first leaves the desktop bare for as long as
+     * startup takes, which reads as the app having restarted.
+     */
+    void ShowOpeningState();
+
+    /**
+     * Re-assert the maximized startup geometry after DIALOG_SHIM has applied whatever size
+     * and position it remembered for this dialog: the sign-in screen opens as a full page.
+     * The caption carries minimize and maximize boxes, so the user can iconize it or restore
+     * it down to the windowed size set here.
+     */
+    bool Show( bool aShow ) override;
 
 private:
     // page construction
     wxWindow* buildEmailPage( wxWindow* aParent );
     wxWindow* buildOtpPage( wxWindow* aParent );
+    wxWindow* buildOpeningPage( wxWindow* aParent );
 
     // actions
     void onSendOtp();
     void onVerifyOtp();
     void onResend();
     void onChangeEmail();
-    void onServerSettings();
+
+
+
+    /// Re-label the shared card header (title + subtitle) for the page being shown.
+    void setHeader( const wxString& aTitle, const wxString& aSubtitle );
 
     void showError( const wxString& aMessage );
+
+    /**
+     * Run @a aCall on the thread pool and hand its result back on the UI thread.
+     *
+     * The task holds no pointer to the dialog: it takes a share of m_async, whose mutex the
+     * destructor takes to mark the dialog gone.  A late result is then dropped rather than
+     * waited for, so closing the gate mid-request never freezes the window.
+     */
+    void runAsync( std::function<void( bool&, wxString& )> aCall,
+                   std::function<void( bool, const wxString& )> aOnResult );
+
+
     void clearError();
     void setBusy( bool aBusy );
     void startResendCooldown();
@@ -72,17 +120,36 @@ private:
 
     static bool isPlausibleEmail( const wxString& aEmail );
 
+    /// Set the minimum and windowed ("restore down") geometry, then show maximized (or, when
+    /// covering a window, take over exactly the geometry that window occupies).
+    void applyStartupGeometry();
+
+    /// Shared between the dialog and its in-flight pool tasks; see runAsync().
+    struct ASYNC_GATE
+    {
+        std::mutex    mutex;
+        bool          alive = true;
+        wxEvtHandler* handler = nullptr;
+    };
+
 private:
+    wxTopLevelWindow*   m_coverWindow;      // window whose place on screen we take, or null
+
+    std::shared_ptr<ASYNC_GATE> m_async;
+
     wxSimplebook*       m_book;
+
+    // shared card header
+    wxStaticText*       m_headingLabel;
+    wxStaticText*       m_subLabel;
 
     // email page
     wxTextCtrl*         m_emailCtrl;
-    ANVIL_NOTCH_BUTTON* m_sendButton;
+    ANVIL_LOGIN_BUTTON* m_sendButton;
 
     // OTP page
-    wxStaticText*       m_otpInfo;
     wxTextCtrl*         m_otpCtrl;
-    ANVIL_NOTCH_BUTTON* m_verifyButton;
+    ANVIL_LOGIN_BUTTON* m_verifyButton;
     wxStaticText*       m_resendLink;
     wxStaticText*       m_changeEmailLink;
 
@@ -93,7 +160,6 @@ private:
     int                 m_resendRemaining;
 
     std::atomic<bool>   m_busy;             // a network call is in flight
-    std::atomic<bool>   m_closed;           // dialog is going away; drop late results
 };
 
 #endif // DIALOG_ANVIL_LOGIN_H_

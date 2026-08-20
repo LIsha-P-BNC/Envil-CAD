@@ -23,6 +23,18 @@
 #include <kicommon.h>
 #include <wx/string.h>
 
+/// The signed-in account, as shown in the app's account UI.
+struct KICOMMON_API ANVIL_USER
+{
+    wxString email;     ///< always present while signed in
+    wxString name;      ///< display name, may be empty
+    wxString role;      ///< e.g. "designer", may be empty
+
+    /// Best available label for a one-line display: name when known, else the email.
+    wxString Label() const { return name.IsEmpty() ? email : name; }
+};
+
+
 /// What the /software/latest endpoint reports about this build.
 struct KICOMMON_API ANVIL_VERSION_INFO
 {
@@ -69,6 +81,16 @@ public:
     static bool Logout( wxString* aError = nullptr );
 
     /**
+     * End the session without ever blocking the caller: the local session is wiped before
+     * this returns (so IsLoggedIn() is already false), and the server-side logout is posted
+     * on the shared thread pool with the credentials captured beforehand.
+     *
+     * This is what interactive sign-out should call — Logout() blocks on the network for as
+     * long as the connect timeout allows, which freezes the window it was called from.
+     */
+    static void LogoutDetached();
+
+    /**
      * Ask the server for the latest released version for this platform (POST latest).
      * Wired but intentionally not called at startup yet.
      */
@@ -79,6 +101,9 @@ public:
 
     /// Email of the stored session, or empty when logged out.
     static wxString GetEmail();
+
+    /// The signed-in account's details; all fields empty when logged out.
+    static ANVIL_USER GetUser();
 
     /// Remove the local session without contacting the server (e.g. after a 401).
     static void WipeSession();

@@ -20,6 +20,7 @@
 
 #include <wildcards_and_files_ext.h>
 #include <advanced_config.h>
+#include <common.h>
 #include <env_vars.h>
 #include <executable_names.h>
 #include <pgm_base.h>
@@ -31,6 +32,9 @@
 #include <kiplatform/secrets.h>
 #include <kiplatform/ui.h>
 #include <confirm.h>
+#include <anvil_auth/anvil_auth.h>
+#include <dialogs/dialog_anvil_login.h>
+#include <wx/utils.h>   // wxBusyCursor
 #include <kidialog.h>
 #include <project/project_file.h>
 #include <project/project_local_settings.h>
@@ -161,8 +165,19 @@ static wxFileName ensureDefaultProjectTemplate()
     if( it == Pgm().GetLocalEnvVariables().end() || it->second.GetValue() == wxEmptyString )
         return wxFileName();
 
+    // The value may itself reference other environment variables (e.g. ${KICAD_CONFIG_HOME}).
+    // Expand them before touching the filesystem, otherwise we create directories literally
+    // named "${OTHER_VAR}".
+    wxString resolved = ExpandEnvVarSubstitutions( it->second.GetValue(), nullptr );
+
+    // If expansion left an unresolved variable reference in the path, bail out rather than
+    // mkdir a literal "${MISSING}" directory under cwd.
+    if( resolved.Contains( wxT( "${" ) ) || resolved.Contains( wxT( "$(" ) ) )
+        return wxFileName();
+
     wxFileName templatePath;
-    templatePath.AssignDir( it->second.GetValue() );
+    templatePath.AssignDir( resolved );
+    templatePath.Normalize( FN_NORMALIZE_FLAGS | wxPATH_NORM_ENV_VARS );
     templatePath.AppendDir( "default" );
 
     if( !templatePath.DirExists() && !templatePath.Mkdir( wxS_DIR_DEFAULT, wxPATH_MKDIR_FULL ) )
@@ -316,26 +331,31 @@ int KICAD_MANAGER_CONTROL::NewProject( const TOOL_EVENT& aEvent )
     wxString userTemplatesPath;
     wxString systemTemplatesPath;
 
+    auto resolveTemplateDir = []( const wxString& aValue ) -> wxString
+    {
+        wxString resolved = ExpandEnvVarSubstitutions( aValue, nullptr );
+
+        // Skip values with unresolved references so we don't seed the selector with a
+        // bogus path that doesn't exist on disk.
+        if( resolved.Contains( wxT( "${" ) ) || resolved.Contains( wxT( "$(" ) ) )
+            return wxEmptyString;
+
+        wxFileName templatePath;
+        templatePath.AssignDir( resolved );
+        templatePath.Normalize( FN_NORMALIZE_FLAGS | wxPATH_NORM_ENV_VARS );
+        return templatePath.GetFullPath();
+    };
+
     ENV_VAR_MAP_CITER itUser = Pgm().GetLocalEnvVariables().find( "KICAD_USER_TEMPLATE_DIR" );
 
     if( itUser != Pgm().GetLocalEnvVariables().end() && itUser->second.GetValue() != wxEmptyString )
-    {
-        wxFileName templatePath;
-        templatePath.AssignDir( itUser->second.GetValue() );
-        templatePath.Normalize( FN_NORMALIZE_FLAGS | wxPATH_NORM_ENV_VARS );
-        userTemplatesPath = templatePath.GetFullPath();
-    }
+        userTemplatesPath = resolveTemplateDir( itUser->second.GetValue() );
 
     std::optional<wxString> v = ENV_VAR::GetVersionedEnvVarValue( Pgm().GetLocalEnvVariables(),
                                                                   wxT( "TEMPLATE_DIR" ) );
 
     if( v && !v->IsEmpty() )
-    {
-        wxFileName templatePath;
-        templatePath.AssignDir( *v );
-        templatePath.Normalize( FN_NORMALIZE_FLAGS | wxPATH_NORM_ENV_VARS );
-        systemTemplatesPath = templatePath.GetFullPath();
-    }
+        systemTemplatesPath = resolveTemplateDir( *v );
 
     // Use RunMainStack to show the dialog on the main stack instead of the coroutine stack.
     // This is necessary because the template selector uses a WebView which triggers WebKit's
@@ -532,6 +552,7 @@ int KICAD_MANAGER_CONTROL::NewFromRepository( const TOOL_EVENT& aEvent )
 
 
     GIT_CLONE_HANDLER cloneHandler( pane->m_TreeProject->GitCommon() );
+    pane->m_TreeProject->GitCommon()->SetCancelled( false );
 
     cloneHandler.SetRemote( dlg.GetFullURL() );
     cloneHandler.SetClonePath( pro.GetPath() );
@@ -694,6 +715,62 @@ int KICAD_MANAGER_CONTROL::LoadProject( const TOOL_EVENT& aEvent )
 {
     if( aEvent.Parameter<wxString*>() )
         m_frame->LoadProject( wxFileName( *aEvent.Parameter<wxString*>() ) );
+    return 0;
+}
+
+
+int KICAD_MANAGER_CONTROL::SignOut( const TOOL_EVENT& aEvent )
+{
+    if( !IsOK( m_frame, _( "Sign out of Anvil?  Unsaved work will be kept, but you will need "
+                           "to sign in again to continue." ) ) )
+    {
+        return 0;
+    }
+
+    // The local session goes now; the server is told from a worker thread.  Signing out must
+    // never sit on a network round trip with the window frozen behind it.
+    ANVIL_AUTH::LogoutDetached();
+
+    // Hand the screen over to the gate the way startup does: it stands where the workspace
+    // stood, so this reads as one window changing what it shows rather than a dialog thrown
+    // over a live application.  The workspace comes back only once a sign-in lands; anything
+    // else means "actually, close the application".
+    DIALOG_ANVIL_LOGIN loginDlg( nullptr, m_frame );
+
+    // Hide the workspace from inside the modal loop, i.e. once the gate is already on screen:
+    // hiding it first would flash the desktop between the two windows.
+    m_frame->CallAfter( [frame = m_frame]()
+                        {
+                            frame->Hide();
+                        } );
+
+    const bool signedIn = loginDlg.ShowModal() == wxID_OK;
+
+    if( signedIn )
+    {
+        // ShowModal() hid the gate; bring it straight back as a plain window so it keeps
+        // covering the screen — showing "opening your workspace" — while the workspace comes
+        // back up behind it.
+        loginDlg.Show( true );
+        loginDlg.Raise();
+    }
+
+    // Whatever happens next the frame has to come back: on success it is the workspace again,
+    // and on cancel it has to be visible to run its normal close (save prompts and all).
+    m_frame->Show( true );
+
+    if( !signedIn )
+    {
+        m_frame->Close( false );
+        return 0;
+    }
+
+    m_frame->ReCreateMenuBar();   // the account block names the newly signed-in user
+    m_frame->Raise();
+
+    // Workspace is up: retire the cover.  (The dialog itself dies at the end of this scope.)
+    loginDlg.Hide();
+
     return 0;
 }
 
@@ -1187,6 +1264,7 @@ void KICAD_MANAGER_CONTROL::setTransitions()
     Go( &KICAD_MANAGER_CONTROL::ViewDroppedViewers, KICAD_MANAGER_ACTIONS::viewDroppedGerbers.MakeEvent() );
 
     Go( &KICAD_MANAGER_CONTROL::ArchiveProject,     KICAD_MANAGER_ACTIONS::archiveProject.MakeEvent() );
+    Go( &KICAD_MANAGER_CONTROL::SignOut,            KICAD_MANAGER_ACTIONS::signOut.MakeEvent() );
     Go( &KICAD_MANAGER_CONTROL::UnarchiveProject,   KICAD_MANAGER_ACTIONS::unarchiveProject.MakeEvent() );
     Go( &KICAD_MANAGER_CONTROL::ExploreProject,     KICAD_MANAGER_ACTIONS::openProjectDirectory.MakeEvent() );
     Go( &KICAD_MANAGER_CONTROL::RestoreLocalHistory, KICAD_MANAGER_ACTIONS::restoreLocalHistory.MakeEvent() );

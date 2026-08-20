@@ -27,6 +27,7 @@
 
 #include <build_version.h>
 #include <json_common.h>
+#include <thread_pool.h>
 
 #include <cstdlib>
 #include <optional>
@@ -52,6 +53,11 @@ struct SESSION
     wxString  email;
     wxString  token;
     long long expires_at = 0;   // epoch seconds; 0 = no local expiry recorded
+
+    // Profile shown in the account UI.  Whatever the server did not send stays empty; the
+    // UI falls back to the email, which is always present.
+    wxString  name;
+    wxString  role;
 };
 
 
@@ -70,6 +76,8 @@ std::optional<SESSION> loadSession()
         session.email      = wxString::FromUTF8( js.value( "email", "" ) );
         session.token      = wxString::FromUTF8( js.value( "token", "" ) );
         session.expires_at = js.value( "expires_at", 0LL );
+        session.name       = wxString::FromUTF8( js.value( "name", "" ) );
+        session.role       = wxString::FromUTF8( js.value( "role", "" ) );
 
         if( session.token.IsEmpty() )
             return std::nullopt;
@@ -87,7 +95,9 @@ bool storeSession( const SESSION& aSession )
 {
     nlohmann::json js = { { "email", std::string( aSession.email.utf8_str() ) },
                           { "token", std::string( aSession.token.utf8_str() ) },
-                          { "expires_at", aSession.expires_at } };
+                          { "expires_at", aSession.expires_at },
+                          { "name", std::string( aSession.name.utf8_str() ) },
+                          { "role", std::string( aSession.role.utf8_str() ) } };
 
     return KIPLATFORM::SECRETS::StoreSecret( SECRET_SERVICE, SECRET_KEY,
                                              wxString::FromUTF8( js.dump().c_str() ) );
@@ -173,6 +183,22 @@ std::optional<bool> findBool( const nlohmann::json& aJson, const char* aField )
 }
 
 
+/**
+ * Pull the display profile (name / role) out of a login response.
+ *
+ * Best-effort: the account UI shows whichever fields arrived and falls back to the email for
+ * the rest, so a server that stops sending "role" costs a line of UI, not a failed login.
+ */
+void readProfile( const nlohmann::json& aJson, SESSION& aSession )
+{
+    const char* const nameFields[] = { ANVIL_API::F_NAME };
+    const char* const roleFields[] = { ANVIL_API::F_ROLE };
+
+    aSession.name = wxString::FromUTF8( findField( aJson, nameFields ) );
+    aSession.role = wxString::FromUTF8( findField( aJson, roleFields ) );
+}
+
+
 /// Best-effort human-readable message from an error response body.
 wxString errorFromBody( const std::string& aBody, int aStatus )
 {
@@ -204,12 +230,11 @@ wxString errorFromBody( const std::string& aBody, int aStatus )
  * @return true on HTTP 2xx.
  */
 bool postJson( const char* aPath, const nlohmann::json& aBody, std::string& aResponse,
-               wxString& aError )
+               wxString& aError, const wxString& aBearerToken = wxEmptyString )
 {
     if( !ANVIL_AUTH_CONFIG::IsConfigured() )
     {
-        aError = _( "Server is not configured. Open Server Settings and enter the "
-                    "connection details." );
+        aError = _( "No API key configured." );
         return false;
     }
 
@@ -222,40 +247,65 @@ bool postJson( const char* aPath, const nlohmann::json& aBody, std::string& aRes
 
     if( !url.StartsWith( wxS( "http" ) ) )
     {
-        aError = _( "Server is not configured. Open Server Settings and enter the "
-                    "connection details." );
+        aError = _( "No API key configured." );
         return false;
     }
 
-    KICAD_CURL_EASY curl;
-
-    curl.SetHeader( "Accept", "application/json" );
-    curl.SetHeader( "Content-Type", "application/json" );
-    curl.SetHeader( ANVIL_API::HDR_API_KEY, ANVIL_AUTH_CONFIG::ApiKey().ToStdString() );
-    curl.SetURL( url.ToUTF8().data() );
-    curl.SetPostFields( aBody.dump() );
-    curl.SetFollowRedirects( true );
-    curl.SetConnectTimeout( 10 );
-
-    int result = curl.Perform();
-
-    aResponse = curl.GetBuffer();
-
-    if( result != CURLE_OK )
+    // Everything below runs on a worker thread.  KICAD_CURL_EASY throws IO_ERROR when a
+    // session cannot be created, and nlohmann can throw while dumping; letting either escape
+    // would surface as a bare "Error" popup (or worse, tear down the thread) instead of the
+    // dialog's own inline message.  Convert any failure into aError here.
+    try
     {
-        aError = _( "Could not reach the server. Check your network connection." );
-        return false;
+        KICAD_CURL_EASY curl;
+
+        curl.SetHeader( "Accept", "application/json" );
+        curl.SetHeader( "Content-Type", "application/json" );
+        curl.SetHeader( ANVIL_API::HDR_API_KEY, ANVIL_AUTH_CONFIG::ApiKey().ToStdString() );
+
+        // Session-scoped endpoints (logout) additionally need the JWT from login; the server
+        // answers 401 "No token provided" without it.
+        if( !aBearerToken.IsEmpty() )
+        {
+            curl.SetHeader( ANVIL_API::HDR_AUTHORIZATION,
+                            std::string( ( wxS( "Bearer " ) + aBearerToken ).utf8_str() ) );
+        }
+        curl.SetURL( url.ToUTF8().data() );
+        curl.SetPostFields( aBody.dump() );
+        curl.SetFollowRedirects( true );
+        curl.SetConnectTimeout( 10 );
+
+        int result = curl.Perform();
+
+        aResponse = curl.GetBuffer();
+
+        if( result != CURLE_OK )
+        {
+            aError = _( "Could not reach the server. Check your network connection." );
+            return false;
+        }
+
+        int status = curl.GetResponseStatusCode();
+
+        if( status < 200 || status >= 300 )
+        {
+            aError = errorFromBody( aResponse, status );
+            return false;
+        }
+
+        return true;
     }
-
-    int status = curl.GetResponseStatusCode();
-
-    if( status < 200 || status >= 300 )
+    catch( const std::exception& e )
     {
-        aError = errorFromBody( aResponse, status );
+        aError = wxString::Format( _( "Network request failed: %s" ),
+                                   wxString::FromUTF8( e.what() ) );
         return false;
     }
-
-    return true;
+    catch( ... )
+    {
+        aError = _( "Network request failed." );
+        return false;
+    }
 }
 
 } // namespace
@@ -287,6 +337,7 @@ bool ANVIL_AUTH::VerifyOtp( const wxString& aEmail, const wxString& aOtp, wxStri
     // token is reported as an error rather than silently letting the user through.
     std::string token;
     long long   expiresAt = 0;
+    SESSION     session;
 
     try
     {
@@ -304,6 +355,9 @@ bool ANVIL_AUTH::VerifyOtp( const wxString& aEmail, const wxString& aOtp, wxStri
             if( value > 0 )
                 expiresAt = ( value < 1000000000LL ) ? now + value : value;
         }
+
+        // Name / role for the account UI.
+        readProfile( js, session );
     }
     catch( ... )
     {
@@ -323,7 +377,6 @@ bool ANVIL_AUTH::VerifyOtp( const wxString& aEmail, const wxString& aOtp, wxStri
                     + (long long) ANVIL_AUTH_CONFIG::SessionDays() * 24 * 3600;
     }
 
-    SESSION session;
     session.email = aEmail;
     session.token = wxString::FromUTF8( token );
     session.expires_at = expiresAt;
@@ -340,16 +393,20 @@ bool ANVIL_AUTH::VerifyOtp( const wxString& aEmail, const wxString& aOtp, wxStri
 
 bool ANVIL_AUTH::Logout( wxString* aError )
 {
-    wxString email = GetEmail();
+    // Read the session BEFORE wiping it: logout is authenticated with the login JWT.
+    std::optional<SESSION> session = loadSession();
 
     wxString    error;
     std::string response;
     bool        serverOk = true;
 
-    if( !email.IsEmpty() )
+    if( session && !session->email.IsEmpty() )
     {
-        nlohmann::json body = { { ANVIL_API::F_EMAIL, std::string( email.utf8_str() ) } };
-        serverOk = postJson( ANVIL_API::LOGOUT_PATH, body, response, error );
+        nlohmann::json body = {
+            { ANVIL_API::F_EMAIL, std::string( session->email.utf8_str() ) }
+        };
+
+        serverOk = postJson( ANVIL_API::LOGOUT_PATH, body, response, error, session->token );
     }
 
     // The local session goes away regardless of what the server said: the user asked to
@@ -360,6 +417,46 @@ bool ANVIL_AUTH::Logout( wxString* aError )
         *aError = error;
 
     return serverOk;
+}
+
+
+void ANVIL_AUTH::LogoutDetached()
+{
+    // Read the session (a cheap local secret-store hit) and drop it before returning: the
+    // caller is signed out the instant this call is done, so the UI can move straight on to
+    // the sign-in gate instead of waiting on the network.
+    std::optional<SESSION> session = loadSession();
+
+    WipeSession();
+
+    if( !session || session->email.IsEmpty() )
+        return;
+
+    // The server is told on a worker thread, using the credentials captured above.  Nothing
+    // it does afterwards touches the secret store, so a sign-in that lands while the request
+    // is still in flight cannot have its fresh session wiped by this task.
+    const wxString email = session->email;
+    const wxString token = session->token;
+
+    GetKiCadThreadPool().detach_task(
+            [email, token]()
+            {
+                // Nothing may escape a pool task.
+                try
+                {
+                    nlohmann::json body = {
+                        { ANVIL_API::F_EMAIL, std::string( email.utf8_str() ) }
+                    };
+
+                    std::string response;
+                    wxString    error;
+
+                    postJson( ANVIL_API::LOGOUT_PATH, body, response, error, token );
+                }
+                catch( ... )
+                {
+                }
+            } );
 }
 
 
@@ -441,6 +538,21 @@ wxString ANVIL_AUTH::GetEmail()
         return session->email;
 
     return wxEmptyString;
+}
+
+
+ANVIL_USER ANVIL_AUTH::GetUser()
+{
+    ANVIL_USER user;
+
+    if( std::optional<SESSION> session = loadSession() )
+    {
+        user.email   = session->email;
+        user.name    = session->name;
+        user.role    = session->role;
+    }
+
+    return user;
 }
 
 
