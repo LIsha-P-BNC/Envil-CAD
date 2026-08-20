@@ -57,33 +57,37 @@ inline const wxColour HOVER       (  30,  72,  60 );   // #1E483C subtle button 
 inline const wxColour CAP_INACTIVE(  22,  22,  21 );   // #161615 inactive pane caption
 inline const wxColour SASH        (  22,  22,  21 );   // #161615 dock sash (same value as CAP_INACTIVE)
 
-// Login / sign-in screen (Anvil CAD sign-in: circuit-board brand panel + light card surface)
-inline const wxColour LOGIN_GRAD_TOP    (   4,  20,  15 );   // #04140F brand panel gradient start (near-black emerald)
-inline const wxColour LOGIN_GRAD_BOTTOM (  10,  58,  44 );   // #0A3A2C brand panel gradient end (deep emerald)
-inline const wxColour LOGIN_TRACE       (  18,  92,  72 );   // #125C48 etched PCB trace artwork on the brand panel
-inline const wxColour LOGIN_TRACE_HI    (  36, 190, 145 );   // #24BE91 lit trace / via highlight
-inline const wxColour LOGIN_TILE_BG     (   9,  40,  31 );   // #09281F feature-card fill on the brand panel
-inline const wxColour LOGIN_TILE_BORDER (  27,  84,  67 );   // #1B5443 feature-card edge on the brand panel
-inline const wxColour LOGIN_BOARD_EDGE  (  46, 214, 160 );   // #2ED6A0 routed board outline on the brand panel
-inline const wxColour LOGIN_COMP_BODY   (   8,  13,  11 );   // #080D0B moulded body of a component silhouette
-inline const wxColour LOGIN_COMP_PIN    ( 127, 163, 150 );   // #7FA396 tinned lead / pin of a component silhouette
+// Login / sign-in screen (Anvil CAD sign-in: circuit-board brand panel + light card surface).
+// Values sit exactly on the NEMI LMM Brand Book v2.0 tokens: the dark side is Black Ground
+// #070707 washed to Deep Emerald #0A4938, the light side is the Bone-White #FEFEFE canvas
+// with the Soft-Oat #ECE7DD card, and Signal Emerald #10A37E is the single accent.
+inline const wxColour LOGIN_GRAD_TOP    (   7,   7,   7 );   // #070707 brand panel gradient start (Black Ground)
+inline const wxColour LOGIN_GRAD_BOTTOM (  10,  73,  56 );   // #0A4938 brand panel gradient end (Deep Emerald)
+inline const wxColour LOGIN_TRACE       (  16,  82,  64 );   // #105240 etched PCB trace artwork on the brand panel
+inline const wxColour LOGIN_TRACE_HI    (  16, 163, 126 );   // #10A37E lit trace / via highlight (Signal Emerald)
+inline const wxColour LOGIN_TILE_BG     (  41,  41,  38 );   // #292926 supporting feature-card fill (Warm Graphite)
+inline const wxColour LOGIN_TILE_ACTIVE (  10,  73,  56 );   // #0A4938 featured ("active") card fill (Deep Emerald)
+inline const wxColour LOGIN_TILE_BORDER (  63,  63,  58 );   // #3F3F3A feature-card edge on the brand panel
+inline const wxColour LOGIN_BOARD_EDGE  (  16, 163, 126 );   // #10A37E routed board outline (Signal Emerald)
+inline const wxColour LOGIN_COMP_BODY   (  10,  10,   9 );   // #0A0A09 moulded body of a component silhouette
+inline const wxColour LOGIN_COMP_PIN    ( 154, 151, 140 );   // #9A978C tinned lead / pin of a component silhouette
 
-inline const wxColour LOGIN_PAGE_TOP    ( 251, 253, 252 );   // #FBFDFC top of the light page's gradient
-inline const wxColour LOGIN_PAGE_BG     ( 240, 244, 242 );   // #F0F4F2 light page behind the sign-in card
-inline const wxColour LOGIN_SURFACE     ( 255, 255, 255 );   // #FFFFFF the sign-in card itself
-inline const wxColour LOGIN_GRID        ( 234, 237, 235 );   // #EAEDEB fine blueprint grid line on the page
-inline const wxColour LOGIN_CARD_BORDER ( 219, 228, 223 );   // #DBE4DF card edge
-inline const wxColour LOGIN_DIVIDER     ( 227, 233, 230 );   // #E3E9E6 hairline rules inside the card
-inline const wxColour LOGIN_BADGE_BG    ( 223, 243, 234 );   // #DFF3EA pale emerald disc behind the shield mark
-inline const wxColour LOGIN_INK         (  17,  24,  21 );   // #111815 headings / primary text on the card
-inline const wxColour LOGIN_MUTED       ( 108, 120, 114 );   // #6C7872 secondary text on the card
-inline const wxColour LOGIN_PLACEHOLDER ( 154, 166, 160 );   // #9AA6A0 input hint text
-inline const wxColour LOGIN_FIELD_BG    ( 247, 250, 249 );   // #F7FAF9 input fill
-inline const wxColour LOGIN_FIELD_BORDER( 216, 225, 220 );   // #D8E1DC input edge
-inline const wxColour LOGIN_FIELD_FOCUS ( 143, 205, 184 );   // #8FCDB8 input edge while focused
+inline const wxColour LOGIN_PAGE_TOP    ( 254, 254, 254 );   // #FEFEFE open paper (Bone White canvas)
+inline const wxColour LOGIN_PAGE_BG     ( 246, 244, 232 );   // #F6F4E8 shaded paper near the board (pale oat)
+inline const wxColour LOGIN_SURFACE     ( 236, 231, 221 );   // #ECE7DD the sign-in card itself (Soft Oat)
+inline const wxColour LOGIN_GRID        ( 220, 214, 200 );   // #DCD6C8 fine blueprint grid line on the page
+inline const wxColour LOGIN_CARD_BORDER ( 214, 208, 194 );   // #D6D0C2 card edge
+inline const wxColour LOGIN_DIVIDER     ( 223, 217, 204 );   // #DFD9CC hairline rules inside the card
+inline const wxColour LOGIN_BADGE_BG    ( 221, 235, 225 );   // #DDEBE1 pale emerald disc behind the shield mark
+inline const wxColour LOGIN_INK         (   7,   7,   7 );   // #070707 headings / primary text (Near Black ink)
+inline const wxColour LOGIN_MUTED       ( 138, 138, 133 );   // #8A8A85 secondary text (mono-label grey)
+inline const wxColour LOGIN_PLACEHOLDER ( 166, 164, 155 );   // #A6A49B input hint text
+inline const wxColour LOGIN_FIELD_BG    ( 247, 245, 236 );   // #F7F5EC input fill (a lighter well on the oat card)
+inline const wxColour LOGIN_FIELD_BORDER( 210, 204, 189 );   // #D2CCBD input edge
+inline const wxColour LOGIN_FIELD_FOCUS (  16, 163, 126 );   // #10A37E input edge while focused (Signal Emerald)
 inline const wxColour LOGIN_ERROR       ( 196,  61,  61 );   // #C43D3D inline validation / server error text
 inline const wxColour LOGIN_CARD_GLOW   (  16, 163, 126 );   // #10A37E emerald halo around the sign-in card
-inline const wxColour LOGIN_BAR_INK     ( 122, 136, 129 );   // #7A8881 icon + label of the page's status bar
+inline const wxColour LOGIN_BAR_INK     ( 138, 138, 133 );   // #8A8A85 icon + label of the page's status bar
 
 // Text tiers / misc
 inline const wxColour DIM         ( 150, 160, 150 );   // dim / disabled / secondary text (GRAYTEXT)

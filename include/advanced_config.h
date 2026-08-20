@@ -1342,12 +1342,14 @@ public:
      * above — appending keeps every existing member's offset stable, so only kicommon + the two
      * editor KIFACEs (which read the flag in their autosave hooks) need rebuilding for this.
      *
-     * OPT-IN (default 0) so autosave is byte-identical to stock Anvil (.history snapshot) until
-     * explicitly enabled.
+     * SHIPS ON (default 1): the product contract is "the file on disk is always current" — the
+     * AI reads manual edits with no extra click, and closing or switching files saves silently
+     * instead of asking "Save changes?" (see canCloseWindow / AskToSaveChanges).  Set
+     * AnvilAutoSaveRealFile=0 to opt back into stock snapshot autosave + the save prompts.
      *
      * Setting name: "AnvilAutoSaveRealFile"
      * Valid values: 0 or 1
-     * Default value: 0
+     * Default value: 1
      */
     bool m_AnvilAutoSaveRealFile;
 

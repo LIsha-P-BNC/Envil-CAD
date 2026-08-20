@@ -320,7 +320,10 @@ ADVANCED_CFG::ADVANCED_CFG()
     m_FpDirAggregateCache = false;    // opt-in: consolidated read cache for *.pretty footprint folders; see header
     m_LibTableSelfHeal = true;    // on: rebuild an empty/broken global sym/fp-lib-table from installed libs; see header
     m_ConfirmComponentPackage = false;   // opt-in: ask THT/SMD + library choice before placing/creating a symbol; see header
-    m_AnvilAutoSaveRealFile = false;   // opt-in: autosave writes the real .kicad_sch/.kicad_pcb (not .history) so the AI sees manual edits; see header
+    m_AnvilAutoSaveRealFile = true;   // ships ON: autosave writes the real .anvil_sch/.anvil_pcb (not .history) so the
+                                      // AI always sees manual edits, and closing never asks "Save changes?" — the
+                                      // design is already persisted; set AnvilAutoSaveRealFile=0 to opt back into
+                                      // classic snapshot autosave + the save prompt
     m_AnvilPurpleFrame = true;    // ships ON: the Anvil dark chrome the custom title bar is painted for
                                   // (with it OFF the title bar keeps the light OS menubar colour while its
                                   // labels stay ANVIL::BONE - unreadable light-on-light); see header

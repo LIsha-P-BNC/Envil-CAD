@@ -203,6 +203,72 @@ void drawRoundedBoxBrush( wxGraphicsContext* aGc, double aX, double aY, double a
 }
 
 
+/// The brand's signature card shape: a sharp rectangle with the top-right corner chamfered
+/// off ("snipped").  aSnip is the leg of the 45 degree cut; 0 gives a plain sharp rectangle.
+/// The brand book allows no rounded corners, so this replaces the rounded card everywhere a
+/// surface reads as a card rather than as a glyph.
+wxGraphicsPath snippedPath( wxGraphicsContext* aGc, double aX, double aY, double aW, double aH,
+                            double aSnip )
+{
+    wxGraphicsPath path = aGc->CreatePath();
+
+    path.MoveToPoint( aX, aY );
+    path.AddLineToPoint( aX + aW - aSnip, aY );
+
+    if( aSnip > 0.0 )
+        path.AddLineToPoint( aX + aW, aY + aSnip );
+
+    path.AddLineToPoint( aX + aW, aY + aH );
+    path.AddLineToPoint( aX, aY + aH );
+    path.CloseSubpath();
+
+    return path;
+}
+
+
+/// Snipped-corner flavour of drawRoundedBox(); pass wxNullColour to skip fill or border.
+void drawSnippedBox( wxGraphicsContext* aGc, double aX, double aY, double aW, double aH,
+                     double aSnip, const wxColour& aFill, const wxColour& aBorder,
+                     double aBorderWidth )
+{
+    wxGraphicsPath path = snippedPath( aGc, aX, aY, aW, aH, aSnip );
+
+    if( aFill.IsOk() )
+    {
+        aGc->SetBrush( wxBrush( aFill ) );
+        aGc->SetPen( *wxTRANSPARENT_PEN );
+        aGc->FillPath( path );
+    }
+
+    if( aBorder.IsOk() && aBorderWidth > 0.0 )
+    {
+        aGc->SetBrush( *wxTRANSPARENT_BRUSH );
+        aGc->SetPen( wxPen( aBorder, aBorderWidth ) );
+        aGc->StrokePath( path );
+    }
+}
+
+
+/// drawSnippedBox() with an already-prepared (typically gradient) brush.
+void drawSnippedBoxBrush( wxGraphicsContext* aGc, double aX, double aY, double aW, double aH,
+                          double aSnip, const wxGraphicsBrush& aFill, const wxColour& aBorder,
+                          double aBorderWidth )
+{
+    wxGraphicsPath path = snippedPath( aGc, aX, aY, aW, aH, aSnip );
+
+    aGc->SetBrush( aFill );
+    aGc->SetPen( *wxTRANSPARENT_PEN );
+    aGc->FillPath( path );
+
+    if( aBorder.IsOk() && aBorderWidth > 0.0 )
+    {
+        aGc->SetBrush( *wxTRANSPARENT_BRUSH );
+        aGc->SetPen( wxPen( aBorder, aBorderWidth ) );
+        aGc->StrokePath( path );
+    }
+}
+
+
 // -------------------------------------------------------------------------------------
 // dialog-space geometry — see the "seam convention" note at the top of the file
 // -------------------------------------------------------------------------------------
@@ -1966,8 +2032,9 @@ private:
 
         const double stroke = px;
 
-        drawRoundedBox( gc.get(), stroke * 0.5, stroke * 0.5, sz.x - stroke, sz.y - stroke,
-                        9 * px, fill, border, stroke );
+        // Sharp corners: the brand book allows no rounded rectangles on cards or controls.
+        drawSnippedBox( gc.get(), stroke * 0.5, stroke * 0.5, sz.x - stroke, sz.y - stroke,
+                        0.0, fill, border, stroke );
 
         const double glyphSize = 18 * px;
         const double glyphX = 22 * px;
@@ -2079,7 +2146,8 @@ private:
         const double px = FromDIP( 100 ) / 100.0;
         const wxColour border = m_focused ? ANVIL::LOGIN_FIELD_FOCUS : ANVIL::LOGIN_FIELD_BORDER;
 
-        drawRoundedBox( gc.get(), px * 0.5, px * 0.5, sz.x - px, sz.y - px, 9 * px,
+        // Sharp input well; the focus ring is the single Signal-Emerald accent.
+        drawSnippedBox( gc.get(), px * 0.5, px * 0.5, sz.x - px, sz.y - px, 0.0,
                         ANVIL::LOGIN_FIELD_BG, border, px );
 
         if( m_mailGlyph )
@@ -2364,7 +2432,10 @@ private:
 
         const double px = FromDIP( 100 ) / 100.0;
         const double gutter = GUTTER * px;
-        const double radius = 18 * px;
+
+        // The brand's hero card: a sharp rectangle with the top-right corner snipped.  The
+        // snip leg grows with the halo offset so every ring stays parallel to the chamfer.
+        const double snip = 26 * px;
 
         // Emerald halo, then a neutral shadow: concentric low-alpha outlines rather than a
         // blur, which wxGraphicsContext has no portable equivalent for.
@@ -2372,8 +2443,8 @@ private:
         {
             const double o = i * 1.6 * px;
 
-            drawRoundedBox( gc.get(), gutter - o, gutter - o, sz.x - 2 * gutter + 2 * o,
-                            sz.y - 2 * gutter + 2 * o, radius + o, wxNullColour,
+            drawSnippedBox( gc.get(), gutter - o, gutter - o, sz.x - 2 * gutter + 2 * o,
+                            sz.y - 2 * gutter + 2 * o, snip + o, wxNullColour,
                             withAlpha( ANVIL::LOGIN_CARD_GLOW, (unsigned char) ( 26 - i * 3 ) ),
                             1.8 * px );
         }
@@ -2382,13 +2453,19 @@ private:
         {
             const double o = i * 1.4 * px;
 
-            drawRoundedBox( gc.get(), gutter - o, gutter - o + px * 2,
-                            sz.x - 2 * gutter + 2 * o, sz.y - 2 * gutter + 2 * o, radius + o,
+            drawSnippedBox( gc.get(), gutter - o, gutter - o + px * 2,
+                            sz.x - 2 * gutter + 2 * o, sz.y - 2 * gutter + 2 * o, snip + o,
                             wxNullColour, withAlpha( ANVIL::LOGIN_GRAD_TOP, 8 ), 1.6 * px );
         }
 
-        drawRoundedBox( gc.get(), gutter, gutter, sz.x - 2 * gutter, sz.y - 2 * gutter, radius,
+        drawSnippedBox( gc.get(), gutter, gutter, sz.x - 2 * gutter, sz.y - 2 * gutter, snip,
                         ANVIL::LOGIN_SURFACE, withAlpha( ANVIL::LOGIN_CARD_GLOW, 60 ), px );
+
+        // The brand's slim emerald rule, laid along the card's top edge and stopping at the
+        // snip, so the accent underlines the card the way it underlines a kicker.
+        gc->SetPen( wxPen( ANVIL::ACCENT, 2.4 * px ) );
+        gc->StrokeLine( gutter + px, gutter + 1.2 * px,
+                        gutter + ( sz.x - 2 * gutter ) - snip, gutter + 1.2 * px );
     }
 };
 
@@ -2552,18 +2629,19 @@ private:
         const double plateH = markH + subH + 40 * aPx;
         const double plateX = aCentreX - plateW * 0.5;
 
-        // halo, so the plate lifts off the copper behind it
+        // halo, so the plate lifts off the copper behind it.  Sharp corners: the plate is a
+        // brand card, and the brand book allows no rounded rectangles on cards.
         for( int i = 4; i >= 1; --i )
         {
             const double o = i * 2.0 * aPx;
 
-            drawRoundedBox( aGc, plateX - o, aTop - o, plateW + 2 * o, plateH + 2 * o,
-                            12 * aPx + o, wxNullColour,
+            drawSnippedBox( aGc, plateX - o, aTop - o, plateW + 2 * o, plateH + 2 * o, 0.0,
+                            wxNullColour,
                             withAlpha( ANVIL::LOGIN_BOARD_EDGE, (unsigned char) ( 30 - i * 5 ) ),
                             2.0 * aPx );
         }
 
-        drawRoundedBox( aGc, plateX, aTop, plateW, plateH, 12 * aPx,
+        drawSnippedBox( aGc, plateX, aTop, plateW, plateH, 0.0,
                         withAlpha( ANVIL::LOGIN_TILE_BG, 225 ),
                         withAlpha( ANVIL::LOGIN_BOARD_EDGE, 150 ), 1.6 * aPx );
 
@@ -2593,27 +2671,35 @@ private:
         return plateH;
     }
 
-    /// One workflow card: icon tile, title, caption, trailing arrow.
-    void paintFeature( wxGraphicsContext* aGc, const FEATURE& aFeature, double aX, double aY,
-                       double aW, double aH, double aPx )
+    /// One workflow card: icon tile, title, caption, index tag, trailing arrow.  The brand's
+    /// card grammar: the set leads with one Deep-Emerald "active" card whose top-right corner
+    /// carries the signature snip, followed by sharp Warm-Graphite support cards; every card
+    /// wears a bracketed mono index tag ("[001]") in its top-right.
+    void paintFeature( wxGraphicsContext* aGc, const FEATURE& aFeature, int aIndex, double aX,
+                       double aY, double aW, double aH, double aPx )
     {
+        const bool     active = ( aIndex == 0 );
+        const wxColour cardFill = active ? ANVIL::LOGIN_TILE_ACTIVE : ANVIL::LOGIN_TILE_BG;
+        const wxColour cardEdge = active ? withAlpha( ANVIL::ACCENT, 150 )
+                                         : ANVIL::LOGIN_TILE_BORDER;
+        const double   snip = active ? 14 * aPx : 0.0;
+
         wxGraphicsBrush fill =
                 aGc->CreateLinearGradientBrush( aX, aY, aX + aW, aY + aH,
-                                                withAlpha( ANVIL::LOGIN_TILE_BG, 225 ),
-                                                withAlpha( ANVIL::LOGIN_TILE_BG, 120 ) );
+                                                withAlpha( cardFill, 235 ),
+                                                withAlpha( cardFill, 175 ) );
 
-        drawRoundedBoxBrush( aGc, aX, aY, aW, aH, 12 * aPx, fill, ANVIL::LOGIN_TILE_BORDER,
-                             1.3 * aPx );
+        drawSnippedBoxBrush( aGc, aX, aY, aW, aH, snip, fill, cardEdge, 1.3 * aPx );
 
-        // The icon tile is a landscape rounded square, near enough the full height of the
+        // The icon tile is a landscape sharp square, near enough the full height of the
         // card: on the comp it reads as a chip footprint, not as a small badge.
         const double inset = aH * 0.10;
         const double tileH = aH - inset * 2;
         const double tileW = tileH * 1.20;
         const double tileX = aX + inset * 1.3;
 
-        drawRoundedBox( aGc, tileX, aY + inset, tileW, tileH, 10 * aPx,
-                        withAlpha( ANVIL::CAP_ACTIVE, 170 ),
+        drawSnippedBox( aGc, tileX, aY + inset, tileW, tileH, 0.0,
+                        withAlpha( ANVIL::CONTENT, 200 ),
                         withAlpha( ANVIL::LOGIN_BOARD_EDGE, 110 ), 1.3 * aPx );
 
         aFeature.glyph( aGc, tileX + tileW * 0.22, aY + inset + tileH * 0.20, tileW * 0.56,
@@ -2628,20 +2714,38 @@ private:
         wxFont caption = base;
         caption.SetFractionalPointSize( base.GetFractionalPointSize() * 1.36 );
 
+        // On the Deep-Emerald active card the heading flips to oat, the way brand type does
+        // on emerald fills; on the graphite cards the emerald heading is the tying accent.
+        const wxColour titleInk = active ? ANVIL::BONE : ANVIL::ACCENT;
+
         const double textX = tileX + tileW + 22 * aPx;
 
-        aGc->SetFont( title, ANVIL::ACCENT );
+        aGc->SetFont( title, titleInk );
         const double titleH = lineHeightGC( aGc );
 
         aGc->SetFont( caption, withAlpha( ANVIL::BONE, 195 ) );
         const double captionH = lineHeightGC( aGc );
         const double textY = aY + ( aH - ( titleH + captionH + 6 * aPx ) ) * 0.5;
 
-        aGc->SetFont( title, ANVIL::ACCENT );
+        aGc->SetFont( title, titleInk );
         aGc->DrawText( aFeature.title, textX, textY );
 
         aGc->SetFont( caption, withAlpha( ANVIL::BONE, 195 ) );
         aGc->DrawText( aFeature.caption, textX, textY + titleH + 6 * aPx );
+
+        // Bracketed mono index tag in the top-right, seated beside the snip.
+        wxFont tag = KIUI::GetMonospacedUIFont();
+        tag.SetFractionalPointSize( base.GetFractionalPointSize() * 0.94 );
+
+        const wxString tagText = wxString::Format( wxS( "[%03d]" ), aIndex + 1 );
+
+        aGc->SetFont( tag, withAlpha( ANVIL::BONE, active ? 175 : 120 ) );
+
+        const double tagTracking = 1.5 * aPx;
+        const double tagW = trackedWidthGC( aGc, tagText, tagTracking );
+
+        drawTrackedGC( aGc, tagText, aX + aW - tagW - 14 * aPx - snip * 0.5, aY + 7 * aPx,
+                       tagTracking );
 
         drawArrowGlyph( aGc, aX + aW - 44 * aPx, aY + aH * 0.5, 20 * aPx,
                         withAlpha( ANVIL::ACCENT, 215 ), 1.8 * aPx );
@@ -2734,6 +2838,29 @@ private:
 
         paintBoardOutline( gc.get(), sz, org, win, px );
 
+        // --- crop-mark "+" ticks, the brand's registration-mark motif on dark hero layouts.
+        // Only the two left corners: the right edge belongs to the routed cut.
+        {
+            const double arm = 10 * px;
+            const double in = 30 * px;
+
+            auto cropMark = [&]( double aCx, double aCy )
+            {
+                wxGraphicsPath mark = gc->CreatePath();
+                mark.MoveToPoint( aCx - arm, aCy );
+                mark.AddLineToPoint( aCx + arm, aCy );
+                mark.MoveToPoint( aCx, aCy - arm );
+                mark.AddLineToPoint( aCx, aCy + arm );
+
+                gc->SetBrush( *wxTRANSPARENT_BRUSH );
+                gc->SetPen( wxPen( withAlpha( ANVIL::BONE, 95 ), 1.4 * px ) );
+                gc->StrokePath( mark );
+            };
+
+            cropMark( in, in );
+            cropMark( in, sz.y - in );
+        }
+
         // --- geometry: a left gutter wide enough for the parts, then the content column ----
         const double margin = std::min( std::max( sz.x * 0.165, 40 * px ), 240 * px );
         const double contentW = std::min( std::max( sz.x * 0.505, 300 * px ), 680 * px );
@@ -2798,9 +2925,9 @@ private:
             { _( "Fabrication" ), _( "Generate precise fabrication sets." ), drawFabPlantMark }
         };
 
-        for( const FEATURE& feature : features )
+        for( int i = 0; i < 3; ++i )
         {
-            paintFeature( gc.get(), feature, margin, y, contentW, cardH, px );
+            paintFeature( gc.get(), features[i], i, margin, y, contentW, cardH, px );
             y += cardH + cardGap;
         }
     }
@@ -2843,14 +2970,64 @@ private:
 
         gc->SetAntialiasMode( wxANTIALIAS_DEFAULT );
 
+        const double px = FromDIP( 100 ) / 100.0;
+
         gc->SetPen( *wxTRANSPARENT_PEN );
         gc->SetBrush( pageGroundBrush( gc.get(), org, win ) );
         gc->DrawRectangle( 0, 0, sz.x, sz.y );
 
+        // The brand's blueprint-grid treatment: a square technical grid that materializes
+        // toward the right edge and dissolves into clean paper on the left, leaving the card
+        // on the calm side of the page.  Anchored in dialog space so it never shifts against
+        // the page gradient it sits on, and stepped in three alpha bands west to east — the
+        // fade, not the grid, is what reads as an engineering drawing surfacing.
+        {
+            const double cell = 26 * px;
+            const double fadeX0 = win.x * 0.58 - org.x;   // where the grid begins to show
+            const double fadeX1 = sz.x;
+
+            struct GRID_BAND
+            {
+                double        from;
+                double        to;
+                unsigned char alpha;
+            };
+
+            const GRID_BAND bands[] = { { 0.00, 0.40, 22 }, { 0.40, 0.75, 44 },
+                                        { 0.75, 1.00, 70 } };
+
+            for( const GRID_BAND& band : bands )
+            {
+                const double x0 = fadeX0 + ( fadeX1 - fadeX0 ) * band.from;
+                const double x1 = fadeX0 + ( fadeX1 - fadeX0 ) * band.to;
+
+                wxGraphicsPath lines = gc->CreatePath();
+
+                // verticals, anchored to dialog-space multiples of the cell
+                for( double gx = std::ceil( ( x0 + org.x ) / cell ) * cell - org.x; gx < x1;
+                     gx += cell )
+                {
+                    lines.MoveToPoint( gx, 0 );
+                    lines.AddLineToPoint( gx, sz.y );
+                }
+
+                // horizontals, clipped to this band's run
+                for( double gy = 0.0; gy < sz.y; gy += cell )
+                {
+                    lines.MoveToPoint( x0, gy );
+                    lines.AddLineToPoint( x1, gy );
+                }
+
+                gc->SetBrush( *wxTRANSPARENT_BRUSH );
+                gc->SetPen( wxPen( withAlpha( ANVIL::LOGIN_GRID, band.alpha ), px ) );
+                gc->StrokePath( lines );
+            }
+        }
+
         // The cut edge itself is off to the left of this panel, but its shadow and the single
         // pale track reach in over the top of the page; painting them from the same equations
         // the brand panel uses is what keeps them unbroken across the two windows.
-        paintPageEdge( gc.get(), org, win, FromDIP( 100 ) / 100.0 );
+        paintPageEdge( gc.get(), org, win, px );
     }
 };
 
@@ -2967,7 +3144,7 @@ DIALOG_ANVIL_LOGIN::DIALOG_ANVIL_LOGIN( wxWindow* aParent, wxTopLevelWindow* aCo
 
     SetSizer( split );
 
-    setHeader( _( "Welcome Back" ), _( "Sign in to access your workspace" ) );
+    setHeader( _( "Sign in" ), _( "Continue to your Anvil CAD workspace" ) );
 
     // The sign-in screen is the app's first surface, so it opens maximized rather than in a
     // small floating box -- but the caption now carries minimize/maximize boxes, so the size
@@ -3035,24 +3212,23 @@ wxWindow* DIALOG_ANVIL_LOGIN::buildEmailPage( wxWindow* aParent )
 
     wxBoxSizer* sizer = new wxBoxSizer( wxVERTICAL );
 
-    sizer->Add( new TRACKED_LABEL( page, _( "WORK EMAIL" ), ANVIL::LOGIN_INK,
+    sizer->Add( new TRACKED_LABEL( page, _( "EMAIL" ), ANVIL::LOGIN_INK,
                                    ANVIL::LOGIN_SURFACE ),
                 0, wxBOTTOM, FromDIP( 8 ) );
 
     FIELD_BOX* fieldBox = new FIELD_BOX( page, &m_emailCtrl, wxTE_PROCESS_ENTER, true, 46 );
     sizer->Add( fieldBox, 0, wxEXPAND );
 
-    m_emailCtrl->SetHint( wxS( "you@yourcompany.com" ) );
+    m_emailCtrl->SetHint( wxS( "name@company.com" ) );
     m_emailCtrl->Bind( wxEVT_TEXT_ENTER, [this]( wxCommandEvent& ) { onSendOtp(); } );
 
-    sizer->Add( new RULE_LABEL( page, _( "Sign in with" ) ), 0, wxEXPAND | wxTOP,
-                FromDIP( 20 ) );
-
-    m_sendButton = new ANVIL_LOGIN_BUTTON( page, _( "Sign in with Email OTP" ),
+    // No "Sign in with" divider: with a single sign-in method the caption is noise.
+    // The button states exactly what happens instead.
+    m_sendButton = new ANVIL_LOGIN_BUTTON( page, _( "Send verification code" ),
                                            ANVIL_LOGIN_BUTTON::PRIMARY,
                                            ANVIL_LOGIN_BUTTON::GLYPH_MAIL,
                                            [this]() { onSendOtp(); } );
-    sizer->Add( m_sendButton, 0, wxEXPAND | wxTOP, FromDIP( 14 ) );
+    sizer->Add( m_sendButton, 0, wxEXPAND | wxTOP, FromDIP( 18 ) );
 
 
     page->SetSizer( sizer );
@@ -3258,7 +3434,7 @@ void DIALOG_ANVIL_LOGIN::setBusy( bool aBusy )
 
     if( !aBusy )
     {
-        m_sendButton->SetLabelText( _( "Sign in with Email OTP" ) );
+        m_sendButton->SetLabelText( _( "Send verification code" ) );
         m_verifyButton->SetLabelText( _( "Verify & Continue" ) );
     }
 }
@@ -3388,7 +3564,7 @@ void DIALOG_ANVIL_LOGIN::onChangeEmail()
     m_resendTimer.Stop();
     m_resendRemaining = 0;
     clearError();
-    setHeader( _( "Welcome Back" ), _( "Sign in to access your workspace" ) );
+    setHeader( _( "Sign in" ), _( "Continue to your Anvil CAD workspace" ) );
     m_book->SetSelection( 0 );
     m_emailCtrl->SetFocus();
     m_emailCtrl->SelectAll();

@@ -1795,6 +1795,15 @@ bool SCH_EDIT_FRAME::canCloseWindow( wxCloseEvent& aEvent )
 
     if( IsContentModified() )
     {
+        // Anvil: with real-file autosave the design is continuously persisted, so closing
+        // must not interrogate the user — flush the last few seconds of edits silently.
+        // Deliberately NOT gated on Prj().IsReadOnly(): that flag can latch stale-true
+        // after a crashed session's lock handling while the file itself saves fine, and
+        // SaveProject() is the authoritative test anyway.  Only if the write actually
+        // fails does the classic prompt appear, so nothing is ever lost silently.
+        if( ADVANCED_CFG::GetCfg().m_AnvilAutoSaveRealFile && SaveProject() )
+            return true;
+
         wxFileName fileName = Schematic().RootScreen()->GetFileName();
         wxString msg = _( "Save changes to '%s' before closing?" );
 
@@ -3856,11 +3865,13 @@ bool SCH_EDIT_FRAME::doAutoSave()
     // Anvil Next / Anvil: VSCode-style autosave to the REAL .kicad_sch (not the .history
     // snapshot) so the AI backend, which reads the live project file, observes the user's
     // manual edits automatically — the Cursor way.  Only writes when there is something to
-    // save and the project is writable; a clean or read-only design is a no-op.  Skips the
-    // local-history commit entirely (no snapshot), per the feature contract.
+    // save; a clean design is a no-op.  NOT gated on Prj().IsReadOnly() — that flag can
+    // latch stale-true after a crashed session's lock handling while the file itself saves
+    // fine; SaveProject() is the authoritative test.  Skips the local-history commit
+    // entirely (no snapshot), per the feature contract.
     if( ADVANCED_CFG::GetCfg().m_AnvilAutoSaveRealFile )
     {
-        if( IsContentModified() && !Prj().IsReadOnly() )
+        if( IsContentModified() )
             SaveProject();
 
         m_autoSaveRequired = false;
