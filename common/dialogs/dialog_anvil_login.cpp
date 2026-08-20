@@ -32,6 +32,7 @@
 #include <cmath>
 #include <functional>
 #include <memory>
+#include <utility>
 #include <vector>
 
 #include <wx/dcbuffer.h>
@@ -48,20 +49,23 @@
 #include <wx/utils.h>
 
 /*
- * Anvil CAD sign-in screen, drawn natively: a populated circuit-board brand panel on the left,
- * cut along a diagonal board edge, and a light page carrying the sign-in card on the right.
- * Every colour is an ANVIL:: theme token (anvil_theme.h) and every functional string is a
- * translatable wxString — nothing is hard-coded at the point of use.  API endpoints/fields come
- * from anvil_api_defs.h and deployment values from ANVIL_AUTH_CONFIG; neither appears here.
+ * Anvil CAD sign-in screen, drawn natively: one populated circuit board filling the window,
+ * with the sign-in card seated in a rounded pocket milled into it.  Every colour is an ANVIL::
+ * theme token (anvil_theme.h) and every functional string is a translatable wxString — nothing
+ * is hard-coded at the point of use.  API endpoints/fields come from anvil_api_defs.h and
+ * deployment values from ANVIL_AUTH_CONFIG; neither appears here.
  *
  * Painting convention: a surface that mixes shapes with text does BOTH through one
  * wxGraphicsContext.  wxGraphicsContext output is deferred, so gc shapes interleaved with
  * plain-wxDC text land on top of that text; the two are never mixed on the same surface.
  *
- * Seam convention: the diagonal board edge and the light page's gradient are both defined in
- * DIALOG coordinates, and every window that touches them (brand panel, form panel, card, status
- * bar) paints its own slice from those same equations.  That is what keeps the seams invisible —
- * a window that painted the gradient in its own local space would show up as a rectangle.
+ * Board convention: the board ground, the copper plot, the routed outline and the card's
+ * opening are all defined in DIALOG coordinates, and every window that touches them (brand
+ * panel, form panel, card) paints its own slice from those same equations and lets its DC clip
+ * the rest.  That is what makes the two panels read as one board rather than as two windows
+ * that happen to be the same green — a window that plotted in its own local space would show up
+ * as a rectangle.  The opening's rect is not derivable from a window size, so the dialog
+ * publishes it into a shared wxRect after every layout; see DIALOG_ANVIL_LOGIN::updateOpening().
  */
 
 namespace
@@ -165,6 +169,23 @@ wxColour withAlpha( const wxColour& aColour, unsigned char aAlpha )
 }
 
 
+/// One blend of the two trace tokens at @a aAlpha.  Every copper on the screen — the heavy
+/// tracks, the etched signal traces, the lit ones, and the pad row around the card's opening —
+/// is mixed here, so the four layers stay in the same hue family however they are drawn.
+wxColour copperMix( const wxColour& aTrace, const wxColour& aTraceLit, double aMix,
+                    unsigned char aAlpha )
+{
+    auto mix = []( int aFrom, int aTo, double aT ) -> unsigned char
+    {
+        return (unsigned char) ( aFrom + ( aTo - aFrom ) * aT );
+    };
+
+    return wxColour( mix( aTrace.Red(), aTraceLit.Red(), aMix ),
+                     mix( aTrace.Green(), aTraceLit.Green(), aMix ),
+                     mix( aTrace.Blue(), aTraceLit.Blue(), aMix ), aAlpha );
+}
+
+
 /// Rounded box with an optional fill and an optional border; pass wxNullColour to skip either.
 void drawRoundedBox( wxGraphicsContext* aGc, double aX, double aY, double aW, double aH,
                      double aRadius, const wxColour& aFill, const wxColour& aBorder,
@@ -231,19 +252,26 @@ wxSize dialogClientSize( const wxWindow* aWindow )
 }
 
 
-/// x of the cut between the dark board and the light page at height @a aY, in dialog client
-/// coordinates.  The board leans to the left as it descends, the way a routed board edge does.
-/// Both ends stay inside the brand panel's own width, so only that panel ever paints the cut.
-double brandSeamX( const wxSize& aWindow, double aY )
-{
-    const double top = aWindow.x * 0.614;
-    const double bottom = aWindow.x * 0.487;
+/// The card's opening in the board, and the routed wall around it.
+///
+/// The board is not a panel beside the form any more: it runs the full width of the window and
+/// the light page survives only inside one rounded rectangle, so the card sits *in* the copper
+/// rather than next to it.  Three windows paint parts of that opening — the board mills its
+/// wall, the page fills its ground, the card floats in the middle — and all three read the same
+/// rect in dialog client coordinates, published by the dialog after every layout.  A window
+/// that derived the opening from its own client size would put the wall in a different place
+/// from its neighbour, and the pocket would show up as two mismatched halves.
+///
+/// An empty rect means "not laid out yet": painters then draw bare board and no opening.
 
-    return top + ( bottom - top ) * ( aY / std::max( 1.0, (double) aWindow.y ) );
-}
+/// Corner radius of the opening, in device-independent pixels.  It is the card's own radius:
+/// the pocket is milled to the part, so its wall runs along the card's edge with no ring of
+/// stray paper between the two.  A pocket cut wider than the card reads as a soft halo around
+/// it, which is the one thing this edge must not look like.
+constexpr double OPENING_RADIUS = 18.0;
 
 
-/// A stroking pen with round caps and joins, so a filleted polyline stays smooth end to end.
+/// A stroking pen with round caps and joins, so a stroked outline stays smooth end to end.
 wxGraphicsPen roundPen( wxGraphicsContext* aGc, const wxColour& aColour, double aWidth )
 {
     return aGc->CreatePen(
@@ -251,178 +279,125 @@ wxGraphicsPen roundPen( wxGraphicsContext* aGc, const wxColour& aColour, double 
 }
 
 
-/// One waypoint on the cut edge.  The cut is a single architectural slant: the light page
-/// meets the board along one unbroken diagonal, so the table only carries its two ends.  y is
-/// a fraction of the window height and dx an offset from the base diagonal as a fraction of
-/// the window width; both ends run off-screen so the slant never shows a start or a stop.
-struct SEAM_STEP
+/// The opening grown by @a aOutset pixels (negative shrinks it), as a path in the local space of
+/// a window whose top-left corner is at @a aOrigin.  The corner radius grows with the outset, so
+/// a ramp of these stays concentric instead of pinching at the corners.
+wxGraphicsPath openingPath( wxGraphicsContext* aGc, const wxPoint& aOrigin, const wxRect& aOpening,
+                            double aOutset, double aPx )
 {
-    double y;
-    double dx;
-};
+    wxGraphicsPath path = aGc->CreatePath();
 
-const SEAM_STEP g_seamSteps[] =
-{
-    { -0.080,  0.000 },
-    {  1.080,  0.000 }
-};
+    const double x = aOpening.x - aOrigin.x - aOutset;
+    const double y = aOpening.y - aOrigin.y - aOutset;
+    const double w = aOpening.width + 2 * aOutset;
+    const double h = aOpening.height + 2 * aOutset;
 
+    if( w <= 1.0 || h <= 1.0 )
+        return path;
 
-/// The cut edge as a polyline in dialog client coordinates, top to bottom, pulled @a aInset
-/// pixels west of the true edge (0 for the edge itself, positive for an inset outline).
-void buildSeamPolyline( std::vector<wxPoint2DDouble>& aOut, const wxSize& aWindow, double aInset )
-{
-    for( const SEAM_STEP& step : g_seamSteps )
-    {
-        const double y = step.y * aWindow.y;
+    const double r = std::max( 1.0, std::min( OPENING_RADIUS * aPx + aOutset,
+                                              std::min( w, h ) * 0.5 ) );
 
-        aOut.push_back( wxPoint2DDouble( brandSeamX( aWindow, y ) + step.dx * aWindow.x - aInset,
-                                         y ) );
-    }
-}
+    path.AddRoundedRectangle( x, y, w, h, r );
 
-
-/// Emit @a aPts as a path whose every interior corner is filleted, the way a router with a
-/// round cutter takes a corner.  This is the shape the cut edge wants: a 45 degree chamfer
-/// reads as a facet and a run of them reads as a sawtooth, where a fillet reads as one
-/// continuous milled edge.  The radius is clamped per corner to a share of the shorter
-/// adjacent leg, so a short leg degrades to a tight fillet instead of overrunning its
-/// neighbour.
-void addRoundedPolyline( wxGraphicsPath& aPath, const std::vector<wxPoint2DDouble>& aPts,
-                         double aRadius, bool aClose )
-{
-    std::vector<wxPoint2DDouble> pts;
-
-    for( const wxPoint2DDouble& pt : aPts )
-    {
-        if( pts.empty() || std::abs( pt.m_x - pts.back().m_x ) > 1.0
-            || std::abs( pt.m_y - pts.back().m_y ) > 1.0 )
-        {
-            pts.push_back( pt );
-        }
-    }
-
-    const int n = (int) pts.size();
-
-    if( n < 2 )
-        return;
-
-    auto legLen = []( const wxPoint2DDouble& aFrom, const wxPoint2DDouble& aTo ) -> double
-    {
-        const double dx = aTo.m_x - aFrom.m_x;
-        const double dy = aTo.m_y - aFrom.m_y;
-
-        return std::max( 1e-6, std::sqrt( dx * dx + dy * dy ) );
-    };
-
-    auto radiusAt = [&]( int aIndex ) -> double
-    {
-        const wxPoint2DDouble& prev = pts[( aIndex + n - 1 ) % n];
-        const wxPoint2DDouble& cur = pts[aIndex];
-        const wxPoint2DDouble& next = pts[( aIndex + 1 ) % n];
-
-        return std::min( aRadius,
-                         std::min( legLen( prev, cur ), legLen( cur, next ) ) * 0.45 );
-    };
-
-    if( aClose )
-    {
-        // Start halfway along the closing leg, so the corner at pts[0] is filleted like every
-        // other one instead of staying square.
-        aPath.MoveToPoint( ( pts[n - 1].m_x + pts[0].m_x ) * 0.5,
-                           ( pts[n - 1].m_y + pts[0].m_y ) * 0.5 );
-
-        for( int i = 0; i < n; ++i )
-        {
-            const wxPoint2DDouble& next = pts[( i + 1 ) % n];
-
-            aPath.AddArcToPoint( pts[i].m_x, pts[i].m_y, next.m_x, next.m_y, radiusAt( i ) );
-        }
-
-        aPath.CloseSubpath();
-        return;
-    }
-
-    aPath.MoveToPoint( pts[0] );
-
-    for( int i = 1; i < n - 1; ++i )
-        aPath.AddArcToPoint( pts[i].m_x, pts[i].m_y, pts[i + 1].m_x, pts[i + 1].m_y,
-                             radiusAt( i ) );
-
-    aPath.AddLineToPoint( pts[n - 1] );
+    return path;
 }
 
 
 /// The light page's ground, expressed in dialog coordinates and shifted into the local space of
 /// a window whose top-left corner is at @a aOrigin.
 ///
-/// The gradient runs perpendicular to the cut, not straight down: the paper is shaded where
-/// the board lies over it and opens out to clean stock under the card.  That is what carries
-/// the board across the split — the page reads as one sheet the board is resting on, so the
-/// green joins the form instead of stopping dead at the seam.
+/// The page is only as big as the opening now, so its gradient is anchored to the opening rather
+/// than to the window: clean stock at the top-left, shading gently towards the bottom-right
+/// where the board leans over it.  Both windows that show any paper — the form panel around the
+/// card and the card's own halo gutter — take the brush from here, which is what keeps the sheet
+/// reading as one piece across the two.
 wxGraphicsBrush pageGroundBrush( wxGraphicsContext* aGc, const wxPoint& aOrigin,
-                                 const wxSize& aWindow )
+                                 const wxRect& aOpening )
 {
-    const double midY = aWindow.y * 0.5;
-    const double runX = brandSeamX( aWindow, aWindow.y ) - brandSeamX( aWindow, 0.0 );
-    const double len = std::max( 1.0, std::hypot( runX, (double) aWindow.y ) );
+    const double x = aOpening.x - aOrigin.x;
+    const double y = aOpening.y - aOrigin.y;
 
-    // Unit normal of the cut, pointing east into the page.  The cut leans west as it
-    // descends ( runX < 0 ), so this also carries the axis slightly downhill.
-    const double nx = aWindow.y / len;
-    const double ny = -runX / len;
-
-    const double startX = brandSeamX( aWindow, midY );
-    const double reach = ( aWindow.x - startX ) / std::max( 0.001, nx );
-
-    return aGc->CreateLinearGradientBrush( startX - aOrigin.x, midY - aOrigin.y,
-                                           startX + nx * reach - aOrigin.x,
-                                           midY + ny * reach - aOrigin.y,
-                                           ANVIL::LOGIN_PAGE_BG, ANVIL::LOGIN_PAGE_TOP );
+    return aGc->CreateLinearGradientBrush( x, y, x + std::max( 1, aOpening.width ),
+                                           y + std::max( 1, aOpening.height ),
+                                           ANVIL::LOGIN_PAGE_TOP, ANVIL::LOGIN_PAGE_BG );
 }
 
 
-/// The cut where the board meets the paper, painted as a milled edge rather than as a mask
-/// boundary: the routed face catches light on the board side, and the paper takes a short
-/// graded shadow on the other.  That pair is the whole trick — a single hard split reads as
-/// two flat colours butted together, where a lit rim over a seated shadow reads as one
-/// physical edge with the two materials merging along it.
-///
-/// Still one edge, though: the shadow grades away over a few pixels and never gains enough
-/// weight to read as a second line beside the first.  Both windows that touch the page paint
-/// this from the same dialog-space equations, which is what lets the shading run straight
-/// through the boundary between them.
-void paintPageEdge( wxGraphicsContext* aGc, const wxPoint& aOrigin, const wxSize& aWindow,
+/// Fine drafting grid over the light page, anchored to dialog space so every window that
+/// shows any paper rules the same lines.  This is what keeps the sheet from reading as bare
+/// white: the page is engineering stock the card is drawn on, not a gap in the artwork.
+void paintPageGrid( wxGraphicsContext* aGc, const wxPoint& aOrigin, const wxRect& aOpening,
                     double aPx )
 {
-    auto strokeAt = [&]( double aShift, const wxColour& aInk, double aWidth )
+    if( aOpening.IsEmpty() )
+        return;
+
+    const double step = 26.0 * aPx;
+
+    const double x0 = aOpening.x - aOrigin.x;
+    const double y0 = aOpening.y - aOrigin.y;
+    const double x1 = x0 + aOpening.width;
+    const double y1 = y0 + aOpening.height;
+
+    wxGraphicsPath grid = aGc->CreatePath();
+
+    // Lines land on multiples of the step in dialog coordinates, so neighbouring windows'
+    // slices of the grid join without a seam.
+    for( double gx = std::ceil( aOpening.x / step ) * step - aOrigin.x; gx < x1; gx += step )
     {
-        std::vector<wxPoint2DDouble> seam;
-        buildSeamPolyline( seam, aWindow, aOrigin.x - aShift * aPx );
+        grid.MoveToPoint( gx, y0 );
+        grid.AddLineToPoint( gx, y1 );
+    }
 
-        for( wxPoint2DDouble& pt : seam )
-            pt.m_y -= aOrigin.y;
+    for( double gy = std::ceil( aOpening.y / step ) * step - aOrigin.y; gy < y1; gy += step )
+    {
+        grid.MoveToPoint( x0, gy );
+        grid.AddLineToPoint( x1, gy );
+    }
 
-        wxGraphicsPath path = aGc->CreatePath();
-        addRoundedPolyline( path, seam, 30 * aPx, false );
+    aGc->SetBrush( *wxTRANSPARENT_BRUSH );
+    aGc->SetPen( wxPen( withAlpha( ANVIL::LOGIN_GRID, 170 ), 1.0 ) );
+    aGc->StrokePath( grid );
+}
+
+
+/// The wall of the pocket, painted as a milled edge rather than as a mask boundary: the routed
+/// face catches light on the board side, and the paper takes a short graded shadow on the other.
+/// That pair is the whole trick — a hard split reads as two flat colours butted together, where
+/// a lit rim over a seated shadow reads as one physical edge the two materials merge along.
+///
+/// Still one edge, though: the shadow grades away over a few pixels and never gains enough
+/// weight to read as a second line beside the first.  Every window that touches the opening
+/// paints this from the same dialog-space rect, which is what lets the shading run straight
+/// through the boundary between them.
+void paintOpeningEdge( wxGraphicsContext* aGc, const wxPoint& aOrigin, const wxRect& aOpening,
+                       double aPx )
+{
+    if( aOpening.IsEmpty() )
+        return;
+
+    auto strokeAt = [&]( double aOutset, const wxColour& aInk, double aWidth )
+    {
+        wxGraphicsPath path = openingPath( aGc, aOrigin, aOpening, aOutset * aPx, aPx );
 
         aGc->SetBrush( *wxTRANSPARENT_BRUSH );
         aGc->SetPen( roundPen( aGc, aInk, aWidth * aPx ) );
         aGc->StrokePath( path );
     };
 
-    // A soft band, built as a ramp of narrow overlapping strokes walking away from the cut
-    // with the alpha falling off under @a aExponent.  A handful of wide strokes would be
-    // cheaper, but each one's outer boundary shows up as a step, and a step beside the cut
-    // is exactly the second edge this seam must not have.  @a aSpan is signed: negative
-    // walks west onto the board, positive walks east onto the paper.
+    // A soft band, built as a ramp of narrow overlapping strokes walking away from the wall with
+    // the alpha falling off under @a aExponent.  A handful of wide strokes would be cheaper, but
+    // each one's outer boundary shows up as a step, and a step beside the cut is exactly the
+    // second edge this pocket must not have.  @a aSpan is signed: positive walks out onto the
+    // board, negative walks in onto the paper.
     auto ramp = [&]( double aSpan, const wxColour& aInk, double aBaseAlpha, double aExponent )
     {
         constexpr int STEPS = 10;
         const double  reach = std::abs( aSpan );
         const double  sign = aSpan < 0 ? -1.0 : 1.0;
 
-        // Far to near, so the densest part of the band ends up hard against the cut.
+        // Far to near, so the densest part of the band ends up hard against the wall.
         for( int i = STEPS - 1; i >= 0; --i )
         {
             const double d = ( i + 0.75 ) * reach / STEPS;
@@ -433,23 +408,150 @@ void paintPageEdge( wxGraphicsContext* aGc, const wxPoint& aOrigin, const wxSize
         }
     };
 
-    // Board side: light spilling off the routed face, then the milled edge itself.  The
-    // bloom is what softens the meeting — without it the rim is a bright line ruled onto a
-    // flat fill rather than a lit edge the two materials merge along.
-    ramp( -16.0, ANVIL::LOGIN_BOARD_EDGE, 15.0, 1.4 );
-    strokeAt( -0.6, withAlpha( ANVIL::LOGIN_BOARD_EDGE, 110 ), 1.5 );
+    // Board side: light spilling off the routed face, then the milled edge itself.  The bloom is
+    // what softens the meeting — without it the rim is a bright line ruled onto a flat fill
+    // rather than a lit edge the two materials merge along.
+    ramp( 16.0, ANVIL::LOGIN_BOARD_EDGE, 14.0, 1.5 );
+    strokeAt( 0.6, withAlpha( ANVIL::LOGIN_BOARD_EDGE, 95 ), 1.4 );
 
-    // Paper side: the shadow the board casts onto the sheet, seating it there instead of
-    // letting it float.
-    ramp( 21.0, wxColour( 12, 34, 27 ), 26.0, 1.6 );
+    // No matching ramp on the paper side.  A ramp is a run of concentric strokes, and around a
+    // closed rounded rectangle each one carries its own corner radius, so on the card's pale
+    // fill they separate out into visible grey rings instead of grading away — banding the board
+    // side gets away with only because it grades into dark copper rather than into white.  The
+    // card does not need the shadow anyway: it is bright stock against a dark board, and the rim
+    // above is what seats it.
 }
 
 
-/// The dark board ground, in the same shifted dialog space as pageGroundBrush().
+/// The pad row around the pocket: the card is not laid on the board, it is soldered into it.
+///
+/// A regular run of drilled pads walks each wall with a short stub of copper running back out
+/// into the field, the way a routed module footprint hands its nets off to the board it drops
+/// into.  This is the join the whole layout turns on — without it the opening is a hole punched
+/// through artwork; with it the green and the form are one circuit.
+void paintOpeningPads( wxGraphicsContext* aGc, const wxPoint& aOrigin, const wxRect& aOpening,
+                       double aPx )
+{
+    if( aOpening.IsEmpty() )
+        return;
+
+    // The same two coppers the routing is drawn in, so the pad row reads as part of the plot
+    // rather than as trim around the card.  Pitched wide and mixed low: the row is a seam
+    // detail now, not a decoration competing with the page.
+    const wxColour copper = copperMix( ANVIL::LOGIN_TRACE, ANVIL::LOGIN_TRACE_HI, 0.26, 175 );
+    const wxColour lit = copperMix( ANVIL::LOGIN_TRACE, ANVIL::LOGIN_TRACE_HI, 0.62, 165 );
+
+    const double padR = 4.0 * aPx;
+    const double drillR = 1.7 * aPx;
+    const double pitch = 64.0 * aPx;
+
+    const double x0 = aOpening.x - aOrigin.x;
+    const double y0 = aOpening.y - aOrigin.y;
+    const double x1 = x0 + aOpening.width;
+    const double y1 = y0 + aOpening.height;
+
+    const double radius = std::min( OPENING_RADIUS * aPx,
+                                    std::min( aOpening.width, aOpening.height ) * 0.5 );
+
+    int seq = 0;
+
+    // One wall, walked from ( aAx, aAy ) to ( aBx, aBy ) with ( aNx, aNy ) pointing out into the
+    // board.  The run is handed the straight part only: a pad sitting on a corner fillet would
+    // not be on the wall it is meant to be soldered to.
+    auto wall = [&]( double aAx, double aAy, double aBx, double aBy, double aNx, double aNy )
+    {
+        const double len = std::hypot( aBx - aAx, aBy - aAy );
+
+        if( len < pitch )
+            return;
+
+        const double ux = ( aBx - aAx ) / len;
+        const double uy = ( aBy - aAy ) / len;
+        const int    count = (int) std::floor( len / pitch );
+        const double lead = ( len - ( count - 1 ) * pitch ) * 0.5;
+
+        for( int i = 0; i < count; ++i, ++seq )
+        {
+            const wxColour ink = ( seq % 4 ) == 1 ? lit : copper;
+            const double   stub = ( seq % 2 ) ? 18.0 * aPx : 10.0 * aPx;
+
+            // The pad is tangent to the wall, not straddling it: a disc half over the paper
+            // would read as a blot on the card rather than as copper on the board.
+            const double d = lead + i * pitch;
+            const double cx = aAx + ux * d + aNx * padR * 0.9;
+            const double cy = aAy + uy * d + aNy * padR * 0.9;
+
+            // stub first, so the pad lands on top of the copper it feeds
+            wxGraphicsPath run = aGc->CreatePath();
+            run.MoveToPoint( cx, cy );
+            run.AddLineToPoint( cx + aNx * stub, cy + aNy * stub );
+
+            aGc->SetBrush( *wxTRANSPARENT_BRUSH );
+            aGc->SetPen( roundPen( aGc, ink, 2.6 * aPx ) );
+            aGc->StrokePath( run );
+
+            aGc->SetPen( *wxTRANSPARENT_PEN );
+            aGc->SetBrush( wxBrush( ink ) );
+            aGc->DrawEllipse( cx - padR, cy - padR, 2 * padR, 2 * padR );
+
+            aGc->SetBrush( wxBrush( ANVIL::LOGIN_GRAD_TOP ) );
+            aGc->DrawEllipse( cx - drillR, cy - drillR, 2 * drillR, 2 * drillR );
+        }
+    };
+
+    wall( x0 + radius, y0, x1 - radius, y0, 0.0, -1.0 );
+    wall( x0 + radius, y1, x1 - radius, y1, 0.0, 1.0 );
+    wall( x0, y0 + radius, x0, y1 - radius, -1.0, 0.0 );
+    wall( x1, y0 + radius, x1, y1 - radius, 1.0, 0.0 );
+}
+
+
+/// The routed board outline: the board is the whole window now, so its milled edge follows the
+/// window itself — three concentric passes of falling weight, the way a fabrication drawing
+/// shows a route and its clearance.  Painted from dialog coordinates by both panels, so the two
+/// of them draw one unbroken rectangle between them rather than a box each.
+void paintBoardOutline( wxGraphicsContext* aGc, const wxPoint& aOrigin, const wxSize& aWindow,
+                        double aPx )
+{
+    struct PASS
+    {
+        double        inset;
+        unsigned char alpha;
+        double        width;
+    };
+
+    const PASS passes[3] = { { 18.0, 90, 2.0 }, { 27.0, 45, 1.2 }, { 36.0, 20, 1.0 } };
+
+    aGc->SetBrush( *wxTRANSPARENT_BRUSH );
+
+    for( const PASS& pass : passes )
+    {
+        const double inset = pass.inset * aPx;
+        const double w = aWindow.x - 2 * inset;
+        const double h = aWindow.y - 2 * inset;
+
+        if( w <= 1.0 || h <= 1.0 )
+            continue;
+
+        wxGraphicsPath path = aGc->CreatePath();
+        path.AddRoundedRectangle( inset - aOrigin.x, inset - aOrigin.y, w, h,
+                                  std::min( 26 * aPx, std::min( w, h ) * 0.5 ) );
+
+        aGc->SetPen( wxPen( withAlpha( ANVIL::LOGIN_BOARD_EDGE, pass.alpha ),
+                            pass.width * aPx ) );
+        aGc->StrokePath( path );
+    }
+}
+
+
+/// The dark board ground, in the same shifted dialog space as pageGroundBrush().  The gradient
+/// now spans the whole window rather than stopping where the old brand panel did: the board runs
+/// edge to edge, and an axis that ran out early would leave the whole right-hand field sitting
+/// flat on the end colour.
 wxGraphicsBrush brandGroundBrush( wxGraphicsContext* aGc, const wxPoint& aOrigin,
                                   const wxSize& aWindow )
 {
-    return aGc->CreateLinearGradientBrush( -aOrigin.x, -aOrigin.y, aWindow.x * 0.62 - aOrigin.x,
+    return aGc->CreateLinearGradientBrush( -aOrigin.x, -aOrigin.y, aWindow.x - aOrigin.x,
                                            aWindow.y - aOrigin.y, ANVIL::LOGIN_GRAD_TOP,
                                            ANVIL::LOGIN_GRAD_BOTTOM );
 }
@@ -860,20 +962,17 @@ void paintBoardArtwork( wxGraphicsContext* aGc, double aW, double aH, double aPx
     // signal traces well above that, and the lit ones close to the highlight itself.
     auto blend = [&]( double aMix, unsigned char aAlpha ) -> wxColour
     {
-        auto mix = []( int aFrom, int aTo, double aT ) -> unsigned char
-        {
-            return (unsigned char) ( aFrom + ( aTo - aFrom ) * aT );
-        };
-
-        return wxColour( mix( aTrace.Red(), aTraceLit.Red(), aMix ),
-                         mix( aTrace.Green(), aTraceLit.Green(), aMix ),
-                         mix( aTrace.Blue(), aTraceLit.Blue(), aMix ), aAlpha );
+        return copperMix( aTrace, aTraceLit, aMix, aAlpha );
     };
 
-    const wxColour dim      = blend( 0.16, 220 );
-    const wxColour lit      = blend( 0.62, 205 );
-    const wxColour trackDim = blend( 0.045, 255 );
-    const wxColour trackLit = blend( 0.110, 255 );
+    // The plot is scenery, not subject: it sits low over the ground so the type and the
+    // cards in front of it carry the page.  Mixed any brighter it competes with the content
+    // and the whole panel reads as noise — the lit nets get a modest lift over the dim ones
+    // and nothing more.  The heavy tracks stay lowest: poured copper under the routing.
+    const wxColour dim      = blend( 0.26, 165 );
+    const wxColour lit      = blend( 0.62, 150 );
+    const wxColour trackDim = blend( 0.08, 220 );
+    const wxColour trackLit = blend( 0.14, 220 );
 
     // Append one table segment as copper: an axis aligned leg plus an exact 45 degree leg.  The
     // table is normalised, so aW and aH stretch an intended diagonal; taking the shorter of the
@@ -914,7 +1013,7 @@ void paintBoardArtwork( wxGraphicsContext* aGc, double aW, double aH, double aPx
     auto drawGlow = [&]( double aCx, double aCy, double aR )
     {
         const double ringScale[3] = { 1.8, 2.8, 4.0 };
-        const int    ringAlpha[3] = { 80, 40, 16 };
+        const int    ringAlpha[3] = { 40, 20, 8 };
 
         aGc->SetBrush( *wxTRANSPARENT_BRUSH );
 
@@ -1103,15 +1202,25 @@ void paintBoardArtwork( wxGraphicsContext* aGc, double aW, double aH, double aPx
 
     aGc->SetPen( *wxTRANSPARENT_PEN );
 
+    // The bloom radii are a fraction of the plot's shorter side.  Pinned to the width, as they
+    // were when the plot only covered the brand panel, they swell with the window and wash the
+    // whole board out to a flat mid-green — which is exactly the contrast the lit copper needs.
+    const double bloomScale = std::min( aW, aH ) * 1.15;
+
+    // The blooms are down to a suggestion of warmth: any stronger and they lift the board to
+    // a flat mid-green, and the dark ground is what the quiet plot needs to read against.
+    constexpr double BLOOM_ALPHA = 0.38;
+
     for( int b = 0; b < bloomCount; ++b )
     {
         const BOARD_BLOOM& bloom = g_boardBlooms[b];
         const double       cx    = bloom.x * aW;
         const double       cy    = bloom.y * aH;
-        const double       rr    = bloom.r * aW;
+        const double       rr    = bloom.r * bloomScale;
 
         aGc->SetBrush( aGc->CreateRadialGradientBrush(
-                cx, cy, cx, cy, rr, withAlpha( aTraceLit, bloom.alpha ),
+                cx, cy, cx, cy, rr,
+                withAlpha( aTraceLit, (unsigned char) ( bloom.alpha * BLOOM_ALPHA ) ),
                 withAlpha( aTraceLit, 0 ) ) );
         aGc->DrawEllipse( cx - rr, cy - rr, 2.0 * rr, 2.0 * rr );
     }
@@ -1757,21 +1866,6 @@ void drawLockGlyph( wxGraphicsContext* aGc, double aCx, double aCy, double aSize
 }
 
 
-/// Tick mark filling the box ( aX, aY, aW, aH ).
-void drawCheckGlyph( wxGraphicsContext* aGc, double aX, double aY, double aW, double aH,
-                     const wxColour& aColour, double aStroke )
-{
-    wxGraphicsPath p = aGc->CreatePath();
-    p.MoveToPoint( aX + aW * 0.18, aY + aH * 0.52 );
-    p.AddLineToPoint( aX + aW * 0.42, aY + aH * 0.76 );
-    p.AddLineToPoint( aX + aW * 0.84, aY + aH * 0.24 );
-
-    aGc->SetPen( wxPen( aColour, aStroke ) );
-    aGc->SetBrush( *wxTRANSPARENT_BRUSH );
-    aGc->StrokePath( p );
-}
-
-
 /// Right-pointing arrow whose shaft starts at ( aX, aY ) and runs @a aLen to the right.
 void drawArrowGlyph( wxGraphicsContext* aGc, double aX, double aY, double aLen,
                      const wxColour& aColour, double aStroke )
@@ -1838,6 +1932,68 @@ private:
     wxString m_text;
     wxColour m_fg;
     wxColour m_bg;
+};
+
+
+// -------------------------------------------------------------------------------------
+// TRUST_LINE — the shield-and-reassurance footer the comp sets under the sign-in card
+// -------------------------------------------------------------------------------------
+
+class TRUST_LINE : public wxWindow
+{
+public:
+    TRUST_LINE( wxWindow* aParent, const wxString& aText ) :
+            wxWindow( aParent, wxID_ANY ),
+            m_text( aText )
+    {
+        SetBackgroundStyle( wxBG_STYLE_PAINT );
+
+        wxFont font = GetFont();
+        font.SetFractionalPointSize( font.GetFractionalPointSize() * 0.9 );
+        SetFont( font );
+
+        Bind( wxEVT_PAINT, &TRUST_LINE::onPaint, this );
+
+        wxClientDC dc( this );
+        dc.SetFont( GetFont() );
+        SetMinSize( wxSize( -1, std::max( dc.GetTextExtent( wxS( "Xg" ) ).y + FromDIP( 6 ),
+                                          FromDIP( 20 ) ) ) );
+    }
+
+private:
+    void onPaint( wxPaintEvent& )
+    {
+        wxAutoBufferedPaintDC dc( this );
+        const wxSize sz = GetClientSize();
+
+        dc.SetBackground( wxBrush( ANVIL::LOGIN_SURFACE ) );
+        dc.Clear();
+
+        std::unique_ptr<wxGraphicsContext> gc( wxGraphicsContext::Create( dc ) );
+
+        if( !gc )
+            return;
+
+        gc->SetAntialiasMode( wxANTIALIAS_DEFAULT );
+
+        const double px = FromDIP( 100 ) / 100.0;
+        const double glyphH = 17 * px;
+        const double glyphW = glyphH * 0.82;
+        const double gap = 9 * px;
+
+        gc->SetFont( GetFont(), ANVIL::LOGIN_MUTED );
+
+        const double textW = textWidthGC( gc.get(), m_text );
+        const double textH = lineHeightGC( gc.get() );
+        const double startX = ( sz.x - ( glyphW + gap + textW ) ) * 0.5;
+
+        drawShieldGlyph( gc.get(), startX, ( sz.y - glyphH ) * 0.5, glyphW, glyphH,
+                         ANVIL::LOGIN_MUTED, false, 1.2 * px );
+
+        gc->DrawText( m_text, startX + glyphW + gap, ( sz.y - textH ) * 0.5 );
+    }
+
+    wxString m_text;
 };
 
 } // namespace
@@ -2260,69 +2416,6 @@ private:
 
 
 // -------------------------------------------------------------------------------------
-// TRUST_LINE — shield + reassurance strapline at the foot of the card
-// -------------------------------------------------------------------------------------
-
-class TRUST_LINE : public wxWindow
-{
-public:
-    TRUST_LINE( wxWindow* aParent, const wxString& aText ) :
-            wxWindow( aParent, wxID_ANY, wxDefaultPosition, wxDefaultSize,
-                      wxFULL_REPAINT_ON_RESIZE ),
-            m_text( aText )
-    {
-        SetBackgroundStyle( wxBG_STYLE_PAINT );
-
-        wxFont font = GetFont();
-        font.SetFractionalPointSize( font.GetFractionalPointSize() * 0.88 );
-        SetFont( font );
-
-        Bind( wxEVT_PAINT, &TRUST_LINE::onPaint, this );
-
-        wxClientDC dc( this );
-        dc.SetFont( GetFont() );
-        SetMinSize( wxSize( -1, dc.GetTextExtent( wxS( "Xg" ) ).y + FromDIP( 6 ) ) );
-    }
-
-private:
-    void onPaint( wxPaintEvent& )
-    {
-        wxAutoBufferedPaintDC dc( this );
-        const wxSize sz = GetClientSize();
-
-        dc.SetBackground( wxBrush( ANVIL::LOGIN_SURFACE ) );
-        dc.Clear();
-
-        std::unique_ptr<wxGraphicsContext> gc( wxGraphicsContext::Create( dc ) );
-
-        if( !gc )
-            return;
-
-        gc->SetAntialiasMode( wxANTIALIAS_DEFAULT );
-        gc->SetFont( GetFont(), ANVIL::LOGIN_MUTED );
-
-        const double px = FromDIP( 100 ) / 100.0;
-        const double textW = textWidthGC( gc.get(), m_text );
-        const double textH = lineHeightGC( gc.get() );
-        const double glyphH = textH * 1.05;
-        const double glyphW = glyphH * 0.84;
-        const double gap = 8 * px;
-
-        double x = ( sz.x - ( glyphW + gap + textW ) ) * 0.5;
-
-        drawShieldGlyph( gc.get(), x, ( sz.y - glyphH ) * 0.5, glyphW, glyphH, ANVIL::ACCENT,
-                         false, 1.2 * px );
-        drawCheckGlyph( gc.get(), x + glyphW * 0.16, ( sz.y - glyphH ) * 0.5 + glyphH * 0.16,
-                        glyphW * 0.68, glyphH * 0.62, ANVIL::ACCENT, 1.2 * px );
-
-        gc->DrawText( m_text, x + glyphW + gap, ( sz.y - textH ) * 0.5 );
-    }
-
-    wxString m_text;
-};
-
-
-// -------------------------------------------------------------------------------------
 // CARD_PANEL — the white rounded sign-in card, with an emerald halo and a soft drop shadow,
 // floating on the light page.  All form widgets are its children and clear to LOGIN_SURFACE.
 // -------------------------------------------------------------------------------------
@@ -2330,12 +2423,15 @@ private:
 class CARD_PANEL : public wxPanel
 {
 public:
-    /// Distance from the panel edge to the card edge; the halo and shadow live in that gutter.
-    static constexpr int GUTTER = 14;
+    /// Distance from the panel edge to the card edge.  The gutter is page, not card: it is
+    /// where the drop shadow and the emerald halo fall, so the panel has to leave room for
+    /// them inside its own rectangle.
+    static constexpr int GUTTER = 20;
 
-    explicit CARD_PANEL( wxWindow* aParent ) :
+    CARD_PANEL( wxWindow* aParent, std::shared_ptr<const wxRect> aOpening ) :
             wxPanel( aParent, wxID_ANY, wxDefaultPosition, wxDefaultSize,
-                     wxTAB_TRAVERSAL | wxFULL_REPAINT_ON_RESIZE )
+                     wxTAB_TRAVERSAL | wxFULL_REPAINT_ON_RESIZE ),
+            m_opening( std::move( aOpening ) )
     {
         SetBackgroundStyle( wxBG_STYLE_PAINT );
         Bind( wxEVT_PAINT, &CARD_PANEL::onPaint, this );
@@ -2347,7 +2443,6 @@ private:
         wxAutoBufferedPaintDC dc( this );
         const wxSize  sz = GetClientSize();
         const wxPoint org = originInDialog( this );
-        const wxSize  win = dialogClientSize( this );
 
         std::unique_ptr<wxGraphicsContext> gc( wxGraphicsContext::Create( dc ) );
 
@@ -2356,40 +2451,67 @@ private:
 
         gc->SetAntialiasMode( wxANTIALIAS_DEFAULT );
 
-        // The gutter shows the page through, so it is painted from the page's own dialog-space
-        // gradient rather than a flat local fill, or it would read as a rectangle.
+        const double px = FromDIP( 100 ) / 100.0;
+
+        // This panel sits well inside the light page now, so its ground is the page's own
+        // dialog-space gradient — a flat local fill would show up as a rectangle against the
+        // sheet the form panel paints around us.
         gc->SetPen( *wxTRANSPARENT_PEN );
-        gc->SetBrush( pageGroundBrush( gc.get(), org, win ) );
+        gc->SetBrush( pageGroundBrush( gc.get(), org, *m_opening ) );
         gc->DrawRectangle( 0, 0, sz.x, sz.y );
 
-        const double px = FromDIP( 100 ) / 100.0;
-        const double gutter = GUTTER * px;
-        const double radius = 18 * px;
+        paintPageGrid( gc.get(), org, *m_opening, px );
 
-        // Emerald halo, then a neutral shadow: concentric low-alpha outlines rather than a
-        // blur, which wxGraphicsContext has no portable equivalent for.
-        for( int i = 7; i >= 1; --i )
+        const double gutter = FromDIP( GUTTER );
+        const double x = gutter;
+        const double y = gutter;
+        const double w = sz.x - 2 * gutter;
+        const double h = sz.y - 2 * gutter;
+        const double r = OPENING_RADIUS * px;
+
+        if( w <= 1.0 || h <= 1.0 )
+            return;
+
+        gc->SetBrush( *wxTRANSPARENT_BRUSH );
+
+        // Soft drop shadow: a ramp of stroked rings walking out and slightly down, densest
+        // right under the card.  Filled offset rects would be cheaper but their edges band;
+        // the ring ramp grades away the same way the pocket wall's bloom does.
+        for( int i = 10; i >= 1; --i )
         {
             const double o = i * 1.6 * px;
+            const double alpha = 20.0 * std::pow( 1.0 - i / 11.0, 1.6 );
 
-            drawRoundedBox( gc.get(), gutter - o, gutter - o, sz.x - 2 * gutter + 2 * o,
-                            sz.y - 2 * gutter + 2 * o, radius + o, wxNullColour,
-                            withAlpha( ANVIL::LOGIN_CARD_GLOW, (unsigned char) ( 26 - i * 3 ) ),
-                            1.8 * px );
+            if( alpha < 1.0 )
+                continue;
+
+            gc->SetPen( roundPen( gc.get(),
+                                  withAlpha( ANVIL::LOGIN_GRAD_TOP, (unsigned char) alpha ),
+                                  3.2 * px ) );
+            gc->DrawRoundedRectangle( x - o, y - o + o * 0.55, w + 2 * o, h + 2 * o, r + o );
         }
 
-        for( int i = 5; i >= 1; --i )
+        // The emerald halo the comp gives the card, tightest against the edge — kept faint:
+        // a suggestion of brand light, not a glow effect.
+        const int haloAlpha[3] = { 28, 14, 6 };
+
+        for( int i = 0; i < 3; ++i )
         {
-            const double o = i * 1.4 * px;
+            const double o = ( 2.0 + i * 3.0 ) * px;
 
-            drawRoundedBox( gc.get(), gutter - o, gutter - o + px * 2,
-                            sz.x - 2 * gutter + 2 * o, sz.y - 2 * gutter + 2 * o, radius + o,
-                            wxNullColour, withAlpha( ANVIL::LOGIN_GRAD_TOP, 8 ), 1.6 * px );
+            gc->SetPen( roundPen( gc.get(),
+                                  withAlpha( ANVIL::LOGIN_CARD_GLOW, haloAlpha[i] ),
+                                  3.0 * px ) );
+            gc->DrawRoundedRectangle( x - o, y - o, w + 2 * o, h + 2 * o, r + o );
         }
 
-        drawRoundedBox( gc.get(), gutter, gutter, sz.x - 2 * gutter, sz.y - 2 * gutter, radius,
-                        ANVIL::LOGIN_SURFACE, withAlpha( ANVIL::LOGIN_CARD_GLOW, 60 ), px );
+        // The card itself: white stock with its hairline edge.
+        drawRoundedBox( gc.get(), x, y, w, h, r, ANVIL::LOGIN_SURFACE, ANVIL::LOGIN_CARD_BORDER,
+                        1.2 * px );
     }
+
+private:
+    std::shared_ptr<const wxRect> m_opening;
 };
 
 
@@ -2430,12 +2552,87 @@ const PART_MARK BRAND_PARTS[] = {
 };
 
 
+/// Component silhouettes scattered over the copper, in the same normalised space as the plot.
+void paintBoardParts( wxGraphicsContext* aGc, double aW, double aH, double aPx )
+{
+    const wxColour pin = withAlpha( ANVIL::LOGIN_COMP_PIN, 125 );
+
+    for( const PART_MARK& part : BRAND_PARTS )
+    {
+        const double x = part.x * aW;
+        const double y = part.y * aH;
+        const double w = part.w * aW;
+        const double h = part.h * aH;
+
+        switch( part.kind )
+        {
+        case PART_MARK::RESISTOR:
+            drawResistorMark( aGc, x, y, w, h, ANVIL::LOGIN_COMP_BODY, pin, 1.4 * aPx, false );
+            break;
+
+        case PART_MARK::RESISTOR_V:
+            drawResistorMark( aGc, x, y, w, h, ANVIL::LOGIN_COMP_BODY, pin, 1.4 * aPx, true );
+            break;
+
+        case PART_MARK::SOIC:
+            drawSoicMark( aGc, x, y, w, h, ANVIL::LOGIN_COMP_BODY, pin, 1.4 * aPx );
+            break;
+
+        case PART_MARK::DIP:
+            drawDipMark( aGc, x, y, w, h, ANVIL::LOGIN_COMP_BODY, pin, 1.4 * aPx );
+            break;
+        }
+    }
+}
+
+
+/// The board itself — ground, copper, populated parts, the routed outline and the card's pocket
+/// milled into it — plotted across the whole window and shifted into the local space of whichever
+/// window is drawing it.
+///
+/// Both painted windows call this with their own origin and let the DC clip what falls outside.
+/// That is what makes the board one continuous plot, with the routing carrying straight across
+/// the panel boundary and up to the card, instead of two panels that happen to be the same green.
+void paintBoard( wxGraphicsContext* aGc, const wxSize& aSize, const wxPoint& aOrigin,
+                 const wxSize& aWindow, const wxRect& aOpening, double aPx )
+{
+    aGc->SetPen( *wxTRANSPARENT_PEN );
+    aGc->SetBrush( brandGroundBrush( aGc, aOrigin, aWindow ) );
+    aGc->DrawRectangle( 0, 0, aSize.x, aSize.y );
+
+    // The copper is normalised over the window, not over this panel, so the plot is drawn in
+    // dialog space and translated home rather than scaled into the local box.
+    aGc->PushState();
+    aGc->Translate( -aOrigin.x, -aOrigin.y );
+    paintBoardArtwork( aGc, aWindow.x, aWindow.y, aPx, ANVIL::LOGIN_TRACE, ANVIL::LOGIN_TRACE_HI,
+                       ANVIL::LOGIN_GRAD_TOP );
+    paintBoardParts( aGc, aWindow.x, aWindow.y, aPx );
+    aGc->PopState();
+
+    paintBoardOutline( aGc, aOrigin, aWindow, aPx );
+
+    // The pocket goes on last: it is milled after the board is fabricated, and the copper it
+    // cuts through has to be there to be cut.
+    if( !aOpening.IsEmpty() )
+    {
+        aGc->SetPen( *wxTRANSPARENT_PEN );
+        aGc->SetBrush( pageGroundBrush( aGc, aOrigin, aOpening ) );
+        aGc->FillPath( openingPath( aGc, aOrigin, aOpening, 0.0, aPx ) );
+
+        paintPageGrid( aGc, aOrigin, aOpening, aPx );
+        paintOpeningEdge( aGc, aOrigin, aOpening, aPx );
+        paintOpeningPads( aGc, aOrigin, aOpening, aPx );
+    }
+}
+
+
 class BRAND_PANEL : public wxPanel
 {
 public:
-    explicit BRAND_PANEL( wxWindow* aParent ) :
+    BRAND_PANEL( wxWindow* aParent, std::shared_ptr<const wxRect> aOpening ) :
             wxPanel( aParent, wxID_ANY, wxDefaultPosition, wxDefaultSize,
-                     wxTAB_TRAVERSAL | wxFULL_REPAINT_ON_RESIZE )
+                     wxTAB_TRAVERSAL | wxFULL_REPAINT_ON_RESIZE ),
+            m_opening( std::move( aOpening ) )
     {
         SetBackgroundStyle( wxBG_STYLE_PAINT );
         SetMinSize( aParent->FromDIP( wxSize( 520, -1 ) ) );
@@ -2453,157 +2650,100 @@ private:
         GLYPH_FN glyph;
     };
 
-    /// Component silhouettes scattered over the copper.
-    void paintParts( wxGraphicsContext* aGc, double aW, double aH, double aPx )
-    {
-        const wxColour pin = withAlpha( ANVIL::LOGIN_COMP_PIN, 190 );
-
-        for( const PART_MARK& part : BRAND_PARTS )
-        {
-            const double x = part.x * aW;
-            const double y = part.y * aH;
-            const double w = part.w * aW;
-            const double h = part.h * aH;
-
-            switch( part.kind )
-            {
-            case PART_MARK::RESISTOR:
-                drawResistorMark( aGc, x, y, w, h, ANVIL::LOGIN_COMP_BODY, pin, 1.4 * aPx,
-                                  false );
-                break;
-
-            case PART_MARK::RESISTOR_V:
-                drawResistorMark( aGc, x, y, w, h, ANVIL::LOGIN_COMP_BODY, pin, 1.4 * aPx,
-                                  true );
-                break;
-
-            case PART_MARK::SOIC:
-                drawSoicMark( aGc, x, y, w, h, ANVIL::LOGIN_COMP_BODY, pin, 1.4 * aPx );
-                break;
-
-            case PART_MARK::DIP:
-                drawDipMark( aGc, x, y, w, h, ANVIL::LOGIN_COMP_BODY, pin, 1.4 * aPx );
-                break;
-            }
-        }
-    }
-
-    /// The routed board outline: chamfered corners, following the diagonal cut on the right.
-    void paintBoardOutline( wxGraphicsContext* aGc, const wxSize& aSize, const wxPoint& aOrigin,
-                            const wxSize& aWindow, double aPx )
-    {
-        // The outline is the board's own milled edge, so it follows the stepped cut on the
-        // right rather than cutting the corner straight across it.
-        auto outline = [&]( double aInset, unsigned char aAlpha, double aWidth )
-        {
-            const double top = aInset;
-            const double bottom = aSize.y - aInset;
-
-            std::vector<wxPoint2DDouble> seam;
-            buildSeamPolyline( seam, aWindow, aOrigin.x + aInset );
-
-            std::vector<wxPoint2DDouble> pts;
-            pts.push_back( wxPoint2DDouble( aInset, top ) );
-
-            for( const wxPoint2DDouble& pt : seam )
-            {
-                pts.push_back( wxPoint2DDouble(
-                        pt.m_x, std::min( bottom, std::max( top, pt.m_y - aOrigin.y ) ) ) );
-            }
-
-            pts.push_back( wxPoint2DDouble( aInset, bottom ) );
-
-            wxGraphicsPath p = aGc->CreatePath();
-            addRoundedPolyline( p, pts, 26 * aPx, true );
-
-            aGc->SetBrush( *wxTRANSPARENT_BRUSH );
-            aGc->SetPen( wxPen( withAlpha( ANVIL::LOGIN_BOARD_EDGE, aAlpha ), aWidth ) );
-            aGc->StrokePath( p );
-        };
-
-        outline( 18 * aPx, 165, 2.2 * aPx );
-        outline( 27 * aPx, 85, 1.4 * aPx );
-        outline( 36 * aPx, 38, 1.0 * aPx );
-    }
-
-    /// Bordered product plate: "ANVIL CAD" over "EDA Design Suite".  Returns its height.
-    double paintPlate( wxGraphicsContext* aGc, double aCentreX, double aTop, double aPx )
+    /// Centered brand chip: "ANVIL CAD" over the suite line, set on a glowing rounded plate
+    /// with SOIC-style pins off both sides — the wordmark drawn as the board's hero component,
+    /// per the comp.  Returns the plate's height.
+    double paintPlate( wxGraphicsContext* aGc, double aLeft, double aWidth, double aTop,
+                       double aPx )
     {
         const wxFont base = GetFont();
 
         wxFont wordmark = base;
         wordmark.MakeBold();
-        wordmark.SetFractionalPointSize( base.GetFractionalPointSize() * 3.10 );
+        wordmark.SetFractionalPointSize( base.GetFractionalPointSize() * 2.55 );
 
         wxFont sub = base;
-        sub.SetFractionalPointSize( base.GetFractionalPointSize() * 1.72 );
+        sub.SetFractionalPointSize( base.GetFractionalPointSize() * 1.22 );
+
+        const double tracking = 5 * aPx;
 
         aGc->SetFont( wordmark, ANVIL::BONE );
-
-        const double tracking = 6 * aPx;
-        const double markW = trackedWidthGC( aGc, wxS( "ANVIL CAD" ), tracking );
         const double markH = lineHeightGC( aGc );
+        const double markW = trackedWidthGC( aGc, wxS( "ANVIL CAD" ), tracking ) - tracking;
 
-        aGc->SetFont( sub, ANVIL::ACCEL );
-        const double subW = textWidthGC( aGc, _( "EDA Design Suite" ) );
+        aGc->SetFont( sub, ANVIL::BONE );
         const double subH = lineHeightGC( aGc );
+        const double subW = textWidthGC( aGc, _( "EDA Design Suite" ) );
 
-        const double plateW = std::max( markW, subW ) + 76 * aPx;
-        const double plateH = markH + subH + 40 * aPx;
-        const double plateX = aCentreX - plateW * 0.5;
+        const double padX = 42 * aPx;
+        const double padY = 16 * aPx;
+        const double gap = 6 * aPx;
 
-        // halo, so the plate lifts off the copper behind it
-        for( int i = 4; i >= 1; --i )
+        const double plateW = std::max( markW, subW ) + padX * 2;
+        const double plateH = padY * 2 + markH + gap + subH;
+        const double plateX = aLeft + ( aWidth - plateW ) * 0.5;
+        const double radius = 12 * aPx;
+
+        // Pins go down first so the plate covers their roots.
+        constexpr int PINS = 4;
+        const double pinW = 16 * aPx;
+        const double pinH = 5 * aPx;
+
+        aGc->SetPen( *wxTRANSPARENT_PEN );
+        aGc->SetBrush( wxBrush( withAlpha( ANVIL::ACCENT, 140 ) ) );
+
+        for( int i = 0; i < PINS; ++i )
         {
-            const double o = i * 2.0 * aPx;
+            const double pinY = aTop + plateH * ( i + 1 ) / ( PINS + 1.0 ) - pinH * 0.5;
 
-            drawRoundedBox( aGc, plateX - o, aTop - o, plateW + 2 * o, plateH + 2 * o,
-                            12 * aPx + o, wxNullColour,
-                            withAlpha( ANVIL::LOGIN_BOARD_EDGE, (unsigned char) ( 30 - i * 5 ) ),
-                            2.0 * aPx );
+            aGc->DrawRoundedRectangle( plateX - pinW + 2 * aPx, pinY, pinW, pinH, pinH * 0.5 );
+            aGc->DrawRoundedRectangle( plateX + plateW - 2 * aPx, pinY, pinW, pinH,
+                                       pinH * 0.5 );
         }
 
-        drawRoundedBox( aGc, plateX, aTop, plateW, plateH, 12 * aPx,
-                        withAlpha( ANVIL::LOGIN_TILE_BG, 225 ),
-                        withAlpha( ANVIL::LOGIN_BOARD_EDGE, 150 ), 1.6 * aPx );
+        // Soft halo: fading strokes stepping outward from the plate edge, same trick as the
+        // keep-out scrim.
+        aGc->SetBrush( *wxTRANSPARENT_BRUSH );
 
-        // package-style ticks on the plate edges
-        aGc->SetPen( wxPen( withAlpha( ANVIL::ACCENT, 175 ), 2.4 * aPx ) );
+        constexpr int STEPS = 8;
+        const double reach = 18 * aPx;
 
-        for( int i = 1; i <= 4; ++i )
+        for( int i = STEPS - 1; i >= 0; --i )
         {
-            const double y = aTop + plateH * i / 5.0;
+            const double o = ( i + 0.5 ) * reach / STEPS;
+            const double alpha = 70.0 * std::pow( 1.0 - o / reach, 1.7 );
 
-            wxGraphicsPath tick = aGc->CreatePath();
-            tick.MoveToPoint( plateX - 12 * aPx, y );
-            tick.AddLineToPoint( plateX, y );
-            tick.MoveToPoint( plateX + plateW, y );
-            tick.AddLineToPoint( plateX + plateW + 12 * aPx, y );
-            aGc->StrokePath( tick );
+            if( alpha < 1.0 )
+                continue;
+
+            aGc->SetPen( roundPen( aGc, withAlpha( ANVIL::ACCENT, (unsigned char) alpha ),
+                                   3.2 * aPx ) );
+            aGc->DrawRoundedRectangle( plateX - o, aTop - o, plateW + 2 * o, plateH + 2 * o,
+                                       radius + o );
         }
+
+        drawRoundedBox( aGc, plateX, aTop, plateW, plateH, radius,
+                        withAlpha( ANVIL::LOGIN_TILE_BG, 220 ),
+                        withAlpha( ANVIL::ACCENT, 200 ), 1.4 * aPx );
 
         aGc->SetFont( wordmark, ANVIL::BONE );
-        drawTrackedGC( aGc, wxS( "ANVIL CAD" ), aCentreX - markW * 0.5, aTop + 16 * aPx,
+        drawTrackedGC( aGc, wxS( "ANVIL CAD" ), aLeft + ( aWidth - markW ) * 0.5, aTop + padY,
                        tracking );
 
-        aGc->SetFont( sub, ANVIL::ACCEL );
-        aGc->DrawText( _( "EDA Design Suite" ), aCentreX - subW * 0.5,
-                       aTop + 16 * aPx + markH + 4 * aPx );
+        aGc->SetFont( sub, withAlpha( ANVIL::BONE, 215 ) );
+        aGc->DrawText( _( "EDA Design Suite" ), aLeft + ( aWidth - subW ) * 0.5,
+                       aTop + padY + markH + gap );
 
         return plateH;
     }
 
     /// One workflow card: icon tile, title, caption, trailing arrow.
-    void paintFeature( wxGraphicsContext* aGc, const FEATURE& aFeature, double aX, double aY,
-                       double aW, double aH, double aPx )
+    void paintFeature( wxGraphicsContext* aGc, const FEATURE& aFeature, double aX,
+                       double aY, double aW, double aH, double aPx )
     {
-        wxGraphicsBrush fill =
-                aGc->CreateLinearGradientBrush( aX, aY, aX + aW, aY + aH,
-                                                withAlpha( ANVIL::LOGIN_TILE_BG, 225 ),
-                                                withAlpha( ANVIL::LOGIN_TILE_BG, 120 ) );
-
-        drawRoundedBoxBrush( aGc, aX, aY, aW, aH, 12 * aPx, fill, ANVIL::LOGIN_TILE_BORDER,
-                             1.3 * aPx );
+        // A quiet plate: one low translucent fill and a hairline, no gradient pulling the eye.
+        drawRoundedBox( aGc, aX, aY, aW, aH, 14 * aPx, withAlpha( ANVIL::LOGIN_TILE_BG, 110 ),
+                        withAlpha( ANVIL::LOGIN_TILE_BORDER, 150 ), 1.0 * aPx );
 
         // The icon tile is a landscape rounded square, near enough the full height of the
         // card: on the comp it reads as a chip footprint, not as a small badge.
@@ -2613,8 +2753,8 @@ private:
         const double tileX = aX + inset * 1.3;
 
         drawRoundedBox( aGc, tileX, aY + inset, tileW, tileH, 10 * aPx,
-                        withAlpha( ANVIL::CAP_ACTIVE, 170 ),
-                        withAlpha( ANVIL::LOGIN_BOARD_EDGE, 110 ), 1.3 * aPx );
+                        withAlpha( ANVIL::CAP_ACTIVE, 110 ),
+                        withAlpha( ANVIL::LOGIN_BOARD_EDGE, 70 ), 1.0 * aPx );
 
         aFeature.glyph( aGc, tileX + tileW * 0.22, aY + inset + tileH * 0.20, tileW * 0.56,
                         tileH * 0.60, ANVIL::ACCENT, 1.9 * aPx );
@@ -2640,11 +2780,11 @@ private:
         aGc->SetFont( title, ANVIL::ACCENT );
         aGc->DrawText( aFeature.title, textX, textY );
 
-        aGc->SetFont( caption, withAlpha( ANVIL::BONE, 195 ) );
+        aGc->SetFont( caption, withAlpha( ANVIL::BONE, 170 ) );
         aGc->DrawText( aFeature.caption, textX, textY + titleH + 6 * aPx );
 
         drawArrowGlyph( aGc, aX + aW - 44 * aPx, aY + aH * 0.5, 20 * aPx,
-                        withAlpha( ANVIL::ACCENT, 215 ), 1.8 * aPx );
+                        withAlpha( ANVIL::ACCENT, 180 ), 1.6 * aPx );
     }
 
     /**
@@ -2659,28 +2799,32 @@ private:
         const wxSize  sz = GetClientSize();
         const wxPoint org = originInDialog( this );
         const wxSize  win = dialogClientSize( this );
+        const wxRect  opening = *m_opening;
 
         if( sz.x < 1 || sz.y < 1 )
             return;
 
         // The cache is a plain 1:1 buffer in the paint DC's own units — the same thing
         // wxAutoBufferedPaintDC keeps internally — so it blits without any scaling.
-        if( !m_cache.IsOk() || m_cacheClient != sz || m_cacheOrigin != org || m_cacheWindow != win )
+        if( !m_cache.IsOk() || m_cacheClient != sz || m_cacheOrigin != org || m_cacheWindow != win
+            || m_cacheOpening != opening )
         {
             m_cache = wxBitmap( sz, 24 );
 
             wxMemoryDC memDC( m_cache );
-            renderArtwork( memDC, sz, org, win );
+            renderArtwork( memDC, sz, org, win, opening );
 
             m_cacheClient = sz;
             m_cacheOrigin = org;
             m_cacheWindow = win;
+            m_cacheOpening = opening;
         }
 
         dc.DrawBitmap( m_cache, 0, 0, false );
     }
 
-    void renderArtwork( wxMemoryDC& dc, const wxSize& sz, const wxPoint& org, const wxSize& win )
+    void renderArtwork( wxMemoryDC& dc, const wxSize& sz, const wxPoint& org, const wxSize& win,
+                        const wxRect& opening )
     {
         std::unique_ptr<wxGraphicsContext> gc( wxGraphicsContext::Create( dc ) );
 
@@ -2691,48 +2835,11 @@ private:
 
         const double px = FromDIP( 100 ) / 100.0;
 
-        // --- board ground, copper, parts -------------------------------------------------
-        gc->SetPen( *wxTRANSPARENT_PEN );
-        gc->SetBrush( brandGroundBrush( gc.get(), org, win ) );
-        gc->DrawRectangle( 0, 0, sz.x, sz.y );
-
-        paintBoardArtwork( gc.get(), sz.x, sz.y, px, ANVIL::LOGIN_TRACE, ANVIL::LOGIN_TRACE_HI,
-                           ANVIL::LOGIN_GRAD_TOP );
-        paintParts( gc.get(), sz.x, sz.y, px );
-
-        // --- the light page eats the corner along the board's cut edge --------------------
-        const double seamTop = brandSeamX( win, org.y ) - org.x;
-
-        {
-            // The seam table runs from above the top edge to below the bottom one, so the two
-            // corners that close the ring land off-panel and their fillets never show.
-            auto seamAt = [&]( double aShift, std::vector<wxPoint2DDouble>& aOut )
-            {
-                std::vector<wxPoint2DDouble> seam;
-                buildSeamPolyline( seam, win, org.x - aShift );
-
-                for( const wxPoint2DDouble& pt : seam )
-                    aOut.push_back( wxPoint2DDouble( pt.m_x, pt.m_y - org.y ) );
-            };
-
-            std::vector<wxPoint2DDouble> pts;
-            seamAt( 0.0, pts );
-
-            const double offEdge = sz.x + 200 * px;
-            pts.push_back( wxPoint2DDouble( offEdge, sz.y + 200 * px ) );
-            pts.push_back( wxPoint2DDouble( offEdge, -200 * px ) );
-
-            wxGraphicsPath wedge = gc->CreatePath();
-            addRoundedPolyline( wedge, pts, 30 * px, true );
-
-            gc->SetPen( *wxTRANSPARENT_PEN );
-            gc->SetBrush( pageGroundBrush( gc.get(), org, win ) );
-            gc->FillPath( wedge );
-
-            paintPageEdge( gc.get(), org, win, px );
-        }
-
-        paintBoardOutline( gc.get(), sz, org, win, px );
+        // --- board ground, copper, parts, outline, and the card's pocket ------------------
+        // The pocket normally lies clear of this panel (the card sits in the form panel), but on
+        // a narrow window it can reach in, and painting it from the shared rect costs nothing
+        // when it does not.
+        paintBoard( gc.get(), sz, org, win, opening, px );
 
         // --- geometry: a left gutter wide enough for the parts, then the content column ----
         const double margin = std::min( std::max( sz.x * 0.165, 40 * px ), 240 * px );
@@ -2747,27 +2854,52 @@ private:
         heading.MakeBold();
         heading.SetFractionalPointSize( base.GetFractionalPointSize() * 2.85 );
 
+        // The hero must fit the column: type running off its plate into the copper is the
+        // one collision this layout cannot allow, so the face is shrunk to the room it has.
+        const wxString heroLine = _( "A Unified Electronics Workflow." );
+
         gc->SetFont( heading, ANVIL::BONE );
+
+        if( const double heroW = textWidthGC( gc.get(), heroLine ); heroW > contentW )
+        {
+            heading.SetFractionalPointSize( heading.GetFractionalPointSize() * contentW
+                                            / heroW );
+            gc->SetFont( heading, ANVIL::BONE );
+        }
+
         const double headingH = lineHeightGC( gc.get() );
 
-        double y = sz.y * 0.055;
+        // The plate's height, measured before anything is drawn: the keep-out scrim behind
+        // the content goes down first and has to span the whole block, wordmark included.
+        wxFont wordmark = base;
+        wordmark.MakeBold();
+        wordmark.SetFractionalPointSize( base.GetFractionalPointSize() * 2.55 );
 
-        // The plate is centred over the board itself, not over the content column.
-        y += paintPlate( gc.get(), seamTop * 0.5, y, px );
+        wxFont plateSub = base;
+        plateSub.SetFractionalPointSize( base.GetFractionalPointSize() * 1.22 );
+
+        gc->SetFont( wordmark, ANVIL::BONE );
+        const double markH = lineHeightGC( gc.get() );
+
+        // Mirrors the brand chip's geometry in paintPlate: padY*2 + mark + gap + suite line.
+        gc->SetFont( plateSub, ANVIL::BONE );
+        const double plateH = 32 * px + markH + 6 * px + lineHeightGC( gc.get() );
+
+        const double topY = sz.y * 0.075;
 
         // The card stack breathes with the display: it shrinks on a short screen and grows on
         // a tall one (never the type, which stays at its designed size), and whatever room is
         // left over is split above and below so the block sits centred under the plate.
-        double cardH = 97 * px;
-        double cardGap = 6 * px;
+        double cardH = 92 * px;
+        double cardGap = 14 * px;
         double leadIn = 56 * px;
 
         auto blockHeight = [&]()
         {
-            return leadIn + 32 * px + headingH + 34 * px + 3 * ( cardH + cardGap );
+            return leadIn + 32 * px + headingH + 34 * px + 3 * cardH + 2 * cardGap;
         };
 
-        const double avail = sz.y - y - 44 * px;
+        const double avail = sz.y - ( topY + plateH ) - 44 * px;
         const double needed = blockHeight();
 
         if( needed > 0 )
@@ -2778,7 +2910,49 @@ private:
             leadIn *= k;
         }
 
-        y += leadIn + std::max( 0.0, ( avail - blockHeight() ) * 0.45 );
+        double y = topY + plateH + leadIn
+                   + std::max( 0.0, ( avail - blockHeight() ) * 0.45 );
+
+        // --- keep-out scrim --------------------------------------------------------------
+        // The content column sits in a routing keep-out: a soft dark plate laid over the
+        // copper, faded out at its edges, so no trace ever runs through the type.  The plot
+        // stays untouched in the gutters around it — that contrast is what keeps the panel a
+        // populated board with a cleared zone rather than a poster over one.
+        {
+            const double scrimX = margin - 34 * px;
+            const double scrimY = topY - 28 * px;
+            const double scrimW = contentW + 68 * px;
+            const double scrimH = y + 32 * px + headingH + 34 * px + 3 * cardH + 2 * cardGap
+                                  + 28 * px - scrimY;
+            const double reach = 26 * px;
+            constexpr int STEPS = 9;
+
+            gc->SetBrush( *wxTRANSPARENT_BRUSH );
+
+            for( int i = STEPS - 1; i >= 0; --i )
+            {
+                const double o = ( i + 0.5 ) * reach / STEPS;
+                const double alpha = 150.0 * std::pow( 1.0 - o / reach, 1.6 );
+
+                if( alpha < 1.0 )
+                    continue;
+
+                gc->SetPen( roundPen( gc.get(),
+                                      withAlpha( ANVIL::LOGIN_GRAD_TOP,
+                                                 (unsigned char) alpha ),
+                                      3.4 * px ) );
+                gc->DrawRoundedRectangle( scrimX - o, scrimY - o, scrimW + 2 * o,
+                                          scrimH + 2 * o, 22 * px + o );
+            }
+
+            gc->SetPen( *wxTRANSPARENT_PEN );
+            gc->SetBrush( wxBrush( withAlpha( ANVIL::LOGIN_GRAD_TOP, 150 ) ) );
+            gc->DrawRoundedRectangle( scrimX, scrimY, scrimW, scrimH, 22 * px );
+        }
+
+        // The brand chip sits centred over the content column, the way the comp floats it
+        // over the board.
+        paintPlate( gc.get(), margin, contentW, topY, px );
 
         // --- eyebrow ---------------------------------------------------------------------
         gc->SetFont( eyebrow, ANVIL::ACCENT );
@@ -2788,7 +2962,7 @@ private:
 
         // --- hero line -------------------------------------------------------------------
         gc->SetFont( heading, ANVIL::BONE );
-        gc->DrawText( _( "A Unified Electronics Workflow." ), margin, y );
+        gc->DrawText( heroLine, margin, y );
         y += headingH + 34 * px;
 
         // --- workflow cards --------------------------------------------------------------
@@ -2798,60 +2972,134 @@ private:
             { _( "Fabrication" ), _( "Generate precise fabrication sets." ), drawFabPlantMark }
         };
 
-        for( const FEATURE& feature : features )
+        // The three stages hang off one running net — the product's promise drawn literally:
+        // a rail down the left of the stack, a junction soldered at each card.
+        const double cardsTop = y;
+        const double railX = margin - 20 * px;
+
+        gc->SetBrush( *wxTRANSPARENT_BRUSH );
+        gc->SetPen( roundPen( gc.get(), withAlpha( ANVIL::ACCENT, 150 ), 2.0 * px ) );
+
+        wxGraphicsPath rail = gc->CreatePath();
+        rail.MoveToPoint( railX, cardsTop + cardH * 0.5 );
+        rail.AddLineToPoint( railX, cardsTop + 2 * ( cardH + cardGap ) + cardH * 0.5 );
+
+        for( int i = 0; i < 3; ++i )
         {
-            paintFeature( gc.get(), feature, margin, y, contentW, cardH, px );
+            const double midY = cardsTop + i * ( cardH + cardGap ) + cardH * 0.5;
+
+            rail.MoveToPoint( railX, midY );
+            rail.AddLineToPoint( margin, midY );
+        }
+
+        gc->StrokePath( rail );
+
+        gc->SetPen( *wxTRANSPARENT_PEN );
+        gc->SetBrush( wxBrush( withAlpha( ANVIL::ACCENT, 210 ) ) );
+
+        for( int i = 0; i < 3; ++i )
+        {
+            const double midY = cardsTop + i * ( cardH + cardGap ) + cardH * 0.5;
+
+            gc->DrawEllipse( railX - 3.5 * px, midY - 3.5 * px, 7 * px, 7 * px );
+        }
+
+        for( int i = 0; i < 3; ++i )
+        {
+            paintFeature( gc.get(), features[i], margin, y, contentW, cardH, px );
             y += cardH + cardGap;
         }
     }
 
 private:
+    std::shared_ptr<const wxRect> m_opening;
+
     wxBitmap m_cache;                       // rendered artwork for the geometry below
     wxSize   m_cacheClient = wxDefaultSize;
     wxPoint  m_cacheOrigin = wxDefaultPosition;
     wxSize   m_cacheWindow = wxDefaultSize;
+    wxRect   m_cacheOpening;
 };
 
 
 // -------------------------------------------------------------------------------------
-// FORM_PANEL — the light page the sign-in card floats on
+// FORM_PANEL — the stretch of board the sign-in card is seated in
 // -------------------------------------------------------------------------------------
 
 class FORM_PANEL : public wxPanel
 {
 public:
-    explicit FORM_PANEL( wxWindow* aParent ) :
+    FORM_PANEL( wxWindow* aParent, std::shared_ptr<const wxRect> aOpening ) :
             wxPanel( aParent, wxID_ANY, wxDefaultPosition, wxDefaultSize,
-                     wxTAB_TRAVERSAL | wxFULL_REPAINT_ON_RESIZE )
+                     wxTAB_TRAVERSAL | wxFULL_REPAINT_ON_RESIZE ),
+            m_opening( std::move( aOpening ) )
     {
         SetBackgroundStyle( wxBG_STYLE_PAINT );
         Bind( wxEVT_PAINT, &FORM_PANEL::onPaint, this );
     }
 
 private:
+    /// The fine print the comp sets along the bottom of the page, under the card.
+    void paintPageFooter( wxGraphicsContext* aGc, const wxSize& aSize, double aPx )
+    {
+        wxFont font = GetFont();
+        font.SetFractionalPointSize( font.GetFractionalPointSize() * 0.86 );
+
+        aGc->SetFont( font, withAlpha( ANVIL::LOGIN_MUTED, 190 ) );
+
+        const wxString line = _( "© 2026 Anvil CAD · Confidential & Proprietary" );
+        const double   textW = textWidthGC( aGc, line );
+        const double   textH = lineHeightGC( aGc );
+
+        aGc->DrawText( line, ( aSize.x - textW ) * 0.5, aSize.y - textH - 26 * aPx );
+    }
+
+    /// This panel carries the same copper plot as the brand panel — its own slice of it — so it
+    /// pays the same cost per repaint and earns the same bitmap cache.  See BRAND_PANEL::onPaint.
     void onPaint( wxPaintEvent& )
     {
         wxAutoBufferedPaintDC dc( this );
         const wxSize  sz = GetClientSize();
         const wxPoint org = originInDialog( this );
         const wxSize  win = dialogClientSize( this );
+        const wxRect  opening = *m_opening;
 
-        std::unique_ptr<wxGraphicsContext> gc( wxGraphicsContext::Create( dc ) );
-
-        if( !gc )
+        if( sz.x < 1 || sz.y < 1 )
             return;
 
-        gc->SetAntialiasMode( wxANTIALIAS_DEFAULT );
+        if( !m_cache.IsOk() || m_cacheClient != sz || m_cacheOrigin != org || m_cacheWindow != win
+            || m_cacheOpening != opening )
+        {
+            m_cache = wxBitmap( sz, 24 );
 
-        gc->SetPen( *wxTRANSPARENT_PEN );
-        gc->SetBrush( pageGroundBrush( gc.get(), org, win ) );
-        gc->DrawRectangle( 0, 0, sz.x, sz.y );
+            wxMemoryDC memDC( m_cache );
 
-        // The cut edge itself is off to the left of this panel, but its shadow and the single
-        // pale track reach in over the top of the page; painting them from the same equations
-        // the brand panel uses is what keeps them unbroken across the two windows.
-        paintPageEdge( gc.get(), org, win, FromDIP( 100 ) / 100.0 );
+            if( std::unique_ptr<wxGraphicsContext> gc( wxGraphicsContext::Create( memDC ) ); gc )
+            {
+                const double px = FromDIP( 100 ) / 100.0;
+
+                gc->SetAntialiasMode( wxANTIALIAS_DEFAULT );
+                paintBoard( gc.get(), sz, org, win, opening, px );
+                paintPageFooter( gc.get(), sz, px );
+            }
+
+            m_cacheClient = sz;
+            m_cacheOrigin = org;
+            m_cacheWindow = win;
+            m_cacheOpening = opening;
+        }
+
+        dc.DrawBitmap( m_cache, 0, 0, false );
     }
+
+private:
+    std::shared_ptr<const wxRect> m_opening;
+
+    wxBitmap m_cache;
+    wxSize   m_cacheClient = wxDefaultSize;
+    wxPoint  m_cacheOrigin = wxDefaultPosition;
+    wxSize   m_cacheWindow = wxDefaultSize;
+    wxRect   m_cacheOpening;
 };
 
 
@@ -2868,6 +3116,10 @@ DIALOG_ANVIL_LOGIN::DIALOG_ANVIL_LOGIN( wxWindow* aParent, wxTopLevelWindow* aCo
                              | wxRESIZE_BORDER ),
         m_coverWindow( aCoverWindow ),
         m_async( std::make_shared<ASYNC_GATE>() ),
+        m_opening( std::make_shared<wxRect>() ),
+        m_brandPanel( nullptr ),
+        m_formPanel( nullptr ),
+        m_cardPanel( nullptr ),
         m_book( nullptr ),
         m_headingLabel( nullptr ),
         m_subLabel( nullptr ),
@@ -2884,20 +3136,25 @@ DIALOG_ANVIL_LOGIN::DIALOG_ANVIL_LOGIN( wxWindow* aParent, wxTopLevelWindow* aCo
 {
     m_async->handler = this;
 
+    // Both panels paint the same board from the same dialog-space equations; the split only
+    // decides where one hands over to the other, and where the brand block gets to run to.
     wxBoxSizer* split = new wxBoxSizer( wxHORIZONTAL );
 
-    split->Add( new BRAND_PANEL( this ), 13, wxEXPAND );
+    m_brandPanel = new BRAND_PANEL( this, m_opening );
+    split->Add( m_brandPanel, 13, wxEXPAND );
 
-    FORM_PANEL* form = new FORM_PANEL( this );
-    split->Add( form, 8, wxEXPAND );
+    FORM_PANEL* form = new FORM_PANEL( this, m_opening );
+    m_formPanel = form;
+    split->Add( form, 9, wxEXPAND );
 
-    // ---- right page: the card, centred, with the legal line beneath ----------------------
+    // ---- right of the board: the card, centred in its pocket -----------------------------
     wxBoxSizer* formOuter = new wxBoxSizer( wxHORIZONTAL );
     wxBoxSizer* column = new wxBoxSizer( wxVERTICAL );
 
     column->AddStretchSpacer( 1 );
 
-    CARD_PANEL* card = new CARD_PANEL( form );
+    CARD_PANEL* card = new CARD_PANEL( form, m_opening );
+    m_cardPanel = card;
     wxBoxSizer* cardOuter = new wxBoxSizer( wxVERTICAL );
     wxBoxSizer* cardSizer = new wxBoxSizer( wxVERTICAL );
 
@@ -2949,12 +3206,11 @@ DIALOG_ANVIL_LOGIN::DIALOG_ANVIL_LOGIN( wxWindow* aParent, wxTopLevelWindow* aCo
     }
     cardSizer->Add( m_errorLabel, 0, wxEXPAND | wxTOP, FromDIP( 8 ) );
 
-    cardSizer->Add( new RULE_LABEL( card, wxEmptyString ), 0, wxEXPAND | wxTOP, FromDIP( 16 ) );
     cardSizer->Add( new TRUST_LINE( card, _( "Secure. Reliable. Engineered for teams." ) ), 0,
-                    wxEXPAND | wxTOP, FromDIP( 12 ) );
+                    wxEXPAND | wxTOP, FromDIP( 20 ) );
 
     // GUTTER of the border is the halo/shadow gutter; the rest is the card's inner padding.
-    cardOuter->Add( cardSizer, 1, wxEXPAND | wxALL, FromDIP( CARD_PANEL::GUTTER + 30 ) );
+    cardOuter->Add( cardSizer, 1, wxEXPAND | wxALL, FromDIP( CARD_PANEL::GUTTER + 36 ) );
     card->SetSizer( cardOuter );
 
     column->Add( card, 0, wxEXPAND );
@@ -2978,7 +3234,50 @@ DIALOG_ANVIL_LOGIN::DIALOG_ANVIL_LOGIN( wxWindow* aParent, wxTopLevelWindow* aCo
 
     Bind( wxEVT_TIMER, &DIALOG_ANVIL_LOGIN::onResendTick, this, m_resendTimer.GetId() );
 
+    Bind( wxEVT_SIZE,
+          [this]( wxSizeEvent& aEvent )
+          {
+              aEvent.Skip();
+
+              // The card's rect only settles once the sizers have run, which happens in the
+              // default handler this event is still on its way to.
+              CallAfter( [this]() { updateOpening(); } );
+          } );
+
+    Layout();
+    updateOpening();
+
     SetInitialFocus( m_emailCtrl );
+}
+
+
+void DIALOG_ANVIL_LOGIN::updateOpening()
+{
+    if( !m_cardPanel || !m_brandPanel || !m_formPanel )
+        return;
+
+    // The page is the whole right-hand stretch of the window, not a pocket cut to the card:
+    // it starts at the form panel's left edge and runs off the window's top, right and bottom
+    // edges.  Pushing those three walls out past the client rect keeps their corners off
+    // screen, so the one wall the board mills on screen is the vertical cut beside the brand
+    // block — the card then floats on the page it opens onto.
+    const wxSize win = GetClientSize();
+    const int    over = FromDIP( 60 );
+    const int    pageX = originInDialog( m_formPanel ).x;
+
+    wxRect opening( pageX, -over, std::max( 1, win.x - pageX + over ), win.y + 2 * over );
+
+    if( opening == *m_opening )
+        return;
+
+    *m_opening = opening;
+
+    // Both panels mill part of this edge, and the page moving is the one thing their artwork
+    // caches cannot see for themselves.  The card panel paints the page ground it floats on
+    // from the same rect, so it follows suit.
+    m_brandPanel->Refresh();
+    m_formPanel->Refresh();
+    m_cardPanel->Refresh();
 }
 
 
@@ -3053,7 +3352,6 @@ wxWindow* DIALOG_ANVIL_LOGIN::buildEmailPage( wxWindow* aParent )
                                            ANVIL_LOGIN_BUTTON::GLYPH_MAIL,
                                            [this]() { onSendOtp(); } );
     sizer->Add( m_sendButton, 0, wxEXPAND | wxTOP, FromDIP( 14 ) );
-
 
     page->SetSizer( sizer );
     return page;
@@ -3200,6 +3498,7 @@ void DIALOG_ANVIL_LOGIN::ShowOpeningState()
     m_book->SetSelection( 2 );
     clearError();
     Layout();
+    updateOpening();
     Update();       // paint it now: the caller is about to block building the main window
 }
 
@@ -3227,6 +3526,10 @@ void DIALOG_ANVIL_LOGIN::setHeader( const wxString& aTitle, const wxString& aSub
     m_subLabel->Wrap( FromDIP( 320 ) );
 
     Layout();
+
+    // Every turn of the book comes through here, and the pages are not all the same height, so
+    // this is where the pocket gets re-cut to the card's new size.
+    updateOpening();
 }
 
 
@@ -3249,8 +3552,10 @@ void DIALOG_ANVIL_LOGIN::clearError()
 
 void DIALOG_ANVIL_LOGIN::setBusy( bool aBusy )
 {
-    m_emailCtrl->Enable( !aBusy );
-    m_otpCtrl->Enable( !aBusy );
+    // SetEditable, not Enable: a disabled native EDIT is repainted by the system (black in
+    // Windows dark mode) instead of the field's own colours; read-only keeps them.
+    m_emailCtrl->SetEditable( !aBusy );
+    m_otpCtrl->SetEditable( !aBusy );
     m_sendButton->Enable( !aBusy );
     m_verifyButton->Enable( !aBusy );
     m_resendLink->Enable( !aBusy );

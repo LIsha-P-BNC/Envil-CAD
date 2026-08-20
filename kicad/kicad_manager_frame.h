@@ -391,16 +391,8 @@ protected:
     void buildPanelsMenu( ACTION_MENU* aMenu ) override;
 
     /**
-     * Append the signed-in account block to @a aMenu: an "Account" submenu naming the user
-     * and listing their email / role / project, plus the Sign Out entry.  Built fresh on
-     * every menu rebuild so it reflects whoever is signed in now.
-     */
-    void buildAccountMenu( ACTION_MENU* aMenu );
-
-    /**
-     * Append the account rows themselves (identity labels + Sign Out) directly to @a aMenu.
-     * Shared by the File > Account submenu and the title-bar account button, so the two
-     * entry points can never drift apart.
+     * Append the account rows (identity labels + Sign Out) directly to @a aMenu.  Used by
+     * the title-bar account button, the only entry point into the account block.
      */
     void fillAccountMenu( ACTION_MENU* aMenu );
 

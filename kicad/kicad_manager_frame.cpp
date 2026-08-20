@@ -1060,9 +1060,9 @@ public:
                                     [this]() { return m_frame->AiChatPanelShown(); } ),
                       0, wxEXPAND );
 
-        // Account: the signed-in user, one click from the caption instead of buried in
-        // File > Account.  Same rows as that submenu (see fillAccountMenu()), popped as a
-        // themed dropdown anchored under the button.
+        // Account: the signed-in user, one click from the caption.  The account rows
+        // (see fillAccountMenu()) pop as a themed dropdown anchored under the button; this
+        // is the only entry point, the File menu carries no account submenu.
         m_account = makeWinButton( wxUniChar( 0xE77B ), qaHover );   // MDL2 "Contact" glyph
         m_sizer->Add( m_account, 0, wxEXPAND );
         m_account->Bind( wxEVT_BUTTON,
@@ -2409,8 +2409,8 @@ void KICAD_MANAGER_FRAME::ShowOpenEditorMenu( const wxPoint& aScreenPos )
 void KICAD_MANAGER_FRAME::ShowAccountMenu( const wxRect& aButtonScreenRect )
 {
 #ifdef __WXMSW__
-    // Title-bar account dropdown: the same rows as File > Account, but flat (no nested
-    // submenu) because the button itself is already the "Account" affordance.
+    // Title-bar account dropdown: the account rows, flat (no nested submenu) because the
+    // button itself is already the "Account" affordance.
     KICAD_MANAGER_CONTROL* tool = m_toolManager->GetTool<KICAD_MANAGER_CONTROL>();
 
     ACTION_MENU* menu = new ACTION_MENU( false, tool );
