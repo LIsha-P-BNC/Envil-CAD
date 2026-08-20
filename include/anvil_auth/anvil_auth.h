@@ -102,6 +102,11 @@ public:
     /// Email of the stored session, or empty when logged out.
     static wxString GetEmail();
 
+    /// The signed-in user's JWT (bearer credential), or empty when logged out / expired.
+    /// Handed to the Claude engine as the proxy auth token so a shared install needs no
+    /// per-machine API key.
+    static wxString GetSessionToken();
+
     /// The signed-in account's details; all fields empty when logged out.
     static ANVIL_USER GetUser();
 
