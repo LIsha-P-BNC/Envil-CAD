@@ -30,10 +30,12 @@
  */
 namespace
 {
-const wxChar* KEY_API_BASE     = wxT( "ApiBase" );
-const wxChar* KEY_API_KEY      = wxT( "ApiKey" );
-const wxChar* KEY_PROJECT_ID   = wxT( "ProjectId" );
-const wxChar* KEY_SESSION_DAYS = wxT( "SessionDays" );
+const wxChar* KEY_API_BASE       = wxT( "ApiBase" );
+const wxChar* KEY_API_KEY        = wxT( "ApiKey" );
+const wxChar* KEY_PROJECT_ID     = wxT( "ProjectId" );
+const wxChar* KEY_SESSION_DAYS   = wxT( "SessionDays" );
+const wxChar* KEY_CLAUDE_API_KEY  = wxT( "ClaudeApiKey" );
+const wxChar* KEY_CLAUDE_BASE_URL = wxT( "ClaudeBaseUrl" );
 
 
 wxString readValue( const wxChar* aKey )
@@ -82,6 +84,23 @@ wxString ANVIL_AUTH_CONFIG::ApiBase()
     wxString base = readValue( KEY_API_BASE );
 
     // Normalise: bare-path endpoints in anvil_api_defs.h all start with '/'.
+    while( base.EndsWith( wxS( "/" ) ) )
+        base.RemoveLast();
+
+    return base;
+}
+
+
+wxString ANVIL_AUTH_CONFIG::ClaudeApiKey()
+{
+    return readValue( KEY_CLAUDE_API_KEY );
+}
+
+
+wxString ANVIL_AUTH_CONFIG::ClaudeBaseUrl()
+{
+    wxString base = readValue( KEY_CLAUDE_BASE_URL );
+
     while( base.EndsWith( wxS( "/" ) ) )
         base.RemoveLast();
 

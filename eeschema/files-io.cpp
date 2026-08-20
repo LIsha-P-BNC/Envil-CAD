@@ -674,11 +674,9 @@ bool SCH_EDIT_FRAME::OpenProjectFiles( const std::vector<wxString>& aFileSet, in
             // Update all symbol library links for all sheets.
             schematic.UpdateSymbolLinks( &loadReporter );
 
-            m_infoBar->RemoveAllButtons();
-            m_infoBar->AddCloseButton();
-            m_infoBar->ShowMessage( _( "This file was created by an older version of Anvil. "
-                                       "It will be converted to the new format when saved." ),
-                                    wxICON_WARNING, WX_INFOBAR::MESSAGE_TYPE::OUTDATED_SAVE );
+            // The "created by an older version" info-bar was intentionally removed so
+            // it no longer appears when opening legacy schematics. The file is still
+            // silently converted to the new format on save (OnModify() below).
 
             // Legacy schematic can have duplicate time stamps so fix that before converting
             // to the s-expression format.

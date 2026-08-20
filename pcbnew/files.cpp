@@ -875,11 +875,8 @@ bool PCB_EDIT_FRAME::OpenProjectFiles( const std::vector<wxString>& aFileSet, in
                 && loadedBoard->GetFileFormatVersionAtLoad() < SEXPR_BOARD_FILE_VERSION
                 && loadedBoard->GetGenerator().Lower() != wxT( "gerbview" ) ) )
         {
-            m_infoBar->RemoveAllButtons();
-            m_infoBar->AddCloseButton();
-            m_infoBar->ShowMessage( _( "This file was created by an older version of Anvil. "
-                                       "It will be converted to the new format when saved." ),
-                                    wxICON_WARNING, WX_INFOBAR::MESSAGE_TYPE::OUTDATED_SAVE );
+            // "created by an older version" info-bar intentionally removed; the file
+            // is still silently converted to the new format when saved.
         }
 
         // TODO(JE) library tables -- I think this functionality should be deleted

@@ -62,6 +62,16 @@ public:
     /// Optional server base URL override (no trailing slash), or empty.
     static wxString ApiBase();
 
+    /// Optional shared Anthropic API key for the AI engine (ANTHROPIC_API_KEY), or empty.
+    /// The simplest way to make a shared install's AI work with no per-machine Claude login:
+    /// one deployment key billed centrally. Set a spend cap on it in the Anthropic console.
+    static wxString ClaudeApiKey();
+
+    /// Optional base URL of the Anthropic-compatible Claude proxy (no trailing slash), or
+    /// empty. When set (and no shared key), the AI engine is pointed here (ANTHROPIC_BASE_URL)
+    /// and authenticated with the signed-in user's JWT, for per-user metering instead.
+    static wxString ClaudeBaseUrl();
+
     /// Local session lifetime (days) used when the server reports no expiry.  Default 30.
     static int SessionDays();
 

@@ -272,14 +272,8 @@ bool PL_EDITOR_FRAME::LoadDrawingSheetFile( const wxString& aFullFileName )
         wxFileName fn = aFullFileName;
         m_infoBar->Dismiss();
 
-        if( DS_DATA_MODEL::GetTheInstance().GetFileFormatVersionAtLoad() < SEXPR_WORKSHEET_FILE_VERSION )
-        {
-            m_infoBar->RemoveAllButtons();
-            m_infoBar->AddCloseButton();
-            m_infoBar->ShowMessage( _( "This file was created by an older version of Anvil. "
-                                       "It will be converted to the new format when saved." ),
-                                    wxICON_WARNING, WX_INFOBAR::MESSAGE_TYPE::OUTDATED_SAVE );
-        }
+        // "created by an older version" info-bar intentionally removed; the file
+        // is still silently converted to the new format when saved.
 
         if( fn.FileExists() && !fn.IsFileWritable() )
         {

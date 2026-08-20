@@ -18,6 +18,8 @@
 #include <wx/stdpaths.h>
 #include <wx/utils.h>           // wxGetEnv
 
+#include <anvil_auth/anvil_auth.h>
+#include <anvil_auth/anvil_auth_config.h>
 #include <paths.h>
 #include <settings/settings_manager.h>
 #include <widgets/webview_panel.h>
@@ -57,8 +59,9 @@ static const char* ANVIL_DEFAULT_PROMPT =
         "single edit_schematic_live / edit_board_live call using the ops array, then "
         "check_live to confirm.\n"
         "\n"
-        "If a live tool reports that the tool server is not running, tell the user to "
-        "click AnvilCAD MCP -> Start in the app menu.\n"
+        "The in-app chat starts its bundled local SKiDL tools automatically. Never ask "
+        "the user to click AnvilCAD MCP -> Start: that menu is only for an external MCP "
+        "client and is not required for this chat.\n"
         "\n"
         "Be concise. Answer in the user's language when it is not English.\n";
 
@@ -475,6 +478,17 @@ wxString ANVIL_AI_AGENT::resolveClaudeExe() const
     if( wxGetEnv( wxS( "ANVIL_CLAUDE_EXE" ), &v ) && !v.IsEmpty() && wxFileExists( v ) )
         return v;
 
+    // Bundled layout (like a VS Code extension's resources/native-binary): the standalone
+    // claude.exe ships beside the app, so a shared install needs no npm / Node. Checked first
+    // after the explicit override so an installed app is fully self-contained.
+    wxFileName bundled( wxFileName( wxStandardPaths::Get().GetExecutablePath() ).GetPath(),
+                        wxS( "claude.exe" ) );
+    bundled.AppendDir( wxS( "ai" ) );
+    bundled.AppendDir( wxS( "native-binary" ) );
+
+    if( bundled.FileExists() )
+        return bundled.GetFullPath();
+
     // npm global layout: %APPDATA%/npm/node_modules/@anthropic-ai/claude-code/bin/claude.exe
     wxString appdata;
 
@@ -501,6 +515,16 @@ wxString ANVIL_AI_AGENT::resolvePython() const
 
     if( wxGetEnv( wxS( "ANVIL_AI_PYTHON" ), &v ) && !v.IsEmpty() && wxFileExists( v ) )
         return v;
+
+    // Bundled standalone interpreter (skidl pre-installed) shipped beside the app, so a shared
+    // install runs circuit builds with no user-installed Python. Checked before any system one.
+    wxFileName bundledPy( wxFileName( wxStandardPaths::Get().GetExecutablePath() ).GetPath(),
+                          wxS( "python.exe" ) );
+    bundledPy.AppendDir( wxS( "ai" ) );
+    bundledPy.AppendDir( wxS( "python" ) );
+
+    if( bundledPy.FileExists() )
+        return bundledPy.GetFullPath();
 
     // Per-user CPython installs: %LOCALAPPDATA%/Programs/Python/Python3xx/python.exe.
     // Scan rather than pin a version.
@@ -597,6 +621,10 @@ wxString ANVIL_AI_AGENT::writeMcpConfig( wxString* aWhatIsMissing )
     cfg["mcpServers"]["anvil-cad"]["command"] = std::string( python.utf8_str() );
     cfg["mcpServers"]["anvil-cad"]["args"] =
             json::array( { std::string( script.utf8_str() ) } );
+    // Marks the server that the caller is the built-in chat.  The same server may be
+    // registered by a separate desktop agent, where the external MCP menu is relevant;
+    // it must never leak that setup instruction into the app's own chat.
+    cfg["mcpServers"]["anvil-cad"]["env"]["ANVIL_IN_APP_CHAT"] = "1";
 
     wxFileName fn( SETTINGS_MANAGER::GetUserSettingsPath(), wxS( "anvil_mcp.json" ) );
     wxFFile    f( fn.GetFullPath(), wxS( "wb" ) );
@@ -668,6 +696,20 @@ wxString ANVIL_AI_AGENT::writeSystemPromptFile()
                      "its own new name) and do NOT read, act on, or report the status of the "
                      "open project above as if it were the new one." );
     }
+
+    // This is appended even when the user has an older, already-seeded prompt file.  It
+    // prevents an old prompt (or a model's generic MCP recovery advice) from making the
+    // built-in chat depend on the *external* MCP menu.  The CLI starts the bundled SKiDL
+    // tool server from writeMcpConfig() for every turn; that transport is internal and
+    // requires no action from the user.
+    full << wxS( "\n\n--- BUILT-IN TOOL POLICY ---\n"
+                 "This is the Anvil CAD in-app chat. Its local SKiDL circuit tools are "
+                 "started automatically for this conversation. Do not tell the user to "
+                 "start, connect, enable, or configure AnvilCAD MCP. The AnvilCAD MCP menu "
+                 "is solely for a separate external AI client and is not a prerequisite for "
+                 "building circuits, generating projects, or editing the open design here. "
+                 "If a tool fails, report its actual error and continue with any available "
+                 "local tool; never present external MCP setup as the required fix.\n" );
 
     wxFileName outFn( cfgDir, wxS( "anvil_ai_sysprompt.tmp" ) );
     wxFFile    out( outFn.GetFullPath(), wxS( "wb" ) );
@@ -758,6 +800,55 @@ void ANVIL_AI_AGENT::runTurn( wxString aUserText )
 
     if( !m_session.IsEmpty() )
         cmd << wxS( " --resume " ) << m_session;
+
+    // Choose the AI engine's credentials. CreateProcessW below passes a nullptr environment, so
+    // the child claude inherits whatever we set here. Precedence (what a shared install needs):
+    //   1) The user's OWN Claude login wins. If they have signed in to Claude themselves (the
+    //      browser sign-in, after which claude stores its own credentials), we set NOTHING and
+    //      claude uses that — power users spend on their own subscription, nothing billed to us.
+    //   2) Otherwise fall back to the deployment's shared key (ClaudeApiKey) — one Anthropic key
+    //      for every install, billed centrally; cap its spend in the Anthropic console. An
+    //      optional Claude proxy (ClaudeBaseUrl) can meter per user via the signed-in JWT.
+    // We only test the PRESENCE of claude's own credential file; its contents are never read.
+    bool userHasOwnClaudeLogin = false;
+
+    {
+        wxString home;
+
+        if( wxGetEnv( wxS( "USERPROFILE" ), &home ) && !home.IsEmpty() )
+        {
+            wxFileName cred( home, wxS( ".credentials.json" ) );
+            cred.AppendDir( wxS( ".claude" ) );
+            userHasOwnClaudeLogin = cred.FileExists();
+        }
+    }
+
+    if( !userHasOwnClaudeLogin )
+    {
+        wxString claudeKey  = ANVIL_AUTH_CONFIG::ClaudeApiKey();
+        wxString claudeBase = ANVIL_AUTH_CONFIG::ClaudeBaseUrl();
+
+        if( !claudeBase.IsEmpty() )
+            wxSetEnv( wxS( "ANTHROPIC_BASE_URL" ), claudeBase );
+
+        if( !claudeKey.IsEmpty() )
+        {
+            // Shared deployment key; make sure no stale bearer token overrides it.
+            wxSetEnv( wxS( "ANTHROPIC_API_KEY" ), claudeKey );
+            wxUnsetEnv( wxS( "ANTHROPIC_AUTH_TOKEN" ) );
+        }
+        else if( !claudeBase.IsEmpty() )
+        {
+            // Per-user proxy: authenticate with the signed-in user's JWT as a bearer token.
+            wxString userToken = ANVIL_AUTH::GetSessionToken();
+
+            if( !userToken.IsEmpty() )
+            {
+                wxSetEnv( wxS( "ANTHROPIC_AUTH_TOKEN" ), userToken );
+                wxUnsetEnv( wxS( "ANTHROPIC_API_KEY" ) );
+            }
+        }
+    }
 
     // --- spawn: stdin = prompt file, stdout+stderr = one pipe, no console window ---
     SECURITY_ATTRIBUTES sa;

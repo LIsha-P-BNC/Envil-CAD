@@ -541,6 +541,21 @@ wxString ANVIL_AUTH::GetEmail()
 }
 
 
+wxString ANVIL_AUTH::GetSessionToken()
+{
+    // The signed-in user's JWT, used as the bearer credential for authenticated backend
+    // calls (and, when a Claude proxy is configured, handed to the AI engine so a shared
+    // install needs no per-machine API key). Empty when logged out or the session expired.
+    if( !IsLoggedIn() )
+        return wxEmptyString;
+
+    if( std::optional<SESSION> session = loadSession() )
+        return session->token;
+
+    return wxEmptyString;
+}
+
+
 ANVIL_USER ANVIL_AUTH::GetUser()
 {
     ANVIL_USER user;

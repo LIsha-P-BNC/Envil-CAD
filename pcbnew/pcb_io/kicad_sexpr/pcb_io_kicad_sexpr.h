@@ -343,12 +343,12 @@ public:
 
     const IO_BASE::IO_FILE_DESC GetLibraryFileDesc() const override
     {
-        return IO_BASE::IO_FILE_DESC( _HKI( "Anvil footprint file" ), { "anvil_mod", "kicad_mod" } );
+        return IO_BASE::IO_FILE_DESC( _HKI( "Anvil footprint file" ), { "anvil_mod" } );
     }
 
     const IO_BASE::IO_FILE_DESC GetLibraryDesc() const override
     {
-        return IO_BASE::IO_FILE_DESC( _HKI( "Anvil footprint files" ), {}, { "anvil_mod", "kicad_mod" }, false );
+        return IO_BASE::IO_FILE_DESC( _HKI( "Anvil footprint files" ), {}, { "anvil_mod" }, false );
     }
 
     void SetQueryUserCallback( std::function<bool( wxString aTitle, int aIcon, wxString aMessage,
