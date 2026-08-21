@@ -3220,7 +3220,7 @@ wxWindow* DIALOG_ANVIL_LOGIN::buildEmailPage( wxWindow* aParent )
     FIELD_BOX* fieldBox = new FIELD_BOX( page, &m_emailCtrl, wxTE_PROCESS_ENTER, true, 46 );
     sizer->Add( fieldBox, 0, wxEXPAND );
 
-    m_emailCtrl->SetHint( wxS( "name@company.com" ) );
+    m_emailCtrl->SetHint( _( "Enter your email id" ) );
     m_emailCtrl->Bind( wxEVT_TEXT_ENTER, [this]( wxCommandEvent& ) { onSendOtp(); } );
 
     // No "Sign in with" divider: with a single sign-in method the caption is noise.
