@@ -690,11 +690,16 @@ wxString ANVIL_AI_AGENT::writeSystemPromptFile()
         if( !m_boardFile.IsEmpty() )
             full << wxS( " Open board: " ) << m_boardFile << wxS( "." );
 
-        full << wxS( " Use this open project as the target ONLY when the user asks to change "
-                     "or continue THIS design. For a new circuit, a new project name, or an "
-                     "attached schematic/PDF/photo, build a SEPARATE new project (build with "
-                     "its own new name) and do NOT read, act on, or report the status of the "
-                     "open project above as if it were the new one." );
+        full << wxS( " Treat this field as passive background only. NEVER take the SUBJECT "
+                     "of a design from it. If the user asks to create / design / build "
+                     "something new, or names any part, spec, or a new project name, build a "
+                     "SEPARATE new project from the USER'S OWN WORDS ALONE, and do NOT "
+                     "mention, build around, continue, or report the status of the open "
+                     "project above. Use this open project as the target ONLY when the user "
+                     "EXPLICITLY says to change / edit / continue THIS open design. If a "
+                     "short reply (e.g. a clicked choice) is ambiguous, re-read the earlier "
+                     "conversation for the real subject; if it is still unclear, ask the "
+                     "user which design they mean — never assume the open one." );
     }
 
     // This is appended even when the user has an older, already-seeded prompt file.  It
@@ -710,6 +715,22 @@ wxString ANVIL_AI_AGENT::writeSystemPromptFile()
                  "building circuits, generating projects, or editing the open design here. "
                  "If a tool fails, report its actual error and continue with any available "
                  "local tool; never present external MCP setup as the required fix.\n" );
+
+    // Choice buttons collapse to their bare label when clicked: the app sends ONLY the
+    // label text back as the next user message (see chat.html renderBubble). A label like
+    // "Yes, build it" then arrives with no subject, and the model has been seen to refill
+    // that vacuum from the WINDOW CONTEXT (building the open project instead of the one the
+    // user actually asked for). Force every label to carry its own subject so a lone click
+    // is still an unambiguous instruction.
+    full << wxS( "\n\n--- CHOICE BUTTONS ---\n"
+                 "You may offer quick choices by ending a reply with lines of the form "
+                 "`::button:: <label>`. When the user clicks one, the app sends ONLY that "
+                 "label text back as the next message — the surrounding reply is NOT "
+                 "resent. So every label MUST be a complete, self-contained instruction "
+                 "that still makes sense on its own: name the concrete subject inside the "
+                 "label. Write `::button:: Build the 5V reverse-polarity supply now`, never "
+                 "a bare `::button:: Yes, build it`. Likewise avoid bare `Yes`, `No`, "
+                 "`Use it`, `Continue`, or `Do it` — always restate WHAT.\n" );
 
     wxFileName outFn( cfgDir, wxS( "anvil_ai_sysprompt.tmp" ) );
     wxFFile    out( outFn.GetFullPath(), wxS( "wb" ) );

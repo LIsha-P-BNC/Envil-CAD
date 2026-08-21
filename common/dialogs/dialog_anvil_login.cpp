@@ -49,7 +49,8 @@
 
 /*
  * Anvil CAD sign-in screen, drawn natively: a populated circuit-board brand panel on the left,
- * cut along a diagonal board edge, and a light page carrying the sign-in card on the right.
+ * cut along a straight vertical board edge, and a light page carrying the sign-in card on the
+ * right.
  * Every colour is an ANVIL:: theme token (anvil_theme.h) and every functional string is a
  * translatable wxString — nothing is hard-coded at the point of use.  API endpoints/fields come
  * from anvil_api_defs.h and deployment values from ANVIL_AUTH_CONFIG; neither appears here.
@@ -58,7 +59,7 @@
  * wxGraphicsContext.  wxGraphicsContext output is deferred, so gc shapes interleaved with
  * plain-wxDC text land on top of that text; the two are never mixed on the same surface.
  *
- * Seam convention: the diagonal board edge and the light page's gradient are both defined in
+ * Seam convention: the vertical board edge and the light page's gradient are both defined in
  * DIALOG coordinates, and every window that touches them (brand panel, form panel, card, status
  * bar) paints its own slice from those same equations.  That is what keeps the seams invisible —
  * a window that painted the gradient in its own local space would show up as a rectangle.
@@ -298,14 +299,14 @@ wxSize dialogClientSize( const wxWindow* aWindow )
 
 
 /// x of the cut between the dark board and the light page at height @a aY, in dialog client
-/// coordinates.  The board leans to the left as it descends, the way a routed board edge does.
-/// Both ends stay inside the brand panel's own width, so only that panel ever paints the cut.
+/// coordinates.  The cut is a straight vertical edge; the fraction below is the only knob
+/// that places it.  It stays inside the brand panel's own width, so only that panel ever
+/// paints the board side of the cut.
 double brandSeamX( const wxSize& aWindow, double aY )
 {
-    const double top = aWindow.x * 0.614;
-    const double bottom = aWindow.x * 0.487;
+    (void) aY;
 
-    return top + ( bottom - top ) * ( aY / std::max( 1.0, (double) aWindow.y ) );
+    return aWindow.x * 0.550;
 }
 
 
@@ -317,10 +318,10 @@ wxGraphicsPen roundPen( wxGraphicsContext* aGc, const wxColour& aColour, double 
 }
 
 
-/// One waypoint on the cut edge.  The cut is a single architectural slant: the light page
-/// meets the board along one unbroken diagonal, so the table only carries its two ends.  y is
-/// a fraction of the window height and dx an offset from the base diagonal as a fraction of
-/// the window width; both ends run off-screen so the slant never shows a start or a stop.
+/// One waypoint on the cut edge.  The cut is one unbroken vertical edge, so the table only
+/// carries its two ends.  y is a fraction of the window height and dx an offset from the base
+/// edge as a fraction of the window width; both ends run off-screen so the edge never shows a
+/// start or a stop.
 struct SEAM_STEP
 {
     double y;
@@ -433,8 +434,8 @@ wxGraphicsBrush pageGroundBrush( wxGraphicsContext* aGc, const wxPoint& aOrigin,
     const double runX = brandSeamX( aWindow, aWindow.y ) - brandSeamX( aWindow, 0.0 );
     const double len = std::max( 1.0, std::hypot( runX, (double) aWindow.y ) );
 
-    // Unit normal of the cut, pointing east into the page.  The cut leans west as it
-    // descends ( runX < 0 ), so this also carries the axis slightly downhill.
+    // Unit normal of the cut, pointing east into the page.  With a vertical cut runX is 0,
+    // so the axis runs straight east.
     const double nx = aWindow.y / len;
     const double ny = -runX / len;
 
@@ -2565,7 +2566,7 @@ private:
         }
     }
 
-    /// The routed board outline: chamfered corners, following the diagonal cut on the right.
+    /// The routed board outline: chamfered corners, following the vertical cut on the right.
     void paintBoardOutline( wxGraphicsContext* aGc, const wxSize& aSize, const wxPoint& aOrigin,
                             const wxSize& aWindow, double aPx )
     {
