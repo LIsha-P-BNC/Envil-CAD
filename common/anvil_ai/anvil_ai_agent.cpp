@@ -66,6 +66,61 @@ static const char* ANVIL_DEFAULT_PROMPT =
         "Be concise. Answer in the user's language when it is not English.\n";
 
 
+// ---------------------------------------------------------------------------------------
+// AI account (auth mode): "shared" = built-in API key, "own" = the user's Claude
+// account (browser sign-in), "" = auto (own login wins when present). The choice is
+// the USER'S -- persisted in <settings>/anvil_ai_auth.txt and surfaced in the chat
+// header, never silently decided for a machine that has both.
+// ---------------------------------------------------------------------------------------
+
+static wxString authModeFile()
+{
+    return wxFileName( SETTINGS_MANAGER::GetUserSettingsPath(),
+                       wxS( "anvil_ai_auth.txt" ) ).GetFullPath();
+}
+
+
+static wxString readAuthMode()
+{
+    wxFFile f( authModeFile(), wxS( "rb" ) );
+    wxString v;
+
+    if( f.IsOpened() )
+        f.ReadAll( &v, wxConvUTF8 );
+
+    v.Trim().Trim( false );
+
+    if( v == wxS( "own" ) || v == wxS( "shared" ) )
+        return v;
+
+    return wxEmptyString;                       // auto
+}
+
+
+static void writeAuthMode( const wxString& aMode )
+{
+    wxFFile f( authModeFile(), wxS( "wb" ) );
+
+    if( f.IsOpened() )
+        f.Write( aMode, wxConvUTF8 );
+}
+
+
+static bool hasOwnClaudeLogin()
+{
+    wxString home;
+
+    if( wxGetEnv( wxS( "USERPROFILE" ), &home ) && !home.IsEmpty() )
+    {
+        wxFileName cred( home, wxS( ".credentials.json" ) );
+        cred.AppendDir( wxS( ".claude" ) );
+        return cred.FileExists();
+    }
+
+    return false;
+}
+
+
 ANVIL_AI_AGENT::ANVIL_AI_AGENT( KIWAY* aKiway, wxWindow* aParent, WEBVIEW_PANEL* aPanel ) :
         m_kiway( aKiway ),
         m_parent( aParent ),
@@ -396,6 +451,56 @@ void ANVIL_AI_AGENT::onBridgeMessage( const wxString& aJson )
     else if( kind == "cancel" )
     {
         cancelTurn();
+    }
+    else if( kind == "authmode" )
+    {
+        emit( { { "kind", "authmode" },
+                { "mode", std::string( readAuthMode().utf8_str() ) },
+                { "hasLogin", hasOwnClaudeLogin() },
+                { "hasKey", !ANVIL_AUTH_CONFIG::ClaudeApiKey().IsEmpty() } } );
+    }
+    else if( kind == "setauth" )
+    {
+        wxString mode = wxString::FromUTF8( msg.value( "mode", std::string() ) );
+
+        if( mode == wxS( "own" ) || mode == wxS( "shared" ) )
+            writeAuthMode( mode );
+
+        emit( { { "kind", "authmode" },
+                { "mode", std::string( readAuthMode().utf8_str() ) },
+                { "hasLogin", hasOwnClaudeLogin() },
+                { "hasKey", !ANVIL_AUTH_CONFIG::ClaudeApiKey().IsEmpty() } } );
+    }
+    else if( kind == "claudelogin" )
+    {
+#ifdef _WIN32
+        // Open the Claude CLI in its own visible console so the user can run /login
+        // (the browser OAuth flow). The chat keeps working; once credentials exist,
+        // "own" mode uses them on the next turn.
+        wxString claudeExe = resolveClaudeExe();
+
+        std::wstring cmdLine = L"\"" + std::wstring( claudeExe.wc_str() ) + L"\"";
+        cmdLine.push_back( L'\0' );
+
+        STARTUPINFOW si;
+        ZeroMemory( &si, sizeof( si ) );
+        si.cb = sizeof( si );
+
+        PROCESS_INFORMATION pi;
+        ZeroMemory( &pi, sizeof( pi ) );
+
+        if( CreateProcessW( nullptr, &cmdLine[0], nullptr, nullptr, FALSE,
+                            CREATE_NEW_CONSOLE, nullptr, nullptr, &si, &pi ) )
+        {
+            CloseHandle( pi.hProcess );
+            CloseHandle( pi.hThread );
+        }
+        else
+        {
+            emit( { { "kind", "error" },
+                    { "text", "Could not open the Claude sign-in window." } } );
+        }
+#endif
     }
     else if( kind == "reset" )
     {
@@ -823,28 +928,41 @@ void ANVIL_AI_AGENT::runTurn( wxString aUserText )
         cmd << wxS( " --resume " ) << m_session;
 
     // Choose the AI engine's credentials. CreateProcessW below passes a nullptr environment, so
-    // the child claude inherits whatever we set here. Precedence (what a shared install needs):
-    //   1) The user's OWN Claude login wins. If they have signed in to Claude themselves (the
-    //      browser sign-in, after which claude stores its own credentials), we set NOTHING and
-    //      claude uses that — power users spend on their own subscription, nothing billed to us.
-    //   2) Otherwise fall back to the deployment's shared key (ClaudeApiKey) — one Anthropic key
-    //      for every install, billed centrally; cap its spend in the Anthropic console. An
-    //      optional Claude proxy (ClaudeBaseUrl) can meter per user via the signed-in JWT.
-    // We only test the PRESENCE of claude's own credential file; its contents are never read.
-    bool userHasOwnClaudeLogin = false;
+    // the child claude inherits whatever we set here. The USER picks the mode in the chat
+    // header ("API key" = the deployment's shared ClaudeApiKey, billed centrally; "Claude
+    // login" = their own browser-signed-in Claude account, billed to them). With no explicit
+    // choice, auto: an existing own login wins, else the shared key. We only test the
+    // PRESENCE of claude's own credential file; its contents are never read.
+    wxString authMode = readAuthMode();
+    bool     userHasOwnClaudeLogin = hasOwnClaudeLogin();
+    bool     useSharedKey;
 
+    if( authMode == wxS( "shared" ) )
     {
-        wxString home;
-
-        if( wxGetEnv( wxS( "USERPROFILE" ), &home ) && !home.IsEmpty() )
+        useSharedKey = true;
+    }
+    else if( authMode == wxS( "own" ) )
+    {
+        if( !userHasOwnClaudeLogin )
         {
-            wxFileName cred( home, wxS( ".credentials.json" ) );
-            cred.AppendDir( wxS( ".claude" ) );
-            userHasOwnClaudeLogin = cred.FileExists();
+            endTurn( "error",
+                     _( "You chose your own Claude account but are not signed in yet. Click "
+                        "the AI pill in the header, open the sign-in window, run /login, then "
+                        "ask again." ) );
+            return;
         }
+
+        useSharedKey = false;
+        // Their login must win: clear any inherited key/token that would override it.
+        wxUnsetEnv( wxS( "ANTHROPIC_API_KEY" ) );
+        wxUnsetEnv( wxS( "ANTHROPIC_AUTH_TOKEN" ) );
+    }
+    else
+    {
+        useSharedKey = !userHasOwnClaudeLogin;      // auto
     }
 
-    if( !userHasOwnClaudeLogin )
+    if( useSharedKey )
     {
         wxString claudeKey  = ANVIL_AUTH_CONFIG::ClaudeApiKey();
         wxString claudeBase = ANVIL_AUTH_CONFIG::ClaudeBaseUrl();

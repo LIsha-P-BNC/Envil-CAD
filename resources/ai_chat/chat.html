@@ -293,6 +293,30 @@
   #stopBtn.on { display: grid; }
   .hint { text-align: center; font-size: 10px; color: var(--bone-faint); margin-top: 7px; font-family: var(--mono); }
 </style>
+<style>
+  /* AI account (auth mode) pill + first-run chooser */
+  #authPill {
+    font: 500 10px/1 "IBM Plex Mono", monospace; letter-spacing: .04em;
+    color: var(--emerald); background: var(--panel-2);
+    border: 1px solid var(--emerald-line); border-radius: 999px;
+    padding: 4px 9px; cursor: pointer; white-space: nowrap; user-select: none;
+  }
+  #authPill:hover { color: var(--bone); }
+  #authBanner { display: none; }
+  #authBanner.on {
+    display: flex; flex-direction: column; gap: 8px;
+    background: var(--panel-2); border: 1px solid var(--emerald-line);
+    border-radius: 10px; padding: 10px 12px; margin: 0 0 8px 0;
+    font-size: 12px; color: var(--bone);
+  }
+  #authBanner .ab-row { display: flex; gap: 8px; flex-wrap: wrap; }
+  #authBanner button {
+    font: 500 11px/1 "Space Grotesk", sans-serif; color: var(--emerald);
+    background: transparent; border: 1px solid var(--emerald-line);
+    border-radius: 8px; padding: 7px 11px; cursor: pointer;
+  }
+  #authBanner button:hover { color: var(--bone); background: var(--panel); }
+</style>
 </head>
 <body>
 
@@ -303,6 +327,7 @@
       <div class="h-sub" id="hsub">design · edit · verify</div>
     </div>
     <div class="grow"></div>
+    <span id="authPill" title="Which Claude account powers the AI">AI: …</span>
     <div id="dot" title="status"></div>
     <button class="icon-btn" id="newBtn" title="New conversation">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14M5 12h14"/></svg>
@@ -317,15 +342,16 @@
       <h2>Anvil AI</h2>
       <p>Design a circuit, edit the open schematic or board, and run ERC / DRC — all in chat. Attach a photo or datasheet to work from.</p>
       <div class="suggests" id="suggests">
-        <div class="suggest" data-p="Design a simple 555 LED blinker and open it.">⚡ Design a 555 LED blinker</div>
-        <div class="suggest" data-p="Review the open schematic and run ERC.">✅ Review this schematic + ERC</div>
-        <div class="suggest" data-p="What parts are in the current design?">🔍 What parts are in this design?</div>
+        <div class="suggest" data-p="Design a simple 555 LED blinker and open it.">Design a 555 LED blinker</div>
+        <div class="suggest" data-p="Review the open schematic and run ERC.">Review this schematic + ERC</div>
+        <div class="suggest" data-p="What parts are in the current design?">What parts are in this design?</div>
       </div>
     </div>
     <div id="busy"><div class="spinner"></div><span id="busyTxt">working…</span></div>
   </main>
 
   <div id="composer">
+    <div id="authBanner"></div>
     <div id="mcpBanner"></div>
     <div id="tray"></div>
     <div class="input-wrap">
@@ -477,8 +503,9 @@ function setBusy(on,t){ busy.className=on?"on":""; if(t)busyTxt.textContent=t; s
 window.anvilRecv=function(s){
   let ev; try{ ev=JSON.parse(s); }catch{ return; }
   switch(ev.kind){
-    case "ready": setStatus("ok"); break;
+    case "ready": setStatus("ok"); post({kind:"authmode"}); break;
     case "pong": break;
+    case "authmode": renderAuth(ev); break;
     case "status": setBusy(true, ev.text||"working…"); break;
     case "thinking":
       if(!curThink){ const t=document.createElement("div"); t.className="think";
@@ -577,6 +604,59 @@ function autoSize(){
   inp.style.overflowY = inp.scrollHeight>220 ? "auto" : "hidden";   // scroll ONLY past 220px
 }
 inp.addEventListener("input",autoSize);
+
+/* ---------- AI account (auth mode): "API Key" vs "Claude (Chrome login)" ---------- */
+/* C++ sends {kind:"authmode", mode:""|"shared"|"own", hasLogin:bool, hasKey:bool}.
+   Empty mode = auto (login wins when present, else API key). The pill always shows
+   what will ACTUALLY be used; the banner appears only when no choice was made yet. */
+let auth={mode:"",hasLogin:false,hasKey:false};
+let authSeen=false;
+// The panel can restore BEFORE the C++ agent attaches (hello/ready race), so a
+// single request on "ready" can vanish. Poll until the first real answer lands.
+let authPoll=setInterval(()=>{ if(authSeen){ clearInterval(authPoll); return; }
+                               post({kind:"authmode"}); }, 2000);
+function authEffective(){
+  if(auth.mode==="own") return "own";
+  if(auth.mode==="shared") return "shared";
+  return auth.hasLogin ? "own" : "shared";      // auto
+}
+function renderAuth(ev){
+  authSeen=true;
+  auth={mode:ev.mode||"",hasLogin:!!ev.hasLogin,hasKey:!!ev.hasKey};
+  const pill=$("authPill");
+  pill.textContent = authEffective()==="own" ? "Claude Login" : "API Key";
+  pill.title = authEffective()==="own"
+      ? "AI engine: your Claude account login. Click to switch to the API key."
+      : "AI engine: built-in API key. Click to connect your Claude login.";
+  const b=$("authBanner");
+  if(!auth.mode){
+    b.className="on";
+    b.innerHTML='<div><b>Choose the AI engine account</b> — change any time from the header pill:</div>'
+      +'<div class="ab-row">'
+      +'<button id="abKey">Use API Key (built-in, recommended)</button>'
+      +'<button id="abOwn">Connect Claude Login</button>'
+      +'</div>';
+    $("abKey").onclick=()=>{ post({kind:"setauth",mode:"shared"}); b.className=""; b.innerHTML=""; };
+    $("abOwn").onclick=()=>{ chooseOwn(); };
+  } else { b.className=""; b.innerHTML=""; }
+}
+function chooseOwn(){
+  post({kind:"setauth",mode:"own"});
+  const b=$("authBanner");
+  if(!auth.hasLogin){
+    post({kind:"claudelogin"});
+    b.className="on";
+    b.innerHTML='<div><b>Claude sign-in window opened.</b> In that window type '
+      +'<b>/login</b> and press Enter — your browser opens to sign in. '
+      +'When done, close that window and chat here normally.</div>';
+    setTimeout(()=>{ b.className=""; b.innerHTML=""; post({kind:"authmode"}); }, 30000);
+  } else { b.className=""; b.innerHTML=""; }
+}
+$("authPill").addEventListener("click",()=>{
+  // one-click toggle between the two modes
+  if(authEffective()==="own"){ post({kind:"setauth",mode:"shared"}); }
+  else { chooseOwn(); }
+});
 
 /* ---------- boot ---------- */
 (function(){
