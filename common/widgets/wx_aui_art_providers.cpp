@@ -213,9 +213,23 @@ void WX_AUI_TOOLBAR_ART::DrawButton( wxDC& aDc, wxWindow* aWindow, const wxAuiTo
         {
             // it's important to put this code in an else statement after the
             // hover, otherwise hovers won't draw properly for checked items
-            aDc.SetPen( wxPen( m_highlightColour ) );
-            aDc.SetBrush( wxBrush( m_highlightColour.ChangeLightness( checkedLightness ) ) );
+            //
+            // Subtle "on" marker: a faint tint + a thin accent underline instead of
+            // the solid filled block.  Every ON toggle (grid, snap, display modes...)
+            // used to get the same loud fill as the active tool, so a normal toolbar
+            // read as "many tools selected at once" in every editor.  Hover / pressed
+            // keep the strong filled feedback above.
+            ( void ) checkedLightness;
+            aDc.SetPen( *wxTRANSPARENT_PEN );
+            aDc.SetBrush( wxBrush( m_highlightColour.ChangeLightness(
+                    anvilPurple ? 45 : ( isThemeDark ? 25 : 185 ) ) ) );
             aDc.DrawRectangle( aRect );
+
+            const int inset = aWindow->FromDIP( 3 );
+            const int bar   = aWindow->FromDIP( 2 );
+            aDc.SetBrush( wxBrush( m_highlightColour ) );
+            aDc.DrawRectangle( wxRect( aRect.x + inset, aRect.y + aRect.height - bar - 1,
+                                       aRect.width - 2 * inset, bar ) );
         }
     }
 
