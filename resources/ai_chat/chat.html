@@ -633,7 +633,7 @@ function renderAuth(ev){
     b.className="on";
     b.innerHTML='<div><b>Choose the AI engine account</b> — change any time from the header pill:</div>'
       +'<div class="ab-row">'
-      +'<button id="abKey">Use API Key (built-in, recommended)</button>'
+      +'<button id="abKey">Use API Key (built-in)</button>'
       +'<button id="abOwn">Connect Claude Login</button>'
       +'</div>';
     $("abKey").onclick=()=>{ post({kind:"setauth",mode:"shared"}); b.className=""; b.innerHTML=""; };
