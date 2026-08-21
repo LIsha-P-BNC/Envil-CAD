@@ -553,11 +553,19 @@ bool PCB_EDIT_FRAME::OpenProjectFiles( const std::vector<wxString>& aFileSet, in
 
     if( IsContentModified() )
     {
-        if( !HandleUnsavedChanges( this, _( "The current PCB has been modified.  Save changes?" ),
-                                   [&]() -> bool
-                                   {
-                                       return SavePcbFile( GetBoard()->GetFileName() );
-                                   } ) )
+        // Anvil: with real-file autosave the board is continuously persisted; switching
+        // files must not interrogate the user.  Flush silently, and only fall back to the
+        // classic prompt if that write fails.  NOT gated on Prj().IsReadOnly() — it can
+        // latch stale-true after a crashed session's lock handling.
+        bool silentlySaved = ADVANCED_CFG::GetCfg().m_AnvilAutoSaveRealFile
+                             && SavePcbFile( GetBoard()->GetFileName() );
+
+        if( !silentlySaved
+            && !HandleUnsavedChanges( this, _( "The current PCB has been modified.  Save changes?" ),
+                                      [&]() -> bool
+                                      {
+                                          return SavePcbFile( GetBoard()->GetFileName() );
+                                      } ) )
         {
             return false;
         }

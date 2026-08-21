@@ -2081,6 +2081,16 @@ bool PCB_EDIT_FRAME::canCloseWindow( wxCloseEvent& aEvent )
 
     if( IsContentModified() )
     {
+        // Anvil: with real-file autosave the board is continuously persisted, so closing
+        // must not interrogate the user — flush the last few seconds of edits silently.
+        // NOT gated on Prj().IsReadOnly() (it can latch stale-true after a crashed
+        // session's lock handling); SaveBoard() is the authoritative test.  Only if the
+        // write actually fails does the classic prompt appear.
+        if( ADVANCED_CFG::GetCfg().m_AnvilAutoSaveRealFile && SaveBoard() )
+        {
+            return PCB_BASE_EDIT_FRAME::canCloseWindow( aEvent );
+        }
+
         wxFileName fileName = GetBoard()->GetFileName();
         wxString msg = _( "Save changes to '%s' before closing?" );
 
@@ -4185,11 +4195,12 @@ bool PCB_EDIT_FRAME::DoAutoSave()
     // Anvil Next / Anvil: VSCode-style autosave to the REAL .kicad_pcb (not the .history
     // snapshot) so the AI backend, which reads the live board file, observes the user's manual
     // edits automatically — the Cursor way.  addToHistory=false (no snapshot) and
-    // aChangeProject=false (don't rewrite project metadata); only writes a modified, writable,
-    // named board.  A clean/unnamed/read-only board is a no-op.
+    // aChangeProject=false (don't rewrite project metadata); only writes a modified, named
+    // board.  NOT gated on Prj().IsReadOnly() — that flag can latch stale-true after a
+    // crashed session's lock handling while the file itself saves fine.
     if( ADVANCED_CFG::GetCfg().m_AnvilAutoSaveRealFile )
     {
-        if( IsContentModified() && !Prj().IsReadOnly() && !GetBoard()->GetFileName().IsEmpty() )
+        if( IsContentModified() && !GetBoard()->GetFileName().IsEmpty() )
             SavePcbFile( Prj().AbsolutePath( GetBoard()->GetFileName() ), false, false );
 
         m_autoSaveRequired = false;

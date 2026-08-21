@@ -536,8 +536,16 @@ void EDA_BASE_FRAME::onAutoSaveTimer( wxTimerEvent& aEvent )
         return;
     }
 
+    // The timer has fired, so it is no longer pending; without this reset the OnModify()
+    // arming path would never re-arm for the next edit (ProcessEvent, which used to clear
+    // it, may not run at all for a docked editor tab).
+    m_autoSavePending = false;
+
     if( !doAutoSave() )
+    {
         m_autoSaveTimer->Start( GetAutoSaveInterval() * 1000, wxTIMER_ONE_SHOT );
+        m_autoSavePending = true;
+    }
 }
 
 
@@ -2066,6 +2074,18 @@ wxString EDA_BASE_FRAME::GetRedoActionDescription() const
 void EDA_BASE_FRAME::OnModify()
 {
     m_autoSaveRequired = true;
+
+    // Anvil: with real-file autosave, arm the debounce timer directly from the modification
+    // itself.  The classic arming point (ProcessEvent) only sees frame-level events, which a
+    // docked editor tab in the single-window shell may never receive while the user works
+    // entirely on the canvas — or while an AI tool edits over the socket with no UI events
+    // at all.  Arming here makes "edit → short debounce → file on disk" unconditional.
+    if( ADVANCED_CFG::GetCfg().m_AnvilAutoSaveRealFile && m_supportsAutoSave && !m_isClosing
+        && !m_autoSavePending && GetAutoSaveInterval() > 0 )
+    {
+        m_autoSaveTimer->Start( GetAutoSaveInterval() * 1000, wxTIMER_ONE_SHOT );
+        m_autoSavePending = true;
+    }
 }
 
 

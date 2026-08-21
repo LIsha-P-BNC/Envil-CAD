@@ -25,6 +25,7 @@
  */
 
 
+#include <advanced_config.h>
 #include <confirm.h>
 #include <common.h>
 #include <connection_graph.h>
@@ -696,14 +697,9 @@ bool SCH_EDIT_FRAME::OpenProjectFiles( const std::vector<wxString>& aFileSet, in
             if( first_screen && first_screen->GetFileFormatVersionAtLoad() == 0 )
                 first_screen = schematic.GetNext();
 
-            if( first_screen && first_screen->GetFileFormatVersionAtLoad() < SEXPR_SCHEMATIC_FILE_VERSION )
-            {
-                m_infoBar->RemoveAllButtons();
-                m_infoBar->AddCloseButton();
-                m_infoBar->ShowMessage( _( "This file was created by an older version of Anvil. "
-                                           "It will be converted to the new format when saved." ),
-                                        wxICON_WARNING, WX_INFOBAR::MESSAGE_TYPE::OUTDATED_SAVE );
-            }
+            // The "created by an older version" info-bar is intentionally not shown for
+            // s-expression schematics either (same policy as the legacy branch above and as
+            // pcbnew/pagelayout): the file is still silently converted on the next save.
 
             for( SCH_SCREEN* screen = schematic.GetFirst(); screen; screen = schematic.GetNext() )
                 screen->UpdateLocalLibSymbolLinks();
@@ -1733,6 +1729,13 @@ bool SCH_EDIT_FRAME::AskToSaveChanges()
 
         if( screen->IsContentModified() )
         {
+            // Anvil: with real-file autosave the design is continuously persisted; switching
+            // files must not interrogate the user.  Flush silently, and only fall back to
+            // the classic prompt if that write fails.  NOT gated on Prj().IsReadOnly() —
+            // it can latch stale-true after a crashed session's lock handling.
+            if( ADVANCED_CFG::GetCfg().m_AnvilAutoSaveRealFile && SaveProject() )
+                continue;
+
             if( !HandleUnsavedChanges( this, _( "The current schematic has been modified.  "
                                                 "Save changes?" ),
                                        [&]() -> bool
