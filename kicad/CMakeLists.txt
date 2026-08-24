@@ -287,6 +287,35 @@ if( WIN32 AND KICAD_IPC_API )
     endif()
 endif()
 
+# ---- Bundle the FreeRouting autorouter as a first-class APP resource ----------
+# The native Route -> "Autoroute Board (FreeRouting)" command (board_editor_control.cpp)
+# runs this bundled engine, so a proper `cmake --install` / the shipped exe carries
+# FreeRouting with the application ITSELF -- independent of the AI/skidl bundle. The
+# native code (findFreeroutingJar/findJava) looks under <stock-data>/freerouting first.
+# Source defaults to the sibling skidl tools dir; override with
+#   -DANVIL_FREEROUTING_SRC=<dir>
+# if the jar + portable JRE live elsewhere.
+if( NOT ANVIL_FREEROUTING_SRC )
+    set( ANVIL_FREEROUTING_SRC "${CMAKE_SOURCE_DIR}/../skidl/tools" )
+endif()
+
+if( EXISTS "${ANVIL_FREEROUTING_SRC}/freerouting.jar" )
+    install( FILES "${ANVIL_FREEROUTING_SRC}/freerouting.jar"
+             DESTINATION "${KICAD_DATA}/freerouting"
+             COMPONENT binary )
+
+    if( EXISTS "${ANVIL_FREEROUTING_SRC}/jre" )
+        install( DIRECTORY "${ANVIL_FREEROUTING_SRC}/jre"
+                 DESTINATION "${KICAD_DATA}/freerouting"
+                 COMPONENT binary )
+    endif()
+else()
+    message( STATUS
+        "FreeRouting jar not found at ${ANVIL_FREEROUTING_SRC}; the in-app autoroute "
+        "will fall back to FREEROUTING_JAR or the AI bundle. Set ANVIL_FREEROUTING_SRC "
+        "to bundle it with the app." )
+endif()
+
 if( APPLE )
     # "install( CODE ... )" will launch its own CMake, so no variables from
     # this CMake instance are accessible... use helper to transfer

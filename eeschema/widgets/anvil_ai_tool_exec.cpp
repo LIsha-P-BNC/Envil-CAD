@@ -45,6 +45,7 @@
 #include <erc/erc_item.h>
 #include <erc/erc_settings.h>
 #include <connection_graph.h>
+#include <sch_connection.h>
 #include <sch_io/sch_io.h>
 #include <sch_io/sch_io_mgr.h>
 #include <io/io_mgr.h>
@@ -647,14 +648,24 @@ static json execSnapToGrid( SCH_EDIT_FRAME* aFrame, const json& aInput )
 /**
  * get_schematic: read-only dump of the open sheet so the model can see what is placed and
  * wire pin-to-pin. Each symbol reports its reference, value, lib_id, body position, and
- * every pin with number, name, and ABSOLUTE position in mils (transform already applied by
- * SCH_PIN::GetPosition) — which is exactly what add_wire needs to land on a pin.
+ * every pin with number, name, ABSOLUTE position in mils (transform already applied by
+ * SCH_PIN::GetPosition — exactly what add_wire needs to land on a pin) AND the NET it is
+ * connected to. A top-level "nets" map (net -> ["R1.1", ...]) gives the model the real
+ * connectivity it needs to analyse and correctly FIX ERC errors, not just pin geometry.
  */
 static json execGetSchematic( SCH_EDIT_FRAME* aFrame, const json& aInput )
 {
     bool pins = aInput.value( "include_pins", true );
 
+    SCHEMATIC& sch = aFrame->Schematic();
+
+    // Recompute connectivity so every pin can report its net. Rebuild the graph only
+    // (no cleanup) — this is a read, it must not mutate the user's wires/geometry.
+    SCH_SHEET_LIST sheets = sch.Hierarchy();
+    sch.ConnectionGraph()->Recalculate( sheets, true );
+
     json symbols = json::array();
+    json nets = json::object();   // net name -> ["R1.1", "U2.7", ...]
 
     // Report the WHOLE hierarchy: ERC covers every sheet, so a symbol the model is asked to
     // fix may live on a page other than the one currently open.
@@ -666,8 +677,10 @@ static json execGetSchematic( SCH_EDIT_FRAME* aFrame, const json& aInput )
         {
             SCH_SYMBOL* sym = static_cast<SCH_SYMBOL*>( item );
 
+            std::string ref = std::string( sym->GetRef( &path, false ).utf8_str() );
+
             json s;
-            s["reference"] = std::string( sym->GetRef( &path, false ).utf8_str() );
+            s["reference"] = ref;
             s["value"] = std::string( sym->GetValue( true, &path, false ).utf8_str() );
             s["lib_id"] = sym->GetLibId().Format().wx_str().utf8_string();
             s["sheet"] = std::string( sheetName.utf8_str() );
@@ -680,11 +693,26 @@ static json execGetSchematic( SCH_EDIT_FRAME* aFrame, const json& aInput )
 
                 for( SCH_PIN* pin : sym->GetPins( &path ) )
                 {
-                    VECTOR2I pp = pin->GetPosition();
-                    pinArr.push_back( { { "number", std::string( pin->GetNumber().utf8_str() ) },
-                                        { "name", std::string( pin->GetName().utf8_str() ) },
-                                        { "x_mils", iuToMils( pp.x ) },
-                                        { "y_mils", iuToMils( pp.y ) } } );
+                    VECTOR2I    pp = pin->GetPosition();
+                    std::string pinNum = std::string( pin->GetNumber().utf8_str() );
+
+                    std::string netName;
+
+                    if( SCH_CONNECTION* conn = pin->Connection( &path ) )
+                        netName = std::string( conn->Name().utf8_str() );
+
+                    json pinObj = { { "number", pinNum },
+                                    { "name", std::string( pin->GetName().utf8_str() ) },
+                                    { "x_mils", iuToMils( pp.x ) },
+                                    { "y_mils", iuToMils( pp.y ) } };
+
+                    if( !netName.empty() )
+                    {
+                        pinObj["net"] = netName;
+                        nets[netName].push_back( ref + "." + pinNum );
+                    }
+
+                    pinArr.push_back( pinObj );
                 }
 
                 s["pins"] = pinArr;
@@ -696,8 +724,11 @@ static json execGetSchematic( SCH_EDIT_FRAME* aFrame, const json& aInput )
 
     return { { "ok", true },
              { "count", (int) symbols.size() },
+             { "sch_file", std::string( sch.GetFileName().utf8_str() ) },
              { "symbols", symbols },
-             { "message", "Read " + std::to_string( symbols.size() ) + " symbol(s)." } };
+             { "nets", nets },
+             { "message", "Read " + std::to_string( symbols.size() ) + " symbol(s), "
+                                  + std::to_string( nets.size() ) + " net(s)." } };
 }
 
 
@@ -816,6 +847,7 @@ static json execRunErc( SCH_EDIT_FRAME* aFrame, const json& )
              { "clean", errors == 0 },
              { "error_count", errors },
              { "warning_count", warnings },
+             { "sch_file", std::string( sch->GetFileName().utf8_str() ) },
              { "violations", violations },
              { "message", summary } };
 }

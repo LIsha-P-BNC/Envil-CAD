@@ -72,6 +72,16 @@ public:
     int ImportNetlist( const TOOL_EVENT& aEvent );
     int ImportSpecctraSession( const TOOL_EVENT& aEvent );
     int ExportSpecctraDSN( const TOOL_EVENT& aEvent );
+    int AutorouteFreerouting( const TOOL_EVENT& aEvent );
+
+    /**
+     * Shared autoroute core used by BOTH the Route-menu action and the AI live
+     * bridge, so a manual autoroute and an AI-triggered one run the identical
+     * bundled FreeRouting engine. Exports DSN, runs FreeRouting (with a progress
+     * dialog), imports the SES back into @p aFrame. Returns true on success;
+     * @p aError carries the reason on failure.
+     */
+    static bool RunFreerouting( PCB_EDIT_FRAME* aFrame, wxString& aError );
     int ExportNetlist( const TOOL_EVENT& aEvent );
     int GenerateDrillFiles( const TOOL_EVENT& aEvent );
     int GeneratePosFile( const TOOL_EVENT& aEvent );

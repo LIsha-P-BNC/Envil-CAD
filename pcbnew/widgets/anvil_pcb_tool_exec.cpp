@@ -47,8 +47,10 @@
 #include <libraries/library_table.h>
 #include <widgets/progress_reporter_base.h>
 #include <tools/drc_tool.h>
+#include <tools/board_editor_control.h>
 #include <tool/tool_manager.h>
 #include <drc/drc_engine.h>
+#include <connectivity/connectivity_data.h>
 #include <wildcards_and_files_ext.h>
 
 using json = nlohmann::json;
@@ -214,6 +216,7 @@ static json execGetBoard( PCB_EDIT_FRAME* aFrame, const json& aInput )
     }
 
     return { { "ok", true },
+             { "board_file", u8( board->GetFileName() ) },
              { "footprint_count", (int) footprints.size() },
              { "track_count", trackCount },
              { "via_count", viaCount },
@@ -225,6 +228,38 @@ static json execGetBoard( PCB_EDIT_FRAME* aFrame, const json& aInput )
              { "message", "Read " + std::to_string( footprints.size() ) + " footprint(s), "
                                   + std::to_string( trackCount ) + " track(s), "
                                   + std::to_string( viaCount ) + " via(s)." } };
+}
+
+
+/**
+ * autoroute: run the SAME bundled FreeRouting engine the Route-menu "Autoroute Board"
+ * action uses, on the live board, so an AI-triggered autoroute is identical to a manual
+ * one. Blocks until routing finishes (progress dialog shown in-app), then reports the
+ * remaining unrouted count so the agent can decide whether to run DRC or re-route.
+ */
+static json execAutoroute( PCB_EDIT_FRAME* aFrame )
+{
+    wxString err;
+    bool     ok = BOARD_EDITOR_CONTROL::RunFreerouting( aFrame, err );
+
+    int unrouted = 0;
+
+    if( aFrame->GetBoard()->GetConnectivity() )
+        unrouted = (int) aFrame->GetBoard()->GetConnectivity()->GetUnconnectedCount( false );
+
+    if( ok )
+    {
+        return { { "ok", true },
+                 { "unrouted_remaining", unrouted },
+                 { "message", unrouted == 0
+                                      ? "Autoroute complete: board fully routed."
+                                      : "Autoroute complete: " + std::to_string( unrouted )
+                                                + " connection(s) still unrouted." } };
+    }
+
+    return { { "ok", false },
+             { "unrouted_remaining", unrouted },
+             { "message", u8( err ) } };
 }
 
 
@@ -315,6 +350,7 @@ static json execRunDrc( PCB_EDIT_FRAME* aFrame, const json& aInput )
              { "clean", errors == 0 },
              { "error_count", errors },
              { "warning_count", warnings },
+             { "board_file", u8( board->GetFileName() ) },
              { "violations", violations },
              { "message", summary } };
 }
@@ -823,6 +859,8 @@ std::string AnvilExecPcbTool( PCB_EDIT_FRAME* aFrame, const std::string& aReques
                 result = execSetTextVariable( aFrame, input );
             else if( tool == "capture_footprints" )
                 result = execCaptureFootprints( aFrame );
+            else if( tool == "autoroute" )
+                result = execAutoroute( aFrame );
             else
                 result = fail( "Unknown board tool: " + tool );
         }

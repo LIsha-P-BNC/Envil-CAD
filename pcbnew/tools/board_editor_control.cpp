@@ -55,6 +55,10 @@
 #include <dialog_plot.h>
 #include <dialogs/rule_editor_dialog_base.h>
 #include <dialogs/dialog_find_by_properties.h>
+#include <dialogs/dialog_freeroute.h>
+#include <connectivity/connectivity_data.h>
+#include <widgets/wx_infobar.h>
+#include <paths.h>
 #include <kiface_base.h>
 #include <kiway.h>
 #include <netlist_reader/pcb_netlist.h>
@@ -89,6 +93,9 @@
 #include <wx/filedlg.h>
 #include <wx/msgdlg.h>
 #include <wx/log.h>
+#include <wx/filename.h>
+#include <wx/dir.h>
+#include <wx/utils.h>
 
 #include <widgets/legacyfiledlg_netlist_options.h>
 
@@ -657,6 +664,241 @@ int BOARD_EDITOR_CONTROL::ExportSpecctraDSN( const TOOL_EVENT& aEvent )
     {
         m_frame->SetLastPath( LAST_PATH_SPECCTRADSN, fullFileName );
         getEditFrame<PCB_EDIT_FRAME>()->ExportSpecctraFile( fullFileName );
+    }
+
+    return 0;
+}
+
+
+namespace
+{
+/// The FreeRouting jar shipped with the app. Preference order:
+///   1. FREEROUTING_JAR env override (user's own copy);
+///   2. the app resource <stock-data>/freerouting/freerouting.jar (installed by the
+///      C++ build -- the shipping location, independent of the AI bundle);
+///   3. the legacy AI bundle <stock-data>/ai/tools/freerouting.jar (back-compat).
+/// Empty if none is found.
+wxString findFreeroutingJar()
+{
+    wxString envJar;
+
+    if( wxGetEnv( wxT( "FREEROUTING_JAR" ), &envJar ) && wxFileName::FileExists( envJar ) )
+        return envJar;
+
+    wxFileName appJar( PATHS::GetStockDataPath( false ), wxT( "freerouting.jar" ) );
+    appJar.AppendDir( wxT( "freerouting" ) );
+
+    if( appJar.FileExists() )
+        return appJar.GetFullPath();
+
+    wxFileName aiJar( PATHS::GetStockDataPath( false ), wxT( "freerouting.jar" ) );
+    aiJar.AppendDir( wxT( "ai" ) );
+    aiJar.AppendDir( wxT( "tools" ) );
+
+    if( aiJar.FileExists() )
+        return aiJar.GetFullPath();
+
+    return wxEmptyString;
+}
+
+
+/// The portable JRE root that ships with the jar, checking the app resource
+/// location first then the legacy AI bundle.
+wxString findJreRoot()
+{
+    wxFileName appJre( PATHS::GetStockDataPath( false ), wxEmptyString );
+    appJre.AppendDir( wxT( "freerouting" ) );
+    appJre.AppendDir( wxT( "jre" ) );
+
+    if( wxDir::Exists( appJre.GetPath() ) )
+        return appJre.GetPath();
+
+    wxFileName aiJre( PATHS::GetStockDataPath( false ), wxEmptyString );
+    aiJre.AppendDir( wxT( "ai" ) );
+    aiJre.AppendDir( wxT( "tools" ) );
+    aiJre.AppendDir( wxT( "jre" ) );
+
+    if( wxDir::Exists( aiJre.GetPath() ) )
+        return aiJre.GetPath();
+
+    return wxEmptyString;
+}
+
+
+/// Java to run the jar with: env JAVA_EXE, else the bundled portable JRE
+/// (<jre>/[<jdk>/]bin/java.exe), else plain "java" from PATH.
+wxString findJava()
+{
+    wxString envJava;
+
+    if( wxGetEnv( wxT( "JAVA_EXE" ), &envJava ) && wxFileName::FileExists( envJava ) )
+        return envJava;
+
+    wxString jreRoot = findJreRoot();
+
+    if( !jreRoot.IsEmpty() )
+    {
+        // Flat layout: <jre>/bin/java.exe
+        wxFileName flat( jreRoot, wxT( "java" ) );
+        flat.AppendDir( wxT( "bin" ) );
+#ifdef __WXMSW__
+        flat.SetExt( wxT( "exe" ) );
+#endif
+        if( flat.FileExists() )
+            return flat.GetFullPath();
+
+        // Nested layout: <jre>/<jdk-x.y>/bin/java.exe
+        wxDir    dir( jreRoot );
+        wxString sub;
+
+        if( dir.IsOpened() && dir.GetFirst( &sub, wxEmptyString, wxDIR_DIRS ) )
+        {
+            do
+            {
+                wxFileName java( jreRoot, wxT( "java" ) );
+                java.AppendDir( sub );
+                java.AppendDir( wxT( "bin" ) );
+#ifdef __WXMSW__
+                java.SetExt( wxT( "exe" ) );
+#endif
+                if( java.FileExists() )
+                    return java.GetFullPath();
+            } while( dir.GetNext( &sub ) );
+        }
+    }
+
+#ifdef __WXMSW__
+    return wxT( "java.exe" );   // last resort: rely on PATH
+#else
+    return wxT( "java" );
+#endif
+}
+
+
+/// Quote a path for a command line if it contains spaces.
+wxString quoteArg( const wxString& aPath )
+{
+    if( aPath.Contains( wxT( " " ) ) && !aPath.StartsWith( wxT( "\"" ) ) )
+        return wxT( "\"" ) + aPath + wxT( "\"" );
+
+    return aPath;
+}
+}
+
+
+bool BOARD_EDITOR_CONTROL::RunFreerouting( PCB_EDIT_FRAME* aFrame, wxString& aError )
+{
+    aError.Clear();
+
+    if( !aFrame )
+    {
+        aError = _( "No board editor." );
+        return false;
+    }
+
+    BOARD* board = aFrame->GetBoard();
+
+    // Nothing to do if every connection is already routed.
+    if( board->GetConnectivity()
+        && board->GetConnectivity()->GetUnconnectedCount( false ) == 0 )
+    {
+        aError = _( "The board is already fully routed." );
+        return false;
+    }
+
+    wxString jar = findFreeroutingJar();
+
+    if( jar.IsEmpty() )
+    {
+        aError = _( "The bundled FreeRouting engine (freerouting.jar) could not be located. "
+                    "Reinstall Anvil, or set the FREEROUTING_JAR environment variable." );
+        return false;
+    }
+
+    wxString java = findJava();
+
+    // Route through temp files so the project directory stays clean.
+    wxFileName dsn( wxFileName::CreateTempFileName( wxT( "anvil_fr_" ) ) );
+    dsn.SetExt( wxT( "dsn" ) );
+    wxFileName ses( dsn );
+    ses.SetExt( wxT( "ses" ) );
+
+    const wxString dsnPath = dsn.GetFullPath();
+    const wxString sesPath = ses.GetFullPath();
+
+    bool ok = false;
+
+    // 1) Export the current board to Specctra DSN (the app's own exporter).
+    if( !aFrame->ExportSpecctraFile( dsnPath ) )
+    {
+        aError = _( "Could not export the board to Specctra DSN for routing." );
+    }
+    else
+    {
+        // 2) Run FreeRouting headless. -mp routing passes, -dct 0 = no interactive dialog.
+        wxString cmd;
+        cmd << quoteArg( java ) << wxT( " -Djava.awt.headless=true -jar " ) << quoteArg( jar )
+            << wxT( " -de " ) << quoteArg( dsnPath )
+            << wxT( " -do " ) << quoteArg( sesPath )
+            << wxT( " -mp 10 -dct 0" );
+
+        DIALOG_FREEROUTE dlg( aFrame, cmd, sesPath );
+        int              result = dlg.ShowModal();
+
+        // 3) On success, fold the routed session back into the board.
+        if( result == wxID_OK && wxFileName::FileExists( sesPath ) )
+        {
+            if( aFrame->ImportSpecctraSession( sesPath ) )
+            {
+                aFrame->GetCanvas()->Refresh();
+                aFrame->OnModify();
+                ok = true;
+            }
+            else
+            {
+                aError = _( "Routed session could not be imported." );
+            }
+        }
+        else if( result == wxID_CANCEL )
+        {
+            aError = _( "Autorouting was cancelled." );
+        }
+        else
+        {
+            aError = _( "Autorouting did not complete; the board was not changed." );
+        }
+    }
+
+    // Clean up the temporary route files.
+    if( wxFileName::FileExists( dsnPath ) )
+        wxRemoveFile( dsnPath );
+
+    if( wxFileName::FileExists( sesPath ) )
+        wxRemoveFile( sesPath );
+
+    return ok;
+}
+
+
+int BOARD_EDITOR_CONTROL::AutorouteFreerouting( const TOOL_EVENT& aEvent )
+{
+    wxCHECK( m_frame, 0 );
+
+    wxString err;
+
+    if( RunFreerouting( getEditFrame<PCB_EDIT_FRAME>(), err ) )
+    {
+        m_frame->GetInfoBar()->ShowMessageFor(
+                _( "Autorouting complete. Review the result and run DRC." ),
+                6000, wxICON_INFORMATION );
+    }
+    else if( !err.IsEmpty() )
+    {
+        // "already routed" is informational, not an error.
+        if( err.StartsWith( _( "The board is already fully routed" ) ) )
+            DisplayInfoMessage( m_frame, err );
+        else
+            DisplayErrorMessage( m_frame, err );
     }
 
     return 0;
@@ -2360,6 +2602,7 @@ void BOARD_EDITOR_CONTROL::setTransitions()
     Go( &BOARD_EDITOR_CONTROL::ImportNetlist,          PCB_ACTIONS::importNetlist.MakeEvent() );
     Go( &BOARD_EDITOR_CONTROL::ImportSpecctraSession,  PCB_ACTIONS::importSpecctraSession.MakeEvent() );
     Go( &BOARD_EDITOR_CONTROL::ExportSpecctraDSN,      PCB_ACTIONS::exportSpecctraDSN.MakeEvent() );
+    Go( &BOARD_EDITOR_CONTROL::AutorouteFreerouting,   PCB_ACTIONS::autorouteFreerouting.MakeEvent() );
 
     if( ADVANCED_CFG::GetCfg().m_ShowPcbnewExportNetlist && m_frame && m_frame->GetExportNetlistAction() )
         Go( &BOARD_EDITOR_CONTROL::ExportNetlist, m_frame->GetExportNetlistAction()->MakeEvent() );

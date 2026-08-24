@@ -1287,6 +1287,14 @@ TOOL_ACTION PCB_ACTIONS::exportSpecctraDSN( TOOL_ACTION_ARGS()
         .Tooltip( _( "Export Specctra DSN routing info" ) )
         .Icon( BITMAPS::export_dsn ) );
 
+TOOL_ACTION PCB_ACTIONS::autorouteFreerouting( TOOL_ACTION_ARGS()
+        .Name( "pcbnew.EditorControl.autorouteFreerouting" )
+        .Scope( AS_GLOBAL )
+        .FriendlyName( _( "Autoroute Board (FreeRouting)..." ) )
+        .Tooltip( _( "Automatically route all unrouted connections with the bundled "
+                     "FreeRouting engine" ) )
+        .Icon( BITMAPS::add_tracks ) );
+
 TOOL_ACTION PCB_ACTIONS::generateGerbers( TOOL_ACTION_ARGS()
         .Name( "pcbnew.EditorControl.generateGerbers" )
         .Scope( AS_GLOBAL )

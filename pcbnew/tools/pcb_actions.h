@@ -441,6 +441,8 @@ public:
     static TOOL_ACTION importSpecctraSession;
     static TOOL_ACTION exportSpecctraDSN;
 
+    static TOOL_ACTION autorouteFreerouting;
+
     static TOOL_ACTION generateGerbers;
     static TOOL_ACTION generateDrillFiles;
     static TOOL_ACTION generatePosFile;

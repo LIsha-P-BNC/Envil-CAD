@@ -407,6 +407,9 @@ void PCB_EDIT_FRAME::doReCreateMenuBar()
     routeMenu->Add( PCB_ACTIONS::tuneSkew );
 
     routeMenu->AppendSeparator();
+    routeMenu->Add( PCB_ACTIONS::autorouteFreerouting );
+
+    routeMenu->AppendSeparator();
     routeMenu->Add( PCB_ACTIONS::routerSettingsDialog );
 
 
@@ -910,6 +913,9 @@ void PCB_EDIT_FRAME::buildRouteMenu( ACTION_MENU* routeMenu )
     routeMenu->Add( PCB_ACTIONS::tuneSingleTrack );
     routeMenu->Add( PCB_ACTIONS::tuneDiffPair );
     routeMenu->Add( PCB_ACTIONS::tuneSkew );
+
+    routeMenu->AppendSeparator();
+    routeMenu->Add( PCB_ACTIONS::autorouteFreerouting );
 
     routeMenu->AppendSeparator();
     routeMenu->Add( PCB_ACTIONS::routerSettingsDialog );
