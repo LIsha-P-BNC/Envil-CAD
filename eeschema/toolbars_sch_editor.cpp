@@ -246,6 +246,7 @@ std::optional<TOOLBAR_CONFIGURATION> SCH_EDIT_TOOLBAR_SETTINGS::DefaultToolbarCo
                   .AppendAction( ACTIONS::paste );
 
             config.AppendSeparator()
+                  .AppendAction( ACTIONS::zoomRedraw )
                   .AppendAction( ACTIONS::zoomInCenter )
                   .AppendAction( ACTIONS::zoomOutCenter )
                   .AppendAction( ACTIONS::zoomFitScreen )
