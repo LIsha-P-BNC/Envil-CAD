@@ -412,6 +412,13 @@ public:
     void SetVariantNames( const std::vector<wxString>& aVariantNames ) { m_variantNames = aVariantNames; }
     const std::vector<wxString>& GetVariantNames() const { return m_variantNames; }
 
+    /**
+     * True if aFieldName is a recognized alias for the Manufacturer / Manufacturer Part
+     * Number BOM columns (name matching is normalized: case and space/._-# insensitive).
+     */
+    static bool isManufacturerFieldName( const wxString& aFieldName );
+    static bool isMpnFieldName( const wxString& aFieldName );
+
 private:
     static bool cmp( const DATA_MODEL_ROW& lhGroup, const DATA_MODEL_ROW& rhGroup,
                      FIELDS_EDITOR_GRID_DATA_MODEL* dataModel, int sortCol, bool ascending );
@@ -464,10 +471,8 @@ private:
      * file name), alias fields already on the symbol, or the library description.
      * Only used when the stored value is empty; never overwrites real data.
      */
-    static bool isManufacturerFieldName( const wxString& aFieldName );
-    static bool isMpnFieldName( const wxString& aFieldName );
-    wxString    deriveManufacturer( const SCH_REFERENCE& aRef, const wxString& aVariantName );
-    wxString    deriveMpn( const SCH_REFERENCE& aRef, const wxString& aVariantName );
+    wxString deriveManufacturer( const SCH_REFERENCE& aRef, const wxString& aVariantName );
+    wxString deriveMpn( const SCH_REFERENCE& aRef, const wxString& aVariantName );
 
     void Sort();
 

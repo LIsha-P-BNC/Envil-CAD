@@ -672,6 +672,23 @@ int EESCHEMA_JOBS_HANDLER::JobExportBom( JOB* aJob )
         }
     }
 
+    // Always provide Manufacturer / MPN columns so the auto-derived values are available even
+    // in projects whose symbols don't carry those fields (any recognized alias counts).
+    bool haveMfr = false;
+    bool haveMpn = false;
+
+    for( const BOM_FIELD& modelField : dataModel.GetFieldsOrdered() )
+    {
+        haveMfr |= FIELDS_EDITOR_GRID_DATA_MODEL::isManufacturerFieldName( modelField.name );
+        haveMpn |= FIELDS_EDITOR_GRID_DATA_MODEL::isMpnFieldName( modelField.name );
+    }
+
+    if( !haveMfr )
+        dataModel.AddColumn( wxS( "Manufacturer" ), _( "Manufacturer" ), false, currentVariant );
+
+    if( !haveMpn )
+        dataModel.AddColumn( wxS( "MPN" ), wxS( "MPN" ), false, currentVariant );
+
     BOM_PRESET preset;
 
     // Load a preset if one is specified

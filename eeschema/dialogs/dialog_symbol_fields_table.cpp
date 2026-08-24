@@ -871,6 +871,25 @@ void DIALOG_SYMBOL_FIELDS_TABLE::LoadFieldNames()
         if( userFieldGroups.count( tfn.m_Name ) == 0 )
             AddField( tfn.m_Name, GetGeneratedFieldDisplayName( tfn.m_Name ), false, false );
     }
+
+    // Always provide Manufacturer / MPN columns so the auto-derived values are visible even
+    // in projects whose symbols don't carry those fields (any recognized alias counts).
+    bool haveMfr = false;
+    bool haveMpn = false;
+
+    for( int row = 0; row < m_viewControlsDataModel->GetNumberRows(); row++ )
+    {
+        wxString name = m_viewControlsDataModel->GetCanonicalFieldName( row );
+
+        haveMfr |= FIELDS_EDITOR_GRID_DATA_MODEL::isManufacturerFieldName( name );
+        haveMpn |= FIELDS_EDITOR_GRID_DATA_MODEL::isMpnFieldName( name );
+    }
+
+    if( !haveMfr )
+        AddField( wxS( "Manufacturer" ), _( "Manufacturer" ), true, false );
+
+    if( !haveMpn )
+        AddField( wxS( "MPN" ), _( "MPN" ), true, false );
 }
 
 
