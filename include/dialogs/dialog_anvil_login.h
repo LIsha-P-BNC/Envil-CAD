@@ -33,6 +33,7 @@ class wxSimplebook;
 class wxStaticText;
 class wxTextCtrl;
 class wxTopLevelWindow;
+class ANVIL_LOADING_TRACK;
 class ANVIL_LOGIN_BUTTON;
 
 
@@ -74,8 +75,27 @@ public:
      * Call this after ShowModal() returns wxID_OK and keep the dialog on screen while the
      * main window is built: destroying it first leaves the desktop bare for as long as
      * startup takes, which reads as the app having restarted.
+     *
+     * Call it only once the dialog is back on screen (Show( true )).  A repaint asked for
+     * while the window is hidden is dropped, and the caller then blocks for seconds building
+     * the main window with no event loop left to service a later one — which is what leaves
+     * an unpainted, garbage-filled cover standing for the whole of startup.
      */
     void ShowOpeningState();
+
+    /**
+     * Move the loading rail on the "opening your workspace" page to @a aFraction (0..1) and,
+     * when given, re-caption it with the step now under way.
+     *
+     * Startup owns the UI thread in multi-second blocks, so nothing driven by a timer can be
+     * relied on to keep moving: the rail is advanced from the outside instead, as each real
+     * step clears, and every call paints synchronously (pumping whatever else is waiting to
+     * be drawn) before returning.  The bar therefore stands still exactly as long as the step
+     * it names actually takes.
+     *
+     * A no-op unless the opening page is up, so callers need not track that themselves.
+     */
+    void SetOpeningProgress( double aFraction, const wxString& aStep = wxEmptyString );
 
     /**
      * Re-assert the maximized startup geometry after DIALOG_SHIM has applied whatever size
@@ -176,6 +196,9 @@ private:
     wxStaticText*       m_changeEmailLink;
 
     wxStaticText*       m_errorLabel;
+
+    // opening ("we are letting you in") page
+    ANVIL_LOADING_TRACK* m_loadingTrack;
 
     wxString            m_email;            // email the OTP was sent to
     wxTimer             m_resendTimer;

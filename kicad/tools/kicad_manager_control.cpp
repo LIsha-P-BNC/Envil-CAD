@@ -751,8 +751,14 @@ int KICAD_MANAGER_CONTROL::SignOut( const TOOL_EVENT& aEvent )
         // ShowModal() hid the gate; bring it straight back as a plain window so it keeps
         // covering the screen — showing "opening your workspace" — while the workspace comes
         // back up behind it.
+        //
+        // Show first, paint second.  A repaint asked for while the window is hidden is thrown
+        // away, and everything after this point holds the UI thread, so the cover would stand
+        // there never having been drawn at all: a black page carrying whatever the desktop had
+        // under it.  ShowOpeningState() turns it to the loading page and paints it for real.
         loginDlg.Show( true );
         loginDlg.Raise();
+        loginDlg.ShowOpeningState();
     }
 
     // Whatever happens next the frame has to come back: on success it is the workspace again,
@@ -765,7 +771,15 @@ int KICAD_MANAGER_CONTROL::SignOut( const TOOL_EVENT& aEvent )
         return 0;
     }
 
+    // Showing the frame put it in front of the cover; the cover owns the screen until the
+    // workspace is actually ready, so take the front back before carrying on.
+    loginDlg.Raise();
+    loginDlg.SetOpeningProgress( 0.55, _( "Restoring your workspace…" ) );
+
     m_frame->ReCreateMenuBar();   // the account block names the newly signed-in user
+
+    loginDlg.SetOpeningProgress( 0.95, _( "Almost ready…" ) );
+
     m_frame->Raise();
 
     // Workspace is up: retire the cover.  (The dialog itself dies at the end of this scope.)

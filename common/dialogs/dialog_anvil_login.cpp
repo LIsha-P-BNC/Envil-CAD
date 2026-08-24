@@ -2073,6 +2073,97 @@ private:
 };
 
 
+// -----------------------------------------------------------------------------------------
+// ANVIL_LOADING_TRACK — the progress rail on the "opening your workspace" page.
+//
+// One window draws both the caption and the rail so that advancing either never re-runs a
+// sizer: a wxStaticText whose label grows would resize the card, move the routed opening the
+// board is milled around, and force the whole dialog to redraw for every step.  Fixed height,
+// repaint only.
+//
+// It is advanced from outside (DIALOG_ANVIL_LOGIN::SetOpeningProgress), not by a timer, because
+// the thread that would run the timer is the one building the main window.  See that method.
+// -----------------------------------------------------------------------------------------
+
+class ANVIL_LOADING_TRACK : public wxWindow
+{
+public:
+    ANVIL_LOADING_TRACK( wxWindow* aParent ) :
+            wxWindow( aParent, wxID_ANY, wxDefaultPosition, wxDefaultSize,
+                      wxFULL_REPAINT_ON_RESIZE ),
+            m_fraction( 0.0 )
+    {
+        SetBackgroundStyle( wxBG_STYLE_PAINT );
+
+        wxFont font = GetFont();
+        font.SetFractionalPointSize( font.GetFractionalPointSize() * 0.92 );
+        SetFont( font );
+
+        wxClientDC dc( this );
+        dc.SetFont( GetFont() );
+        m_captionH = dc.GetTextExtent( wxS( "Xg" ) ).y;
+
+        SetMinSize( wxSize( -1, m_captionH + FromDIP( 10 ) + FromDIP( 6 ) ) );
+
+        Bind( wxEVT_PAINT, &ANVIL_LOADING_TRACK::onPaint, this );
+    }
+
+    /// The rail never runs backwards: a step reporting less than the one before it would read
+    /// as the app losing ground.  An empty caption leaves the current one standing.
+    void SetProgress( double aFraction, const wxString& aCaption )
+    {
+        m_fraction = std::min( 1.0, std::max( m_fraction, aFraction ) );
+
+        if( !aCaption.IsEmpty() )
+            m_caption = aCaption;
+    }
+
+private:
+    void onPaint( wxPaintEvent& )
+    {
+        wxAutoBufferedPaintDC dc( this );
+        dc.SetBackground( wxBrush( ANVIL::LOGIN_SURFACE ) );
+        dc.Clear();
+
+        const wxSize sz = GetClientSize();
+
+        dc.SetFont( GetFont() );
+        dc.SetTextForeground( ANVIL::LOGIN_MUTED );
+        dc.DrawText( m_caption, 0, 0 );
+
+        // Shapes go through a graphics context so the rail's ends are round and antialiased;
+        // the caption above is plain wxDC text, and the two never overlap (see the painting
+        // convention at the top of this file).
+        std::unique_ptr<wxGraphicsContext> gc( wxGraphicsContext::Create( dc ) );
+
+        if( !gc )
+            return;
+
+        gc->SetAntialiasMode( wxANTIALIAS_DEFAULT );
+        gc->SetPen( *wxTRANSPARENT_PEN );
+
+        const double h = FromDIP( 6 );
+        const double y = sz.y - h;
+        const double r = h * 0.5;
+
+        gc->SetBrush( wxBrush( ANVIL::LOGIN_FIELD_BORDER ) );
+        gc->DrawRoundedRectangle( 0, y, sz.x, h, r );
+
+        // Below one rail-height the rounded rect degenerates, so the fill starts at a stub
+        // rather than at nothing: even the first step shows the bar has begun.
+        if( m_fraction > 0.0 )
+        {
+            gc->SetBrush( wxBrush( ANVIL::ACCENT ) );
+            gc->DrawRoundedRectangle( 0, y, std::max( sz.x * m_fraction, h ), h, r );
+        }
+    }
+
+    wxString m_caption;
+    double   m_fraction;
+    int      m_captionH;
+};
+
+
 namespace
 {
 
@@ -3055,6 +3146,7 @@ DIALOG_ANVIL_LOGIN::DIALOG_ANVIL_LOGIN( wxWindow* aParent, wxTopLevelWindow* aCo
         m_resendLink( nullptr ),
         m_changeEmailLink( nullptr ),
         m_errorLabel( nullptr ),
+        m_loadingTrack( nullptr ),
         m_resendTimer( this ),
         m_resendRemaining( 0 ),
         m_busy( false )
@@ -3299,6 +3391,11 @@ wxWindow* DIALOG_ANVIL_LOGIN::buildOpeningPage( wxWindow* aParent )
                                    ANVIL::LOGIN_SURFACE ),
                 0, wxBOTTOM, FromDIP( 8 ) );
 
+    // Startup is long enough that a page saying only "signed in" reads as a hang.  The rail
+    // names the step under way and how far in we are; SetOpeningProgress() drives it.
+    m_loadingTrack = new ANVIL_LOADING_TRACK( page );
+    sizer->Add( m_loadingTrack, 0, wxEXPAND | wxTOP, FromDIP( 6 ) );
+
     page->SetSizer( sizer );
     return page;
 }
@@ -3376,7 +3473,28 @@ void DIALOG_ANVIL_LOGIN::ShowOpeningState()
     m_book->SetSelection( 2 );
     clearError();
     Layout();
-    Update();       // paint it now: the caller is about to block building the main window
+
+    // Paint it now, whole: the caller is about to block building the main window, and the
+    // window has just been resized to its maximized geometry, so most of what is on screen
+    // has never been drawn at all.
+    Refresh();
+    SetOpeningProgress( 0.05, _( "Preparing your workspace…" ) );
+}
+
+
+void DIALOG_ANVIL_LOGIN::SetOpeningProgress( double aFraction, const wxString& aStep )
+{
+    if( !m_loadingTrack || !IsShown() || m_book->GetSelection() != 2 )
+        return;
+
+    m_loadingTrack->SetProgress( aFraction, aStep );
+    m_loadingTrack->Refresh();
+
+    // Nothing is going to service these paints for us: the caller holds the UI thread for the
+    // whole of the step it just announced.  Flush the queue by hand — the rail we dirtied plus
+    // anything else still carrying an unpainted region — with input to other windows suspended,
+    // so a stray click cannot reach the half-built workspace behind us.
+    wxSafeYield( this, true );
 }
 
 

@@ -28,8 +28,11 @@
             s_wsaInitialized = true;
         }
     }
+    using SOCKET_T = SOCKET;
 #else
     #include <arpa/inet.h>
+    #include <errno.h>
+    #include <fcntl.h>
     #include <netinet/in.h>
     #include <sys/socket.h>
     #include <unistd.h>
@@ -38,10 +41,109 @@
     #define CLOSE_SOCKET( s ) close( s )
 
     static void ensureWSA() {}
+
+    using SOCKET_T = int;
 #endif
 
 
 static const wxChar TraceAiIpc[] = wxT( "AI_IPC" );
+
+/// How long openSocket() will wait for the loopback backend to accept.  The connect runs on
+/// the UI thread, so this is also the worst-case stall a failed retry can cost — and three
+/// frames (manager, schematic, board) each poll on their own timer, so it is paid up to
+/// three times per round.  A loopback handshake is completed by the kernel the moment a
+/// listener exists, independently of how busy the backend is, so this only has to cover
+/// scheduling jitter; a closed port normally fails instantly and never reaches the deadline
+/// at all.  It exists for ports that silently DROP the SYN (Windows' reserved/excluded port
+/// ranges do this), where the OS would otherwise run its full ~2 s retry schedule.
+static constexpr int kConnectTimeoutMs = 50;
+
+
+/// Set/clear non-blocking mode on a socket, portably.
+static bool setNonBlocking( SOCKET_T aSocket, bool aNonBlocking )
+{
+#ifdef _WIN32
+    u_long mode = aNonBlocking ? 1 : 0;
+    return ioctlsocket( aSocket, FIONBIO, &mode ) == 0;
+#else
+    int flags = fcntl( aSocket, F_GETFL, 0 );
+
+    if( flags < 0 )
+        return false;
+
+    flags = aNonBlocking ? ( flags | O_NONBLOCK ) : ( flags & ~O_NONBLOCK );
+
+    return fcntl( aSocket, F_SETFL, flags ) == 0;
+#endif
+}
+
+
+/// connect() with a hard deadline.  Leaves the socket blocking again on success, so the
+/// receive thread's recv() loop is unchanged.
+static bool connectWithTimeout( SOCKET_T aSocket, const struct sockaddr_in& aAddr,
+                                int aTimeoutMs )
+{
+    if( !setNonBlocking( aSocket, true ) )
+    {
+        // Can't arm the deadline; a blocking connect is still better than no connection.
+        return connect( aSocket, (const struct sockaddr*) &aAddr, sizeof( aAddr ) ) == 0;
+    }
+
+    bool connected = false;
+
+    if( connect( aSocket, (const struct sockaddr*) &aAddr, sizeof( aAddr ) ) == 0 )
+    {
+        connected = true;   // loopback usually completes immediately
+    }
+    else
+    {
+#ifdef _WIN32
+        const bool inProgress = WSAGetLastError() == WSAEWOULDBLOCK;
+#else
+        const bool inProgress = errno == EINPROGRESS || errno == EWOULDBLOCK;
+#endif
+
+        if( inProgress )
+        {
+            fd_set writeSet;
+            fd_set errorSet;
+            FD_ZERO( &writeSet );
+            FD_ZERO( &errorSet );
+            FD_SET( aSocket, &writeSet );
+            FD_SET( aSocket, &errorSet );
+
+            struct timeval tv;
+            tv.tv_sec  = aTimeoutMs / 1000;
+            tv.tv_usec = ( aTimeoutMs % 1000 ) * 1000;
+
+            const int nfds = static_cast<int>( aSocket ) + 1;   // ignored on Windows
+
+            if( select( nfds, nullptr, &writeSet, &errorSet, &tv ) > 0
+                && FD_ISSET( aSocket, &writeSet ) )
+            {
+                // Writable can still mean "connect failed" — ask for the real result.
+                int err = 0;
+#ifdef _WIN32
+                int       len = sizeof( err );
+#else
+                socklen_t len = sizeof( err );
+#endif
+
+                if( getsockopt( aSocket, SOL_SOCKET, SO_ERROR,
+                                reinterpret_cast<char*>( &err ), &len ) == 0 && err == 0 )
+                {
+                    connected = true;
+                }
+            }
+        }
+    }
+
+    // Restore blocking mode either way: the caller closes the socket on failure, and the
+    // receive thread expects a blocking recv().
+    setNonBlocking( aSocket, false );
+
+    return connected;
+}
 
 
 AI_IPC_CLIENT::AI_IPC_CLIENT( const std::string& aHost, int aPort ) :
@@ -78,7 +180,13 @@ bool AI_IPC_CLIENT::openSocket()
     serverAddr.sin_port = htons( static_cast<unsigned short>( m_port ) );
     inet_pton( AF_INET, m_host.c_str(), &serverAddr.sin_addr );
 
-    if( connect( m_socket, (struct sockaddr*) &serverAddr, sizeof( serverAddr ) ) != 0 )
+    // Connect with a short deadline instead of letting the OS run its full SYN-retry
+    // schedule.  Connect() is called from the frames' retry timers, i.e. ON THE UI THREAD:
+    // a stale ipc_port.txt pointing at a port that silently drops SYNs (rather than
+    // refusing) froze the whole application for ~2 s on every single retry.  The backend
+    // is always on loopback, so anything that has not accepted within this budget is not
+    // there — try again on the next tick rather than blocking the UI.
+    if( !connectWithTimeout( m_socket, serverAddr, kConnectTimeoutMs ) )
     {
         CLOSE_SOCKET( m_socket );
         m_socket = INVALID_SOCK;

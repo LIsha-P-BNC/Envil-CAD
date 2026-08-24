@@ -1251,12 +1251,45 @@ void EDA_BASE_FRAME::LoadWindowState( const WINDOW_STATE& aState )
         m_framePos = GetPosition();
     }
 
+    const bool maximize = aState.maximized || ( wasDefault && m_maximizeByDefault );
+
+    // A restore-down geometry that fills the whole work area is indistinguishable from being
+    // maximized, so the maximize box appears to do nothing — which is exactly how this state
+    // perpetuates itself: the full-area rect is saved as the "normal" one and reloaded here.
+    // Break the cycle by giving the window a genuinely smaller size to restore down to, the
+    // way every native application does.
+    if( maximize )
+    {
+        const unsigned int idx  = std::min<unsigned int>( aState.display,
+                                                          wxDisplay::GetCount() - 1 );
+        const wxRect       work = wxDisplay( idx ).GetClientArea();
+
+        // "Covers the work area" with a little slack: a window within a caption's height of
+        // the full area has no usable restored state either.
+        const int slack = FromDIP( 32 );
+
+        if( m_frameSize.x >= work.width - slack && m_frameSize.y >= work.height - slack )
+        {
+            m_frameSize.x = work.width  * 4 / 5;
+            m_frameSize.y = work.height * 4 / 5;
+            m_framePos.x  = work.x + ( work.width  - m_frameSize.x ) / 2;
+            m_framePos.y  = work.y + ( work.height - m_frameSize.y ) / 2;
+
+            wxLogTrace( traceDisplayLocation,
+                        wxS( "Restore-down geometry filled the work area; using (%d, %d) "
+                             "at (%d, %d) instead" ),
+                        m_frameSize.x, m_frameSize.y, m_framePos.x, m_framePos.y );
+
+            SetSize( m_framePos.x, m_framePos.y, m_frameSize.x, m_frameSize.y );
+        }
+    }
+
     // Record the frame sizes in an un-maximized state
     m_normalFrameSize = m_frameSize;
     m_normalFramePos  = m_framePos;
 
     // Maximize if we were maximized before
-    if( aState.maximized || ( wasDefault && m_maximizeByDefault ) )
+    if( maximize )
     {
         wxLogTrace( traceDisplayLocation, wxS( "Maximizing window" ) );
         Maximize();
@@ -1339,8 +1372,27 @@ void EDA_BASE_FRAME::SaveWindowSettings( WINDOW_SETTINGS* aCfg )
     // If the window is maximized, we use the saved window size from before it was maximized
     if( IsMaximized() )
     {
-        m_framePos  = m_normalFramePos;
-        m_frameSize = m_normalFrameSize;
+#ifdef __WXMSW__
+        // m_normalFrame* is only refreshed from wxEVT_MAXIMIZE, which MSW raises for the
+        // system SC_MAXIMIZE command but NOT for a programmatic Maximize() — so a window
+        // maximized from our own title-bar button would save a stale rect here.  Windows
+        // tracks the restore rect itself; ask it rather than our own bookkeeping.
+        WINDOWPLACEMENT wp;
+        wp.length = sizeof( wp );
+
+        if( ::GetWindowPlacement( static_cast<HWND>( GetHandle() ), &wp ) )
+        {
+            const RECT& n = wp.rcNormalPosition;
+
+            m_framePos  = wxPoint( n.left, n.top );
+            m_frameSize = wxSize( n.right - n.left, n.bottom - n.top );
+        }
+        else
+#endif
+        {
+            m_framePos  = m_normalFramePos;
+            m_frameSize = m_normalFrameSize;
+        }
     }
     else
     {

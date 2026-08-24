@@ -189,6 +189,19 @@ int COMMON_CONTROL::ShowPlayer( const TOOL_EVENT& aEvent )
     // editor can be null if Player() fails:
     wxCHECK_MSG( editor != nullptr, 0, wxT( "Cannot open/create the editor frame" ) );
 
+    // Anvil Next single-window shell: ask the shell to host the editor as a tab (or bring its
+    // existing tab to the front).  An editor built while the shell is hosting deliberately
+    // skips the Show()/Raise() in its own constructor, expecting the dock path to reveal it,
+    // so without this a freshly created frame would never appear at all -- the action looked
+    // like it did nothing.
+    if( m_frame->Kiway().DockPlayer( editor ) )
+        return 0;
+
+    // No shell hosting (stand-alone editor, flag off, or a platform without native
+    // reparenting): fall back to a floating window.
+    if( !editor->IsShown() )
+        editor->Show( true );
+
     showFrame( editor );
 
     return 0;

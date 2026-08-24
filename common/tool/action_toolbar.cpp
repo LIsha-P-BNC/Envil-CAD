@@ -260,6 +260,10 @@ ACTION_TOOLBAR::ACTION_TOOLBAR( EDA_BASE_FRAME* parent, wxWindowID id, const wxP
 
     Bind( wxEVT_SYS_COLOUR_CHANGED, wxSysColourChangedEventHandler( ACTION_TOOLBAR::onThemeChanged ), this );
 
+    // Anvil: keep the buttons' checked/enabled state working after the single-window shell has
+    // reparented this toolbar into itself.  See ACTION_TOOLBAR::onUpdateUI.
+    Bind( wxEVT_UPDATE_UI, &ACTION_TOOLBAR::onUpdateUI, this );
+
     Bind( wxEVT_DPI_CHANGED,
           [&]( wxDPIChangedEvent& aEvent )
           {
@@ -424,7 +428,10 @@ void ACTION_TOOLBAR::ApplyConfiguration( const TOOLBAR_CONFIGURATION& aConfig )
         case TOOLBAR_ITEM_TYPE::CONTROL:
         {
             // Add a custom control to the toolbar
-            EDA_BASE_FRAME* frame = static_cast<EDA_BASE_FRAME*>( GetParent() );
+            // Anvil: use the OWNING frame, not GetParent(): the single-window shell reparents
+            // hoisted toolbars into itself, and the control factories live on the editor frame.
+            EDA_BASE_FRAME* frame = m_parent ? m_parent
+                                             : static_cast<EDA_BASE_FRAME*>( GetParent() );
             ACTION_TOOLBAR_CONTROL_FACTORY* factory = frame->GetCustomToolbarControlFactory( item.m_ControlName );
 
             if( !factory )
@@ -1203,6 +1210,28 @@ bool ACTION_TOOLBAR::KiRealize()
     Refresh( false );
     return retval;
 #endif
+}
+
+
+void ACTION_TOOLBAR::onUpdateUI( wxUpdateUIEvent& aEvent )
+{
+    // wxAuiToolBar::DoIdleUpdate() raises one wxEVT_UPDATE_UI per item on our own event handler
+    // and only applies the resulting enabled/checked state when the event is actually handled.
+    // The conditions live in the owning EDA_BASE_FRAME's update-UI map, which is normally reached
+    // by ordinary upward propagation -- but the single-window shell hoists the top toolbars out of
+    // the editor and reparents them into the shell (KICAD_MANAGER_FRAME::hoistEditorTopToolbar),
+    // so propagation ends at the shell frame instead.  The events were then never handled, so no
+    // button state was ever refreshed: each toggle tool stayed lit after being clicked and several
+    // tools looked selected at the same time.  m_parent still points at the frame that created us,
+    // so hand the event to it directly once we no longer live under it.
+    if( !m_parent || m_parent == GetParent() )
+    {
+        aEvent.Skip();
+        return;
+    }
+
+    if( !m_parent->GetEventHandler()->ProcessEvent( aEvent ) )
+        aEvent.Skip();
 }
 
 

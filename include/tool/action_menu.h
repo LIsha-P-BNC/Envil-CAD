@@ -195,6 +195,15 @@ public:
      */
     ACTION_MENU* Clone() const;
 
+    /**
+     * Append a deep copy of another menu while preserving its action dispatch tool.
+     *
+     * When @a aMenu is driven by a different TOOL_MANAGER than this menu (the single-window
+     * shell splices the manager frame's commands into the active editor's menus), the copied
+     * items are re-keyed onto ids in a private range.  See #FOREIGN_BASE_UI_ID.
+     */
+    void AppendFrom( const ACTION_MENU& aMenu );
+
     void OnMenuEvent( wxMenuEvent& aEvent );
     void OnIdle( wxIdleEvent& event );
 
@@ -202,6 +211,26 @@ public:
 
     static constexpr bool NORMAL = false;
     static constexpr bool CHECK  = true;
+
+    /**
+     * Base id for menu items spliced in from a menu belonging to another TOOL_MANAGER.
+     *
+     * TOOL_ACTION ids are handed out by ACTION_MANAGER::MakeActionId(), whose counter is a
+     * function-local static in the `common` STATIC library -- which is linked into
+     * anvilcad.exe *and* into every KIFACE.  Each module therefore numbers its own copy of
+     * the TOOL_ACTION objects from 1, so the same id means completely different actions in
+     * the shell and in, say, _eeschema.dll.  Mixing both numbering spaces in one menu (as
+     * EDA_BASE_FRAME::buildCommonMenuBarFrom() does) let an editor action silently take over
+     * a shell item's id, and clicking the shell item then dispatched the editor's action --
+     * which usually has no handler, so the menu entry did nothing at all.
+     *
+     * Shifting the foreign ids into their own window keeps the mapping bijective (so it is
+     * stable across menu rebuilds) and out of the local action range, which starts at
+     * TOOL_ACTION::GetBaseUIId() (20000) and spans one id per registered action (~1000).
+     * The window has to stay inside a signed 16-bit value: MSW delivers native menu commands
+     * as LOWORD(wParam), which wxWidgets sign-extends back to an int.
+     */
+    static constexpr int FOREIGN_BASE_UI_ID = 26000;
 
 protected:
     /// Return an instance of this class. It has to be overridden in inheriting classes.
@@ -241,8 +270,29 @@ protected:
 protected:
     /**
      * Append a copy of wxMenuItem.
+     *
+     * @param aSource is the item to copy.
+     * @param aIdOverride is the id to give the copy, or wxID_NONE to keep the source's id.
+     * @param aRemapSubmenuIds re-keys a copied submenu's action ids the same way (see
+     *        #FOREIGN_BASE_UI_ID).
      */
-    wxMenuItem* appendCopy( const wxMenuItem* aSource );
+    wxMenuItem* appendCopy( const wxMenuItem* aSource, int aIdOverride = wxID_NONE,
+                            bool aRemapSubmenuIds = false );
+
+    /**
+     * Worker behind AppendFrom(): copy @a aMenu's items into this menu, optionally re-keying
+     * every action id into the #FOREIGN_BASE_UI_ID window.
+     */
+    void appendFrom( const ACTION_MENU& aMenu, bool aRemapIds );
+
+    /**
+     * Deep copy of this menu with every action id re-keyed into the #FOREIGN_BASE_UI_ID
+     * window (the submenu counterpart of appendFrom() with re-keying on).
+     */
+    ACTION_MENU* cloneReindexed() const;
+
+    /// Map an action id from another module's numbering onto this menu's foreign-id window.
+    static int foreignId( int aId );
 
     /// Initialize handlers for events.
     void setupEvents();
@@ -258,7 +308,7 @@ protected:
     void runOnSubmenus( std::function<void(ACTION_MENU*)> aFunction );
 
     /// Check if any of submenus contains a TOOL_ACTION with a specific ID.
-    OPT_TOOL_EVENT findToolAction( int aId );
+    OPT_TOOL_EVENT findToolAction( int aId, TOOL_INTERACTIVE** aTool = nullptr );
 
     bool    m_isForcedPosition;
     wxPoint m_forcedPosition;
@@ -283,6 +333,7 @@ protected:
 
     /// Associates tool actions with menu item IDs. Non-owning.
     std::map<int, const TOOL_ACTION*> m_toolActions;
+    std::map<int, TOOL_INTERACTIVE*>  m_actionTools;
 
     /// List of submenus.
     std::list<ACTION_MENU*> m_submenus;

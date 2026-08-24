@@ -421,6 +421,18 @@ protected:
 
     void onThemeChanged( wxSysColourChangedEvent &aEvent );
 
+    /**
+     * Anvil: route wxEVT_UPDATE_UI to the frame that OWNS this toolbar.
+     *
+     * The single-window shell hoists the top toolbars out of the editor frame and reparents them
+     * into the shell (see KICAD_MANAGER_FRAME::hoistEditorTopToolbar), so the normal upward
+     * propagation of the update-UI events raised by wxAuiToolBar::DoIdleUpdate() ends at the
+     * SHELL frame, which knows nothing about this editor's action conditions.  Without this the
+     * buttons' checked/enabled state is never refreshed, so every toggle tool latches on when it
+     * is clicked and two (or more) tools appear selected at once.
+     */
+    void onUpdateUI( wxUpdateUIEvent& aEvent );
+
     ///< Render the triangle in the lower-right corner that represents that an action palette
     ///< is available for an item
     void OnCustomRender( wxDC& aDc, const wxAuiToolBarItem& aItem, const wxRect& aRect ) override;

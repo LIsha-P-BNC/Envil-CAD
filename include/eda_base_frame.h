@@ -535,7 +535,8 @@ public:
      * buildCommonMenuBar() is exactly buildCommonMenuBarFrom( this ), so existing callers are
      * unchanged.
      */
-    void buildCommonMenuBarFrom( EDA_BASE_FRAME* aSource );
+    void buildCommonMenuBarFrom( EDA_BASE_FRAME* aSource,
+                                 EDA_BASE_FRAME* aCommonSource = nullptr );
 
     wxString GetRunMenuCommandDescription( const TOOL_ACTION& aAction );
 
