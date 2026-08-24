@@ -41,6 +41,7 @@
 #include "sch_io_kicad_sexpr_parser.h"
 #include <string_utils.h>
 #include <trace_helpers.h>
+#include <wildcards_and_files_ext.h>
 #include <io/kicad/kicad_io_utils.h>
 
 
@@ -64,6 +65,23 @@ void SCH_IO_KICAD_SEXPR_LIB_CACHE::Load()
     // the path is actually a directory on the filesystem.
     if( !m_libFileName.IsDir() && wxFileName::DirExists( m_libFileName.GetFullPath() ) )
         m_libFileName.AssignDir( m_libFileName.GetFullPath() );
+
+    // A library table row may reference the KiCad-era extension while the installed library
+    // uses the native Anvil one (or vice versa) — e.g. a stock sym-lib-table listing
+    // *.kicad_sym resolved against an install whose libraries are *.anvil_sym.  Fall back
+    // to the sibling extension when the referenced file does not exist.
+    if( !m_libFileName.IsDir() && !m_libFileName.FileExists() )
+    {
+        wxFileName alt( m_libFileName );
+
+        if( alt.GetExt() == FILEEXT::KiCadSymbolLibFileExtension )
+            alt.SetExt( FILEEXT::AnvilSymbolLibFileExtension );
+        else if( alt.GetExt() == FILEEXT::AnvilSymbolLibFileExtension )
+            alt.SetExt( FILEEXT::KiCadSymbolLibFileExtension );
+
+        if( alt != m_libFileName && alt.FileExists() )
+            m_libFileName = alt;
+    }
 
     if( !isLibraryPathValid() )
     {

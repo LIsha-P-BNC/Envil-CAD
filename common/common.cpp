@@ -493,9 +493,14 @@ wxString KIwxExpandEnvVars( const wxString& str, const PROJECT* aProject, std::s
 
     auto getVersionedEnvVar = []( const wxString& aMatch, wxString& aResult ) -> bool
     {
+        // Library tables written by KiCad or older builds reference KICAD<n>_* variables,
+        // but our predefined variables are versioned as ANVIL<n>_* — accept either prefix.
+        wxString anvilMatch = aMatch;
+        anvilMatch.Replace( wxT( "KICAD" ), wxT( "ANVIL" ) );
+
         for( const wxString& var : ENV_VAR::GetPredefinedEnvVars() )
         {
-            if( var.Matches( aMatch ) )
+            if( var.Matches( aMatch ) || var.Matches( anvilMatch ) )
             {
                 const auto value = ENV_VAR::GetEnvVar<wxString>( var );
 
