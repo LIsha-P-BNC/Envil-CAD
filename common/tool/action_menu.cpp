@@ -192,6 +192,7 @@ wxMenuItem* ACTION_MENU::Add( const TOOL_ACTION& aAction, bool aIsCheckmarkEntry
         KIUI::AddBitmapToMenuItem( item, KiBitmapBundle( icon, 18 ) );
 
     m_toolActions[aAction.GetUIId()] = &aAction;
+    m_actionTools[aAction.GetUIId()] = m_tool;
 
     return Append( item );
 }
@@ -270,6 +271,7 @@ void ACTION_MENU::Clear()
         Destroy( FindItemByPosition( i ) );
 
     m_toolActions.clear();
+    m_actionTools.clear();
     m_submenus.clear();
 
     wxASSERT( GetMenuItemCount() == 0 );
@@ -335,6 +337,99 @@ ACTION_MENU* ACTION_MENU::Clone() const
 }
 
 
+int ACTION_MENU::foreignId( int aId )
+{
+    return FOREIGN_BASE_UI_ID + ( aId - TOOL_ACTION::GetBaseUIId() );
+}
+
+
+void ACTION_MENU::AppendFrom( const ACTION_MENU& aMenu )
+{
+    // A source menu driven by another TOOL_MANAGER comes from another module, and the two
+    // modules number their TOOL_ACTIONs independently (see FOREIGN_BASE_UI_ID).  Re-key the
+    // copies so this menu's own items cannot steal their ids.
+    const bool remap = m_tool && aMenu.m_tool
+                       && m_tool->GetManager() != aMenu.m_tool->GetManager();
+
+    appendFrom( aMenu, remap );
+}
+
+
+void ACTION_MENU::appendFrom( const ACTION_MENU& aMenu, bool aRemapIds )
+{
+    // Only ids that came from a TOOL_ACTION's own numbering get shifted.  Two other kinds of
+    // id live in these menus and must be left exactly as they are:
+    //  - plain menu items carrying an id.h / *_id.h enum value (e.g. "Edit Local File...", the
+    //    language list); those are dispatched by the owning frame's wx event table, and the
+    //    enums are shared by every module so they cannot collide.
+    //  - actions with an explicit UI id (wx standard ids, so the platform can adopt them);
+    //    also identical across modules, and keeping them lets the dedupe below see them.
+    auto mapId =
+            [&]( int aId ) -> int
+            {
+                if( !aRemapIds || aId < 0 )
+                    return aId;
+
+                std::map<int, const TOOL_ACTION*>::const_iterator it =
+                        aMenu.m_toolActions.find( aId );
+
+                if( it == aMenu.m_toolActions.end() || it->second->HasCustomUIId() )
+                    return aId;
+
+                return foreignId( aId );
+            };
+
+    for( int i = 0; i < (int) aMenu.GetMenuItemCount(); ++i )
+    {
+        wxMenuItem* item = aMenu.FindItemByPosition( i );
+
+        if( item->IsSeparator() )
+        {
+            AppendSeparator();
+            continue;
+        }
+
+        int id = mapId( item->GetId() );
+
+        if( id >= 0 && m_toolActions.count( id ) )
+            continue;
+
+        appendCopy( item, id == item->GetId() ? wxID_NONE : id, aRemapIds );
+    }
+
+    for( const auto& [srcId, action] : aMenu.m_toolActions )
+    {
+        int id = mapId( srcId );
+
+        if( !m_toolActions.count( id ) )
+        {
+            m_toolActions[id] = action;
+            m_actionTools[id] = aMenu.m_actionTools.count( srcId )
+                                        ? aMenu.m_actionTools.at( srcId )
+                                        : aMenu.m_tool;
+        }
+    }
+}
+
+
+ACTION_MENU* ACTION_MENU::cloneReindexed() const
+{
+    ACTION_MENU* clone = create();
+    clone->Clear();
+
+    // Same fields copyFrom() carries over, minus the menu items themselves: those are copied
+    // by appendFrom() below so their ids land in the foreign-id window.
+    clone->m_icon = m_icon;
+    clone->m_title = m_title;
+    clone->m_untranslatedTitle = m_untranslatedTitle;
+    clone->m_titleDisplayed = m_titleDisplayed;
+    clone->m_tool = m_tool;
+    clone->appendFrom( *this, true );
+
+    return clone;
+}
+
+
 ACTION_MENU* ACTION_MENU::create() const
 {
     ACTION_MENU* menu = new ACTION_MENU( false );
@@ -362,11 +457,23 @@ void ACTION_MENU::updateHotKeys()
     {
         int                id = ii.first;
         const TOOL_ACTION& action = *ii.second;
-        int                key = toolMgr->GetHotKey( action ) & ~MD_MODIFIER_MASK;
+
+        // Spliced-in items (AppendFrom) belong to another module's TOOL_MANAGER; asking ours
+        // for their hotkey looks the action id up in the wrong table and would bind a
+        // stranger's accelerator to the item.
+        TOOL_MANAGER* actionMgr = toolMgr;
+
+        if( auto tool = m_actionTools.find( id ); tool != m_actionTools.end() && tool->second )
+            actionMgr = tool->second->GetManager();
+
+        if( !actionMgr )
+            continue;
+
+        int                key = actionMgr->GetHotKey( action ) & ~MD_MODIFIER_MASK;
 
         if( key > 0 )
         {
-            int mod = toolMgr->GetHotKey( action ) & MD_MODIFIER_MASK;
+            int mod = actionMgr->GetHotKey( action ) & MD_MODIFIER_MASK;
             int flags = 0;
             wxMenuItem* item = FindChildItem( id );
 
@@ -418,6 +525,7 @@ void ACTION_MENU::OnMenuEvent( wxMenuEvent& aEvent )
     wxEventType    type    = aEvent.GetEventType();
     wxWindow*      focus   = wxWindow::FindFocus();
     TOOL_MANAGER*  toolMgr = getToolManager();
+    TOOL_INTERACTIVE* eventTool = m_tool;
 
     if( type == wxEVT_MENU_OPEN )
     {
@@ -519,8 +627,14 @@ void ACTION_MENU::OnMenuEvent( wxMenuEvent& aEvent )
         }
 
         // Check if there is a TOOL_ACTION for the given UI ID
-        if( toolMgr && toolMgr->GetActionManager()->IsActionUIId( m_selected ) )
-            evt = findToolAction( m_selected );
+        if( toolMgr && ( m_toolActions.count( m_selected )
+                 || toolMgr->GetActionManager()->IsActionUIId( m_selected ) ) )
+        {
+            evt = findToolAction( m_selected, &eventTool );
+
+            if( eventTool )
+                toolMgr = eventTool->GetManager();
+        }
 
         if( !evt )
         {
@@ -630,7 +744,7 @@ void ACTION_MENU::runOnSubmenus( std::function<void(ACTION_MENU*)> aFunction )
 }
 
 
-OPT_TOOL_EVENT ACTION_MENU::findToolAction( int aId )
+OPT_TOOL_EVENT ACTION_MENU::findToolAction( int aId, TOOL_INTERACTIVE** aTool )
 {
     OPT_TOOL_EVENT evt;
 
@@ -643,7 +757,14 @@ OPT_TOOL_EVENT ACTION_MENU::findToolAction( int aId )
                 const auto it = m->m_toolActions.find( aId );
 
                 if( it != m->m_toolActions.end() )
+                {
                     evt = it->second->MakeEvent();
+                    if( aTool )
+                    {
+                        auto tool = m->m_actionTools.find( aId );
+                        *aTool = tool != m->m_actionTools.end() ? tool->second : m->m_tool;
+                    }
+                }
             };
 
     findFunc( this );
@@ -663,6 +784,7 @@ void ACTION_MENU::copyFrom( const ACTION_MENU& aMenu )
     m_selected = -1; // aMenu.m_selected;
     m_tool = aMenu.m_tool;
     m_toolActions = aMenu.m_toolActions;
+    m_actionTools = aMenu.m_actionTools;
 
     // Copy all menu entries
     for( int i = 0; i < (int) aMenu.GetMenuItemCount(); ++i )
@@ -673,9 +795,12 @@ void ACTION_MENU::copyFrom( const ACTION_MENU& aMenu )
 }
 
 
-wxMenuItem* ACTION_MENU::appendCopy( const wxMenuItem* aSource )
+wxMenuItem* ACTION_MENU::appendCopy( const wxMenuItem* aSource, int aIdOverride,
+                                     bool aRemapSubmenuIds )
 {
-    wxMenuItem* newItem = new wxMenuItem( this, aSource->GetId(), aSource->GetItemLabel(),
+    int id = aIdOverride == wxID_NONE ? aSource->GetId() : aIdOverride;
+
+    wxMenuItem* newItem = new wxMenuItem( this, id, aSource->GetItemLabel(),
                                           aSource->GetHelp(), aSource->GetKind() );
 
     // Add the source bitmap if it is not the wxNullBitmap
@@ -704,7 +829,7 @@ wxMenuItem* ACTION_MENU::appendCopy( const wxMenuItem* aSource )
 
         if( menu )
         {
-            ACTION_MENU* menuCopy = menu->Clone();
+            ACTION_MENU* menuCopy = aRemapSubmenuIds ? menu->cloneReindexed() : menu->Clone();
             newItem->SetSubMenu( menuCopy );
             m_submenus.push_back( menuCopy );
         }

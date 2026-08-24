@@ -1060,9 +1060,9 @@ public:
                                     [this]() { return m_frame->AiChatPanelShown(); } ),
                       0, wxEXPAND );
 
-        // Account: the signed-in user, one click from the caption instead of buried in
-        // File > Account.  Same rows as that submenu (see fillAccountMenu()), popped as a
-        // themed dropdown anchored under the button.
+        // Account: the signed-in user, one click from the caption.  The account rows
+        // (see fillAccountMenu()) pop as a themed dropdown anchored under the button; this
+        // is the only entry point, the File menu carries no account submenu.
         m_account = makeWinButton( wxUniChar( 0xE77B ), qaHover );   // MDL2 "Contact" glyph
         m_sizer->Add( m_account, 0, wxEXPAND );
         m_account->Bind( wxEVT_BUTTON,
@@ -1104,14 +1104,23 @@ public:
         m_sizer->Add( m_max,   0, wxEXPAND );
         m_sizer->Add( m_close, 0, wxEXPAND );
 
-        m_min  ->Bind( wxEVT_BUTTON, [this]( wxCommandEvent& ) { m_frame->Iconize( true ); } );
-        m_max  ->Bind( wxEVT_BUTTON,
-                       [this]( wxCommandEvent& )
-                       {
-                           m_frame->Maximize( !m_frame->IsMaximized() );
-                           UpdateMaximizeGlyph();
-                       } );
+        // Drive these through the system commands a native caption button posts, rather than
+        // calling Iconize()/Maximize() directly.  Windows then runs its own minimize/restore
+        // animation and restore-rect bookkeeping, and wx raises wxEVT_MAXIMIZE — which it does
+        // NOT do for a programmatic Maximize(), leaving EDA_BASE_FRAME's saved "normal" size
+        // stale.  That stale size is what used to make restore-down a no-op.
+        m_min  ->Bind( wxEVT_BUTTON, [this]( wxCommandEvent& ) { doMinimize(); } );
+        m_max  ->Bind( wxEVT_BUTTON, [this]( wxCommandEvent& ) { doToggleMaximize(); } );
         m_close->Bind( wxEVT_BUTTON, [this]( wxCommandEvent& ) { m_frame->Close( false ); } );
+
+        // Keep the glyph honest no matter how the state changed — the caption button, a
+        // double-click on the title bar, Aero Snap (Win+Up/Down), or the taskbar.
+        m_frame->Bind( wxEVT_SIZE,
+                       [this]( wxSizeEvent& aEvent )
+                       {
+                           UpdateMaximizeGlyph();
+                           aEvent.Skip();
+                       } );
 
         UpdateMaximizeGlyph();   // show restore vs maximize for the initial window state
 
@@ -1196,10 +1205,50 @@ public:
     }
 
     /// Show the restore glyph when the window is maximized, the maximize glyph otherwise.
+    /// Called on every size event, so it must not repaint unless the state actually flipped.
     void UpdateMaximizeGlyph()
     {
-        if( m_max )
-            m_max->SetGlyph( wxUniChar( m_frame->IsMaximized() ? 0xE923 : 0xE922 ) );
+        if( !m_max )
+            return;
+
+        const bool maximized = m_frame->IsMaximized();
+
+        if( maximized == m_maxGlyphShown )
+            return;
+
+        m_maxGlyphShown = maximized;
+        m_max->SetGlyph( wxUniChar( maximized ? 0xE923 : 0xE922 ) );
+    }
+
+    /// Post the system command a native caption button would, so Windows performs the state
+    /// change itself (animation, restore rect, wxEVT_MAXIMIZE) instead of us faking it.
+    void postSysCommand( unsigned int aCommand )
+    {
+#ifdef __WXMSW__
+        ::PostMessage( static_cast<HWND>( m_frame->GetHandle() ), WM_SYSCOMMAND,
+                       static_cast<WPARAM>( aCommand ), 0 );
+#else
+        (void) aCommand;
+#endif
+    }
+
+    void doMinimize()
+    {
+#ifdef __WXMSW__
+        postSysCommand( SC_MINIMIZE );
+#else
+        m_frame->Iconize( true );
+#endif
+    }
+
+    void doToggleMaximize()
+    {
+#ifdef __WXMSW__
+        postSysCommand( m_frame->IsMaximized() ? SC_RESTORE : SC_MAXIMIZE );
+#else
+        m_frame->Maximize( !m_frame->IsMaximized() );
+        UpdateMaximizeGlyph();
+#endif
     }
 
     /// Re-sync every layout-toggle button's highlight to its pane's current visibility.
@@ -1341,6 +1390,7 @@ private:
     TITLEBAR_GLYPH_BUTTON* m_min = nullptr;
     TITLEBAR_GLYPH_BUTTON* m_max = nullptr;
     TITLEBAR_GLYPH_BUTTON* m_close = nullptr;
+    bool                   m_maxGlyphShown = false;  // last state UpdateMaximizeGlyph() painted
     TITLEBAR_ICON_BUTTON* m_qaSave = nullptr;    // Altium-style quick access (active editor);
     TITLEBAR_ICON_BUTTON* m_qaUndo = nullptr;    // real toolbar bitmap icons, not MDL2 glyphs
     TITLEBAR_ICON_BUTTON* m_qaRedo = nullptr;
@@ -2409,8 +2459,8 @@ void KICAD_MANAGER_FRAME::ShowOpenEditorMenu( const wxPoint& aScreenPos )
 void KICAD_MANAGER_FRAME::ShowAccountMenu( const wxRect& aButtonScreenRect )
 {
 #ifdef __WXMSW__
-    // Title-bar account dropdown: the same rows as File > Account, but flat (no nested
-    // submenu) because the button itself is already the "Account" affordance.
+    // Title-bar account dropdown: the account rows, flat (no nested submenu) because the
+    // button itself is already the "Account" affordance.
     KICAD_MANAGER_CONTROL* tool = m_toolManager->GetTool<KICAD_MANAGER_CONTROL>();
 
     ACTION_MENU* menu = new ACTION_MENU( false, tool );
@@ -2545,7 +2595,7 @@ void KICAD_MANAGER_FRAME::syncShellMenuToActiveTab( bool aForcePM )
         // Show the active editor's menu (File/Edit/View/Place/Route/Inspect/Tools/Preferences):
         // the shell owns the wxMenuBar, but each ACTION_MENU dispatches through the editor's own
         // tool manager, so clicks reach the editor.
-        buildCommonMenuBarFrom( editor );
+        buildCommonMenuBarFrom( editor, this );
         buildTitleBarMenuButtons();
     }
     else
@@ -2863,6 +2913,7 @@ void KICAD_MANAGER_FRAME::ToggleAiChat()
     {
         int width = ( cfg && cfg->m_AiChatPanelWidth > 0 ) ? cfg->m_AiChatPanelWidth : 380;
         SetAuiPaneSize( m_auimgr, pane, width, -1 );
+        m_auimgr.Update();
         syncAiPanelToActiveTab();
 
         // Cursor-style "fresh on open": reopening the panel starts a blank chat.

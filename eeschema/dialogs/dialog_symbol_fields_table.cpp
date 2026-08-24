@@ -2719,7 +2719,8 @@ void DIALOG_SYMBOL_FIELDS_TABLE::OnSchItemsAdded( SCHEMATIC& aSch, std::vector<S
             for( SCH_FIELD& field : symbol->GetFields() )
                 AddField( field.GetCanonicalName(), field.GetName(), true, false, true );
 
-            m_dataModel->AddReferences( getSymbolReferences( symbol, allRefs ) );
+            m_dataModel->AddReferences( getSymbolReferences( symbol, allRefs ),
+                                        m_parent->Schematic().GetCurrentVariant() );
         }
         else if( item->Type() == SCH_SHEET_T )
         {
@@ -2736,7 +2737,7 @@ void DIALOG_SYMBOL_FIELDS_TABLE::OnSchItemsAdded( SCHEMATIC& aSch, std::vector<S
                     AddField( field.GetCanonicalName(), field.GetName(), true, false, true );
             }
 
-            m_dataModel->AddReferences( refs );
+            m_dataModel->AddReferences( refs, m_parent->Schematic().GetCurrentVariant() );
         }
     }
 

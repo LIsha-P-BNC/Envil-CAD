@@ -160,9 +160,6 @@ void KICAD_MANAGER_FRAME::doReCreateMenuBar()
     fileMenu->Add( KICAD_MANAGER_ACTIONS::unarchiveProject );
 
     fileMenu->AppendSeparator();
-    buildAccountMenu( fileMenu );
-
-    fileMenu->AppendSeparator();
     fileMenu->AddQuitOrClose( nullptr, wxS( "Anvil" ) );
 
     //-- Edit menu -----------------------------------------------------------
@@ -322,26 +319,6 @@ void KICAD_MANAGER_FRAME::fillAccountMenu( ACTION_MENU* aMenu )
 }
 
 
-void KICAD_MANAGER_FRAME::buildAccountMenu( ACTION_MENU* aMenu )
-{
-    const ANVIL_USER user = ANVIL_AUTH::GetUser();
-
-    KICAD_MANAGER_CONTROL* controlTool = m_toolManager->GetTool<KICAD_MANAGER_CONTROL>();
-    ACTION_MENU*           accountMenu = new ACTION_MENU( false, controlTool );
-
-    // Title carries the identity so it reads at a glance without opening the submenu.
-    accountMenu->SetTitle( user.email.IsEmpty()
-                                   ? _( "Account" )
-                                   : wxString::Format( _( "Account (%s)" ), user.Label() ) );
-    accountMenu->SetIcon( BITMAPS::editor );
-
-    // Same rows the title-bar account button pops, so both entry points stay in step.
-    fillAccountMenu( accountMenu );
-
-    aMenu->Add( accountMenu );
-}
-
-
 void KICAD_MANAGER_FRAME::buildOpenEditorMenu( ACTION_MENU* aMenu )
 {
     // The editors/tools the removed left icon rail used to launch (Altium "Open editor" dropdown).
@@ -449,9 +426,6 @@ void KICAD_MANAGER_FRAME::buildFileMenu( ACTION_MENU* fileMenu )
     fileMenu->AppendSeparator();
     fileMenu->Add( KICAD_MANAGER_ACTIONS::archiveProject );
     fileMenu->Add( KICAD_MANAGER_ACTIONS::unarchiveProject );
-
-    fileMenu->AppendSeparator();
-    buildAccountMenu( fileMenu );
 
     fileMenu->AppendSeparator();
     fileMenu->AddQuitOrClose( nullptr, wxS( "Anvil" ) );

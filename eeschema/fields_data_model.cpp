@@ -242,6 +242,470 @@ const wxString FIELDS_EDITOR_GRID_DATA_MODEL::QUANTITY_VARIABLE = wxS( "${QUANTI
 const wxString FIELDS_EDITOR_GRID_DATA_MODEL::ITEM_NUMBER_VARIABLE = wxS( "${ITEM_NUMBER}" );
 
 
+// --- Manufacturer / MPN auto-fill helpers -----------------------------------------------
+
+/// Datasheet-URL second-level domain -> canonical manufacturer name.  An empty name marks
+/// a distributor/aggregator domain that must not be reported as a manufacturer.
+static const std::vector<std::pair<wxString, wxString>>& domainManufacturerTable()
+{
+    static const std::vector<std::pair<wxString, wxString>> table = {
+        { wxS( "ti" ),               wxS( "Texas Instruments" ) },
+        { wxS( "st" ),               wxS( "STMicroelectronics" ) },
+        { wxS( "analog" ),           wxS( "Analog Devices" ) },
+        { wxS( "maximintegrated" ),  wxS( "Analog Devices" ) },
+        { wxS( "nxp" ),              wxS( "NXP Semiconductors" ) },
+        { wxS( "microchip" ),        wxS( "Microchip" ) },
+        { wxS( "atmel" ),            wxS( "Microchip" ) },
+        { wxS( "infineon" ),         wxS( "Infineon" ) },
+        { wxS( "cypress" ),          wxS( "Infineon" ) },
+        { wxS( "onsemi" ),           wxS( "onsemi" ) },
+        { wxS( "fairchildsemi" ),    wxS( "onsemi" ) },
+        { wxS( "vishay" ),           wxS( "Vishay" ) },
+        { wxS( "murata" ),           wxS( "Murata" ) },
+        { wxS( "we-online" ),        wxS( "Würth Elektronik" ) },
+        { wxS( "sunlordinc" ),       wxS( "Sunlord" ) },
+        { wxS( "yageo" ),            wxS( "Yageo" ) },
+        { wxS( "kemet" ),            wxS( "KEMET" ) },
+        { wxS( "samsungsem" ),       wxS( "Samsung Electro-Mechanics" ) },
+        { wxS( "tdk" ),              wxS( "TDK" ) },
+        { wxS( "tdk-electronics" ),  wxS( "TDK" ) },
+        { wxS( "taiyo-yuden" ),      wxS( "Taiyo Yuden" ) },
+        { wxS( "t-yuden" ),          wxS( "Taiyo Yuden" ) },
+        { wxS( "bourns" ),           wxS( "Bourns" ) },
+        { wxS( "littelfuse" ),       wxS( "Littelfuse" ) },
+        { wxS( "rohm" ),             wxS( "ROHM" ) },
+        { wxS( "renesas" ),          wxS( "Renesas" ) },
+        { wxS( "toshiba" ),          wxS( "Toshiba" ) },
+        { wxS( "diodes" ),           wxS( "Diodes Incorporated" ) },
+        { wxS( "nexperia" ),         wxS( "Nexperia" ) },
+        { wxS( "skyworksinc" ),      wxS( "Skyworks" ) },
+        { wxS( "silabs" ),           wxS( "Silicon Labs" ) },
+        { wxS( "espressif" ),        wxS( "Espressif" ) },
+        { wxS( "ftdichip" ),         wxS( "FTDI" ) },
+        { wxS( "panasonic" ),        wxS( "Panasonic" ) },
+        { wxS( "nichicon" ),         wxS( "Nichicon" ) },
+        { wxS( "rubycon" ),          wxS( "Rubycon" ) },
+        { wxS( "te" ),               wxS( "TE Connectivity" ) },
+        { wxS( "molex" ),            wxS( "Molex" ) },
+        { wxS( "samtec" ),           wxS( "Samtec" ) },
+        { wxS( "hirose" ),           wxS( "Hirose" ) },
+        { wxS( "hirose-connectors" ), wxS( "Hirose" ) },
+        { wxS( "jst" ),              wxS( "JST" ) },
+        { wxS( "amphenol" ),         wxS( "Amphenol" ) },
+        { wxS( "cuidevices" ),       wxS( "CUI Devices" ) },
+        { wxS( "cui" ),              wxS( "CUI Devices" ) },
+        { wxS( "abracon" ),          wxS( "Abracon" ) },
+        { wxS( "epson" ),            wxS( "Epson" ) },
+        { wxS( "epsondevice" ),      wxS( "Epson" ) },
+        { wxS( "quectel" ),          wxS( "Quectel" ) },
+        { wxS( "simcom" ),           wxS( "SIMCom" ) },
+        { wxS( "telit" ),            wxS( "Telit" ) },
+        { wxS( "u-blox" ),           wxS( "u-blox" ) },
+        { wxS( "broadcom" ),         wxS( "Broadcom" ) },
+        { wxS( "osram" ),            wxS( "ams OSRAM" ) },
+        { wxS( "lumileds" ),         wxS( "Lumileds" ) },
+        { wxS( "everlight" ),        wxS( "Everlight" ) },
+        { wxS( "winbond" ),          wxS( "Winbond" ) },
+        { wxS( "macronix" ),         wxS( "Macronix" ) },
+        { wxS( "issi" ),             wxS( "ISSI" ) },
+        { wxS( "microcrystal" ),     wxS( "Micro Crystal" ) },
+        { wxS( "ndk" ),              wxS( "NDK" ) },
+        { wxS( "kyocera" ),          wxS( "Kyocera AVX" ) },
+        { wxS( "kyocera-avx" ),      wxS( "Kyocera AVX" ) },
+        { wxS( "avx" ),              wxS( "Kyocera AVX" ) },
+        { wxS( "susumu" ),           wxS( "Susumu" ) },
+        { wxS( "recom-power" ),      wxS( "RECOM" ) },
+        { wxS( "meanwell" ),         wxS( "MEAN WELL" ) },
+        { wxS( "traco-power" ),      wxS( "Traco Power" ) },
+        { wxS( "tracopower" ),       wxS( "Traco Power" ) },
+
+        // Distributors / datasheet aggregators: not manufacturers
+        { wxS( "lcsc" ),             wxEmptyString },
+        { wxS( "mouser" ),           wxEmptyString },
+        { wxS( "digikey" ),          wxEmptyString },
+        { wxS( "farnell" ),          wxEmptyString },
+        { wxS( "element14" ),        wxEmptyString },
+        { wxS( "rs-online" ),        wxEmptyString },
+        { wxS( "arrow" ),            wxEmptyString },
+        { wxS( "alldatasheet" ),     wxEmptyString },
+        { wxS( "datasheetspdf" ),    wxEmptyString },
+        { wxS( "octopart" ),         wxEmptyString },
+        { wxS( "snapeda" ),          wxEmptyString },
+        { wxS( "ultralibrarian" ),   wxEmptyString },
+    };
+
+    return table;
+}
+
+
+/// Keywords matched (whole-word) against the library description as a fallback when the
+/// datasheet URL doesn't identify the manufacturer.
+static const std::vector<std::pair<wxString, wxString>>& descriptionManufacturerKeywords()
+{
+    static const std::vector<std::pair<wxString, wxString>> table = {
+        { wxS( "wurth" ),             wxS( "Würth Elektronik" ) },
+        { wxS( "würth" ),        wxS( "Würth Elektronik" ) },
+        { wxS( "murata" ),            wxS( "Murata" ) },
+        { wxS( "sunlord" ),           wxS( "Sunlord" ) },
+        { wxS( "samsung" ),           wxS( "Samsung Electro-Mechanics" ) },
+        { wxS( "yageo" ),             wxS( "Yageo" ) },
+        { wxS( "kemet" ),             wxS( "KEMET" ) },
+        { wxS( "vishay" ),            wxS( "Vishay" ) },
+        { wxS( "bourns" ),            wxS( "Bourns" ) },
+        { wxS( "tdk" ),               wxS( "TDK" ) },
+        { wxS( "taiyo" ),             wxS( "Taiyo Yuden" ) },
+        { wxS( "panasonic" ),         wxS( "Panasonic" ) },
+        { wxS( "rohm" ),              wxS( "ROHM" ) },
+        { wxS( "nichicon" ),          wxS( "Nichicon" ) },
+        { wxS( "rubycon" ),           wxS( "Rubycon" ) },
+        { wxS( "littelfuse" ),        wxS( "Littelfuse" ) },
+        { wxS( "texas instruments" ), wxS( "Texas Instruments" ) },
+        { wxS( "maxim" ),             wxS( "Analog Devices" ) },
+        { wxS( "analog devices" ),    wxS( "Analog Devices" ) },
+        { wxS( "stmicroelectronics" ), wxS( "STMicroelectronics" ) },
+        { wxS( "microchip" ),         wxS( "Microchip" ) },
+        { wxS( "infineon" ),          wxS( "Infineon" ) },
+        { wxS( "nexperia" ),          wxS( "Nexperia" ) },
+        { wxS( "onsemi" ),            wxS( "onsemi" ) },
+        { wxS( "renesas" ),           wxS( "Renesas" ) },
+        { wxS( "toshiba" ),           wxS( "Toshiba" ) },
+        { wxS( "molex" ),             wxS( "Molex" ) },
+        { wxS( "hirose" ),            wxS( "Hirose" ) },
+        { wxS( "amphenol" ),          wxS( "Amphenol" ) },
+        { wxS( "samtec" ),            wxS( "Samtec" ) },
+        { wxS( "jst" ),               wxS( "JST" ) },
+        { wxS( "espressif" ),         wxS( "Espressif" ) },
+        { wxS( "quectel" ),           wxS( "Quectel" ) },
+        { wxS( "simcom" ),            wxS( "SIMCom" ) },
+        { wxS( "telit" ),             wxS( "Telit" ) },
+        { wxS( "u-blox" ),            wxS( "u-blox" ) },
+        { wxS( "sensirion" ),         wxS( "Sensirion" ) },
+        { wxS( "bosch" ),             wxS( "Bosch Sensortec" ) },
+    };
+
+    return table;
+}
+
+
+/// Extract the lowercased host from a URL ("https://www.ti.com/lit/ds/x.pdf" -> "ti.com").
+static wxString urlHost( const wxString& aUrl )
+{
+    wxString url = aUrl;
+    url.Trim( true ).Trim( false );
+
+    int schemePos = url.Find( wxS( "://" ) );
+
+    if( schemePos != wxNOT_FOUND )
+        url = url.Mid( schemePos + 3 );
+
+    url = url.BeforeFirst( '/' );
+    url = url.BeforeFirst( '?' );
+    url = url.BeforeFirst( '#' );
+    url = url.BeforeFirst( ':' );   // strip port
+
+    url.MakeLower();
+
+    if( url.StartsWith( wxS( "www." ) ) )
+        url = url.Mid( 4 );
+
+    return url;
+}
+
+
+/// Return the registrable second-level label of a host ("ti.com" -> "ti",
+/// "st.co.jp" -> "st").
+static wxString secondLevelDomain( const wxString& aHost )
+{
+    wxArrayString parts = wxSplit( aHost, '.' );
+
+    if( parts.size() < 2 )
+        return aHost;
+
+    size_t idx = parts.size() - 2;
+
+    // Country-code registries like .co.jp / .com.cn / .org.uk
+    static const std::set<wxString> secondLabels = { wxS( "co" ), wxS( "com" ), wxS( "net" ),
+                                                     wxS( "org" ), wxS( "ac" ), wxS( "or" ),
+                                                     wxS( "ne" ), wxS( "gov" ) };
+
+    if( parts.size() >= 3 && parts.back().length() == 2 && secondLabels.count( parts[idx] ) )
+        idx--;
+
+    return parts[idx];
+}
+
+
+/// Normalize a field name for matching: lowercase with spaces/._-# removed.
+static wxString normalizeFieldName( const wxString& aFieldName )
+{
+    wxString name = aFieldName.Lower();
+    wxString out;
+
+    for( wxUniChar c : name )
+    {
+        if( c != ' ' && c != '.' && c != '_' && c != '-' && c != '#' )
+            out += c;
+    }
+
+    return out;
+}
+
+
+bool FIELDS_EDITOR_GRID_DATA_MODEL::isManufacturerFieldName( const wxString& aFieldName )
+{
+    static const std::set<wxString> names = { wxS( "manufacturer" ), wxS( "mfr" ), wxS( "mfg" ),
+                                              wxS( "manufacturername" ), wxS( "mfrname" ),
+                                              wxS( "mfgname" ), wxS( "brand" ) };
+
+    return names.count( normalizeFieldName( aFieldName ) ) > 0;
+}
+
+
+bool FIELDS_EDITOR_GRID_DATA_MODEL::isMpnFieldName( const wxString& aFieldName )
+{
+    static const std::set<wxString> names = { wxS( "mpn" ), wxS( "manufacturerpartnumber" ),
+                                              wxS( "mfrpartnumber" ), wxS( "mfgpartnumber" ),
+                                              wxS( "manufacturerpart" ), wxS( "mfrpart" ),
+                                              wxS( "mfrpartno" ), wxS( "mfrno" ),
+                                              wxS( "manufacturerpartno" ), wxS( "mfgpartno" ) };
+
+    return names.count( normalizeFieldName( aFieldName ) ) > 0;
+}
+
+
+/// Get a non-empty alias field value from the symbol, trying aAliases in order.
+static wxString aliasFieldValue( const SCH_SYMBOL* aSymbol, const SCH_SHEET_PATH& aSheetPath,
+                                 const wxString& aVariantName,
+                                 const std::vector<wxString>& aAliases )
+{
+    for( const wxString& alias : aAliases )
+    {
+        if( const SCH_FIELD* field = aSymbol->FindFieldCaseInsensitive( alias ) )
+        {
+            if( field->IsPrivate() )
+                continue;
+
+            wxString value = field->GetText( &aSheetPath, aVariantName );
+            value.Trim( true ).Trim( false );
+
+            if( !value.IsEmpty() && value != wxS( "~" ) )
+                return value;
+        }
+    }
+
+    return wxEmptyString;
+}
+
+
+static wxString symbolDatasheet( const SCH_SYMBOL* aSymbol, const SCH_SHEET_PATH& aSheetPath,
+                                 const wxString& aVariantName )
+{
+    const SCH_FIELD* field = aSymbol->GetField( FIELD_T::DATASHEET );
+
+    if( !field )
+        return wxEmptyString;
+
+    wxString datasheet = field->GetText( &aSheetPath, aVariantName );
+    datasheet.Trim( true ).Trim( false );
+
+    if( datasheet == wxS( "~" ) )
+        datasheet.clear();
+
+    // The instance field is often blanked even when the library symbol knows the URL
+    if( datasheet.IsEmpty() && aSymbol->GetLibSymbolRef() )
+    {
+        datasheet = aSymbol->GetLibSymbolRef()->GetDatasheetField().GetText();
+        datasheet.Trim( true ).Trim( false );
+
+        if( datasheet == wxS( "~" ) )
+            datasheet.clear();
+    }
+
+    return datasheet;
+}
+
+
+wxString FIELDS_EDITOR_GRID_DATA_MODEL::deriveManufacturer( const SCH_REFERENCE& aRef,
+                                                            const wxString& aVariantName )
+{
+    const SCH_SYMBOL* symbol = aRef.GetSymbol();
+
+    if( !symbol )
+        return wxEmptyString;
+
+    // 1) A differently-named manufacturer field already on the symbol (SnapEDA,
+    //    Ultra Librarian, EasyEDA imports, etc.)
+    static const std::vector<wxString> aliases = { wxS( "Manufacturer_Name" ),
+                                                   wxS( "Manufacturer Name" ),
+                                                   wxS( "Mfr" ), wxS( "Mfg" ),
+                                                   wxS( "MFG_Name" ), wxS( "Mfr_Name" ),
+                                                   wxS( "Vendor" ), wxS( "Brand" ) };
+
+    wxString value = aliasFieldValue( symbol, aRef.GetSheetPath(), aVariantName, aliases );
+
+    if( !value.IsEmpty() )
+        return value;
+
+    // 2) Vendor domain of the datasheet URL
+    wxString datasheet = symbolDatasheet( symbol, aRef.GetSheetPath(), aVariantName );
+
+    if( !datasheet.IsEmpty() )
+    {
+        wxString sld = secondLevelDomain( urlHost( datasheet ) );
+
+        if( !sld.IsEmpty() )
+        {
+            for( const auto& [domain, name] : domainManufacturerTable() )
+            {
+                if( sld == domain )
+                {
+                    if( !name.IsEmpty() )
+                        return name;
+
+                    break;  // distributor domain: try the description instead
+                }
+            }
+        }
+    }
+
+    // 3) Manufacturer named in the library description
+    wxString desc = symbol->GetDescription().Lower();
+
+    if( !desc.IsEmpty() )
+    {
+        // Whole-word matching so e.g. "jst" doesn't hit "adjustable"
+        wxString padded;
+
+        for( wxUniChar c : desc )
+            padded += wxIsalnum( c ) ? c : wxUniChar( ' ' );
+
+        padded = wxS( " " ) + padded + wxS( " " );
+
+        for( const auto& [keyword, name] : descriptionManufacturerKeywords() )
+        {
+            if( keyword.Contains( wxS( " " ) ) )
+            {
+                if( desc.Contains( keyword ) )
+                    return name;
+            }
+            else if( padded.Contains( wxS( " " ) + keyword + wxS( " " ) ) )
+            {
+                return name;
+            }
+        }
+    }
+
+    return wxEmptyString;
+}
+
+
+wxString FIELDS_EDITOR_GRID_DATA_MODEL::deriveMpn( const SCH_REFERENCE& aRef,
+                                                   const wxString& aVariantName )
+{
+    const SCH_SYMBOL* symbol = aRef.GetSymbol();
+
+    if( !symbol )
+        return wxEmptyString;
+
+    // 1) A differently-named MPN field already on the symbol
+    static const std::vector<wxString> aliases = { wxS( "Manufacturer_Part_Number" ),
+                                                   wxS( "Manufacturer Part Number" ),
+                                                   wxS( "Mfr_Part_Number" ),
+                                                   wxS( "Mfr Part Number" ),
+                                                   wxS( "MFG_Part_Number" ),
+                                                   wxS( "Mfr. No" ), wxS( "MfrPN" ) };
+
+    wxString value = aliasFieldValue( symbol, aRef.GetSheetPath(), aVariantName, aliases );
+
+    if( !value.IsEmpty() )
+        return value;
+
+    auto isPlausibleMpn =
+            []( const wxString& aCandidate ) -> bool
+            {
+                if( aCandidate.length() < 3 || aCandidate.length() > 40 )
+                    return false;
+
+                bool hasAlnum = false;
+
+                for( wxUniChar c : aCandidate )
+                {
+                    if( wxIsalnum( c ) )
+                        hasAlnum = true;
+                    else if( c != '-' && c != '_' && c != '.' && c != '+' && c != '/' )
+                        return false;
+                }
+
+                if( !hasAlnum )
+                    return false;
+
+                // Require at least one digit; bare words ("datasheet", "index") aren't MPNs
+                for( wxUniChar c : aCandidate )
+                {
+                    if( wxIsdigit( c ) )
+                        return true;
+                }
+
+                return false;
+            };
+
+    // 2) Datasheet file name ("https://www.ti.com/lit/ds/symlink/lm7805.pdf" -> "LM7805")
+    wxString datasheet = symbolDatasheet( symbol, aRef.GetSheetPath(), aVariantName );
+
+    if( datasheet.Contains( wxS( "://" ) ) )
+    {
+        wxString file = datasheet.BeforeFirst( '?' ).BeforeFirst( '#' );
+        file.Trim( true );
+
+        while( file.EndsWith( wxS( "/" ) ) )
+            file.RemoveLast();
+
+        file = file.AfterLast( '/' );
+
+        // Strip a web/document extension if present
+        static const std::set<wxString> extensions = { wxS( "pdf" ), wxS( "htm" ), wxS( "html" ),
+                                                       wxS( "php" ), wxS( "aspx" ), wxS( "ashx" ),
+                                                       wxS( "jsp" ), wxS( "zip" ) };
+
+        if( file.Contains( wxS( "." ) ) && extensions.count( file.AfterLast( '.' ).Lower() ) )
+            file = file.BeforeLast( '.' );
+
+        // Don't mistake the bare host for a part number
+        if( isPlausibleMpn( file ) && !file.Contains( wxS( "." ) ) )
+        {
+            // Datasheet file names are often lowercased copies of the part number
+            if( file == file.Lower() )
+                file.MakeUpper();
+
+            return file;
+        }
+    }
+
+    // 3) Library symbol name, when the library is organized by part number
+    //    (e.g. "SWPA6045S220MT"); generic names like "R_0402" or "C_Polarized" are rejected
+    wxString libName = symbol->GetLibId().GetUniStringLibItemName();
+
+    if( isPlausibleMpn( libName ) && libName.length() >= 5 )
+    {
+        static const std::vector<wxString> genericPrefixes =
+                { wxS( "R_" ), wxS( "C_" ), wxS( "L_" ), wxS( "D_" ), wxS( "Q_" ), wxS( "J_" ),
+                  wxS( "SW_" ), wxS( "Conn_" ), wxS( "LED_" ), wxS( "TestPoint" ),
+                  wxS( "Jumper" ), wxS( "Fuse" ), wxS( "Crystal" ), wxS( "Net-" ),
+                  wxS( "Mounting" ), wxS( "Logo" ), wxS( "Fiducial" ) };
+
+        for( const wxString& prefix : genericPrefixes )
+        {
+            if( libName.StartsWith( prefix ) )
+                return wxEmptyString;
+        }
+
+        return libName;
+    }
+
+    return wxEmptyString;
+}
+
+
 void FIELDS_EDITOR_GRID_DATA_MODEL::AddColumn( const wxString& aFieldName, const wxString& aLabel,
                                                bool aAddedByUser, const wxString& aVariantName )
 {
@@ -293,6 +757,16 @@ void FIELDS_EDITOR_GRID_DATA_MODEL::updateDataStoreSymbolField( const SCH_REFERE
     else
     {
         m_dataStore[key][aFieldName] = wxEmptyString;
+    }
+
+    // Auto-fill empty Manufacturer / MPN cells from what the symbol already knows
+    // (datasheet URL, alias fields, library description) so BOM exports aren't blank.
+    if( m_dataStore[key][aFieldName].IsEmpty() )
+    {
+        if( isManufacturerFieldName( aFieldName ) )
+            m_dataStore[key][aFieldName] = deriveManufacturer( aSymbolRef, aVariantName );
+        else if( isMpnFieldName( aFieldName ) )
+            m_dataStore[key][aFieldName] = deriveMpn( aSymbolRef, aVariantName );
     }
 }
 
@@ -1643,7 +2117,8 @@ wxString FIELDS_EDITOR_GRID_DATA_MODEL::Export( const BOM_FMT_PRESET& settings )
 }
 
 
-void FIELDS_EDITOR_GRID_DATA_MODEL::AddReferences( const SCH_REFERENCE_LIST& aRefs )
+void FIELDS_EDITOR_GRID_DATA_MODEL::AddReferences( const SCH_REFERENCE_LIST& aRefs,
+                                                   const wxString& aVariantName )
 {
     bool refListChanged = false;
 
@@ -1651,26 +2126,12 @@ void FIELDS_EDITOR_GRID_DATA_MODEL::AddReferences( const SCH_REFERENCE_LIST& aRe
     {
         if( !m_symbolsList.Contains( ref ) )
         {
-            SCH_SYMBOL* symbol = ref.GetSymbol();
-
             m_symbolsList.AddItem( ref );
 
-            KIID_PATH key = makeDataStoreKey( ref.GetSheetPath(), *symbol );
-
-            // Update the fields of every reference
-            for( const SCH_FIELD& field : symbol->GetFields() )
-            {
-                if( !field.IsPrivate() )
-                {
-                    wxString name = field.GetCanonicalName();
-                    wxString value = symbol->Schematic()->ConvertKIIDsToRefs( field.GetText() );
-
-                    m_dataStore[key][name] = value;
-                }
-            }
-
+            // Use the same path as existing symbols so generated Manufacturer/MPN values
+            // are populated for symbols added while the table is open.
             for( const DATA_MODEL_COL& col : m_cols )
-                m_dataStore[key].try_emplace( col.m_fieldName, wxEmptyString );
+                updateDataStoreSymbolField( ref, col.m_fieldName, aVariantName );
 
             refListChanged = true;
         }

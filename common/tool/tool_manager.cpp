@@ -573,11 +573,13 @@ void TOOL_MANAGER::ShutdownTool( TOOL_BASE* aTool )
 
         TOOL_STATE* st = m_toolIdIndex[*it];
 
+        if( st )
+            st->shutdown = true;
+
         // the tool state handler is waiting for events (i.e. called Wait() method)
         if( st && st->pendingWait )
         {
             // Wake up the tool and tell it to shutdown
-            st->shutdown = true;
             st->pendingWait = false;
             st->waitEvents.clear();
 

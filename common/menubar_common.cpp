@@ -310,9 +310,13 @@ void EDA_BASE_FRAME::buildCommonMenuBar()
 }
 
 
-void EDA_BASE_FRAME::buildCommonMenuBarFrom( EDA_BASE_FRAME* aSource )
+void EDA_BASE_FRAME::buildCommonMenuBarFrom( EDA_BASE_FRAME* aSource,
+                                             EDA_BASE_FRAME* aCommonSource )
 {
     wxCHECK_RET( aSource, wxT( "buildCommonMenuBarFrom() requires a non-null source frame" ) );
+
+    if( !aCommonSource )
+        aCommonSource = aSource;
 
     TOOL_INTERACTIVE* tool = aSource->getCurrentMenuTool();
 
@@ -330,8 +334,18 @@ void EDA_BASE_FRAME::buildCommonMenuBarFrom( EDA_BASE_FRAME* aSource )
             {
                 ACTION_MENU* menu = new ACTION_MENU( false, tool );
 
-                // Fill from the SOURCE frame's hook (== this for the plain buildCommonMenuBar()
-                // case); the menu's tool is the source frame's, so its events route there.
+                // Compose the shell's common commands with the active editor's commands only
+                // when they come from different frames.  With no editor open, the shell must
+                // show its normal menu exactly once.
+                if( aSource != aCommonSource )
+                {
+                    TOOL_INTERACTIVE* commonTool = aCommonSource->getCurrentMenuTool();
+                    ACTION_MENU* commonMenu = new ACTION_MENU( false, commonTool );
+                    ( aCommonSource->*aBuilder )( commonMenu );
+                    menu->AppendFrom( *commonMenu );
+                    delete commonMenu;
+                }
+
                 ( aSource->*aBuilder )( menu );
 
                 // A frame opts into a top-level menu simply by adding items in its hook; an empty

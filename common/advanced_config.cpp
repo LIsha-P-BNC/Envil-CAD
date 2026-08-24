@@ -307,7 +307,7 @@ ADVANCED_CFG::ADVANCED_CFG()
     m_ModernMenuLayout = true;
     m_ModernToolbarLayout = true;
     m_SingleWindowShell = true;
-    m_CommonAiPanel = false;   // opt-in: one shell-owned AI panel (needs SingleWindowShell); see header
+    m_CommonAiPanel = true;   // one shell-owned AI panel (needs SingleWindowShell); see header
     m_UnifiedStatusBar = true;   // ships ON (part of the single-window product UI); set 0 to opt out
     m_UnifiedToolbar = true;   // ships ON: hoist the active editor tab's top toolbar ABOVE the tab
                                // strip (Altium order: menu -> toolbar -> tabs); set 0 to keep the

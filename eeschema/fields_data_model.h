@@ -383,7 +383,7 @@ public:
     BOM_PRESET GetBomSettings();
     wxString Export( const BOM_FMT_PRESET& settings );
 
-    void AddReferences( const SCH_REFERENCE_LIST& aRefs );
+    void AddReferences( const SCH_REFERENCE_LIST& aRefs, const wxString& aVariantName );
     void RemoveReferences( const SCH_REFERENCE_LIST& aRefs );
     void RemoveSymbol( const SCH_SYMBOL& aSymbol );
     void UpdateReferences( const SCH_REFERENCE_LIST& aRefs, const wxString& aVariantName );
@@ -457,6 +457,17 @@ private:
      * in their value because their name is the same as a variable.
      * Example: BOM template provides ${DNP} as a field, but they symbol doesn't have the field. */
     wxString getFieldShownText( const SCH_REFERENCE& aRef, const wxString& aFieldName );
+
+    /**
+     * Auto-fill support for empty Manufacturer / Manufacturer Part Number BOM columns:
+     * derive a best-guess value from the symbol's Datasheet URL (vendor domain, datasheet
+     * file name), alias fields already on the symbol, or the library description.
+     * Only used when the stored value is empty; never overwrites real data.
+     */
+    static bool isManufacturerFieldName( const wxString& aFieldName );
+    static bool isMpnFieldName( const wxString& aFieldName );
+    wxString    deriveManufacturer( const SCH_REFERENCE& aRef, const wxString& aVariantName );
+    wxString    deriveMpn( const SCH_REFERENCE& aRef, const wxString& aVariantName );
 
     void Sort();
 

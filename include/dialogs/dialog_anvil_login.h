@@ -26,23 +26,26 @@
 #include <functional>
 #include <memory>
 #include <mutex>
+#include <wx/gdicmn.h>
 #include <wx/timer.h>
 
 class wxSimplebook;
 class wxStaticText;
 class wxTextCtrl;
 class wxTopLevelWindow;
+class ANVIL_LOADING_TRACK;
 class ANVIL_LOGIN_BUTTON;
 
 
 /**
  * The Anvil CAD sign-in gate — email + OTP login.
  *
- * A circuit-board brand panel on the left and a light page carrying a single white sign-in
- * card on the right.  Three steps in one card via a wxSimplebook: enter email → "SIGN IN
- * WITH EMAIL OTP", then enter the emailed code → "VERIFY & CONTINUE", then the signed-in
- * hand-off page.  The card header (shield badge, title, subtitle) is shared by all three
- * pages and re-labelled as the book turns.
+ * One circuit board fills the window, and the sign-in card sits in a rounded pocket milled
+ * into it: brand artwork to the left, the card seated in the copper to the right, joined by a
+ * routed wall and a row of pads rather than split down a seam.  Three steps in one card via a
+ * wxSimplebook: enter email → "SIGN IN WITH EMAIL OTP", then enter the emailed code →
+ * "VERIFY & CONTINUE", then the signed-in hand-off page.  The card header (shield badge,
+ * title, subtitle) is shared by all three pages and re-labelled as the book turns.
  *
  * All server traffic runs through ANVIL_AUTH on the shared thread pool; the UI thread never
  * blocks.  ShowModal() returns wxID_OK only after a successful OTP verification (the session
@@ -72,8 +75,27 @@ public:
      * Call this after ShowModal() returns wxID_OK and keep the dialog on screen while the
      * main window is built: destroying it first leaves the desktop bare for as long as
      * startup takes, which reads as the app having restarted.
+     *
+     * Call it only once the dialog is back on screen (Show( true )).  A repaint asked for
+     * while the window is hidden is dropped, and the caller then blocks for seconds building
+     * the main window with no event loop left to service a later one — which is what leaves
+     * an unpainted, garbage-filled cover standing for the whole of startup.
      */
     void ShowOpeningState();
+
+    /**
+     * Move the loading rail on the "opening your workspace" page to @a aFraction (0..1) and,
+     * when given, re-caption it with the step now under way.
+     *
+     * Startup owns the UI thread in multi-second blocks, so nothing driven by a timer can be
+     * relied on to keep moving: the rail is advanced from the outside instead, as each real
+     * step clears, and every call paints synchronously (pumping whatever else is waiting to
+     * be drawn) before returning.  The bar therefore stands still exactly as long as the step
+     * it names actually takes.
+     *
+     * A no-op unless the opening page is up, so callers need not track that themselves.
+     */
+    void SetOpeningProgress( double aFraction, const wxString& aStep = wxEmptyString );
 
     /**
      * Re-assert the maximized startup geometry after DIALOG_SHIM has applied whatever size
@@ -113,6 +135,17 @@ private:
                    std::function<void( bool, const wxString& )> aOnResult );
 
 
+    /**
+     * Recompute the board's page opening from the card's live geometry and repaint the two
+     * windows that mill their edge around it.
+     *
+     * The opening is the card panel's own rectangle in dialog client coordinates, grown by a
+     * margin so the card floats in a routed pocket instead of filling it edge to edge.  It
+     * only settles once the sizers have run, so this is called after every layout and after
+     * every turn of the book — the pages are not all the same height.
+     */
+    void updateOpening();
+
     void clearError();
     void setBusy( bool aBusy );
     void startResendCooldown();
@@ -137,6 +170,15 @@ private:
 
     std::shared_ptr<ASYNC_GATE> m_async;
 
+    /// The routed opening in the board that the card sits in, in dialog client coordinates.
+    /// Shared with every window that paints part of it, so the board, the page and the card
+    /// all mill the same edge; see updateOpening().
+    std::shared_ptr<wxRect> m_opening;
+
+    wxWindow*           m_brandPanel;       // board artwork left of the card
+    wxWindow*           m_formPanel;        // board artwork around and behind the card
+    wxWindow*           m_cardPanel;        // the card itself; the opening is cut to fit it
+
     wxSimplebook*       m_book;
 
     // shared card header
@@ -154,6 +196,9 @@ private:
     wxStaticText*       m_changeEmailLink;
 
     wxStaticText*       m_errorLabel;
+
+    // opening ("we are letting you in") page
+    ANVIL_LOADING_TRACK* m_loadingTrack;
 
     wxString            m_email;            // email the OTP was sent to
     wxTimer             m_resendTimer;

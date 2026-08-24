@@ -455,10 +455,25 @@ bool PGM_KICAD::OnPgmInit()
 
         // ShowModal() hid the dialog; bring it back as a plain window so it covers the
         // screen for the rest of startup.
-        loginDlg->ShowOpeningState();
+        //
+        // Order matters.  The window has to be up, and at its final maximized size, BEFORE
+        // ShowOpeningState() paints it: a repaint asked for while it is hidden is dropped, and
+        // the very next thing this thread does is block for seconds building the main window,
+        // with no event loop left to service one later.  Painting last is what stops the cover
+        // standing there full of whatever the desktop had under it.
         loginDlg->Show( true );
         loginDlg->Raise();
+        loginDlg->ShowOpeningState();
     }
+
+    // Advance the cover's loading rail as each real startup step clears.  Harmless when there
+    // is no cover (an already-signed-in launch), so the call sites need no guard of their own.
+    auto openingStep =
+            [&loginDlg]( double aFraction, const wxString& aStep )
+            {
+                if( loginDlg )
+                    loginDlg->SetOpeningProgress( aFraction, aStep );
+            };
 
     wxFrame*      frame = nullptr;
     KIWAY_PLAYER* playerFrame = nullptr;
@@ -466,9 +481,13 @@ bool PGM_KICAD::OnPgmInit()
 
     if( appType == KICAD_MAIN_FRAME_T )
     {
+        openingStep( 0.18, _( "Building your workspace…" ) );
+
         managerFrame = new KICAD_MANAGER_FRAME( nullptr, wxT( "Anvil" ), wxDefaultPosition,
                                                 wxWindow::FromDIP( wxSize( 775, -1 ), NULL ) );
         frame = managerFrame;
+
+        openingStep( 0.55, _( "Setting up the editors…" ) );
 
         STARTWIZARD startWizard;
         startWizard.CheckAndRun( frame );
@@ -498,6 +517,8 @@ bool PGM_KICAD::OnPgmInit()
                                              frame->GetTitle() );
 
     KICAD_SETTINGS* settings = static_cast<KICAD_SETTINGS*>( PgmSettings() );
+
+    openingStep( 0.70, _( "Loading the component libraries…" ) );
 
     GetLibraryManager().LoadGlobalTables();
 
@@ -645,6 +666,8 @@ bool PGM_KICAD::OnPgmInit()
         if( !loaded && appType == KICAD_MAIN_FRAME_T )
             managerFrame->PreloadAllLibraries();
     }
+
+    openingStep( 0.92, _( "Almost ready…" ) );
 
     frame->Show( true );
 
