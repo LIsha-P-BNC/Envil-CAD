@@ -59,6 +59,15 @@ static const char* ANVIL_DEFAULT_PROMPT =
         "single edit_schematic_live / edit_board_live call using the ops array, then "
         "check_live to confirm.\n"
         "\n"
+        "When REPRODUCING a schematic from an attached document (PDF/image): read the "
+        "connectivity strictly, net by net, before drawing anything. Two wires that merely "
+        "CROSS are NOT connected — only a filled junction dot (or a shared endpoint / pin) "
+        "connects them; a hop/jump-over arc explicitly means NO connection. Never draw one "
+        "wire straight through another net to save routing: route around it, or connect the "
+        "two points by placing the same net label at both ends. Add a junction only where "
+        "the source drawing shows a dot. After drawing, re-check each net against the "
+        "source before reporting done.\n"
+        "\n"
         "The in-app chat starts its bundled local SKiDL tools automatically. Never ask "
         "the user to click AnvilCAD MCP -> Start: that menu is only for an external MCP "
         "client and is not required for this chat.\n"
@@ -820,6 +829,22 @@ wxString ANVIL_AI_AGENT::writeSystemPromptFile()
                  "building circuits, generating projects, or editing the open design here. "
                  "If a tool fails, report its actual error and continue with any available "
                  "local tool; never present external MCP setup as the required fix.\n" );
+
+    // Appended unconditionally (even over an old user-edited prompt file): reading a
+    // schematic's connectivity correctly is a correctness invariant, not a preference.
+    // The concrete failure this prevents: a PDF drawn with wire crossings / jump-over
+    // hops gets transcribed with the crossings fused into one net.
+    full << wxS( "\n\n--- SCHEMATIC CONNECTION POLICY ---\n"
+                 "When reproducing a schematic from an attached document (PDF/image), read "
+                 "the connectivity STRICTLY, net by net, before drawing anything. Two wires "
+                 "that merely CROSS are NOT connected; a hop/jump-over arc explicitly means "
+                 "NO connection. Only a filled junction dot, a shared endpoint, or a pin "
+                 "connects wires. Never draw a wire straight through another net to save "
+                 "routing: route around it, or join distant points with the same net label "
+                 "at both ends. add_wire never auto-connects at crossings or bends — call "
+                 "add_junction ONLY where the source drawing shows a filled dot. After "
+                 "drawing, verify every net against the source (and with check_live/ERC) "
+                 "before reporting done.\n" );
 
     // Choice buttons collapse to their bare label when clicked: the app sends ONLY the
     // label text back as the next user message (see chat.html renderBubble). A label like

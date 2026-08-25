@@ -245,34 +245,44 @@ static json execAddWire( SCH_EDIT_FRAME* aFrame, const json& aInput )
         ++segCount;
     }
 
-    // Auto-add junctions wherever these new wires need them — the same logic Anvil's own
-    // wire tool uses (SCH_SCREEN::GetNeededJunctions). This is what bonds a stub that ENDS
-    // on a rail (a T-intersection): the junction ties the stub end to the rail it crosses,
-    // so the tap connects with a visible dot. Without this the AI's ERC loop could never
-    // converge — it would wire, ERC would still say "not connected", and it would re-wire
-    // forever.
+    // Auto-add junctions ONLY at the two terminal endpoints of the requested polyline.
+    // A wire the AI deliberately ENDS on a rail (a T-tap) still gets its dot, so the ERC
+    // loop converges; but a bend vertex or a segment merely PASSING THROUGH another net's
+    // connection point never invents a junction. Crossings stay unconnected unless the
+    // model explicitly calls add_junction there — a crossing in the source drawing (e.g.
+    // a jump-over in an imported PDF schematic) is not a connection.
     int jctCount = 0;
 
-    for( const VECTOR2I& pt : screen->GetNeededJunctions( newWires ) )
+    if( !newWires.empty() )
     {
-        bool exists = false;
+        const VECTOR2I terminals[2] = {
+                static_cast<SCH_LINE*>( newWires.front() )->GetStartPoint(),
+                static_cast<SCH_LINE*>( newWires.back() )->GetEndPoint() };
 
-        for( SCH_ITEM* it : screen->Items().OfType( SCH_JUNCTION_T ) )
+        for( const VECTOR2I& pt : terminals )
         {
-            if( it->GetPosition() == pt )
+            if( !screen->IsExplicitJunctionNeeded( pt ) )
+                continue;
+
+            bool exists = false;
+
+            for( SCH_ITEM* it : screen->Items().OfType( SCH_JUNCTION_T ) )
             {
-                exists = true;
-                break;
+                if( it->GetPosition() == pt )
+                {
+                    exists = true;
+                    break;
+                }
             }
+
+            if( exists )
+                continue;
+
+            SCH_JUNCTION* jct = new SCH_JUNCTION( pt );
+            aFrame->AddToScreen( jct, screen );
+            commit.Added( jct, screen );
+            ++jctCount;
         }
-
-        if( exists )
-            continue;
-
-        SCH_JUNCTION* jct = new SCH_JUNCTION( pt );
-        aFrame->AddToScreen( jct, screen );
-        commit.Added( jct, screen );
-        ++jctCount;
     }
 
     commit.Push( _( "Envil AI: add wire" ) );

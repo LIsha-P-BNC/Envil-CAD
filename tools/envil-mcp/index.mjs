@@ -138,7 +138,10 @@ const TOOLS = [
     name: "add_wire",
     description:
       "Draw a wire path. Each consecutive pair of points becomes one wire segment, so a " +
-      "multi-point path draws a connected polyline. Use right-angle paths.",
+      "multi-point path draws a connected polyline. Use right-angle paths. Crossing " +
+      "another wire does NOT connect to it, and no junction is added automatically at " +
+      "crossings or bends — route around other nets, or call add_junction explicitly " +
+      "where the source schematic shows a filled dot.",
     inputSchema: {
       type: "object",
       properties: {
@@ -176,7 +179,10 @@ const TOOLS = [
   },
   {
     name: "add_junction",
-    description: "Add a junction dot where wires cross and must connect.",
+    description:
+      "Add a junction dot to CONNECT wires at a point. Use ONLY where the source " +
+      "schematic shows a filled dot (or an explicit T-tap). A plain crossing or a " +
+      "hop/jump-over arc means NOT connected — never add a junction there.",
     inputSchema: { type: "object", properties: { ...XY }, required: ["x_mils", "y_mils"] },
   },
   {
