@@ -122,6 +122,8 @@
 #include <wx/menu.h>
 #include <wx/popupwin.h>
 #include <wx/settings.h>
+#include <wx/grid.h>                        // in-shell CSV / BOM viewer tab
+#include <wx/textfile.h>                    // read CSV lines for the viewer tab
 #ifdef __WXMSW__
 #include <wx/msw/wrapwin.h>
 #include <windowsx.h>     // GET_X_LPARAM / GET_Y_LPARAM
@@ -3138,6 +3140,177 @@ void KICAD_MANAGER_FRAME::prewarmNextEditor( wxTimerEvent& aEvent )
     // Warm the next one on a short tick so the GUI thread breathes between heavy loads.
     if( !m_prewarmQueue.empty() )
         m_prewarmTimer.StartOnce( 400 );
+}
+
+
+// Pick the delimiter from the header line: the BOM engine can emit comma / semicolon /
+// tab separated files (field_delimiter is user-configurable), so never assume comma --
+// take whichever separator occurs most on the first line.
+static wxChar detectCsvDelimiter( const wxString& aHeader )
+{
+    const int commas = aHeader.Freq( ',' );
+    const int semis  = aHeader.Freq( ';' );
+    const int tabs   = aHeader.Freq( '\t' );
+
+    if( tabs >= commas && tabs >= semis && tabs > 0 )
+        return '\t';
+
+    if( semis >= commas && semis > 0 )
+        return ';';
+
+    return ',';
+}
+
+
+// Quote-aware split of one CSV record: "a,b" stays one cell, "" is a literal quote.
+static std::vector<wxString> splitCsvLine( const wxString& aLine, wxChar aDelim )
+{
+    std::vector<wxString> cells;
+    wxString              cur;
+    bool                  inQuotes = false;
+
+    for( size_t i = 0; i < aLine.length(); ++i )
+    {
+        const wxUniChar c = aLine[i];
+
+        if( inQuotes )
+        {
+            if( c == '"' )
+            {
+                if( i + 1 < aLine.length() && aLine[i + 1] == '"' )   // escaped "" -> "
+                {
+                    cur += '"';
+                    ++i;
+                }
+                else
+                {
+                    inQuotes = false;
+                }
+            }
+            else
+            {
+                cur += c;
+            }
+        }
+        else if( c == '"' )
+        {
+            inQuotes = true;
+        }
+        else if( c == aDelim )
+        {
+            cells.push_back( cur );
+            cur.clear();
+        }
+        else
+        {
+            cur += c;
+        }
+    }
+
+    cells.push_back( cur );
+    return cells;
+}
+
+
+bool KICAD_MANAGER_FRAME::OpenCsvTab( const wxString& aPath )
+{
+#ifdef __WXMSW__
+    // In-shell document tabs only exist in the single-window shell (Windows).  When the flag
+    // is off, or there is no tab host, tell the caller to use the external launcher instead.
+    if( !m_editorTabs || !ADVANCED_CFG::GetCfg().m_SingleWindowShell )
+        return false;
+
+    wxFileName fn( aPath );
+
+    if( !fn.FileExists() )
+        return false;
+
+    const wxString fullPath = fn.GetFullPath();
+
+    // Already open?  Each document page is tagged with its full path as the panel name --
+    // re-select it instead of opening a duplicate tab.  (Editor tabs use a plain wxPanel too,
+    // but carry no name, so they never collide with this match.)
+    for( size_t i = 0; i < m_editorTabs->GetPageCount(); ++i )
+    {
+        if( wxWindow* pg = m_editorTabs->GetPage( i ); pg && pg->GetName() == fullPath )
+        {
+            m_editorTabs->SetSelection( i );
+            return true;
+        }
+    }
+
+    // wxTextFile copes with the usual encodings / line endings.  An unreadable file falls
+    // back to the external opener (return false) rather than showing an empty tab.
+    wxTextFile tf( fullPath );
+
+    if( !tf.Open() )
+        return false;
+
+    std::vector<std::vector<wxString>> rows;
+    size_t                             maxCols = 0;
+    wxChar                             delim = ',';
+
+    for( wxString line = tf.GetFirstLine(); !tf.Eof(); line = tf.GetNextLine() )
+    {
+        if( rows.empty() )
+            delim = detectCsvDelimiter( line );
+
+        std::vector<wxString> cells = splitCsvLine( line, delim );
+        maxCols = std::max( maxCols, cells.size() );
+        rows.push_back( std::move( cells ) );
+    }
+
+    tf.Close();
+
+    if( maxCols == 0 )
+        maxCols = 1;
+
+    // The first row is the column header (every BOM export carries one); the rest are data.
+    const int nCols = static_cast<int>( maxCols );
+    const int nRows = rows.empty() ? 0 : static_cast<int>( rows.size() ) - 1;
+
+    wxPanel*    panel = new wxPanel( m_editorTabs, wxID_ANY );
+    panel->SetName( fullPath );                       // tag for the already-open check above
+    wxBoxSizer* sizer = new wxBoxSizer( wxVERTICAL );
+    panel->SetSizer( sizer );
+
+    wxGrid* grid = new wxGrid( panel, wxID_ANY, wxDefaultPosition, wxDefaultSize,
+                               wxWANTS_CHARS | wxBORDER_NONE );
+    grid->CreateGrid( std::max( 0, nRows ), nCols );
+    grid->EnableEditing( false );                     // read-only viewer
+    grid->DisableDragRowSize();
+    grid->SetColLabelAlignment( wxALIGN_LEFT, wxALIGN_CENTRE );
+
+    if( !rows.empty() )
+    {
+        for( int col = 0; col < nCols; ++col )
+        {
+            const wxString label = col < static_cast<int>( rows[0].size() ) ? rows[0][col]
+                                                                            : wxString();
+            grid->SetColLabelValue( col, label );
+        }
+    }
+
+    for( int r = 1; r < static_cast<int>( rows.size() ); ++r )
+    {
+        for( int col = 0; col < nCols && col < static_cast<int>( rows[r].size() ); ++col )
+            grid->SetCellValue( r - 1, col, rows[r][col] );
+    }
+
+    grid->AutoSizeColumns();
+
+    sizer->Add( grid, 1, wxEXPAND );
+    panel->Layout();
+
+    // Add as a normal notebook page.  It is NOT registered in m_dockedEditors, so the shell's
+    // editor bookkeeping (PruneDeadEditorTabs / menu-sync / close-detach) treats it as an inert
+    // page: closing just destroys it, and the menu falls back to the Project Manager's own.
+    m_editorTabs->AddPage( panel, fn.GetFullName(), true );
+
+    return true;
+#else
+    return false;
+#endif
 }
 
 

@@ -14,6 +14,7 @@
 #include <wx/translation.h>
 #include <wx/ffile.h>
 #include <wx/filefn.h>          // wxFileExists
+#include <wx/log.h>             // wxLogNull -- keep settings IO from popping a modal
 #include <wx/filename.h>
 #include <wx/stdpaths.h>
 #include <wx/utils.h>           // wxGetEnv
@@ -91,8 +92,19 @@ static wxString authModeFile()
 
 static wxString readAuthMode()
 {
-    wxFFile f( authModeFile(), wxS( "rb" ) );
-    wxString v;
+    const wxString path = authModeFile();
+    wxString       v;
+
+    // A missing file is the NORMAL state (first run / no explicit account choice yet) --
+    // it means "auto".  Bail before touching wxFFile: opening a non-existent file makes
+    // wxFFile raise a wxLogSysError that pops up as a modal "Anvil Error" dialog on every
+    // editor open.  wxLogNull additionally swallows any transient read error for the same
+    // reason -- this helper must never surface UI.
+    if( !wxFileName::FileExists( path ) )
+        return wxEmptyString;                       // auto
+
+    wxLogNull noLog;
+    wxFFile   f( path, wxS( "rb" ) );
 
     if( f.IsOpened() )
         f.ReadAll( &v, wxConvUTF8 );
@@ -108,7 +120,8 @@ static wxString readAuthMode()
 
 static void writeAuthMode( const wxString& aMode )
 {
-    wxFFile f( authModeFile(), wxS( "wb" ) );
+    wxLogNull noLog;                                // never surface a modal from a settings write
+    wxFFile   f( authModeFile(), wxS( "wb" ) );
 
     if( f.IsOpened() )
         f.Write( aMode, wxConvUTF8 );

@@ -325,6 +325,17 @@ public:
     void OpenJobsFile( const wxFileName& aFileName, bool aCreate = false,
                        bool aResaveProjectPreferences = true );
 
+    /**
+     * Open a CSV / tabular text file (e.g. a BOM) as a read-only grid TAB inside the shell,
+     * instead of shelling out to an external app.  Additive: the external open path stays
+     * available (double-click still routes here, the tree's right-click "open externally"
+     * still shells out).  Returns false when in-shell tabs are unavailable (flag off /
+     * non-Windows / no tab host) so the caller can fall back to the external launcher.
+     *
+     * If a tab for @a aPath is already open it is just re-selected (no duplicate).
+     */
+    bool OpenCsvTab( const wxString& aPath );
+
 
     void LoadSettings( APP_SETTINGS_BASE* aCfg ) override;
 

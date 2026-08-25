@@ -224,8 +224,11 @@ bool EDA_DRAW_PANEL_GAL::recoverFromGalError( const std::exception& aError )
             m_glRecoveryAttempted = false;
             SwitchBackend( GAL_FALLBACK );
 
-            DisplayInfoMessage( m_parent, _( "Could not use OpenGL, falling back to software rendering" ),
-                                wxString( aError.what() ) );
+            // Silently fall back to software rendering. Many machines (VMs, RDP
+            // sessions, headless GPUs) lack OpenGL 2.1; nagging the user with a
+            // modal on every editor open is noise -- Cairo renders fine. Log only.
+            wxLogTrace( "GAL", "Could not use OpenGL, falling back to software rendering: %s",
+                        aError.what() );
 
             StartDrawing();
             return true;
@@ -647,10 +650,11 @@ bool EDA_DRAW_PANEL_GAL::SwitchBackend( GAL_TYPE aGalType )
                 if( GAL_FALLBACK != aGalType )
                 {
                     aGalType = GAL_FALLBACK;
-                    DisplayInfoMessage(
-                            m_parent,
-                            _( "Could not use OpenGL, falling back to software rendering" ),
-                            errormsg );
+                    // Silently fall back to software rendering (see recoverFromGalError):
+                    // don't pop a modal every time an editor opens on a machine
+                    // without OpenGL 2.1. Cairo renders fine; just log it.
+                    wxLogTrace( "GAL", "Could not use OpenGL, falling back to software "
+                                       "rendering: %s", errormsg );
                     new_gal = new KIGFX::CAIRO_GAL( m_options, this, this, this );
                 }
                 else

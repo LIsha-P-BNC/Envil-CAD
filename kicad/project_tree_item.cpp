@@ -407,6 +407,13 @@ void PROJECT_TREE_ITEM::Activate( PROJECT_TREE_PANE* aTreePrjFrame )
         break;
 
     default:
+        // BOM / CSV opens as an in-shell grid TAB (no external app needed).  The external
+        // route stays available from the tree's right-click "Edit in a Text Editor".  If the
+        // shell tab is unavailable (flag off / non-Windows / unreadable file), OpenCsvTab
+        // returns false and we fall back to the system application as before.
+        if( fullFileName.Lower().EndsWith( wxT( ".csv" ) ) && frame->OpenCsvTab( fullFileName ) )
+            break;
+
         wxLaunchDefaultApplication( fullFileName );
         break;
     }
