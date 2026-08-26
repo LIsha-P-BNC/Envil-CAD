@@ -197,6 +197,13 @@ class ACTION_TOOLBAR_CONTROL;
 class ACTION_TOOLBAR : public wxAuiToolBar
 {
 public:
+    /**
+     * Anvil: app-wide toolbar icon glyph size (px @ 100% DPI) in the modern layout.  Shared
+     * with WX_AUI_TOOLBAR_ART::GetToolSize() so the button cell tracks the bitmap size instead
+     * of the stock Common setting — one constant sizes the glyph AND the row.
+     */
+    static constexpr int ANVIL_TOOLBAR_ICON_PX = 16;
+
     ACTION_TOOLBAR( EDA_BASE_FRAME* parent, wxWindowID id = wxID_ANY,
                     const wxPoint& pos = wxDefaultPosition, const wxSize& size = wxDefaultSize,
                     long style = wxAUI_TB_DEFAULT_STYLE );

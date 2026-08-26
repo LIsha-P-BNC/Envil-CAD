@@ -216,6 +216,24 @@ public:
 
     virtual ~APP_SETTINGS_BASE() {}
 
+    bool LoadFromFile( const wxString& aDirectory = "" ) override;
+
+    /**
+     * Point `appearance.color_theme` at the NEMI canvas theme that matches the app theme:
+     * "NEMI Emerald Dark" (_builtin_default) or "NEMI Emerald Light" (_builtin_classic).
+     *
+     * Only ever moves BETWEEN those two built-ins, so a theme the user made or picked for
+     * themselves is never overwritten.
+     *
+     * This runs as part of LoadFromFile() rather than from a frame, because editors differ in
+     * WHEN they read the theme: pcbnew re-reads it in LoadSettings(), but eeschema bakes the
+     * canvas colours in SCH_DRAW_PANEL's constructor, which happens first.  Correcting the
+     * value the moment it comes off disk is the only point that is early enough for all of them.
+     *
+     * @return true when the theme actually changed.
+     */
+    bool SyncColorThemeToAppTheme();
+
     virtual bool MigrateFromLegacy( wxConfigBase* aCfg ) override;
 
     const std::vector<GRID> DefaultGridSizeList() const;

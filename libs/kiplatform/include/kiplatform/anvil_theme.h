@@ -33,8 +33,22 @@
  * This header lives in kiplatform (the lowest layer) so the Windows dark-mode palette in
  * libs/kiplatform/os/windows/app.cpp can share it too — kiplatform cannot include from common.
  *
- * Colours are role-named.  Some roles deliberately share a value today (CAP_INACTIVE == SASH);
- * they are kept as separate roles so either can be retuned independently later.
+ * TWO MODES (2026-08 light-theme pass).  Every token carries a DARK value and a LIGHT value and
+ * the whole palette flips in one call, ANVIL::SetMode().  The tokens are role-named, so a call
+ * site never has to know which mode is active: it asks for "the text on a panel" (BONE) or "the
+ * glyph on the emerald bar" (ON_BAR) and gets the right colour for the current theme.
+ *
+ * The light theme is the brand swatch: a Deep Emerald #0B4A37 menu / tool-bar band over Soft-Oat
+ * #EAE7DB chrome, with white reserved for CONTENT (lists, trees, text fields and the canvas).
+ * So anything painted ON those bars — ON_BAR, ICON_IDLE/HOVER/DIM, BAR_HOVER — keeps its
+ * light-on-emerald value in BOTH modes, while everything painted on a panel or the title strip
+ * — BONE, INK_ICON_IDLE/HOVER/DIM, CAPTION_TEXT — flips to ink-on-oat.
+ *
+ * DLL NOTE: these are plain inline globals, so every module (anvilcad.exe, kicommon.dll, each
+ * _kiface DLL) gets its OWN copy.  That is deliberate and harmless as long as every module calls
+ * SetMode() once early — see KIUI::SyncAnvilThemeMode() in common/widgets/ui_common.cpp, which is
+ * the exported hook the shell uses to flip the kicommon copy, and EDA_BASE_FRAME's ctor, which
+ * covers the per-kiface copies.
  *
  * Brand tokens (see NEMI LMM Brand Book v2.0): ACCENT = Signal Emerald #10A37E,
  * CAP_ACTIVE = Deep Emerald #0A4938, PANEL = Warm Graphite #292926, CONTENT = Black Ground
@@ -42,59 +56,160 @@
  */
 namespace ANVIL
 {
-// Core brand tokens
-inline const wxColour ACCENT      (  16, 163, 126 );   // #10A37E Signal Emerald — accent / hover / active
-inline const wxColour CAP_ACTIVE  (  10,  73,  56 );   // #0A4938 Deep Emerald  — active pane caption
-inline const wxColour PANEL       (  41,  41,  38 );   // #292926 Warm Graphite — panel / dialog faces
-inline const wxColour CONTENT     (   7,   7,   7 );   // #070707 Black Ground  — content / data areas
-inline const wxColour BONE        ( 236, 231, 221 );   // #ECE7DD Bone / Soft Oat — primary text
-                                                       // (named BONE not TEXT: TEXT is a Windows macro)
+enum class MODE
+{
+    DARK,   ///< NEMI Emerald Dark — the shipping default.
+    LIGHT   ///< NEMI Emerald Light — Soft-Oat chrome + panels, Deep Emerald menu/tool-bar.
+};
 
-// Chrome surfaces / edges
-inline const wxColour POPUP_BG    (  24,  48,  42 );   // #18302A dropdown / context-menu popup bg
-inline const wxColour BORDER      (  34,  90,  74 );   // #225A4A control / group-box / separator edge
-inline const wxColour HOVER       (  30,  72,  60 );   // #1E483C subtle button hover fill (== 3DLIGHT)
-inline const wxColour CAP_INACTIVE(  22,  22,  21 );   // #161615 inactive pane caption
-inline const wxColour SASH        (  22,  22,  21 );   // #161615 dock sash (same value as CAP_INACTIVE)
 
-// Login / sign-in screen (Anvil CAD sign-in: circuit-board brand panel + light card surface).
-// Values sit exactly on the NEMI LMM Brand Book v2.0 tokens: the dark side is Black Ground
-// #070707 washed to Deep Emerald #0A4938, the light side is the Bone-White #FEFEFE canvas
-// with the Soft-Oat #ECE7DD card, and Signal Emerald #10A37E is the single accent.
-inline const wxColour LOGIN_GRAD_TOP    (   7,   7,   7 );   // #070707 brand panel gradient start (Black Ground)
-inline const wxColour LOGIN_GRAD_BOTTOM (  10,  73,  56 );   // #0A4938 brand panel gradient end (Deep Emerald)
-inline const wxColour LOGIN_TRACE       (  16,  82,  64 );   // #105240 etched PCB trace artwork on the brand panel
-inline const wxColour LOGIN_TRACE_HI    (  16, 163, 126 );   // #10A37E lit trace / via highlight (Signal Emerald)
-inline const wxColour LOGIN_TILE_BG     (  41,  41,  38 );   // #292926 supporting feature-card fill (Warm Graphite)
-inline const wxColour LOGIN_TILE_ACTIVE (  10,  73,  56 );   // #0A4938 featured ("active") card fill (Deep Emerald)
-inline const wxColour LOGIN_TILE_BORDER (  63,  63,  58 );   // #3F3F3A feature-card edge on the brand panel
-inline const wxColour LOGIN_BOARD_EDGE  (  16, 163, 126 );   // #10A37E routed board outline (Signal Emerald)
-inline const wxColour LOGIN_COMP_BODY   (  10,  10,   9 );   // #0A0A09 moulded body of a component silhouette
-inline const wxColour LOGIN_COMP_PIN    ( 154, 151, 140 );   // #9A978C tinned lead / pin of a component silhouette
+// clang-format off
+/**
+ * The palette table: one row per token, `name, dark R,G,B, light R,G,B`.
+ *
+ * A row whose two triples are identical is a colour that is the same in both themes (the brand
+ * accent, the login screen, the Windows close-button red...).  Retune a colour here — never at a
+ * call site — and both themes stay consistent.
+ */
+#define ANVIL_COLOUR_TABLE( _ )                                                                    \
+    /* ---- Core brand tokens ------------------------------------------------------------- */    \
+    /*  name              dark  R    G    B        light  R    G    B                       */    \
+    _( ACCENT,                  16, 163, 126,             16, 163, 126 )  /* Signal Emerald  */    \
+    _( CAP_ACTIVE,              10,  73,  56,             10,  73,  56 )  /* Deep Emerald    */    \
+    _( PANEL,                   41,  41,  38,            234, 231, 219 )  /* dialog faces    */    \
+    _( CONTENT,                  7,   7,   7,            255, 255, 255 )  /* content areas   */    \
+    _( BONE,                   236, 231, 221,             20,  20,  15 )  /* primary text    */    \
+                                                                                                   \
+    /* ---- Chrome icon tiers: icons drawn ON the Deep Emerald menu / tool-bar ------------- */    \
+    /* Emerald in both themes, so these stay light-on-emerald in the light theme too.        */    \
+    _( ICON_IDLE,              236, 231, 221,            232, 239, 234 )  /* bar icon rest   */    \
+    _( ICON_HOVER,              16, 163, 126,             79, 224, 180 )  /* bar icon hover  */    \
+    _( ICON_DIM,               150, 160, 150,            122, 144, 137 )  /* bar icon dim    */    \
+                                                                                                   \
+    /* ---- Ink icon tiers: icons/glyphs drawn on a LIGHT surface ------------------------- */    \
+    /* The title strip, the Project Files tree and the side panels.  Bone in the dark theme  */    \
+    /* (identical to ICON_*), near-black ink in the light theme.                             */    \
+    _( INK_ICON_IDLE,          236, 231, 221,             60,  60,  54 )  /* panel icon rest */    \
+    _( INK_ICON_HOVER,          16, 163, 126,             16, 163, 126 )  /* panel icon hover*/    \
+    _( INK_ICON_DIM,           150, 160, 150,            176, 175, 166 )  /* panel icon dim  */    \
+                                                                                                   \
+    /* ---- Filled-glyph tier: icons whose art is a SOLID shape, not thin line-work -------- */    \
+    /* The Project Files folder is a filled silhouette; flattening it to the ink tier above  */    \
+    /* paints a solid near-black blob in the light theme, so filled glyphs get a Soft-Oat    */    \
+    /* cream instead.  Bone in the dark theme (identical to INK_ICON_IDLE there).            */    \
+    _( FILL_ICON_IDLE,         236, 231, 221,            226, 221, 205 )  /* filled glyph    */    \
+                                                                                                   \
+    /* ---- Main-window chrome surface tiers ---------------------------------------------- */    \
+    /* Dark theme, dark -> light: canvas < CHROME_BG/SASH < CHROME_BAR < CHROME_PANEL.       */    \
+    /* Light theme: the title + status strips are oat, the menu row and the main tool-bar are */    \
+    /* Deep Emerald (that inversion is the whole light mockup), and the panel BODIES are      */    \
+    /* white -- only the HEADING strips above them (pane captions + the editor tab strip) are */    \
+    /* oat.  That is the CHROME_PANEL / CHROME_HEADER split: one is the body a list or tree   */    \
+    /* sits on, the other is the caption row that titles it.  In the dark theme the two are   */    \
+    /* the same value, so the split is a no-op there.                                        */    \
+    _( CHROME_BG,               12,  12,  12,            247, 245, 236 )  /* title/status    */    \
+    _( CHROME_MENU,             12,  12,  12,             11,  74,  55 )  /* menu row band   */    \
+    _( CHROME_BAR,              15,  15,  14,             11,  74,  55 )  /* main tool-bar   */    \
+    _( CHROME_BAR2,             15,  15,  14,            242, 240, 230 )  /* aux/value row   */    \
+    _( CHROME_PANEL,            17,  17,  16,            255, 255, 255 )  /* panel bodies    */    \
+    _( CHROME_HEADER,           17,  17,  16,            234, 231, 219 )  /* heading strips  */    \
+    _( CHROME_LINE,             36,  36,  34,            216, 212, 196 )  /* hairlines       */    \
+    _( CHROME_SASH,             11,  11,  10,            226, 222, 208 )  /* pane seams      */    \
+    _( CAPTION_TEXT,           124, 125, 118,            126, 124, 112 )  /* pane captions   */    \
+    _( TAB_ACTIVE,              16, 163, 126,            255, 255, 255 )  /* active tab fill */    \
+                                                                                                   \
+    /* ---- On-the-emerald-bar text + hover ----------------------------------------------- */    \
+    _( ON_BAR,                 236, 231, 221,            236, 231, 221 )  /* text on the bar */    \
+    _( BAR_HOVER,               30,  72,  60,             20,  84,  65 )  /* hover on the bar*/    \
+                                                                                                   \
+    /* ---- Native-control edge ----------------------------------------------------------- */    \
+    /* Overdrawn flat by KIPLATFORM::UI::FlattenNativeBorder so a stock light-grey / white    */    \
+    /* dark-mode border never shows through.                                                 */    \
+    _( CONTROL_EDGE,            46,  46,  44,            207, 202, 186 )                            \
+                                                                                                   \
+    /* ---- Chrome surfaces / edges ------------------------------------------------------- */    \
+    _( POPUP_BG,                24,  48,  42,            247, 245, 236 )  /* popup / menu bg */    \
+    _( BORDER,                  34,  90,  74,            208, 203, 186 )  /* control edge    */    \
+    _( HOVER,                   30,  72,  60,            221, 232, 224 )  /* subtle hover    */    \
+    _( CAP_INACTIVE,            22,  22,  21,            234, 231, 219 )  /* inactive caption*/    \
+    _( SASH,                    22,  22,  21,            226, 222, 208 )  /* dock sash       */    \
+                                                                                                   \
+    /* ---- Login / sign-in screen (identical in both themes) ----------------------------- */    \
+    _( LOGIN_GRAD_TOP,           7,   7,   7,              7,   7,   7 )                            \
+    _( LOGIN_GRAD_BOTTOM,       10,  73,  56,             10,  73,  56 )                            \
+    _( LOGIN_TRACE,             16,  82,  64,             16,  82,  64 )                            \
+    _( LOGIN_TRACE_HI,          16, 163, 126,             16, 163, 126 )                            \
+    _( LOGIN_TILE_BG,           41,  41,  38,             41,  41,  38 )                            \
+    _( LOGIN_TILE_ACTIVE,       10,  73,  56,             10,  73,  56 )                            \
+    _( LOGIN_TILE_BORDER,       63,  63,  58,             63,  63,  58 )                            \
+    _( LOGIN_BOARD_EDGE,        16, 163, 126,             16, 163, 126 )                            \
+    _( LOGIN_COMP_BODY,         10,  10,   9,             10,  10,   9 )                            \
+    _( LOGIN_COMP_PIN,         154, 151, 140,            154, 151, 140 )                            \
+    _( LOGIN_PAGE_TOP,         254, 254, 254,            254, 254, 254 )                            \
+    _( LOGIN_PAGE_BG,          246, 244, 232,            246, 244, 232 )                            \
+    _( LOGIN_SURFACE,          236, 231, 221,            236, 231, 221 )                            \
+    _( LOGIN_GRID,             220, 214, 200,            220, 214, 200 )                            \
+    _( LOGIN_CARD_BORDER,      214, 208, 194,            214, 208, 194 )                            \
+    _( LOGIN_DIVIDER,          223, 217, 204,            223, 217, 204 )                            \
+    _( LOGIN_BADGE_BG,         221, 235, 225,            221, 235, 225 )                            \
+    _( LOGIN_INK,                7,   7,   7,              7,   7,   7 )                            \
+    _( LOGIN_MUTED,            138, 138, 133,            138, 138, 133 )                            \
+    _( LOGIN_PLACEHOLDER,      166, 164, 155,            166, 164, 155 )                            \
+    _( LOGIN_FIELD_BG,         247, 245, 236,            247, 245, 236 )                            \
+    _( LOGIN_FIELD_BORDER,     210, 204, 189,            210, 204, 189 )                            \
+    _( LOGIN_FIELD_FOCUS,       16, 163, 126,             16, 163, 126 )                            \
+    _( LOGIN_ERROR,            196,  61,  61,            196,  61,  61 )                            \
+    _( LOGIN_CARD_GLOW,         16, 163, 126,             16, 163, 126 )                            \
+    _( LOGIN_BAR_INK,          138, 138, 133,            138, 138, 133 )                            \
+                                                                                                   \
+    /* ---- Text tiers / misc ------------------------------------------------------------- */    \
+    _( DIM,                    150, 160, 150,            111, 111, 104 )  /* disabled text   */    \
+    _( DIM_MENU,               140, 150, 140,            138, 138, 130 )  /* dim popup text  */    \
+    _( ACCEL,                  150, 175, 165,            154, 154, 146 )  /* shortcut text   */    \
+    _( CLOSE_HOVER,            232,  17,  35,            232,  17,  35 )  /* Windows red     */    \
+    _( ON_ACCENT,              255, 255, 255,            255, 255, 255 )  /* text on emerald */
+// clang-format on
 
-inline const wxColour LOGIN_PAGE_TOP    ( 254, 254, 254 );   // #FEFEFE open paper (Bone White canvas)
-inline const wxColour LOGIN_PAGE_BG     ( 246, 244, 232 );   // #F6F4E8 shaded paper near the board (pale oat)
-inline const wxColour LOGIN_SURFACE     ( 236, 231, 221 );   // #ECE7DD the sign-in card itself (Soft Oat)
-inline const wxColour LOGIN_GRID        ( 220, 214, 200 );   // #DCD6C8 fine blueprint grid line on the page
-inline const wxColour LOGIN_CARD_BORDER ( 214, 208, 194 );   // #D6D0C2 card edge
-inline const wxColour LOGIN_DIVIDER     ( 223, 217, 204 );   // #DFD9CC hairline rules inside the card
-inline const wxColour LOGIN_BADGE_BG    ( 221, 235, 225 );   // #DDEBE1 pale emerald disc behind the shield mark
-inline const wxColour LOGIN_INK         (   7,   7,   7 );   // #070707 headings / primary text (Near Black ink)
-inline const wxColour LOGIN_MUTED       ( 138, 138, 133 );   // #8A8A85 secondary text (mono-label grey)
-inline const wxColour LOGIN_PLACEHOLDER ( 166, 164, 155 );   // #A6A49B input hint text
-inline const wxColour LOGIN_FIELD_BG    ( 247, 245, 236 );   // #F7F5EC input fill (a lighter well on the oat card)
-inline const wxColour LOGIN_FIELD_BORDER( 210, 204, 189 );   // #D2CCBD input edge
-inline const wxColour LOGIN_FIELD_FOCUS (  16, 163, 126 );   // #10A37E input edge while focused (Signal Emerald)
-inline const wxColour LOGIN_ERROR       ( 196,  61,  61 );   // #C43D3D inline validation / server error text
-inline const wxColour LOGIN_CARD_GLOW   (  16, 163, 126 );   // #10A37E emerald halo around the sign-in card
-inline const wxColour LOGIN_BAR_INK     ( 138, 138, 133 );   // #8A8A85 icon + label of the page's status bar
 
-// Text tiers / misc
-inline const wxColour DIM         ( 150, 160, 150 );   // dim / disabled / secondary text (GRAYTEXT)
-inline const wxColour DIM_MENU    ( 140, 150, 140 );   // dim text in popups / inactive glyphs
-inline const wxColour ACCEL       ( 150, 175, 165 );   // accelerator (shortcut) text in popups
-inline const wxColour CLOSE_HOVER ( 232,  17,  35 );   // Windows-standard red for the close-button hover
-inline const wxColour ON_ACCENT   ( 255, 255, 255 );   // text / glyph drawn on top of the emerald accent
+#define ANVIL_DEFINE_COLOUR( name, dr, dg, db, lr, lg, lb ) inline wxColour name( dr, dg, db );
+ANVIL_COLOUR_TABLE( ANVIL_DEFINE_COLOUR )
+#undef ANVIL_DEFINE_COLOUR
+
+
+/// The mode this module's copy of the palette currently holds.  See the DLL note above.
+inline MODE g_mode = MODE::DARK;
+
+
+/**
+ * Repaint the whole palette in @a aMode.
+ *
+ * Cheap (a few dozen wxColour assignments) and idempotent, so it is safe to call from every
+ * module's start-up path.  It does NOT repaint any window: the caller re-applies the frame
+ * themes and Refresh()es afterwards.
+ */
+inline void SetMode( MODE aMode )
+{
+    g_mode = aMode;
+
+#define ANVIL_ASSIGN_COLOUR( name, dr, dg, db, lr, lg, lb )                                        \
+    name = ( aMode == MODE::LIGHT ) ? wxColour( lr, lg, lb ) : wxColour( dr, dg, db );
+    ANVIL_COLOUR_TABLE( ANVIL_ASSIGN_COLOUR )
+#undef ANVIL_ASSIGN_COLOUR
+}
+
+
+inline MODE GetMode()
+{
+    return g_mode;
+}
+
+
+/// True while the NEMI Emerald **Light** theme is active (this module's copy).
+inline bool IsLight()
+{
+    return g_mode == MODE::LIGHT;
+}
+
 } // namespace ANVIL
 
 #endif // KIPLATFORM_ANVIL_THEME_H_

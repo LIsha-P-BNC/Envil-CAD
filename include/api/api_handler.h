@@ -28,6 +28,7 @@
 #include <tl/expected.hpp>
 
 #include <wx/debug.h>
+#include <wx/log.h>
 #include <wx/string.h>
 
 #include <google/protobuf/message.h>
@@ -38,6 +39,9 @@
 
 using kiapi::common::ApiRequest, kiapi::common::ApiResponse;
 using kiapi::common::ApiResponseStatus, kiapi::common::ApiStatusCode;
+
+/// Trace mask for IPC API debug output; defined in common/api/api_utils.cpp
+extern const KICOMMON_API wxChar* const traceApi;
 
 typedef tl::expected<ApiResponse, ApiResponseStatus> API_RESULT;
 
@@ -95,8 +99,18 @@ protected:
     {
         std::string typeName { RequestType().GetTypeName() };
 
-        wxASSERT_MSG( !m_handlers.contains( typeName ),
-                      wxString::Format( "Duplicate API handler for type %s", typeName ) );
+        // A duplicate registration nearly always means a base class and a subclass both claim the
+        // same command.  Base constructors run before derived ones, so letting the last
+        // registration win gives the same result a virtual override would, and the subclass gets
+        // the behavior it asked for.  This is deliberately not an assert: these registrations all
+        // happen while an editor frame is being constructed, so asserting here pops a debug alert
+        // (or aborts) before the editor is even usable.  @see overrideHandler for the explicit
+        // form when a subclass means to take over a base class command.
+        if( m_handlers.contains( typeName ) )
+        {
+            wxLogTrace( traceApi, wxS( "Replacing existing API handler for type %s" ),
+                        wxString::FromUTF8( typeName ) );
+        }
 
         m_handlers[typeName] =
                 [this, aHandler]( ApiRequest& aRequest ) -> API_RESULT
@@ -124,6 +138,29 @@ protected:
                     }
                 };
     }
+
+    /**
+     * Registers an API command handler that intentionally takes over a command already registered
+     * by a base class.  Functionally identical to registerHandler(), but documents the intent at
+     * the call site (and notes it in the API trace if there was nothing to take over, which
+     * usually means the base class registration was renamed or removed).
+     *
+     * Prefer overriding the relevant virtual hook on the base handler where one exists; use this
+     * only when the subclass genuinely needs different request/response handling.
+     */
+    template <class RequestType, class ResponseType, class HandlerType>
+    void overrideHandler( HANDLER_RESULT<ResponseType> ( HandlerType::*aHandler )(
+            const HANDLER_CONTEXT<RequestType>& ) )
+    {
+        if( !m_handlers.contains( RequestType().GetTypeName() ) )
+        {
+            wxLogTrace( traceApi, wxS( "No existing API handler to override for type %s" ),
+                        wxString::FromUTF8( RequestType().GetTypeName() ) );
+        }
+
+        registerHandler<RequestType, ResponseType, HandlerType>( aHandler );
+    }
+
 
     /// Maps type name (without the URL prefix) to a handler method
     std::map<std::string, REQUEST_HANDLER> m_handlers;

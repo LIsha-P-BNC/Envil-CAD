@@ -25,8 +25,10 @@
 #include <wx/settings.h>
 
 #include <advanced_config.h>
+#include <kiplatform/anvil_theme.h>
 #include <kiplatform/ui.h>
 #include <pgm_base.h>
+#include <tool/action_toolbar.h>
 #include <settings/common_settings.h>
 #include <widgets/panel_notebook_base.h>
 #include <widgets/wx_aui_art_providers.h>
@@ -83,8 +85,16 @@ wxSize WX_AUI_TOOLBAR_ART::GetToolSize( wxDC& aDc, wxWindow* aWindow,
                                         const wxAuiToolBarItem& aItem )
 #endif
 {
-    // Based on the upstream wxWidgets implementation, but simplified for our application
-    int size = aWindow->FromDIP( Pgm().GetCommonSettings()->m_Appearance.toolbar_icon_size );
+    // Based on the upstream wxWidgets implementation, but simplified for our application.
+    // Anvil modern layout: the button cell tracks the (compact) Anvil glyph size + a little
+    // breathing room instead of the stock Common setting (24px) — the tighter icon rows of the
+    // mockups.  Layout off -> stock cell size.
+    int iconPx = Pgm().GetCommonSettings()->m_Appearance.toolbar_icon_size;
+
+    if( ADVANCED_CFG::GetCfg().m_ModernToolbarLayout )
+        iconPx = ACTION_TOOLBAR::ANVIL_TOOLBAR_ICON_PX + 6;
+
+    int size = aWindow->FromDIP( iconPx );
 
     int width = size;
     int height = size;
@@ -182,66 +192,135 @@ void WX_AUI_TOOLBAR_ART::DrawButton( wxDC& aDc, wxWindow* aWindow, const wxAuiTo
     // toward the accent instead so the feedback reads as a clearly-visible purple that matches the
     // rest of the chrome.  This art provider is installed for every ACTION_TOOLBAR (see
     // action_toolbar.cpp), so the fix applies to every editor.  Theme off -> byte-identical upstream.
-    const bool anvilPurple = ADVANCED_CFG::GetCfg().m_AnvilPurpleFrame && isThemeDark;
+    const bool anvilPurple = ADVANCED_CFG::GetCfg().m_AnvilPurpleFrame;
+
+    // Anvil mono chrome icons: every icon is a flat Bone-white glyph and the glyph ITSELF
+    // repaints Signal Emerald while hovered/pressed — so the hover/pressed background fills
+    // below are skipped (the icon is the feedback).  Applies to the horizontal top bars and
+    // the vertical left/right bars alike, in every editor, since this art provider is
+    // installed for every ACTION_TOOLBAR.
+    const bool anvilMono = anvilPurple && ADVANCED_CFG::GetCfg().m_AnvilMonoIcons;
 
     const int pressedLightness      = anvilPurple ? 100 : ( isThemeDark ? 20 : 150 );
     const int hoverLightness        = anvilPurple ?  75 : ( isThemeDark ? 40 : 170 );
     const int checkedLightness      = anvilPurple ?  70 : ( isThemeDark ? 40 : 170 );
     const int checkedHoverLightness = anvilPurple ?  90 : ( isThemeDark ? 50 : 180 );
 
-    if( !( aItem.GetState() & wxAUI_BUTTON_STATE_DISABLED ) )
+    const bool disabled = aItem.GetState() & wxAUI_BUTTON_STATE_DISABLED;
+    const bool pressed  = aItem.GetState() & wxAUI_BUTTON_STATE_PRESSED;
+    const bool hovered  = ( aItem.GetState() & wxAUI_BUTTON_STATE_HOVER ) || aItem.IsSticky();
+    const bool checked  = aItem.GetState() & wxAUI_BUTTON_STATE_CHECKED;
+
+    // Subtle "on" marker: a faint tint + a thin accent underline instead of the solid filled
+    // block.  Every ON toggle (grid, snap, display modes...) used to get the same loud fill as
+    // the active tool, so a normal toolbar read as "many tools selected at once" in every editor.
+    auto drawCheckedMarker = [&]()
     {
-        if( aItem.GetState() & wxAUI_BUTTON_STATE_PRESSED )
+        // The tint has to move AWAY from the bar it sits on.  On the Deep Emerald rows it is a
+        // darker emerald (45); on a LIGHT bar -- the aux/value row and the drawing-tools Active
+        // Bar in the light theme -- darkening instead paints a near-black block that swallows
+        // the ink-dark glyph drawn on top of it, so use the Soft-Oat cream header tone there
+        // (an accent-tinted mint block read as a mis-painted cell) and let the accent underline
+        // below carry the "on" signal.  In the dark theme CHROME_HEADER stays a subtle
+        // near-black step above the bar, so the same branch works in both modes.
+        aDc.SetPen( *wxTRANSPARENT_PEN );
+
+        if( anvilPurple )
+        {
+            aDc.SetBrush( wxBrush( m_anvilDarkBar ? m_highlightColour.ChangeLightness( 45 )
+                                                  : wxColour( ANVIL::CHROME_HEADER ) ) );
+        }
+        else
+        {
+            aDc.SetBrush( wxBrush( m_highlightColour.ChangeLightness( isThemeDark ? 25 : 185 ) ) );
+        }
+
+        aDc.DrawRectangle( aRect );
+
+        const int inset = aWindow->FromDIP( 3 );
+        const int bar   = aWindow->FromDIP( 2 );
+        aDc.SetBrush( wxBrush( m_highlightColour ) );
+        aDc.DrawRectangle( wxRect( aRect.x + inset, aRect.y + aRect.height - bar - 1,
+                                   aRect.width - 2 * inset, bar ) );
+    };
+
+    if( !disabled )
+    {
+        if( anvilMono )
+        {
+            // No hover/pressed background block — but keep the checked marker even under the
+            // cursor, so an ON toggle doesn't read as OFF the moment it is hovered.
+            if( checked )
+                drawCheckedMarker();
+        }
+        else if( pressed )
         {
             aDc.SetPen( wxPen( m_highlightColour ) );
             aDc.SetBrush( wxBrush( m_highlightColour.ChangeLightness( pressedLightness ) ) );
             aDc.DrawRectangle( aRect );
         }
-        else if( ( aItem.GetState() & wxAUI_BUTTON_STATE_HOVER ) || aItem.IsSticky() )
+        else if( hovered )
         {
             aDc.SetPen( wxPen( m_highlightColour ) );
             aDc.SetBrush( wxBrush( m_highlightColour.ChangeLightness( hoverLightness ) ) );
 
             // draw an even lighter background for checked item hovers (since
             // the hover background is the same color as the check background)
-            if( aItem.GetState() & wxAUI_BUTTON_STATE_CHECKED )
+            if( checked )
                 aDc.SetBrush( wxBrush( m_highlightColour.ChangeLightness( checkedHoverLightness ) ) );
 
             aDc.DrawRectangle( aRect );
         }
-        else if( aItem.GetState() & wxAUI_BUTTON_STATE_CHECKED )
+        else if( checked )
         {
             // it's important to put this code in an else statement after the
             // hover, otherwise hovers won't draw properly for checked items
-            //
-            // Subtle "on" marker: a faint tint + a thin accent underline instead of
-            // the solid filled block.  Every ON toggle (grid, snap, display modes...)
-            // used to get the same loud fill as the active tool, so a normal toolbar
-            // read as "many tools selected at once" in every editor.  Hover / pressed
-            // keep the strong filled feedback above.
             ( void ) checkedLightness;
-            aDc.SetPen( *wxTRANSPARENT_PEN );
-            aDc.SetBrush( wxBrush( m_highlightColour.ChangeLightness(
-                    anvilPurple ? 45 : ( isThemeDark ? 25 : 185 ) ) ) );
-            aDc.DrawRectangle( aRect );
-
-            const int inset = aWindow->FromDIP( 3 );
-            const int bar   = aWindow->FromDIP( 2 );
-            aDc.SetBrush( wxBrush( m_highlightColour ) );
-            aDc.DrawRectangle( wxRect( aRect.x + inset, aRect.y + aRect.height - bar - 1,
-                                       aRect.width - 2 * inset, bar ) );
+            drawCheckedMarker();
         }
     }
 
     if( bmp.IsOk() )
-        aDc.DrawBitmap( bmp, bmpX, bmpY, true );
-
-    // set the item's text color based on if it is disabled
-    aDc.SetTextForeground( wxSystemSettings::GetColour( wxSYS_COLOUR_BTNTEXT ) );
-
-    if( aItem.GetState() & wxAUI_BUTTON_STATE_DISABLED )
     {
-        aDc.SetTextForeground( wxSystemSettings::GetColour( wxSYS_COLOUR_GRAYTEXT ) );
+        if( anvilMono )
+        {
+            // Flat mono glyph: Bone-white at rest, Signal Emerald under the cursor / while
+            // pressed, dimmed while disabled — matching the title bar and the Project Files
+            // tree.  Recoloured at draw time so every bundle scale / DPI stays crisp.
+            // Two ink tiers: glyphs on the Deep Emerald tool-bar rows stay bone-white
+            // (ICON_*), glyphs on a light bar — the value/aux row in the light theme — go
+            // near-black (INK_ICON_*).  Identical values in the dark theme.
+            wxColour flat = m_anvilDarkBar ? ANVIL::ICON_IDLE : ANVIL::INK_ICON_IDLE;
+
+            if( disabled )
+                flat = m_anvilDarkBar ? ANVIL::ICON_DIM : ANVIL::INK_ICON_DIM;
+            else if( pressed || hovered )
+                flat = m_anvilDarkBar ? ANVIL::ICON_HOVER : ANVIL::INK_ICON_HOVER;
+
+            aDc.DrawBitmap( KIUI::RecolorFlat( bmp, flat ), bmpX, bmpY, true );
+        }
+        else
+        {
+            aDc.DrawBitmap( bmp, bmpX, bmpY, true );
+        }
+    }
+
+    // set the item's text color based on if it is disabled.  Under the Anvil theme the label
+    // has to follow the BAR it is painted on, not the wx system colour: in the light theme the
+    // system text colour is near-black, which would be unreadable on the Deep Emerald bar.
+    if( anvilPurple )
+    {
+        aDc.SetTextForeground( m_anvilDarkBar ? ANVIL::ON_BAR : ANVIL::BONE );
+
+        if( disabled )
+            aDc.SetTextForeground( m_anvilDarkBar ? ANVIL::ICON_DIM : ANVIL::DIM );
+    }
+    else
+    {
+        aDc.SetTextForeground( wxSystemSettings::GetColour( wxSYS_COLOUR_BTNTEXT ) );
+
+        if( aItem.GetState() & wxAUI_BUTTON_STATE_DISABLED )
+            aDc.SetTextForeground( wxSystemSettings::GetColour( wxSYS_COLOUR_GRAYTEXT ) );
     }
 
     if( ( m_flags & wxAUI_TB_TEXT ) && !aItem.GetLabel().empty() )
@@ -283,6 +362,18 @@ void WX_AUI_TOOLBAR_ART::DrawPlainBackground( wxDC& aDc, wxWindow* aWindow, cons
         aDc.SetPen( wxPen( m_anvilBg ) );
         aDc.SetBrush( wxBrush( m_anvilBg ) );
         aDc.DrawRectangle( aRect );
+
+        // Mockup detail: a 1px hairline closes the horizontal icon rows off from the content
+        // below.  Vertical bars skip it — the dock sashes already separate them.
+        const bool vertical = aWindow->GetWindowStyleFlag() & wxAUI_TB_VERTICAL;
+
+        if( !vertical )
+        {
+            aDc.SetPen( wxPen( ANVIL::CHROME_LINE ) );
+            aDc.DrawLine( aRect.x, aRect.y + aRect.height - 1, aRect.x + aRect.width,
+                          aRect.y + aRect.height - 1 );
+        }
+
         return;
     }
 
@@ -430,6 +521,77 @@ WX_AUI_DOCK_ART::WX_AUI_DOCK_ART() :
 
     // Turn off the ridiculous looking gradient
     m_gradientType = wxAUI_GRADIENT_NONE;
+
+    // Anvil mono chrome (dark Anvil frame only): one flat caption style for every pane in every
+    // frame (this art provider is installed by EDA_BASE_FRAME for all of them), hairline sashes
+    // and 1px pane borders — the aligned caption rows + separator lines of the Anvil mockups.
+    m_anvilCaptions = ADVANCED_CFG::GetCfg().m_AnvilPurpleFrame;
+
+    if( m_anvilCaptions )
+    {
+        m_captionSize = 24;
+
+        SetColour( wxAUI_DOCKART_SASH_COLOUR, ANVIL::CHROME_SASH );
+        SetColour( wxAUI_DOCKART_BORDER_COLOUR, ANVIL::CHROME_LINE );
+        SetColour( wxAUI_DOCKART_BACKGROUND_COLOUR, ANVIL::CHROME_PANEL );
+        SetMetric( wxAUI_DOCKART_SASH_SIZE, 4 );
+        SetMetric( wxAUI_DOCKART_PANE_BORDER_SIZE, 1 );
+    }
+}
+
+
+void WX_AUI_DOCK_ART::DrawCaption( wxDC& aDc, wxWindow* aWindow, const wxString& aText,
+                                   const wxRect& aRect, wxAuiPaneInfo& aPane )
+{
+    if( !m_anvilCaptions )
+    {
+        wxAuiDefaultDockArt::DrawCaption( aDc, aWindow, aText, aRect, aPane );
+        return;
+    }
+
+    // Flat caption strip — identical for active/inactive panes (the mockup has no focus tint) —
+    // with a 1px hairline along the bottom so every panel header reads as one aligned system.
+    aDc.SetPen( *wxTRANSPARENT_PEN );
+    aDc.SetBrush( wxBrush( ANVIL::CHROME_HEADER ) );
+    aDc.DrawRectangle( aRect );
+
+    aDc.SetPen( wxPen( ANVIL::CHROME_LINE ) );
+    aDc.DrawLine( aRect.x, aRect.y + aRect.height - 1, aRect.x + aRect.width,
+                  aRect.y + aRect.height - 1 );
+
+    // Small UPPERCASE grey label, vertically centred.
+    wxFont font = m_captionFont;
+
+    if( font.GetFractionalPointSize() > 8.0 )
+        font.SetFractionalPointSize( font.GetFractionalPointSize() - 1.5 );
+
+    aDc.SetFont( font );
+    aDc.SetTextForeground( ANVIL::CAPTION_TEXT );
+
+    wxCoord tw = 0, th = 0;
+    aDc.GetTextExtent( wxT( "ABCDEFHXfgkj" ), &tw, &th );
+
+    wxRect clip = aRect;
+    clip.Deflate( aWindow->FromDIP( 3 ), 0 );
+
+    aDc.SetClippingRegion( clip );
+    aDc.DrawText( aText.Upper(), aRect.x + aWindow->FromDIP( 8 ),
+                  aRect.y + ( aRect.height - th ) / 2 );
+    aDc.DestroyClippingRegion();
+}
+
+
+void WX_AUI_TAB_ART::DrawBackground( wxDC& dc, wxWindow* WXUNUSED( wnd ), const wxRect& rect )
+{
+    // Flat, not the stock gradient -- see the header for why.  m_baseColour is whatever the
+    // theme last handed us through SetColour() (CHROME_HEADER), so this needs no palette
+    // lookup of its own and stays correct in both themes.
+    dc.SetPen( *wxTRANSPARENT_PEN );
+    dc.SetBrush( wxBrush( m_baseColour ) );
+    dc.DrawRectangle( rect );
+
+    dc.SetPen( wxPen( ANVIL::CHROME_LINE ) );
+    dc.DrawLine( rect.x, rect.y + rect.height - 1, rect.x + rect.width, rect.y + rect.height - 1 );
 }
 
 

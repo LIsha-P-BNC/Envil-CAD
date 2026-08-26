@@ -14,20 +14,53 @@
     --emerald-dim:  #0B7A5E;
     --emerald-soft: rgba(16,163,126,.12);
     --emerald-line: rgba(16,163,126,.34);
-    --ground:       #0A0A09;
-    --panel:        #141412;
-    --panel-2:      #1C1C1A;
+    --ground:       #111110;   /* matches the app chrome ring (CHROME_PANEL family) */
+    --header:       #111110;   /* == ground in dark: the heading split is light-only */
+    --panel:        #1A1A19;
+    --panel-2:      #201F1E;
     --graphite:     #24241f;
-    --line:         #2A2A26;
+    --line:         #2C2C29;
     --bone:         #ECE7DD;
     --bone-dim:     #9A968C;
     --bone-faint:   #6B6860;
     --err:          #E0605A;
     --warn:         #D9A63F;
     --radius:       12px;
+    --card-shadow:  none;      /* light tier only: white cards need a lift off the cream */
     --mono: "IBM Plex Mono", ui-monospace, Consolas, monospace;
     --sans: "Space Grotesk", "Segoe UI", system-ui, sans-serif;
   }
+
+  /* ---- NEMI Emerald LIGHT ------------------------------------------------------------
+     The app-wide light theme (title bar moon / sun toggle) reaches this page through the
+     ?theme=light URL parameter and through window.anvilSetTheme(), which both stamp
+     data-theme on <html>.  Only the SURFACE and TEXT tokens are redefined: the emerald
+     accents are brand colours and stay put in both themes, so every rule below keeps
+     working untouched.
+
+     The light tier mirrors the app's CHROME_PANEL / CHROME_HEADER split (see
+     kiplatform/anvil_theme.h): the BODY is white like every other panel body, and only the
+     HEADING strips -- #hdr and #ctx, which sit directly under the wx AI ASSISTANT pane
+     caption -- are Soft-Oat, so the caption and the strips below it read as one band.  Cards
+     (panel) are a soft cream so they still lift off the white body.  In the dark tier
+     --header == --ground, so the split is a no-op there.                                  */
+  :root[data-theme="light"] {
+    --emerald-soft: rgba(16,163,126,.10);
+    --emerald-line: rgba(16,163,126,.30);
+    --ground:       #FFFFFF;   /* white body: matches the app panel BODIES (CHROME_PANEL) */
+    --header:       #EAE7DB;   /* Soft-Oat heading strips: matches the app's CHROME_HEADER */
+    --panel:        #F7F5EC;   /* soft cream card: AI bubbles, suggestions, context chips */
+    --panel-2:      #FFFFFF;   /* pure white: input field, hovers, lifted pills */
+    --graphite:     #DED8C7;
+    --line:         #E2DCCA;
+    --bone:         #14140F;
+    --bone-dim:     #63625A;
+    --bone-faint:   #8C8A80;
+    --err:          #C43D3D;
+    --warn:         #A9762A;
+    --card-shadow:  0 1px 2px rgba(41,41,38,.05), 0 2px 10px rgba(41,41,38,.045);
+  }
+
   * { box-sizing: border-box; margin: 0; padding: 0; }
   html, body { height: 100%; }
   body {
@@ -46,19 +79,31 @@
     flex: 0 0 auto;
     display: flex; align-items: center; gap: 9px;
     padding: 11px 14px;
-    background: linear-gradient(180deg, var(--panel) 0%, var(--ground) 100%);
+    background: var(--header);
     border-bottom: 1px solid var(--line);
     user-select: none;
   }
+  /* Anvil "A" mark: teal rounded square with a folded page corner (mockup logo). */
   .mark {
     width: 26px; height: 26px; border-radius: 7px; flex: 0 0 auto;
     background: linear-gradient(135deg, var(--emerald-lt), var(--emerald-dim));
     display: grid; place-items: center;
     font-weight: 700; color: #04130E; font-size: 15px;
     box-shadow: 0 2px 8px rgba(16,163,126,.3);
+    position: relative; overflow: hidden;
+  }
+  .mark::after {
+    content: ""; position: absolute; top: 0; right: 0;
+    width: 8px; height: 8px;
+    background: var(--header);
+    border-bottom-left-radius: 6px;
   }
   .h-title { font-weight: 600; letter-spacing: .01em; font-size: 14px; }
-  .h-sub   { font-size: 10.5px; color: var(--bone-faint); margin-top: -2px; }
+  .h-sub   {
+    font-family: var(--mono); font-size: 8.5px;
+    text-transform: uppercase; letter-spacing: .16em;
+    color: var(--bone-faint); margin-top: 1px;
+  }
   .grow { flex: 1; }
   #dot {
     width: 8px; height: 8px; border-radius: 50%;
@@ -81,7 +126,7 @@
     display: flex; align-items: center; gap: 8px;
     padding: 6px 14px;
     font-family: var(--mono); font-size: 10.5px; color: var(--bone-faint);
-    background: var(--ground);
+    background: var(--header);
     border-bottom: 1px solid var(--line);
     white-space: nowrap; overflow: hidden;
   }
@@ -89,6 +134,7 @@
     display: inline-flex; align-items: center; gap: 5px;
     padding: 2px 8px; border-radius: 6px;
     background: var(--panel); border: 1px solid var(--line);
+    box-shadow: var(--card-shadow);
     overflow: hidden; text-overflow: ellipsis; max-width: 46%;
   }
   #ctx .chip b { color: var(--emerald); font-weight: 500; }
@@ -111,15 +157,24 @@
   }
   #empty .big-mark {
     width: 52px; height: 52px; border-radius: 14px;
-    background: var(--emerald-soft); border: 1px solid var(--emerald-line);
-    display: grid; place-items: center; font-size: 26px; font-weight: 700; color: var(--emerald);
+    background: linear-gradient(135deg, var(--emerald-lt), var(--emerald-dim));
+    display: grid; place-items: center; font-size: 26px; font-weight: 700; color: #04130E;
+    position: relative; overflow: hidden;
+    box-shadow: 0 4px 18px rgba(16,163,126,.25);
+  }
+  #empty .big-mark::after {
+    content: ""; position: absolute; top: 0; right: 0;
+    width: 15px; height: 15px;
+    background: var(--ground);
+    border-bottom-left-radius: 10px;
   }
   #empty h2 { font-size: 16px; color: var(--bone); font-weight: 600; }
   #empty p  { font-size: 12.5px; line-height: 1.6; }
   .suggests { display: flex; flex-direction: column; gap: 7px; width: 100%; margin-top: 4px; }
   .suggest {
-    text-align: left; padding: 9px 12px; border-radius: 9px;
+    text-align: left; padding: 11px 13px; border-radius: 8px;
     background: var(--panel); border: 1px solid var(--line); color: var(--bone-dim);
+    box-shadow: var(--card-shadow);
     font-size: 12px; cursor: pointer; transition: all .15s;
   }
   .suggest:hover { border-color: var(--emerald-line); color: var(--bone); background: var(--panel-2); }
@@ -141,6 +196,7 @@
   }
   .row.ai .bubble {
     background: var(--panel); border: 1px solid var(--line);
+    box-shadow: var(--card-shadow);
     border-radius: 4px var(--radius) var(--radius) var(--radius);
     padding: 10px 14px;
     position: relative;
@@ -249,7 +305,7 @@
   #composer {
     flex: 0 0 auto;
     padding: 10px 12px 12px;
-    background: linear-gradient(0deg, var(--panel) 0%, var(--ground) 100%);
+    background: var(--ground);
     border-top: 1px solid var(--line);
   }
   /* attachment tray (above input) */
@@ -259,6 +315,7 @@
     display: inline-flex; align-items: center; gap: 7px;
     padding: 5px 8px 5px 6px; border-radius: 8px; font-size: 11px; font-family: var(--mono);
     background: var(--panel-2); border: 1px solid var(--line); color: var(--bone-dim);
+    box-shadow: var(--card-shadow);
     max-width: 160px;
   }
   .tray-item img { width: 26px; height: 26px; border-radius: 5px; object-fit: cover; flex: 0 0 auto; }
@@ -269,6 +326,7 @@
   .input-wrap {
     display: flex; align-items: flex-end; gap: 8px;
     background: var(--panel-2); border: 1px solid var(--line);
+    box-shadow: var(--card-shadow);
     border-radius: var(--radius); padding: 6px 6px 6px 8px;
     transition: border-color .15s;
   }
@@ -291,7 +349,10 @@
   .send-btn svg { width: 17px; height: 17px; }
   #stopBtn { display: none; background: transparent; border: 1px solid var(--err); color: var(--err); }
   #stopBtn.on { display: grid; }
-  .hint { text-align: center; font-size: 10px; color: var(--bone-faint); margin-top: 7px; font-family: var(--mono); }
+  .hint {
+    text-align: center; font-size: 8.5px; color: var(--bone-faint); margin-top: 8px;
+    font-family: var(--mono); text-transform: uppercase; letter-spacing: .14em;
+  }
 </style>
 <style>
   /* AI account (auth mode) pill + first-run chooser */
@@ -304,19 +365,63 @@
   #authPill:hover { color: var(--bone); }
   #authBanner { display: none; }
   #authBanner.on {
-    display: flex; flex-direction: column; gap: 8px;
-    background: var(--panel-2); border: 1px solid var(--emerald-line);
-    border-radius: 10px; padding: 10px 12px; margin: 0 0 8px 0;
-    font-size: 12px; color: var(--bone);
+    display: flex; flex-direction: column; gap: 9px;
+    padding: 2px 2px 10px; margin: 0 0 2px 0;
+    font-size: 11.5px; color: var(--bone-dim); line-height: 1.5;
   }
   #authBanner .ab-row { display: flex; gap: 8px; flex-wrap: wrap; }
   #authBanner button {
-    font: 500 11px/1 "Space Grotesk", sans-serif; color: var(--emerald);
-    background: transparent; border: 1px solid var(--emerald-line);
-    border-radius: 8px; padding: 7px 11px; cursor: pointer;
+    font: 500 12px/1 "Space Grotesk", "Segoe UI", sans-serif; color: var(--bone);
+    background: transparent; border: 1px solid var(--line);
+    border-radius: 8px; padding: 9px 14px; cursor: pointer; transition: all .15s;
   }
-  #authBanner button:hover { color: var(--bone); background: var(--panel); }
+  #authBanner button:hover { border-color: var(--emerald-line); }
+  #authBanner button.primary {
+    background: var(--emerald); border-color: var(--emerald);
+    color: #04130E; font-weight: 600;
+  }
+  #authBanner button.primary:hover { background: var(--emerald-lt); }
 </style>
+<style>
+  /* ---- Light-tier fixups ---------------------------------------------------------------
+     Everything above runs off the surface / text tokens, so it re-tiers for free.  These
+     few rules were written against a dark ground with a literal colour or the bright end
+     of the emerald ramp, and need a cream-and-white counterpart: on white, #13B98F and a
+     pale-pink error text are both too low-contrast to read.                              */
+  :root[data-theme="light"] .bubble a  { color: var(--emerald-dim); }
+  :root[data-theme="light"] .chat-btn  { color: var(--emerald-dim); }
+  :root[data-theme="light"] .bubble strong { color: var(--emerald-dim); }
+  :root[data-theme="light"] #ctx .chip b   { color: var(--emerald-dim); }
+  :root[data-theme="light"] .bubble th     { color: var(--emerald-dim); }
+  :root[data-theme="light"] .err-msg {
+    background: rgba(196,61,61,.07); border-color: rgba(196,61,61,.32); color: #8E2B2B;
+  }
+  :root[data-theme="light"] #mcpBanner.on {
+    background: rgba(169,118,42,.09); border-color: rgba(169,118,42,.34);
+  }
+  /* the "Connect Claude" secondary sits on the cream composer: give it the white surface */
+  :root[data-theme="light"] #authBanner button {
+    background: var(--panel-2); box-shadow: var(--card-shadow);
+  }
+  :root[data-theme="light"] #authBanner button.primary { box-shadow: none; }
+  :root[data-theme="light"] #authPill { color: var(--emerald-dim); }
+</style>
+<script>
+  /* Apply the app theme BEFORE first paint, so the panel never flashes the wrong tier.
+     Anvil passes ?theme=light|dark on the chat URL; window.anvilSetTheme() lets the C++ side
+     flip it live when the user clicks the title-bar moon / sun. */
+  (function() {
+    function applyTheme( mode ) {
+      document.documentElement.setAttribute( "data-theme",
+                                             mode === "light" ? "light" : "dark" );
+    }
+
+    window.anvilSetTheme = applyTheme;
+
+    var m = /[?&]theme=([^&]+)/.exec( window.location.search );
+    applyTheme( m ? decodeURIComponent( m[1] ) : "dark" );
+  })();
+</script>
 </head>
 <body>
 
@@ -364,7 +469,7 @@
         <svg viewBox="0 0 24 24" fill="currentColor"><rect x="7" y="7" width="10" height="10" rx="2"/></svg>
       </button>
       <button class="send-btn" id="sendBtn" title="Send">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 2L11 13M22 2l-7 20-4-9-9-4 20-7z"/></svg>
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 19V5M5 12l7-7 7 7"/></svg>
       </button>
     </div>
     <div class="hint">Enter to send · Shift+Enter for a new line</div>
@@ -624,17 +729,17 @@ function renderAuth(ev){
   authSeen=true;
   auth={mode:ev.mode||"",hasLogin:!!ev.hasLogin,hasKey:!!ev.hasKey};
   const pill=$("authPill");
-  pill.textContent = authEffective()==="own" ? "Claude Login" : "API Key";
+  pill.textContent = authEffective()==="own" ? "■ Claude" : "API key";
   pill.title = authEffective()==="own"
       ? "AI engine: your Claude account login. Click to switch to the API key."
       : "AI engine: built-in API key. Click to connect your Claude login.";
   const b=$("authBanner");
   if(!auth.mode){
     b.className="on";
-    b.innerHTML='<div><b>Choose the AI engine account</b> — change any time from the header pill:</div>'
+    b.innerHTML='<div>Choose the AI engine account. Change it any time from the header pill.</div>'
       +'<div class="ab-row">'
-      +'<button id="abKey">Use API Key (built-in)</button>'
-      +'<button id="abOwn">Connect Claude Login</button>'
+      +'<button id="abKey" class="primary">Use API key</button>'
+      +'<button id="abOwn">Connect Claude</button>'
       +'</div>';
     $("abKey").onclick=()=>{ post({kind:"setauth",mode:"shared"}); b.className=""; b.innerHTML=""; };
     $("abOwn").onclick=()=>{ chooseOwn(); };

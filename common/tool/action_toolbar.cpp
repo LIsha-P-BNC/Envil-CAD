@@ -113,8 +113,9 @@ void ACTION_GROUP::SetDefaultAction( const TOOL_ACTION& aDefault )
 // project tree) is calibrated to render at this glyph size so they all look identical.  The toolbar
 // renders ~1:1 (glyph px == this value); the title-bar widget needs +4 for its padding (see
 // kicad_manager_frame.cpp).  When the modern (Altium) layout is off, respect the user's Common
-// setting instead.
-static constexpr int ANVIL_UI_ICON_PX = 18;
+// setting instead.  The value itself lives in action_toolbar.h (ANVIL_TOOLBAR_ICON_PX) so the
+// AUI art provider can size the button cells from the same number.
+static constexpr int ANVIL_UI_ICON_PX = ACTION_TOOLBAR::ANVIL_TOOLBAR_ICON_PX;
 static constexpr int ANVIL_TOOLBAR_ICON_SIZE = ANVIL_UI_ICON_PX;
 
 static int anvilToolbarIconSize()

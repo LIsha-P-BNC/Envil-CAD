@@ -60,6 +60,8 @@
 #include <dialogs/dialog_anvil_login.h>
 
 #include <kiplatform/app.h>
+#include <kiplatform/anvil_theme.h>
+#include <widgets/ui_common.h>
 #include <kiplatform/environment.h>
 
 #include <git2.h>
@@ -405,12 +407,19 @@ bool PGM_SINGLE_TOP::OnPgmInit()
     GetSettingsManager().RegisterSettings( new KICAD_SETTINGS );
 
 
-    if( const COMMON_SETTINGS* cfg = Pgm().GetCommonSettings() )
+    // Same two-theme handshake as the shell (kicad.cpp): flip this module's + kicommon's ANVIL
+    // palette first, and only enable wx's MSW dark mode when we are NOT in the light theme.
+    KIUI::SyncAnvilTheme();
+
+    if( !ANVIL::IsLight() )
     {
-        if( cfg->m_Appearance.app_theme == APP_THEME::DARK )
-            KIPLATFORM::APP::EnableDarkMode( true );
-        else if( cfg->m_Appearance.app_theme == APP_THEME::AUTO )
-            KIPLATFORM::APP::EnableDarkMode( false );
+        if( const COMMON_SETTINGS* cfg = Pgm().GetCommonSettings() )
+        {
+            if( cfg->m_Appearance.app_theme == APP_THEME::DARK )
+                KIPLATFORM::APP::EnableDarkMode( true );
+            else if( cfg->m_Appearance.app_theme == APP_THEME::AUTO )
+                KIPLATFORM::APP::EnableDarkMode( false );
+        }
     }
 
 #ifdef KICAD_IPC_API

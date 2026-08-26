@@ -31,6 +31,7 @@
 #include <settings/common_settings.h>
 #include <settings/grid_settings.h>
 #include <settings/parameters.h>
+#include <widgets/ui_common.h>
 
 #include <nlohmann/json.hpp>
 #include <zoom_defines.h>
@@ -301,6 +302,39 @@ APP_SETTINGS_BASE::APP_SETTINGS_BASE( const std::string& aFilename, int aSchemaV
 
     m_params.emplace_back( new PARAM<bool>( "cross_probing.flash_selection",
             &m_CrossProbing.flash_selection, false ) );
+}
+
+
+bool APP_SETTINGS_BASE::SyncColorThemeToAppTheme()
+{
+    const wxString& dark  = COLOR_SETTINGS::COLOR_BUILTIN_DEFAULT;   // "NEMI Emerald Dark"
+    const wxString& light = COLOR_SETTINGS::COLOR_BUILTIN_CLASSIC;   // "NEMI Emerald Light"
+
+    // Anything else is the user's own choice -- a theme they built, or one this app pins for a
+    // reason (the footprint editor sits on "user_footprints") -- and is left alone.
+    if( m_ColorTheme != dark && m_ColorTheme != light )
+        return false;
+
+    const wxString& want = KIUI::AnvilLightTheme() ? light : dark;
+
+    if( m_ColorTheme == want )
+        return false;
+
+    m_ColorTheme = want;
+    return true;
+}
+
+
+bool APP_SETTINGS_BASE::LoadFromFile( const wxString& aDirectory )
+{
+    bool ret = JSON_SETTINGS::LoadFromFile( aDirectory );
+
+    // The persisted canvas theme may be the wrong half of the NEMI pair -- the app theme was
+    // flipped while this editor was closed.  Correct it here, before any frame or canvas has
+    // had a chance to read it.
+    SyncColorThemeToAppTheme();
+
+    return ret;
 }
 
 

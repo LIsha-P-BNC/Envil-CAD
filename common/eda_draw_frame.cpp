@@ -23,8 +23,10 @@
  * 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA
  */
 
+#include <advanced_config.h>
 #include <api/api_plugin_manager.h>
 #include <base_screen.h>
+#include <kiplatform/anvil_theme.h>
 #include <bitmaps.h>
 #include <confirm.h>
 #include <core/arraydim.h>
@@ -209,7 +211,18 @@ void EDA_DRAW_FRAME::configureToolbars()
             [this]( ACTION_TOOLBAR* aToolbar )
             {
                 if( !m_gridSelectBox )
+                {
                     m_gridSelectBox = new wxChoice( aToolbar, ID_ON_GRID_SELECT );
+
+                    // Anvil chrome: flatten the stock dark-mode light-grey combo border (see
+                    // KIPLATFORM::UI::FlattenNativeBorder) so the toolbar value combos read
+                    // like the mockup's flat dark controls instead of standing out.
+                    if( ADVANCED_CFG::GetCfg().m_AnvilPurpleFrame )
+                    {
+                        KIPLATFORM::UI::FlattenNativeBorder( m_gridSelectBox, ANVIL::CONTROL_EDGE,
+                                                             ANVIL::CONTENT );
+                    }
+                }
 
                 UpdateGridSelectBox();
 
@@ -223,7 +236,15 @@ void EDA_DRAW_FRAME::configureToolbars()
             [this]( ACTION_TOOLBAR* aToolbar )
             {
                 if( !m_zoomSelectBox )
+                {
                     m_zoomSelectBox = new wxChoice( aToolbar, ID_ON_ZOOM_SELECT );
+
+                    if( ADVANCED_CFG::GetCfg().m_AnvilPurpleFrame )
+                    {
+                        KIPLATFORM::UI::FlattenNativeBorder( m_zoomSelectBox, ANVIL::CONTROL_EDGE,
+                                                             ANVIL::CONTENT );
+                    }
+                }
 
                 UpdateZoomSelectBox();
                 aToolbar->Add( m_zoomSelectBox );
@@ -668,6 +689,30 @@ void EDA_DRAW_FRAME::DisplayConstraintsMsg( const wxString& msg )
 }
 
 
+/**
+ * Anvil chrome: the mockups set every status-strip field label in muted uppercase ("GRID 0.5000",
+ * "UNIT mm").  Folding the already-translated string keeps the .po msgids intact.
+ *
+ * updateStatusBarWidths() runs its width-measurement strings through this too -- the measured and
+ * the displayed text have to be folded the same way or the wider uppercase glyphs clip.
+ */
+static wxString anvilStatusField( const wxString& aText )
+{
+    return ADVANCED_CFG::GetCfg().m_AnvilPurpleFrame ? aText.Upper() : aText;
+}
+
+
+/// The units field is the one readout with no label of its own; give it one.  Shared by
+/// DisplayUnitsMsg() and by the width measurement so the two cannot drift.
+static wxString anvilUnitsField( const wxString& aUnits )
+{
+    if( !ADVANCED_CFG::GetCfg().m_AnvilPurpleFrame )
+        return aUnits;
+
+    return wxString::Format( wxT( "UNIT %s" ), aUnits );
+}
+
+
 void EDA_DRAW_FRAME::DisplayGridMsg()
 {
     if( m_isClosing )
@@ -680,7 +725,7 @@ void EDA_DRAW_FRAME::DisplayGridMsg()
 
     msg.Printf( _( "grid %s" ), gridSettings.grids[currentIdx].UserUnitsMessageText( this, false ) );
 
-    SetStatusText( msg, 4 );
+    SetStatusText( anvilStatusField( msg ), 4 );
 }
 
 
@@ -699,7 +744,10 @@ void EDA_DRAW_FRAME::DisplayUnitsMsg()
     default:              msg = _( "Units" );  break;
     }
 
-    SetStatusText( msg, 5 );
+    // Anvil chrome: name the field, matching the "LABEL value" pairing every other readout on the
+    // strip uses.  The prefix is untranslated on purpose -- so are the neighbouring "Z", "X",
+    // "dx" and "dist" prefixes.
+    SetStatusText( anvilUnitsField( msg ), 5 );
 }
 
 
@@ -740,10 +788,10 @@ void EDA_DRAW_FRAME::updateStatusBarWidths()
         KIUI::GetTextSize( wxT( "dx 00000.0000  dy 00000.0000  dist 00000.0000" ), stsbar ).x + spacer,
 
         // grid size
-        KIUI::GetTextSize( wxT( "grid 0000.0000 x 0000.0000" ), stsbar ).x + spacer,
+        KIUI::GetTextSize( anvilStatusField( wxT( "grid 0000.0000 x 0000.0000" ) ), stsbar ).x + spacer,
 
         // units display, Inches is bigger than mm
-        KIUI::GetTextSize( _( "Inches" ), stsbar ).x + spacer,
+        KIUI::GetTextSize( anvilUnitsField( _( "Inches" ) ), stsbar ).x + spacer,
 
         // Size for the "Current Tool" panel
         -1,
@@ -789,6 +837,33 @@ const wxString EDA_DRAW_FRAME::GetZoomLevelIndicator() const
 }
 
 
+bool EDA_DRAW_FRAME::SyncCanvasThemeToAppTheme()
+{
+    APP_SETTINGS_BASE* cfg = config();
+
+    // The mapping itself lives on the settings object (it also runs at load time, which is the
+    // only point early enough for editors that bake canvas colours in their panel's ctor); all
+    // this adds is dropping the frame's cached COLOR_SETTINGS so the new theme is picked up.
+    if( !cfg || !cfg->SyncColorThemeToAppTheme() )
+        return false;
+
+    GetColorSettings( true );
+    return true;
+}
+
+
+void EDA_DRAW_FRAME::ReapplyAnvilTheme()
+{
+    EDA_BASE_FRAME::ReapplyAnvilTheme();
+
+    // The canvas is not chrome: its colours come from a COLOR_SETTINGS theme, so the light /
+    // dark flip has to move the theme too or the drawing area stays black under a white frame.
+    // CommonSettingsChanged() is what every editor already uses to re-read colours and redraw.
+    if( SyncCanvasThemeToAppTheme() )
+        CommonSettingsChanged( 0 );
+}
+
+
 void EDA_DRAW_FRAME::LoadSettings( APP_SETTINGS_BASE* aCfg )
 {
     EDA_BASE_FRAME::LoadSettings( aCfg );
@@ -798,6 +873,10 @@ void EDA_DRAW_FRAME::LoadSettings( APP_SETTINGS_BASE* aCfg )
 
     // Read units used in dialogs and toolbars
     SetUserUnits( static_cast<EDA_UNITS>( aCfg->m_System.units ) );
+
+    // Anvil: the persisted canvas theme may be the wrong half of the NEMI pair (the app theme
+    // was flipped while this editor was closed).  Correct it before anything reads the colours.
+    SyncCanvasThemeToAppTheme();
 
     m_undoRedoCountMax = aCfg->m_System.max_undo_items;
 

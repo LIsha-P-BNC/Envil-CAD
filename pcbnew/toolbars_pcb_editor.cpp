@@ -36,6 +36,7 @@
 #include <footprint.h>
 #include <pcb_field.h>
 #include <kiface_base.h>
+#include <kiplatform/anvil_theme.h>
 #include <kiplatform/ui.h>
 #include <macros.h>
 #include <pcb_edit_frame.h>
@@ -550,6 +551,14 @@ void PCB_EDIT_FRAME::configureToolbars()
                 {
                     m_SelTrackWidthBox = new wxChoice( aToolbar, ID_AUX_TOOLBAR_PCB_TRACK_WIDTH,
                                                        wxDefaultPosition, wxDefaultSize, 0, nullptr );
+
+                    // Anvil chrome: flatten the stock dark-mode light-grey combo border to
+                    // match the mockup's flat dark toolbar controls.
+                    if( ADVANCED_CFG::GetCfg().m_AnvilPurpleFrame )
+                    {
+                        KIPLATFORM::UI::FlattenNativeBorder( m_SelTrackWidthBox, ANVIL::CONTROL_EDGE,
+                                                             ANVIL::CONTENT );
+                    }
                 }
 
                 m_SelTrackWidthBox->SetToolTip( _( "Select the default width for new tracks. Note that this "
@@ -573,6 +582,12 @@ void PCB_EDIT_FRAME::configureToolbars()
                 {
                     m_SelViaSizeBox = new wxChoice( aToolbar, ID_AUX_TOOLBAR_PCB_VIA_SIZE,
                                                     wxDefaultPosition, wxDefaultSize, 0, nullptr );
+
+                    if( ADVANCED_CFG::GetCfg().m_AnvilPurpleFrame )
+                    {
+                        KIPLATFORM::UI::FlattenNativeBorder( m_SelViaSizeBox, ANVIL::CONTROL_EDGE,
+                                                             ANVIL::CONTENT );
+                    }
                 }
 
                 UpdateViaSizeSelectBox( m_SelViaSizeBox, true, true );
@@ -589,6 +604,12 @@ void PCB_EDIT_FRAME::configureToolbars()
                 {
                     m_CurrentVariantCtrl = new wxChoice( aToolbar, ID_AUX_TOOLBAR_PCB_VARIANT_SELECT,
                                                          wxDefaultPosition, wxDefaultSize, 0, nullptr );
+
+                    if( ADVANCED_CFG::GetCfg().m_AnvilPurpleFrame )
+                    {
+                        KIPLATFORM::UI::FlattenNativeBorder( m_CurrentVariantCtrl, ANVIL::CONTROL_EDGE,
+                                                             ANVIL::CONTENT );
+                    }
                 }
 
                 m_CurrentVariantCtrl->SetToolTip( _( "Select the current variant to display and edit." ) );

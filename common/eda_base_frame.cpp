@@ -87,6 +87,7 @@
 #include <functional>
 #include <kiface_ids.h>
 #include <widgets/ui_common.h>
+#include <widgets/anvil_frame_theme.h>
 
 #ifdef KICAD_IPC_API
 #include <api/api_server.h>
@@ -240,6 +241,33 @@ void EDA_BASE_FRAME::commonInit( FRAME_T aFrameType )
 }
 
 
+void EDA_BASE_FRAME::ReapplyAnvilTheme()
+{
+    // Only the Anvil chrome is theme-switchable; with the flag off the frame wears stock wx
+    // colours and there is nothing to repaint.
+    if( !ADVANCED_CFG::GetCfg().m_AnvilPurpleFrame )
+        return;
+
+    // Runs inside whichever module owns this frame, so this is the call that flips that
+    // module's palette copy (see the DLL note in kiplatform/anvil_theme.h).
+    KIUI::SyncAnvilTheme();
+
+    // Widgets that bake colours into their children when they are BUILT need more than the
+    // recursive recolour above; KIUI::ApplyAnvilFrameTheme() re-applies the ones that live in
+    // `common` (the Properties grid) as it walks the tree, and frames with their own such
+    // widgets — the PCB editors' Appearance panel — override this method to add theirs.
+    //
+    // Note what is deliberately NOT done here: broadcasting wxEVT_SYS_COLOUR_CHANGED on the
+    // frame.  That is the event these widgets normally re-derive on, but on this frame it also
+    // reaches EDA_BASE_FRAME::onSystemColorChange(), which calls ReCreateMenuBar() — and in the
+    // single-window shell the title bar owns menus taken from that very menu bar, so rebuilding
+    // it mid-flip would leave the caption holding freed menus.
+    KIUI::ApplyAnvilFrameTheme( this, m_anvilThemeExclude );
+
+    Refresh();
+}
+
+
 EDA_BASE_FRAME::EDA_BASE_FRAME( wxWindow* aParent, FRAME_T aFrameType, const wxString& aTitle,
                                 const wxPoint& aPos, const wxSize& aSize, long aStyle,
                                 const wxString& aFrameName, KIWAY* aKiway,
@@ -255,6 +283,14 @@ EDA_BASE_FRAME::EDA_BASE_FRAME( wxWindow* aParent, FRAME_T aFrameType, const wxS
     m_tbLeft   = nullptr;
     m_tbActiveBar = nullptr;
     m_uiUpdateHandlerBound = false;
+
+    // Anvil emerald theme: point THIS module's copy of the ANVIL palette (and kicommon's) at the
+    // persisted app theme before any child control is built.  The `common` library is linked
+    // separately into anvilcad.exe and into every _kiface DLL, so each of those carries its own
+    // copy of the palette globals — see the DLL note in kiplatform/anvil_theme.h.  Cheap and
+    // idempotent, so running it per frame costs nothing and guarantees a freshly-loaded kiface
+    // never paints the wrong theme.
+    KIUI::SyncAnvilTheme();
 
     // Anvil: apply the app-wide UI base font size (AnvilUiFontPt) up-front, before commonInit()
     // and the derived frame build their child controls, so the status bar, tool-bars, side panels

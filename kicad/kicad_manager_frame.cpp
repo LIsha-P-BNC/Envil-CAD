@@ -27,6 +27,7 @@
 #include "pcm.h"
 #include "pgm_kicad.h"
 #include "project_tree_pane.h"
+#include "project_tree.h"
 #include "local_history_pane.h"
 #include "widgets/bitmap_button.h"
 
@@ -588,15 +589,26 @@ private:
     {
         wxAutoBufferedPaintDC dc( this );
 
-        const wxColour normalBg = GetParent()->GetBackgroundColour();
-        const wxColour& hoverBg = ANVIL::HOVER;   // subtle hover (refined, not a solid block)
+        // The menu row is its own band: Deep Emerald in the light theme, the same dark strip as
+        // the title row in the dark theme (see TITLEBAR_PANEL::onPaint, which paints the band).
+        // Read the band colour from the palette rather than from the parent, whose background is
+        // the TITLE strip colour -- white in the light theme.
+        const bool      anvil    = ADVANCED_CFG::GetCfg().m_AnvilPurpleFrame;
+        const wxColour  normalBg = anvil ? ANVIL::CHROME_MENU : GetParent()->GetBackgroundColour();
+        const wxColour& hoverBg  = ANVIL::BAR_HOVER;   // subtle hover, on-band (not a solid block)
 
         dc.SetPen( *wxTRANSPARENT_PEN );
         dc.SetBrush( wxBrush( m_hover ? hoverBg : normalBg ) );
         dc.DrawRectangle( GetClientRect() );
 
         dc.SetFont( GetFont() );
-        dc.SetTextForeground( ANVIL::BONE );   // warm Bone primary text (matches popup rows), not cold #FFF
+
+        // Mockup: "AnvilCAD MCP" is the single accented entry in the menu bar; everything else
+        // stays warm Bone primary text (matches popup rows), not cold #FFF.
+        wxString plain = m_label;
+        plain.Replace( wxT( "&" ), wxEmptyString );
+
+        dc.SetTextForeground( plain == wxT( "AnvilCAD MCP" ) ? ANVIL::ACCENT : ANVIL::ON_BAR );
 
         wxSize sz  = GetClientSize();
         wxSize ext = dc.GetTextExtent( m_label );
@@ -621,7 +633,7 @@ public:
                            const wxColour& aHoverBg, bool aIndicator = false ) :
             wxWindow( aParent, wxID_ANY, wxDefaultPosition, wxDefaultSize ),
             m_glyph( aGlyph ),
-            m_hoverBg( aHoverBg ),
+            m_hoverBg( &aHoverBg ),
             m_indicator( aIndicator )
     {
         SetBackgroundStyle( wxBG_STYLE_PAINT );
@@ -666,11 +678,24 @@ private:
 
         // Full-height hover fill (window-control / VS Code style).
         dc.SetPen( *wxTRANSPARENT_PEN );
-        dc.SetBrush( wxBrush( m_hover ? m_hoverBg : GetParent()->GetBackgroundColour() ) );
+        dc.SetBrush( wxBrush( m_hover ? *m_hoverBg : GetParent()->GetBackgroundColour() ) );
         dc.DrawRectangle( 0, 0, sz.x, sz.y );
 
         dc.SetFont( GetFont() );
-        dc.SetTextForeground( m_active ? ANVIL::BONE : ANVIL::DIM_MENU );   // warm Bone, not cold #FFF
+        // Ink tier, not the bar tier: these glyphs sit on the title strip, which is white in the
+        // light theme and the dark chrome strip in the dark theme.  The exception is a DARK hover
+        // fill under a light-theme glyph -- the close button's red, above all -- where near-black
+        // ink would be unreadable; there the glyph flips to the on-accent white.
+        wxColour glyphFg = m_active ? ANVIL::INK_ICON_IDLE : ANVIL::INK_ICON_DIM;
+
+        if( m_hover && m_hoverBg->IsOk()
+            && ( m_hoverBg->Red() * 299 + m_hoverBg->Green() * 587 + m_hoverBg->Blue() * 114 )
+                       < 128000 )
+        {
+            glyphFg = ANVIL::ON_ACCENT;
+        }
+
+        dc.SetTextForeground( glyphFg );
 
         wxSize ext = dc.GetTextExtent( m_glyph );
         dc.DrawText( m_glyph, ( sz.x - ext.x ) / 2, ( sz.y - ext.y ) / 2 );
@@ -687,7 +712,11 @@ private:
     }
 
     wxString m_glyph;
-    wxColour m_hoverBg;
+    /// Points AT the palette token (ANVIL::HOVER / ANVIL::CLOSE_HOVER) rather than copying it:
+    /// those are mutable globals that ANVIL::SetMode() rewrites, so the hover fill follows a
+    /// light/dark flip on its own.  A wxColour copy taken in the ctor would freeze the theme
+    /// that happened to be active when the button was built.
+    const wxColour* m_hoverBg;
     bool     m_hover     = false;
     bool     m_active    = true;
     bool     m_indicator = false;
@@ -711,7 +740,7 @@ public:
             // 18px visible glyph = 20px bitmap cell (icon has ~2px built-in padding).
             m_normal( KiBitmapBundleDef( aBitmap, ANVIL_TITLEBAR_ICON_CELL ) ),
             m_disabled( KiDisabledBitmapBundleDef( aBitmap, ANVIL_TITLEBAR_ICON_CELL ) ),
-            m_hoverBg( aHoverBg )
+            m_hoverBg( &aHoverBg )
     {
         SetBackgroundStyle( wxBG_STYLE_PAINT );
         SetMinSize( wxSize( aWidth, FromDIP( 24 ) ) );
@@ -744,15 +773,27 @@ private:
         wxAutoBufferedPaintDC dc( this );
         const wxSize sz = GetClientSize();
 
-        // Full-height hover fill (window-control / VS Code style), same as the glyph buttons.
+        // Anvil mono chrome icons: the hover feedback is the glyph itself repainting Signal
+        // Emerald (no background block), matching the editor toolbars and the Project Files
+        // tree.  Flag off -> stock behaviour: full-height hover fill under the original icon.
+        const bool mono = ADVANCED_CFG::GetCfg().m_AnvilMonoIcons;
+
         dc.SetPen( *wxTRANSPARENT_PEN );
-        dc.SetBrush( wxBrush( m_hover ? m_hoverBg : GetParent()->GetBackgroundColour() ) );
+        dc.SetBrush( wxBrush( ( m_hover && !mono ) ? *m_hoverBg
+                                                   : GetParent()->GetBackgroundColour() ) );
         dc.DrawRectangle( 0, 0, sz.x, sz.y );
 
         // 18px visible glyph; the +2 cell compensates the icon's built-in padding, matching the
         // editor toolbar (base 18 -> 18px) and the tree (18).
         const int side = FromDIP( ANVIL_TITLEBAR_ICON_CELL );
         wxBitmap  bmp = ( m_active ? m_normal : m_disabled ).GetBitmap( wxSize( side, side ) );
+
+        if( mono && bmp.IsOk() )
+        {
+            bmp = KIUI::RecolorFlat( bmp, !m_active ? ANVIL::INK_ICON_DIM
+                                          : m_hover ? ANVIL::INK_ICON_HOVER
+                                                    : ANVIL::INK_ICON_IDLE );
+        }
 
         if( bmp.IsOk() )
         {
@@ -761,9 +802,10 @@ private:
         }
     }
 
-    wxBitmapBundle m_normal;
-    wxBitmapBundle m_disabled;
-    wxColour       m_hoverBg;
+    wxBitmapBundle  m_normal;
+    wxBitmapBundle  m_disabled;
+    /// @see TITLEBAR_GLYPH_BUTTON::m_hoverBg -- a pointer so the fill follows a theme flip.
+    const wxColour* m_hoverBg;
     bool           m_hover  = false;
     bool           m_active = true;
 };
@@ -781,7 +823,7 @@ public:
     TITLEBAR_PANEL_BUTTON( wxWindow* aParent, SIDE aSide, int aWidth, const wxColour& aHoverBg ) :
             wxWindow( aParent, wxID_ANY ),
             m_side( aSide ),
-            m_hoverBg( aHoverBg )
+            m_hoverBg( &aHoverBg )
     {
         SetBackgroundStyle( wxBG_STYLE_PAINT );
         SetMinSize( wxSize( aWidth, FromDIP( 24 ) ) );
@@ -808,7 +850,7 @@ private:
         const wxSize sz = GetClientSize();
 
         dc.SetPen( *wxTRANSPARENT_PEN );
-        dc.SetBrush( wxBrush( m_hover ? m_hoverBg : GetParent()->GetBackgroundColour() ) );
+        dc.SetBrush( wxBrush( m_hover ? *m_hoverBg : GetParent()->GetBackgroundColour() ) );
         dc.DrawRectangle( 0, 0, sz.x, sz.y );
 
         const int  side = FromDIP( 15 );
@@ -816,7 +858,7 @@ private:
         const int  oy   = ( sz.y - side ) / 2;
         const int  t    = side / 3;                          // docked-region thickness
         const int  r    = FromDIP( 2 );
-        const wxColour fg = m_active ? ANVIL::ON_ACCENT : ANVIL::DIM_MENU;
+        const wxColour fg = m_active ? ANVIL::INK_ICON_IDLE : ANVIL::INK_ICON_DIM;
 
         // Outer editor-window outline.
         dc.SetPen( wxPen( fg, FromDIP( 1 ) ) );
@@ -846,7 +888,11 @@ private:
     }
 
     SIDE     m_side;
-    wxColour m_hoverBg;
+    /// Points AT the palette token (ANVIL::HOVER / ANVIL::CLOSE_HOVER) rather than copying it:
+    /// those are mutable globals that ANVIL::SetMode() rewrites, so the hover fill follows a
+    /// light/dark flip on its own.  A wxColour copy taken in the ctor would freeze the theme
+    /// that happened to be active when the button was built.
+    const wxColour* m_hoverBg;
     bool     m_hover  = false;
     bool     m_active = true;
 };
@@ -861,7 +907,7 @@ class TITLEBAR_AI_BUTTON : public wxWindow
 public:
     TITLEBAR_AI_BUTTON( wxWindow* aParent, int aWidth, const wxColour& aHoverBg ) :
             wxWindow( aParent, wxID_ANY ),
-            m_hoverBg( aHoverBg )
+            m_hoverBg( &aHoverBg )
     {
         SetBackgroundStyle( wxBG_STYLE_PAINT );
         SetMinSize( wxSize( aWidth, FromDIP( 24 ) ) );
@@ -901,7 +947,7 @@ private:
         const wxSize          sz = GetClientSize();
 
         dc.SetPen( *wxTRANSPARENT_PEN );
-        dc.SetBrush( wxBrush( m_hover ? m_hoverBg : GetParent()->GetBackgroundColour() ) );
+        dc.SetBrush( wxBrush( m_hover ? *m_hoverBg : GetParent()->GetBackgroundColour() ) );
         dc.DrawRectangle( 0, 0, sz.x, sz.y );
 
         const wxImage& logo = logoImage();
@@ -933,7 +979,11 @@ private:
         delete gc;
     }
 
-    wxColour m_hoverBg;
+    /// Points AT the palette token (ANVIL::HOVER / ANVIL::CLOSE_HOVER) rather than copying it:
+    /// those are mutable globals that ANVIL::SetMode() rewrites, so the hover fill follows a
+    /// light/dark flip on its own.  A wxColour copy taken in the ctor would freeze the theme
+    /// that happened to be active when the button was built.
+    const wxColour* m_hoverBg;
     bool     m_hover  = false;
     bool     m_active = true;
 };
@@ -953,6 +1003,12 @@ public:
             wxPanel( aParent, wxID_ANY ),
             m_frame( aParent )
     {
+        // The bar is TWO bands with different colours in the light theme (white title strip over
+        // a Deep Emerald menu strip), so it paints itself rather than relying on a single
+        // background colour -- see onPaint().
+        SetBackgroundStyle( wxBG_STYLE_PAINT );
+        Bind( wxEVT_PAINT, &TITLEBAR_PANEL::onPaint, this );
+
         applyTheme();
 
         m_sizer = new wxBoxSizer( wxHORIZONTAL );
@@ -1036,6 +1092,17 @@ public:
         m_gear->Bind( wxEVT_BUTTON, [this]( wxCommandEvent& ) { m_frame->RunQuickAccessAction( 3 ); } );
         m_layoutBtns.push_back( m_gear );
 
+        // Light / dark theme toggle -- the moon that sits between the gear and the AI mark in the
+        // light mockup.  The glyph names the theme you are ABOUT to leave (moon while light, sun
+        // while dark), the way a browser / editor theme switch reads.
+        m_themeToggle = makeWinButton( themeGlyph(), qaHover );
+        m_sizer->Add( m_themeToggle, 0, wxEXPAND );
+        m_themeToggle->Bind( wxEVT_BUTTON,
+                             [this]( wxCommandEvent& ) { m_frame->ToggleAppTheme(); } );
+        m_layoutBtns.push_back( m_themeToggle );
+
+        RefreshThemeToggle();   // glyph + tooltip for the theme we actually started in
+
         // Anvil Next single-window shell: VS Code / Cursor-style title-bar layout toggles,
         // sitting just left of the window-control buttons.  Each is a vector panel-diagram icon
         // (left/bottom/right docked region) that flips a pane and fills in while it's shown.
@@ -1045,10 +1112,13 @@ public:
                                         [this]() { return m_frame->ProjectExplorerShown(); } ),
                       0, wxEXPAND );
 
+        // Reports the real split state so the glyph fills in while the editor area is split and
+        // the button reads as the toggle it now is.  It used to hardcode "false", which left the
+        // one control that can undo a split looking permanently inactive.
         m_sizer->Add( makeLayoutButton( TITLEBAR_PANEL_BUTTON::BOTTOM,
                                         _( "Split Editor" ),
-                                        [this]() { m_frame->SplitActiveEditor(); },
-                                        []() { return false; } ),
+                                        [this]() { m_frame->ToggleSplitEditors(); },
+                                        [this]() { return m_frame->EditorsSplit(); } ),
                       0, wxEXPAND );
 
         // AI Assistant: the Anvil "AI sparkle" logo mark (vector-drawn, see TITLEBAR_AI_BUTTON)
@@ -1289,6 +1359,25 @@ public:
         m_account->SetActiveGlyph( !user.email.IsEmpty() );
     }
 
+    /// Re-read the app theme and repaint the whole bar in it (called by the light/dark toggle).
+    void RefreshTheme()
+    {
+        applyTheme();
+        RefreshThemeToggle();
+        Refresh();
+    }
+
+    /// Point the theme button's glyph + tooltip at the theme that is actually active.
+    void RefreshThemeToggle()
+    {
+        if( !m_themeToggle )
+            return;
+
+        m_themeToggle->SetGlyph( themeGlyph() );
+        m_themeToggle->SetToolTip( ANVIL::IsLight() ? _( "Switch to dark theme" )
+                                                    : _( "Switch to light theme" ) );
+    }
+
     /// Set the Altium-style document/project name shown in the centre of the title bar.
     void SetDocumentTitle( const wxString& aTitle )
     {
@@ -1301,6 +1390,47 @@ public:
     }
 
 private:
+    /// Segoe MDL2 Assets glyph for the theme toggle: crescent moon (QuietHours) while the light
+    /// theme is on, sun (Brightness) while the dark theme is on.
+    static wxString themeGlyph()
+    {
+        return wxString( ANVIL::IsLight() ? wxUniChar( 0xE708 ) : wxUniChar( 0xE706 ) );
+    }
+
+    /// Paint the two bands the bar is made of.  Row 1 (title strip) is CHROME_BG and row 2 (the
+    /// menu manager) is CHROME_MENU; in the dark theme the two tokens hold the same value, so
+    /// this is a single flat strip exactly as before.  Doing it here -- rather than with one
+    /// background colour -- is what lets the light theme put the white title strip over the Deep
+    /// Emerald menu band that the mockup shows.
+    void onPaint( wxPaintEvent& )
+    {
+        wxAutoBufferedPaintDC dc( this );
+        const wxSize          sz = GetClientSize();
+
+        dc.SetPen( *wxTRANSPARENT_PEN );
+
+        if( !ADVANCED_CFG::GetCfg().m_AnvilPurpleFrame )
+        {
+            dc.SetBrush( wxBrush( GetBackgroundColour() ) );
+            dc.DrawRectangle( 0, 0, sz.x, sz.y );
+            return;
+        }
+
+        // Split where the sizer actually put the boundary between the two rows, so the bands stay
+        // aligned with the buttons at any DPI / font size.  Fall back to an even split before the
+        // first Layout(), when the row sizer has no size yet.
+        int split = m_sizer ? m_sizer->GetSize().GetHeight() : 0;
+
+        if( split <= 0 || split >= sz.y )
+            split = sz.y / 2;
+
+        dc.SetBrush( wxBrush( ANVIL::CHROME_BG ) );
+        dc.DrawRectangle( 0, 0, sz.x, split );
+
+        dc.SetBrush( wxBrush( ANVIL::CHROME_MENU ) );
+        dc.DrawRectangle( 0, split, sz.x, sz.y - split );
+    }
+
     /// One VS Code-style title-bar layout toggle: a glyph button that flips a pane's
     /// visibility (aToggle) and highlights itself while that pane is shown (aIsShown).
     TITLEBAR_PANEL_BUTTON* makeLayoutButton( TITLEBAR_PANEL_BUTTON::SIDE aSide,
@@ -1361,8 +1491,8 @@ private:
         {
             // Match the rest of the Anvil "Vibrant Purple & Indigo" frame.  Use an explicit
             // colour (not wxSYS_COLOUR_MENUBAR, whose public query doesn't return the dark-mode
-            // purple override) so the title-bar strip is the same indigo as the panels.
-            bg = ANVIL::PANEL;      // NEMI Warm Graphite header
+            // purple override) so the title-bar strip is the same tone as the toolbar strips.
+            bg = ANVIL::CHROME_BG;  // mockup tonal pass: dark neutral chrome strip
             fg = ANVIL::BONE;       // NEMI Bone
         }
         else
@@ -1397,6 +1527,7 @@ private:
     TITLEBAR_GLYPH_BUTTON* m_gear = nullptr;     // Preferences gear (additive to the menus)
     TITLEBAR_GLYPH_BUTTON* m_openEditor = nullptr; // "Open editor" dropdown (replaces the rail)
     TITLEBAR_GLYPH_BUTTON* m_account = nullptr;  // signed-in user dropdown (File > Account)
+    TITLEBAR_GLYPH_BUTTON* m_themeToggle = nullptr; // NEMI Emerald light <-> dark switch
     wxStaticText*          m_docTitle = nullptr; // active project / document name (Altium-style)
     std::vector<wxWindow*> m_menuBtns;
     std::vector<wxMenu*>   m_ownedMenus;
@@ -1835,8 +1966,9 @@ KICAD_MANAGER_FRAME::KICAD_MANAGER_FRAME( wxWindow* parent, const wxString& titl
                 // No app= scope here — the shell is not an editor.  syncAiPanelToActiveTab()
                 // calls window.anvilSetSchematic / anvilSetPcb on tab switch, which is the
                 // authoritative app-context signal chat.html honours.
-                fileUrl += wxString::Format( wxT( "?t=%ld&backend=localhost:8765&project=%s" ),
-                                             (long) wxDateTime::Now().GetTicks(), projPath );
+                fileUrl += wxString::Format( wxT( "?t=%ld&backend=localhost:8765&project=%s&theme=%s" ),
+                                             (long) wxDateTime::Now().GetTicks(), projPath,
+                                             ANVIL::IsLight() ? wxT( "light" ) : wxT( "dark" ) );
                 m_aiChatPanel->LoadURL( fileUrl );
 
                 // A tab may already be open before the async WebView load finishes; push the
@@ -1858,8 +1990,11 @@ KICAD_MANAGER_FRAME::KICAD_MANAGER_FRAME( wxWindow* parent, const wxString& titl
 
             KICAD_SETTINGS* aiCfg = kicadSettings();
 
+            // Layer 3: INSIDE the hoisted editor toolbar rows (Top layers 4-6), so the top icon
+            // strips span the full window width and this pane's caption starts on the same row
+            // as the Project Files caption — the aligned header line of the Anvil mockups.
             m_auimgr.AddPane( m_aiChatPanel, EDA_PANE().Name( AiChatPanelName() )
-                              .Right().Layer( 6 )
+                              .Right().Layer( 3 )
                               .Caption( _( "AI Assistant" ) )
                               .CaptionVisible( true )
                               .PaneBorder( true )
@@ -2401,20 +2536,21 @@ void KICAD_MANAGER_FRAME::RefreshShellDocumentTitle()
     if( !m_titleBar )
         return;
 
-    // Altium-style: the loaded project and the active editor tab's document name, in the title bar.
+    // Altium-style: the loaded project and the active editor tab's document name, in the title
+    // bar.  Mockup separator: a middle dot, not an em-dash.
     wxString text = wxS( "Anvil" );
 
     wxString projName = Prj().GetProjectName();
 
     if( !projName.IsEmpty() )
-        text << wxT( "  —  " ) << projName;
+        text << wxT( "  ·  " ) << projName;
 
     if( EDA_BASE_FRAME* editor = getActiveDockedEditorFrame() )
     {
         wxString file = editor->GetCurrentFileName();
 
         if( !file.IsEmpty() )
-            text << wxT( "  —  " ) << wxFileName( file ).GetFullName();
+            text << wxT( "  ·  " ) << wxFileName( file ).GetFullName();
     }
 
     m_titleBar->SetDocumentTitle( text );
@@ -2618,6 +2754,12 @@ void KICAD_MANAGER_FRAME::onEditorTabChanged( wxAuiNotebookEvent& evt )
     syncAiPanelToActiveTab();
     syncShellStatusBarToActiveTab();
     syncShellToolbarToActiveTab();   // reveal the front tab's hoisted toolbar (UnifiedToolbar)
+
+    // Dragging a tab into or out of a group changes the split state without going through
+    // ToggleSplitEditors(), so re-read it here to keep the title-bar toggle honest.
+    if( m_titleBar )
+        m_titleBar->RefreshLayoutToggles();
+
     evt.Skip();
 }
 
@@ -2684,7 +2826,7 @@ void KICAD_MANAGER_FRAME::hoistEditorTopToolbar( EDA_BASE_FRAME* aEditor )
     // rails out horizontally needs a toolbar orientation flip (wxAuiToolBar::SetOrientation is
     // protected, and AUI does not reliably re-orient a rail built vertical), so that is deferred.
 
-    wxAuiManager& editorMgr = aEditor->GetAuiManager();
+    EDA_AUI_MANAGER& editorMgr = aEditor->GetAuiManager();
 
     // Lift every toolbar out of the editor's own AUI and dock them in the shell's top strip.  Each
     // widget is reparented to the shell, but ACTION_TOOLBAR keeps a direct TOOL_MANAGER pointer, so
@@ -2744,7 +2886,7 @@ void KICAD_MANAGER_FRAME::restoreEditorTopToolbar( EDA_BASE_FRAME* aEditor )
         if( it->editorId != aEditor->GetId() )
             continue;
 
-        wxAuiManager& editorMgr = aEditor->GetAuiManager();
+        EDA_AUI_MANAGER& editorMgr = aEditor->GetAuiManager();
 
         // Reverse hoistOne(): pull from the shell AUI, reparent back to the editor, and re-dock
         // into the editor's own AUI at the same home (name/dock/layer/orientation) it came from.
@@ -3000,13 +3142,17 @@ void anvilRecolorShellTree( wxWindow* aWindow, const wxColour& aBg, const wxColo
 void KICAD_MANAGER_FRAME::applyAnvilShellTheme()
 {
     // Anvil chrome palette (matches sch_edit_frame.cpp and the MSW dark-mode palette).
+    // 2026-08 mockup tonal pass: strips on CHROME_BG, panel bodies on CHROME_PANEL, flat
+    // uniform captions (WX_AUI_DOCK_ART::DrawCaption), hairline sashes/borders.
     const wxColour& bgDeep   = ANVIL::CONTENT;
-    const wxColour& bgPanel  = ANVIL::PANEL;
+    const wxColour& bgBar    = ANVIL::CHROME_BG;
+    const wxColour& bgPanel  = ANVIL::CHROME_PANEL;
     const wxColour& accent   = ANVIL::ACCENT;
-    const wxColour& capAct   = ANVIL::CAP_ACTIVE;
-    const wxColour& capInact = ANVIL::CAP_INACTIVE;
-    const wxColour& border   = ANVIL::BORDER;
-    const wxColour& sash     = ANVIL::SASH;
+    const wxColour& bgHeader = ANVIL::CHROME_HEADER;
+    const wxColour& capAct   = ANVIL::CHROME_HEADER;
+    const wxColour& capInact = ANVIL::CHROME_HEADER;
+    const wxColour& border   = ANVIL::CHROME_LINE;
+    const wxColour& sash     = ANVIL::CHROME_SASH;
     const wxColour& text     = ANVIL::BONE;
 
     // 1) Dock-pane chrome: the background behind/between panes, sashes, borders, captions.
@@ -3015,7 +3161,7 @@ void KICAD_MANAGER_FRAME::applyAnvilShellTheme()
         dockArt->SetColour( wxAUI_DOCKART_BACKGROUND_COLOUR, bgDeep );
         dockArt->SetColour( wxAUI_DOCKART_SASH_COLOUR, sash );
         dockArt->SetColour( wxAUI_DOCKART_BORDER_COLOUR, border );
-        dockArt->SetColour( wxAUI_DOCKART_GRIPPER_COLOUR, bgPanel );
+        dockArt->SetColour( wxAUI_DOCKART_GRIPPER_COLOUR, bgHeader );
         dockArt->SetColour( wxAUI_DOCKART_ACTIVE_CAPTION_COLOUR, capAct );
         dockArt->SetColour( wxAUI_DOCKART_ACTIVE_CAPTION_GRADIENT_COLOUR, capAct );
         dockArt->SetColour( wxAUI_DOCKART_INACTIVE_CAPTION_COLOUR, capInact );
@@ -3032,11 +3178,32 @@ void KICAD_MANAGER_FRAME::applyAnvilShellTheme()
 
         if( wxAuiTabArt* tabArt = nb->GetArtProvider() )
         {
-            tabArt->SetColour( bgPanel );
-            tabArt->SetActiveColour( accent );
+            // Header tone, not the panel-body tone: the tab strip IS a heading row -- it sits
+            // on the same line as the PROJECT FILES / APPEARANCE pane captions, so it takes the
+            // oat heading colour while the white page below it stays content.
+            tabArt->SetColour( bgHeader );
+
+            // Active tab: the emerald accent in the dark theme, the warm oat card of the light
+            // mockup in the light theme (emerald-on-white would shout louder than the canvas).
+            tabArt->SetActiveColour( ANVIL::TAB_ACTIVE );
         }
 
         nb->SetBackgroundColour( bgPanel );
+
+        // The strip a wxAuiNotebook draws its tabs on is a child wxAuiTabCtrl, not the notebook
+        // itself: colouring only the notebook leaves that strip -- and the empty run to the
+        // right of the last tab -- on the stock system grey.  Colour the tab ctrls with the oat
+        // heading tone so the whole header row reads as one band, and leave every other child
+        // (the pages) on the white panel tone.
+        for( wxWindow* child : nb->GetChildren() )
+        {
+            const bool isTabStrip = dynamic_cast<wxAuiTabCtrl*>( child ) != nullptr;
+
+            child->SetBackgroundColour( isTabStrip ? bgHeader : bgPanel );
+            child->SetForegroundColour( text );
+            child->Refresh();
+        }
+
         nb->Refresh();
     }
 
@@ -3044,14 +3211,81 @@ void KICAD_MANAGER_FRAME::applyAnvilShellTheme()
     anvilRecolorShellTree( m_projectTreePane, bgPanel, text );
     anvilRecolorShellTree( m_launcher, bgPanel, text );
 
-    // 4) Status bar.
+    // 4) Status bar — mono face (mockup: status read-outs are data).
     if( wxStatusBar* sb = GetStatusBar() )
     {
-        sb->SetBackgroundColour( bgPanel );
+        sb->SetBackgroundColour( bgBar );
         sb->SetForegroundColour( text );
+        sb->SetFont( KIUI::GetStatusFont( sb ) );
         sb->Refresh();
     }
 
+    Refresh();
+}
+
+
+void KICAD_MANAGER_FRAME::ToggleAppTheme()
+{
+    COMMON_SETTINGS* cfg = Pgm().GetCommonSettings();
+
+    if( !cfg )
+        return;
+
+    const bool goLight = !ANVIL::IsLight();
+
+    cfg->m_Appearance.app_theme = goLight ? APP_THEME::LIGHT : APP_THEME::DARK;
+
+    // One repaint, not a cascade.  The flip walks the title bar, every dock pane and every
+    // docked editor; without freezing, each of those repaints as it is touched and the switch
+    // reads as a slow ripple instead of an instant change.
+    Freeze();
+
+    // Persist straight away rather than at shutdown.  The native half of the theme -- wx's MSW
+    // dark mode, which owns pop-up menus, scrollbars and the inside of native controls -- can
+    // only be established at start-up, so the setting has to be on disk even if the user quits
+    // the moment after clicking.
+    Pgm().GetSettingsManager().Save( cfg );
+
+    // Flip the palette copies this module can reach (its own + kicommon's), then repaint.
+    KIUI::SyncAnvilTheme();
+
+    applyAnvilShellTheme();
+
+    // The Project Files icons are baked into a wxImageList at load time, tinted for whichever
+    // theme was active then — so unlike the toolbar / title-bar glyphs (recoloured at draw time)
+    // they have to be rebuilt, or bone-white icons stay on a white panel.
+    if( m_projectTreePane && m_projectTreePane->m_TreeProject )
+    {
+        m_projectTreePane->m_TreeProject->LoadIcons();
+        m_projectTreePane->m_TreeProject->Refresh();
+    }
+
+    if( m_titleBar )
+        m_titleBar->RefreshTheme();
+
+    // The AI panel is an HTML page in a WebView, so it is themed by CSS rather than by the
+    // palette: hand it the same flip through the hook chat.html installs (see anvilSetTheme).
+    if( m_aiChatPanel )
+    {
+        m_aiChatPanel->RunScriptAsync(
+                wxString::Format( wxT( "window.anvilSetTheme && window.anvilSetTheme('%s');" ),
+                                  goLight ? wxT( "light" ) : wxT( "dark" ) ) );
+    }
+
+    // Every docked editor lives in its own _kiface DLL with its own copy of the palette globals,
+    // so the flip has to be dispatched through the virtual -- that is what makes it run inside
+    // that DLL.  Resolve by window id (not a stored pointer) so a torn-down editor reads as null.
+    for( const std::pair<int, wxWindow*>& entry : m_dockedEditors )
+    {
+        if( EDA_BASE_FRAME* editor =
+                    dynamic_cast<EDA_BASE_FRAME*>( wxWindow::FindWindowById( entry.first ) ) )
+        {
+            editor->ReapplyAnvilTheme();
+        }
+    }
+
+    Layout();
+    Thaw();
     Refresh();
 }
 
@@ -4951,12 +5185,34 @@ bool KICAD_MANAGER_FRAME::ProjectExplorerShown()
 }
 
 
-void KICAD_MANAGER_FRAME::SplitActiveEditor()
+bool KICAD_MANAGER_FRAME::EditorsSplit()
 {
-    // Move the active editor tab into a new side-by-side group (VS Code "split editor").
+    // A split wxAuiNotebook grows one wxAuiTabCtrl per tab group, so "more than one tab ctrl"
+    // is the state itself, not a flag we have to track alongside it.  Reading it back from the
+    // notebook also covers the splits the user makes by dragging a tab (wxAUI_NB_TAB_SPLIT),
+    // which never come through ToggleSplitEditors() at all.
+    return m_editorTabs && m_editorTabs->GetAllTabCtrls().size() > 1;
+}
+
+
+void KICAD_MANAGER_FRAME::ToggleSplitEditors()
+{
+    if( !m_editorTabs )
+        return;
+
+    // Collapse every group back into one (VS Code's "single" editor layout).  Splitting used to
+    // be a one-way door: nothing in the tree could undo it, so a user who clicked the title-bar
+    // button -- whose icon reads as an ordinary panel toggle -- was left with two stacked editors,
+    // each with its own tab strip and status bar, and no way back short of dragging tabs around.
+    if( EditorsSplit() )
+    {
+        m_editorTabs->UnsplitAll();
+        return;
+    }
+
     // Needs a second tab to split into: every docked editor is a unique reparented frame,
     // so the same editor cannot be shown in both halves — splitting a lone tab is a no-op.
-    if( !m_editorTabs || m_editorTabs->GetPageCount() < 2 )
+    if( m_editorTabs->GetPageCount() < 2 )
         return;
 
     int sel = m_editorTabs->GetSelection();

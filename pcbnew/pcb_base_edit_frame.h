@@ -202,7 +202,7 @@ public:
     void OnVertexEditorPaneClosed( PCB_VERTEX_EDITOR_PANE* aPane );
     static wxString VertexEditorPaneName();
 
-    wxAuiManager& GetAuiManager() { return m_auimgr; }
+    EDA_AUI_MANAGER& GetAuiManager() { return m_auimgr; }
 
     ///< @copydoc EDA_DRAW_FRAME::UseGalCanvas()
     void ActivateGalCanvas() override;
@@ -247,6 +247,12 @@ public:
      * Acess to the layer pair settings controller of the board, if available
      */
     LAYER_PAIR_SETTINGS* GetLayerPairSettings() { return m_layerPairSettings.get(); }
+
+    /**
+     * Anvil emerald theme: on top of the base repaint, re-derive the colours the Appearance
+     * panel and the 3D viewer bake into their own rows / surfaces when they are built.
+     */
+    void ReapplyAnvilTheme() override;
 
     void ToggleProperties() override;
 

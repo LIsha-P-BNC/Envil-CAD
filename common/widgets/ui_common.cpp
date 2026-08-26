@@ -17,6 +17,8 @@
  * with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
+#include <wx/bitmap.h>
+#include <wx/image.h>
 #include <wx/dcclient.h>
 #include <wx/checkbox.h>
 #include <wx/choice.h>
@@ -34,6 +36,8 @@
 #include <widgets/ui_common.h>
 
 #include <algorithm>
+#include <cmath>
+#include <vector>
 #include <dialog_shim.h>
 #include <pgm_base.h>
 #include <wx/settings.h>
@@ -42,6 +46,7 @@
 #include <bitmaps/bitmap_types.h>
 #include <string_utils.h>
 #include <wx/hyperlink.h>
+#include <kiplatform/ui.h>
 
 
 const wxString KIUI::s_FocusStealableInputName = wxS( "KI_NOFOCUS" );
@@ -91,6 +96,106 @@ wxSize KIUI::GetTextSize( const wxString& aSingleLine, wxWindow* aWindow )
 }
 
 
+bool KIUI::AnvilLightTheme()
+{
+    // Pgm() is a process-wide singleton, so every module — the shell, kicommon, each kiface —
+    // resolves the same answer here.  Before the settings manager exists (very early start-up,
+    // CLI tools) fall back to the shipping dark theme rather than flickering through light.
+    if( const COMMON_SETTINGS* cfg = Pgm().GetCommonSettings() )
+    {
+        if( cfg->m_Appearance.app_theme == APP_THEME::LIGHT )
+            return true;
+
+        if( cfg->m_Appearance.app_theme == APP_THEME::AUTO )
+            return !KIPLATFORM::UI::IsDarkTheme();
+    }
+
+    return false;
+}
+
+
+void KIUI::SetAnvilThemeMode( bool aLight )
+{
+    // Runs inside kicommon.dll, so it flips kicommon's own copy of the palette globals.
+    ANVIL::SetMode( aLight ? ANVIL::MODE::LIGHT : ANVIL::MODE::DARK );
+}
+
+
+wxBitmap KIUI::RecolorFlat( const wxBitmap& aBitmap, const wxColour& aColor )
+{
+    if( !aBitmap.IsOk() )
+        return aBitmap;
+
+    wxImage image = aBitmap.ConvertToImage();
+
+    if( !image.IsOk() )
+        return aBitmap;
+
+    // Without an alpha channel the repaint below would produce a solid filled square; build one
+    // from the mask when there is one (fully opaque otherwise, which only happens for non-icon
+    // art that should not be fed through here anyway).
+    if( !image.HasAlpha() )
+        image.InitAlpha();
+
+    const int      w   = image.GetWidth();
+    const int      h   = image.GetHeight();
+    unsigned char* rgb = image.GetData();
+
+    const unsigned char r = aColor.Red();
+    const unsigned char g = aColor.Green();
+    const unsigned char b = aColor.Blue();
+
+    for( long px = (long) w * h; px > 0; --px )
+    {
+        rgb[0] = r;
+        rgb[1] = g;
+        rgb[2] = b;
+        rgb += 3;
+    }
+
+    // Soft-thin the glyph: flattening multi-colour art to one colour makes it read BOLD (every
+    // shade becomes a full-strength pixel).  Scale each pixel's alpha by its weakest 4-neighbour
+    // so edge pixels lighten while stroke/fill interiors stay solid — the icon keeps its shape
+    // but reads as fine line-work, matching the thin icon weight of the Anvil mockups.
+    constexpr double EDGE_FLOOR = 0.40;   // edge-pixel alpha keeps 40%..100% by neighbourhood
+    constexpr double ALPHA_CAP  = 0.92;   // overall lightening so solid fills lose their weight
+
+    unsigned char*             alpha = image.GetAlpha();
+    std::vector<unsigned char> src( alpha, alpha + (size_t) w * h );
+
+    auto at = [&]( int x, int y ) -> unsigned char
+    {
+        if( x < 0 || y < 0 || x >= w || y >= h )
+            return 0;
+
+        return src[(size_t) y * w + x];
+    };
+
+    for( int y = 0; y < h; ++y )
+    {
+        for( int x = 0; x < w; ++x )
+        {
+            const unsigned char a = src[(size_t) y * w + x];
+
+            if( a == 0 )
+                continue;
+
+            unsigned char mn = std::min( std::min( at( x - 1, y ), at( x + 1, y ) ),
+                                         std::min( at( x, y - 1 ), at( x, y + 1 ) ) );
+
+            const double k = EDGE_FLOOR + ( 1.0 - EDGE_FLOOR ) * ( mn / 255.0 );
+
+            alpha[(size_t) y * w + x] = (unsigned char) std::lround( a * k * ALPHA_CAP );
+        }
+    }
+
+    wxBitmap result( image, 32 );
+    result.SetScaleFactor( aBitmap.GetScaleFactor() );
+
+    return result;
+}
+
+
 bool KIUI::ApplyFontFace( wxFont& aFont, const wxString& aFaceName )
 {
     if( aFaceName.IsEmpty() || !aFont.IsOk() )
@@ -111,6 +216,38 @@ bool KIUI::ApplyFontFace( wxFont& aFont, const wxString& aFaceName )
 }
 
 
+// NEMI brand: apply the configured monospaced face (default "IBM Plex Mono"), falling back
+// through the closest professional monos commonly installed on Windows when the brand face is
+// missing — so the mono UI (tree file names, status read-outs, code editors) still gets a clean
+// modern mono instead of the OS "modern family" default (Courier New).
+static bool applyMonoFontFace( wxFont& aFont )
+{
+    if( KIUI::ApplyFontFace( aFont, ADVANCED_CFG::GetCfg().m_AnvilMonoFontFace ) )
+        return true;
+
+    for( const wxChar* face : { wxT( "JetBrains Mono" ), wxT( "Cascadia Mono" ),
+                                wxT( "Consolas" ) } )
+    {
+        if( KIUI::ApplyFontFace( aFont, face ) )
+            return true;
+    }
+
+    return false;
+}
+
+
+wxFont KIUI::GetUIFont()
+{
+    wxFont font = wxSystemSettings::GetFont( wxSYS_DEFAULT_GUI_FONT );
+
+    if( ADVANCED_CFG::GetCfg().m_AnvilUiFontPt > 0.0 )
+        font.SetFractionalPointSize( ADVANCED_CFG::GetCfg().m_AnvilUiFontPt );
+
+    ApplyFontFace( font, ADVANCED_CFG::GetCfg().m_AnvilUiFontFace );
+    return font;
+}
+
+
 wxFont KIUI::GetMonospacedUIFont()
 {
     static int guiFontSize = wxSystemSettings::GetFont( wxSYS_DEFAULT_GUI_FONT ).GetPointSize();
@@ -124,9 +261,7 @@ wxFont KIUI::GetMonospacedUIFont()
     if( ADVANCED_CFG::GetCfg().m_AnvilUiFontPt > 0.0 )
         font.SetFractionalPointSize( ADVANCED_CFG::GetCfg().m_AnvilUiFontPt );
 
-    // NEMI brand: use the configured monospaced face (default "IBM Plex Mono") when set — and
-    // keep the stock modern face when that brand face is not installed on this machine.
-    KIUI::ApplyFontFace( font, ADVANCED_CFG::GetCfg().m_AnvilMonoFontFace );
+    applyMonoFontFace( font );
 
 #ifdef __WXMAC__
     // https://trac.wxwidgets.org/ticket/19210
@@ -166,16 +301,18 @@ wxFont KIUI::GetStatusFont( wxWindow* aWindow )
 #ifdef __WXMAC__
     int scale = -2;
 #else
-    int scale = 0;
+    // Anvil: one point under the UI size — the status strip is dense mono metadata and the
+    // full-size mono face read too big (mockup status text is small).
+    int scale = -1;
 #endif
 
     wxFont font = getGUIFont( aWindow, scale );
 
-    // NEMI brand: the status strip is metadata (paths, coordinates) -> monospaced IBM Plex Mono.
-    const wxString& monoFace = ADVANCED_CFG::GetCfg().m_AnvilMonoFontFace;
-
-    if( !monoFace.IsEmpty() )
-        font.SetFaceName( monoFace );
+    // NEMI brand: the status strip is metadata (paths, coordinates) -> monospaced.  Must go
+    // through the guarded face helper: a raw SetFaceName() with a missing face (IBM Plex Mono
+    // is not on a stock Windows box) INVALIDATES the font and the status bar falls back to a
+    // null-font rendering.
+    applyMonoFontFace( font );
 
     return font;
 }
@@ -202,6 +339,16 @@ wxFont KIUI::GetInfoFont( wxWindow* aWindow )
 wxFont KIUI::GetSmallInfoFont( wxWindow* aWindow )
 {
     return getGUIFont( aWindow, - 2 );
+}
+
+
+wxFont KIUI::GetMonoInfoFont( wxWindow* aWindow )
+{
+    wxFont font = getGUIFont( aWindow, -1 );
+
+    applyMonoFontFace( font );
+
+    return font;
 }
 
 

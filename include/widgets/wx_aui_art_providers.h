@@ -56,12 +56,18 @@ public:
      * (so only the schematic editor's tool-bars are recoloured), and re-pinned in
      * UpdateColoursFromSystem() so a Windows theme/colour-change event can't reset it back to the
      * system grey.  Used only when the AnvilPurpleFrame advanced-config flag is set.
+     *
+     * @param aDarkBar tells the mono-icon pass which ink to use.  In the light theme the main
+     *                 tool-bar rows stay Deep Emerald (dark bar -> bone-white glyphs) while the
+     *                 aux / value row is white (light bar -> near-black glyphs); in the dark
+     *                 theme both tiers are bone, so the flag makes no visible difference there.
      */
-    void EnableAnvilTheme( const wxColour& aBg, const wxColour& aHighlight )
+    void EnableAnvilTheme( const wxColour& aBg, const wxColour& aHighlight, bool aDarkBar = true )
     {
         m_anvilTheme = true;
         m_anvilBg = aBg;
         m_anvilHighlight = aHighlight;
+        m_anvilDarkBar = aDarkBar;
         m_baseColour = aBg;
         m_highlightColour = aHighlight;
     }
@@ -70,6 +76,7 @@ private:
     void saturateHighlightColor();
 
     bool     m_anvilTheme = false;
+    bool     m_anvilDarkBar = true;
     wxColour m_anvilBg;
     wxColour m_anvilHighlight;
 };
@@ -79,6 +86,18 @@ class WX_AUI_DOCK_ART : public wxAuiDefaultDockArt
 {
 public:
     WX_AUI_DOCK_ART();
+
+    /**
+     * Anvil mono chrome: pane captions are drawn as a flat strip (same for active/inactive)
+     * with a small UPPERCASE grey label and a 1px hairline along the bottom edge — the
+     * "professional" caption row of the Anvil mockups.  Active in dark Anvil frame theme only;
+     * stock wxAuiDefaultDockArt rendering otherwise.
+     */
+    void DrawCaption( wxDC& aDc, wxWindow* aWindow, const wxString& aText, const wxRect& aRect,
+                      wxAuiPaneInfo& aPane ) override;
+
+private:
+    bool m_anvilCaptions = false;
 };
 
 
@@ -89,10 +108,26 @@ public:
 
     wxAuiTabArt* Clone() override
     {
-        return new WX_AUI_TAB_ART();
+        // COPY, don't default-construct.  wxAuiNotebook hands every wxAuiTabCtrl a clone of the
+        // notebook's art provider, and the tab ctrl is what actually paints the strip -- so a
+        // Clone() that built a fresh object silently discarded every SetColour()/SetActiveColour()
+        // the theme had applied, and the run to the right of the last tab kept the stock system
+        // grey gradient while the rest of the header row was Soft-Oat.
+        return new WX_AUI_TAB_ART( *this );
     }
 
     void DrawTab( wxDC& dc, wxWindow* wnd, const wxAuiNotebookPage& page, const wxRect& in_rect,
                   int close_button_state, wxRect* out_tab_rect, wxRect* out_button_rect, int* x_extent ) override;
+
+    /**
+     * Flat Soft-Oat tab strip with a hairline along the bottom, instead of the stock gradient.
+     *
+     * The tab strip is a HEADING row: it sits on the same line as the PROJECT FILES / APPEARANCE
+     * pane captions, which WX_AUI_DOCK_ART::DrawCaption paints as a flat CHROME_HEADER band with
+     * a 1px CHROME_LINE edge.  wxAuiGenericTabArt fades its background from the base colour down
+     * to a noticeably darker shade, so the run to the right of the last tab drifted away from the
+     * captions beside it and read as a dirty smudge rather than one aligned band.
+     */
+    void DrawBackground( wxDC& dc, wxWindow* wnd, const wxRect& rect ) override;
 };
 

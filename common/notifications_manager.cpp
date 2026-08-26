@@ -68,6 +68,7 @@ public:
             m_notification( aNoti ),
             m_manager( aManager )
     {
+        SetFont( KIUI::GetUIFont() );
         SetSizeHints( wxDefaultSize, wxDefaultSize );
 
         wxBoxSizer* mainSizer;

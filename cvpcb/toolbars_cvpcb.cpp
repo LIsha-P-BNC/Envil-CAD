@@ -31,6 +31,10 @@
 
 #include <settings/settings_manager.h>
 
+#include <advanced_config.h>
+#include <kiplatform/anvil_theme.h>
+#include <kiplatform/ui.h>
+
 
 std::optional<TOOLBAR_CONFIGURATION> CVPCB_TOOLBAR_SETTINGS::DefaultToolbarConfig( TOOLBAR_LOC aToolbar )
 {
@@ -107,6 +111,12 @@ void CVPCB_MAINFRAME::configureToolbars()
             {
                 m_tcFilterString = new wxTextCtrl( aToolbar, wxID_ANY, wxEmptyString, wxDefaultPosition,
                                                    wxDefaultSize, wxTE_PROCESS_ENTER );
+
+                if( ADVANCED_CFG::GetCfg().m_AnvilPurpleFrame )
+                {
+                    KIPLATFORM::UI::FlattenNativeBorder( m_tcFilterString, ANVIL::CONTROL_EDGE,
+                                                         ANVIL::CONTENT );
+                }
             }
 
             // Min size on Mac is (a not very useful) single character

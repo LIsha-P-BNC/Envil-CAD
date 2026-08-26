@@ -455,22 +455,30 @@ std::vector<COLOR_SETTINGS*> COLOR_SETTINGS::CreateBuiltinColorSettings()
     defaultTheme->m_writeFile = false;
     defaultTheme->Load();   // We can just get the colors out of the param defaults for this one
 
-    COLOR_SETTINGS* classicTheme = new COLOR_SETTINGS( COLOR_BUILTIN_CLASSIC );
-    classicTheme->SetName( _( "NEMI Emerald Light" ) );
-    classicTheme->m_writeFile = false;
+    // NEMI Emerald LIGHT is the SAME theme as the dark one with a white sheet: start from the
+    // dark theme's colours (so every layer swatch — F.Cu red, B.Cu blue, silkscreen yellow — is
+    // identical between the two, exactly as the light mockup shows) and then apply only the
+    // surface / near-white overrides.  It used to be a copy of upstream "KiCad Classic", which
+    // carried a BLACK board canvas and so was not a light theme at all despite its name.
+    COLOR_SETTINGS* lightTheme = new COLOR_SETTINGS( COLOR_BUILTIN_CLASSIC );
+    lightTheme->SetName( _( "NEMI Emerald Light" ) );
+    lightTheme->m_writeFile = false;
 
-    for( PARAM_BASE* param : classicTheme->m_params )
+    for( PARAM_BASE* param : lightTheme->m_params )
         delete param;
 
-    classicTheme->m_params.clear(); // Disable load/store
+    lightTheme->m_params.clear(); // Disable load/store
 
-    for( const std::pair<int, COLOR4D> entry : s_classicTheme )
-        classicTheme->m_colors[entry.first] = entry.second;
+    for( const std::pair<int, COLOR4D> entry : s_defaultTheme )
+        lightTheme->m_colors[entry.first] = entry.second;
+
+    for( const std::pair<int, COLOR4D> entry : s_anvilLightOverrides )
+        lightTheme->m_colors[entry.first] = entry.second;
 
     std::vector<COLOR_SETTINGS*> ret;
 
     ret.push_back( defaultTheme );
-    ret.push_back( classicTheme );
+    ret.push_back( lightTheme );
 
     return ret;
 }

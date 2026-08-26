@@ -49,6 +49,7 @@
 #include <kiway_holder.h>
 #include <tool/tools_holder.h>
 #include <widgets/ui_common.h>
+#include <widgets/wx_aui_utils.h>
 #include <widgets/wx_infobar_message_type.h>
 #include <undo_redo_container.h>
 #include <units_provider.h>
@@ -264,10 +265,33 @@ public:
     ACTION_TOOLBAR* GetActiveBarToolbar() const { return m_tbActiveBar; }
 
     /**
+     * Anvil emerald theme: repaint this frame's chrome in whatever theme (dark / light) is
+     * currently persisted, and re-point this module's copy of the ANVIL palette at it first.
+     *
+     * The shell's light/dark toggle calls this on every docked editor.  It has to be a virtual
+     * -- and not a plain call to KIUI::ApplyAnvilFrameTheme() from the shell -- because each
+     * editor lives in its own _kiface DLL, which links its own copy of the `common` library and
+     * therefore its own copy of the palette globals; dispatching through the vtable is what
+     * makes the flip run *inside* that DLL.  See the DLL note in kiplatform/anvil_theme.h.
+     */
+    virtual void ReapplyAnvilTheme();
+
+    /**
+     * Windows (and their subtrees) that the Anvil recursive recolor must skip on this frame --
+     * typically the drawing canvas and any embedded web / AI panel, which paint their own
+     * surfaces.  Recorded by KIUI::ApplyAnvilFrameTheme() so ReapplyAnvilTheme() can replay the
+     * frame's original call without every editor having to override it.
+     */
+    void SetAnvilThemeExclusions( const std::vector<wxWindow*>& aExclude )
+    {
+        m_anvilThemeExclude = aExclude;
+    }
+
+    /**
      * Anvil: this frame's AUI manager, so the shell can DetachPane() the hoisted toolbars from
      * the editor and re-dock them into the shell (and reverse it when the editor is undocked).
      */
-    wxAuiManager& GetAuiManager() { return m_auimgr; }
+    EDA_AUI_MANAGER& GetAuiManager() { return m_auimgr; }
 
     /**
      * Show the #WX_INFOBAR displayed on the top of the canvas with a message and an error
@@ -940,7 +964,7 @@ private:
 
     wxString                m_aboutTitle;        // Name of program displayed in About.
 
-    wxAuiManager            m_auimgr;
+    EDA_AUI_MANAGER         m_auimgr;
     wxString                m_perspective;       // wxAuiManager perspective.
     std::unique_ptr<nlohmann::json> m_auiLayoutState;
     WX_INFOBAR*             m_infoBar;           // Infobar for the frame
@@ -997,6 +1021,9 @@ private:
                                           // the PCB editor)
 
     std::map<std::string, ACTION_TOOLBAR_CONTROL_FACTORY> m_toolbarControlFactories;
+
+    /// @see SetAnvilThemeExclusions()
+    std::vector<wxWindow*> m_anvilThemeExclude;
 };
 
 

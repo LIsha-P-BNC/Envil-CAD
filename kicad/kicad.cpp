@@ -71,7 +71,9 @@
 #include "kicad_manager_frame.h"
 
 #include <kiplatform/app.h>
+#include <kiplatform/anvil_theme.h>
 #include <kiplatform/environment.h>
+#include <widgets/ui_common.h>
 #include <advanced_config.h>
 
 #ifdef KICAD_IPC_API
@@ -363,19 +365,30 @@ bool PGM_KICAD::OnPgmInit()
     GetSettingsManager().SetKiway( &Kiway );
     m_bm.Init();
 
-    // Anvil "Vibrant Purple & Indigo" frame theme: tint the dark-mode chrome purple and force
-    // dark mode on so the native menu bar + title bar go dark too (the canvas is unaffected).
+    // Anvil emerald frame theme.  Point every palette copy this module can reach at the
+    // persisted theme (COMMON_SETTINGS appearance.app_theme) BEFORE a single window exists, so
+    // the title bar, menu row and tool-bars are built in the right colours from the first paint.
     const bool anvilPurpleFrame = ADVANCED_CFG::GetCfg().m_AnvilPurpleFrame;
 
-    if( anvilPurpleFrame )
-        KIPLATFORM::APP::SetDarkModePurple( true );
+    KIUI::SyncAnvilTheme();
 
-    if( const COMMON_SETTINGS* cfg = Pgm().GetCommonSettings() )
+    // NEMI Emerald LIGHT: leave wx's MSW dark mode alone.  wxMSW offers only DarkMode_Auto and
+    // DarkMode_Always (there is no DarkMode_Never) and dark mode is opt-in, so simply not
+    // enabling it is what gives genuinely light native controls, menus and scrollbars.  The
+    // Anvil chrome (title bar, menu band, tool-bars, panels) paints itself from the palette
+    // either way.
+    if( !ANVIL::IsLight() )
     {
-        if( anvilPurpleFrame || cfg->m_Appearance.app_theme == APP_THEME::DARK )
-            KIPLATFORM::APP::EnableDarkMode( true );
-        else if( cfg->m_Appearance.app_theme == APP_THEME::AUTO )
-            KIPLATFORM::APP::EnableDarkMode( false );
+        if( anvilPurpleFrame )
+            KIPLATFORM::APP::SetDarkModePurple( true );
+
+        if( const COMMON_SETTINGS* cfg = Pgm().GetCommonSettings() )
+        {
+            if( anvilPurpleFrame || cfg->m_Appearance.app_theme == APP_THEME::DARK )
+                KIPLATFORM::APP::EnableDarkMode( true );
+            else if( cfg->m_Appearance.app_theme == APP_THEME::AUTO )
+                KIPLATFORM::APP::EnableDarkMode( false );
+        }
     }
 
     // Add search paths to feed the PGM_KICAD::SysSearch() function,

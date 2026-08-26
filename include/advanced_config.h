@@ -1203,6 +1203,19 @@ public:
     bool m_AnvilEmeraldIcons;
 
     /**
+     * Anvil: mono chrome icons.  When ON (and the dark Anvil frame theme is active), the icons in
+     * the tool-bars (horizontal top bars and vertical left/right bars), the title-bar quick-access
+     * buttons (save/undo/redo) and the Project Files tree are drawn as flat Bone-white glyphs; the
+     * glyph itself repaints Signal Emerald while the cursor is over it (no background hover block —
+     * the icon is the feedback).  Set 0 for the stock multi-colour icons + filled hover rectangle.
+     *
+     * Setting name: "AnvilMonoIcons"
+     * Valid values: 0 or 1
+     * Default value: 1 (ships ON)
+     */
+    bool m_AnvilMonoIcons;
+
+    /**
      * Anvil: tooltip popup delay in milliseconds for toolbar/control hover names.  The OS default
      * (~1s on Windows) feels sluggish when identifying toolbar icons; Anvil ships a snappier 200ms.
      * 0 shows tooltips instantly; -1 keeps the OS default delay.

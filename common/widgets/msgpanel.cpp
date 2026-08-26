@@ -158,7 +158,13 @@ void EDA_MSG_PANEL::AppendMessage( const wxString& aUpperText, const wxString& a
 {
     MSG_PANEL_ITEM item;
 
-    item.m_UpperText = aUpperText;
+    // Anvil chrome: the upper line is the field label ("Pads", "Net", "Layer") and the mockups set
+    // every label in the app as muted uppercase, so fold it here.  This is the one place items are
+    // stored -- the MSG_PANEL_ITEM overload delegates to this signature -- which matters because
+    // updateItemPos() below measures the text to lay the columns out: uppercasing at draw time
+    // instead would let the wider glyphs overrun the column the layout reserved for them.
+    // Folding the already-translated string keeps the .po msgids intact.
+    item.m_UpperText = ADVANCED_CFG::GetCfg().m_AnvilPurpleFrame ? aUpperText.Upper() : aUpperText;
     item.m_LowerText = aLowerText;
 
     updateItemPos( item );

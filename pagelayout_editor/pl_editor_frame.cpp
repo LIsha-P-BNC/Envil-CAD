@@ -23,6 +23,9 @@
  * 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA
  */
 
+#include <vector>
+
+#include <advanced_config.h>
 #include <kiface_base.h>
 #include <pgm_base.h>
 #include <bitmaps.h>
@@ -32,6 +35,7 @@
 #include <panel_hotkeys_editor.h>
 #include <confirm.h>
 #include <kiplatform/app.h>
+#include <widgets/anvil_frame_theme.h>
 #include <gal/graphics_abstraction_layer.h>
 #include <gal/painter.h>
 #include <wildcards_and_files_ext.h>
@@ -229,6 +233,17 @@ PL_EDITOR_FRAME::PL_EDITOR_FRAME( KIWAY* aKiway, wxWindow* aParent ) :
     DS_DATA_MODEL::GetTheInstance().LoadDrawingSheet( wxEmptyString, nullptr );
 #endif
     OnNewDrawingSheet();
+
+    // Anvil chrome frame theme (matches the PCB/schematic editors + shell; byte-identical when off).
+    if( ADVANCED_CFG::GetCfg().m_AnvilPurpleFrame )
+    {
+        std::vector<wxWindow*> exclude;
+
+        if( GetCanvas() )
+            exclude.push_back( GetCanvas() );
+
+        KIUI::ApplyAnvilFrameTheme( this, exclude );
+    }
 
     // Ensure the window is on top
     Raise();
