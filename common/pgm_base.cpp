@@ -34,6 +34,7 @@
 #include <wx/fs_zip.h>
 #include <wx/dir.h>
 #include <wx/filename.h>
+#include <wx/font.h>
 #include <wx/msgdlg.h>
 #include <wx/propgrid/propgrid.h>
 #include <wx/snglinst.h>
@@ -372,6 +373,55 @@ bool PGM_BASE::IsAnotherInstanceRunningLive() const
 }
 
 
+// NEMI brand: register the bundled brand fonts (resources/fonts — Space Grotesk and
+// IBM Plex Mono) as application-private fonts, so the app-wide faces configured in
+// advanced_config (AnvilUiFontFace / AnvilMonoFontFace) resolve on machines where the
+// fonts are not installed system-wide.  Must run before any frame or dialog is built:
+// EDA_BASE_FRAME / DIALOG_SHIM probe the faces at construction time and silently fall
+// back to the OS default when the face is missing.
+static void loadAnvilPrivateFonts()
+{
+    wxArrayString searchPaths;
+    searchPaths.Add( PATHS::GetStockDataPath( true ) );
+    searchPaths.Add( wxFileName( wxStandardPaths::Get().GetExecutablePath() ).GetPath() );
+    searchPaths.Add( wxStandardPaths::Get().GetResourcesDir() );
+
+    for( const wxString& basePath : searchPaths )
+    {
+        wxDir dir( basePath + wxFileName::GetPathSeparator() + wxT( "fonts" ) );
+
+        if( !dir.IsOpened() )
+            continue;
+
+        wxString file;
+        bool     more = dir.GetFirst( &file, wxT( "*.ttf" ), wxDIR_FILES );
+
+        while( more )
+        {
+            const wxString path = dir.GetName() + wxFileName::GetPathSeparator() + file;
+
+#ifdef __WXMSW__
+            // wxFont::AddPrivateFont() is compiled out of this wxWidgets build
+            // (wxUSE_PRIVATE_FONTS == 0 in the vcpkg wxMSW setup.h), so make the Win32 call
+            // it would have made.  FR_PRIVATE keeps the face visible to this process only --
+            // and EnumFontFamiliesEx() *in this process* does list it, so wxFontEnumerator
+            // (hence KIUI::ApplyFontFace(), which is what every brand-face probe goes
+            // through) accepts "Space Grotesk" / "IBM Plex Mono" without them being installed
+            // system-wide.  Private faces are released when the process exits.
+            ::AddFontResourceExW( path.wc_str(), FR_PRIVATE, nullptr );
+#elif wxUSE_PRIVATE_FONTS
+            wxFont::AddPrivateFont( path );
+#else
+            ( void ) path;
+#endif
+            more = dir.GetNext( &file );
+        }
+
+        break;      // first hit wins, same as the other bundled-resource lookups
+    }
+}
+
+
 bool PGM_BASE::InitPgm( bool aHeadless, bool aIsUnitTest )
 {
 #if defined( __WXMAC__ )
@@ -403,6 +453,9 @@ bool PGM_BASE::InitPgm( bool aHeadless, bool aIsUnitTest )
     APP_MONITOR::SENTRY::Instance()->AddTag( "kicad.app", pgm_name );
 
     wxInitAllImageHandlers();
+
+    if( !aHeadless )
+        loadAnvilPrivateFonts();
 
 #if !wxCHECK_VERSION( 3, 3, 0 )
     // Without this the wxPropertyGridManager segfaults on Windows.

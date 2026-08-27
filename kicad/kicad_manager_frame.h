@@ -80,7 +80,8 @@ public:
 
     /// Single-window shell: split the editor-tab area into side-by-side groups, moving the
     /// active editor into the new group (VS Code "split editor"; needs 2+ open editors).
-    void SplitActiveEditor();
+    void ToggleSplitEditors();
+    bool EditorsSplit();
 
     /// Single-window shell common AI panel (CommonAiPanel): the shell owns ONE "AI Assistant"
     /// pane (Cursor style) instead of one per editor.  Name of that pane, and a show/hide
@@ -104,6 +105,17 @@ public:
     /// Gated by the AnvilPurpleFrame advanced-config flag; does NOT descend into the hosted
     /// editor tabs (those keep their own theme + canvas).
     void applyAnvilShellTheme();
+
+    /**
+     * Flip the app between the NEMI Emerald **Dark** and **Light** themes (the moon / sun button
+     * in the title bar), persist the choice, and repaint everything that can be repainted live:
+     * the title bar, the shell chrome and every docked editor tab.
+     *
+     * What CANNOT change without a restart is wx's own MSW dark mode, which owns the inside of
+     * native controls, the scrollbars and the pop-up menus: wxMSW only lets an application turn
+     * dark mode on at start-up.  Those surfaces catch up the next time Anvil starts.
+     */
+    void ToggleAppTheme();
 
     void OnFileHistory( wxCommandEvent& event );
     void OnClearFileHistory( wxCommandEvent& aEvent );

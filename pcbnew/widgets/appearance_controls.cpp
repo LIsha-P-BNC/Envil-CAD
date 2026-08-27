@@ -65,6 +65,8 @@
 #include <pgm_base.h>
 #include <advanced_config.h>
 #include <bitmaps/bitmap_types.h>
+#include <kiplatform/anvil_theme.h>
+#include <kiplatform/ui.h>
 
 
 NET_GRID_TABLE::NET_GRID_TABLE( PCB_BASE_FRAME* aFrame, wxColor aBackgroundColor ) :
@@ -516,6 +518,24 @@ APPEARANCE_CONTROLS::APPEARANCE_CONTROLS( PCB_BASE_FRAME* aParent, wxWindow* aFo
     m_presetsLabel->SetFont( infoFont );
     m_viewportsLabel->SetFont( infoFont );
 
+    // Anvil chrome: layer and object rows are identifiers ("F.Cu", "User.Eco1"), so the mockups
+    // set them in the same mono the status strip and project tree use.  The two scrolled windows
+    // carry the font rather than the individual labels because createControls() measures the
+    // object labels with m_windowObjects->GetTextExtent() to align the opacity sliders — a font
+    // applied only to the labels would leave that measurement on the proportional face.  The
+    // prose controls below the lists (Layer Display Options, Flip board view, ...) re-assert
+    // infoFont on themselves further down, so they stay proportional.
+    //
+    // Gated on the brand flag alone, NOT on IsDarkTheme(): a typeface is brand typography, so it
+    // must not flip when the user switches colour mode.  (The border flattening below is gated on
+    // dark as well because that one really is a dark-mode-only colour fix.)
+    if( ADVANCED_CFG::GetCfg().m_AnvilPurpleFrame )
+    {
+        wxFont monoInfoFont = KIUI::GetMonoInfoFont( this );
+        m_windowLayers->SetFont( monoInfoFont );
+        m_windowObjects->SetFont( monoInfoFont );
+    }
+
     m_cbLayerPresets->SetToolTip( wxString::Format( _( "Save and restore layer visibility combinations.\n"
                                                        "Use %s+Tab to activate selector.\n"
                                                        "Successive Tabs while holding %s down will "
@@ -529,6 +549,14 @@ APPEARANCE_CONTROLS::APPEARANCE_CONTROLS( PCB_BASE_FRAME* aParent, wxWindow* aFo
                                                     "cycle through viewports in the popup." ),
                                                  KeyNameFromKeyCode( VIEWPORT_SWITCH_KEY ),
                                                  KeyNameFromKeyCode( VIEWPORT_SWITCH_KEY ) ) );
+
+    // Anvil chrome: these two combos keep the stock dark-mode light-grey border (wxFormBuilder-
+    // generated wxChoice, no colour styling of their own) — flatten to match the mockup.
+    if( ADVANCED_CFG::GetCfg().m_AnvilPurpleFrame )
+    {
+        KIPLATFORM::UI::FlattenNativeBorder( m_cbLayerPresets, ANVIL::CONTROL_EDGE, ANVIL::CONTENT );
+        KIPLATFORM::UI::FlattenNativeBorder( m_cbViewports, ANVIL::CONTROL_EDGE, ANVIL::CONTENT );
+    }
 
     createControls();
 

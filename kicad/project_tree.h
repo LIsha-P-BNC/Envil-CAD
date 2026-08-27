@@ -48,6 +48,13 @@ private:
     wxImageList*                  m_statusImageList;
     std::unique_ptr<KIGIT_COMMON> m_gitCommon;
 
+    // Anvil mono chrome icons: LoadIcons() appends a Signal-Emerald copy of every file icon
+    // after the base (Bone-white) set; the row under the cursor is swapped to its emerald twin
+    // (base index + m_baseIconCount), mirroring the toolbar / title-bar hover feedback.
+    int          m_baseIconCount = 0;
+    bool         m_hasHoverIcons = false;
+    wxTreeItemId m_hoverIconItem;
+
 public:
     PROJECT_TREE_PANE* GetProjectTreePane() const { return m_projectTreePane; }
 
@@ -73,6 +80,12 @@ public:
 private:
     /* overridden sort function */
     int OnCompareItems( const wxTreeItemId& item1, const wxTreeItemId& item2 ) override;
+
+    // Anvil mono chrome icons: hover tracking for the emerald icon swap.
+    void onMouseMove( wxMouseEvent& aEvent );
+    void onMouseLeave( wxMouseEvent& aEvent );
+    void onItemDelete( wxTreeEvent& aEvent );
+    void setHoverIconItem( const wxTreeItemId& aItem );
 };
 
 #endif  // PROJECT_TREE_H

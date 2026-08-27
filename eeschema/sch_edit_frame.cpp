@@ -68,6 +68,7 @@
 #include <sch_rule_area.h>
 #include <settings/settings_manager.h>
 #include <advanced_config.h>
+#include <widgets/anvil_frame_theme.h>
 #include <widgets/wx_aui_art_providers.h>
 #include <paths.h>
 #include <sim/simulator_frame.h>
@@ -323,8 +324,9 @@ SCH_EDIT_FRAME::SCH_EDIT_FRAME( KIWAY* aKiway, wxWindow* aParent ) :
             // Without this hint, location.pathname is identical for both
             // editors (chat.html sits in the shared share/kicad/ai_chat/
             // folder) and the panel can't tell schematic from PCB.
-            fileUrl += wxString::Format( wxT( "?t=%ld&backend=localhost:8765&app=eeschema&project=%s&schematic=%s" ),
-                                         wxDateTime::Now().GetTicks(), projPath, schFile );
+            fileUrl += wxString::Format( wxT( "?t=%ld&backend=localhost:8765&app=eeschema&project=%s&schematic=%s&theme=%s" ),
+                                         wxDateTime::Now().GetTicks(), projPath, schFile,
+                                         ANVIL::IsLight() ? wxT( "light" ) : wxT( "dark" ) );
             wxLogDebug( wxT( "AI Chat: loading URL %s" ), fileUrl );
             m_aiChatPanel->LoadURL( fileUrl );
 
@@ -884,79 +886,8 @@ SCH_EDIT_FRAME::SCH_EDIT_FRAME( KIWAY* aKiway, wxWindow* aParent ) :
 }
 
 
-namespace
-{
-// Anvil chrome palette — sourced from the single palette header (kiplatform/anvil_theme.h)
-// instead of local literals.  Kept as named aliases so the theme code below is unchanged; the
-// canvas ("screen") is themed separately by the colour theme, not here.  (References only bind
-// the address of the ANVIL:: globals, so there is no static-init-order dependency.)
-const wxColour& ANVIL_BG_DEEP      = ANVIL::CONTENT;       // NEMI Black Ground: dock/background fill
-const wxColour& ANVIL_BG_PANEL     = ANVIL::PANEL;         // NEMI Warm Graphite: dockable panels & tool-bars
-const wxColour& ANVIL_CAP_ACTIVE   = ANVIL::CAP_ACTIVE;    // NEMI Deep Emerald: active pane caption
-const wxColour& ANVIL_CAP_INACTIVE = ANVIL::CAP_INACTIVE;
-const wxColour& ANVIL_ACCENT       = ANVIL::ACCENT;        // NEMI Signal Emerald: hover / pressed / checked
-const wxColour& ANVIL_BORDER       = ANVIL::BORDER;
-const wxColour& ANVIL_SASH         = ANVIL::SASH;
-const wxColour& ANVIL_TEXT         = ANVIL::BONE;          // NEMI Bone
-
-/**
- * Recursively repaint @p aWindow and its descendants with the Anvil chrome colours, skipping
- * any window in @p aExclude (and its subtree) so the drawing canvas and the AI web panel keep
- * their own rendering.
- */
-void anvilRecolorTree( wxWindow* aWindow, const std::vector<wxWindow*>& aExclude )
-{
-    if( !aWindow )
-        return;
-
-    for( wxWindow* skip : aExclude )
-    {
-        if( aWindow == skip )
-            return;
-    }
-
-    aWindow->SetBackgroundColour( ANVIL_BG_PANEL );
-    aWindow->SetForegroundColour( ANVIL_TEXT );
-
-    for( wxWindow* child : aWindow->GetChildren() )
-        anvilRecolorTree( child, aExclude );
-}
-} // namespace
-
-
 void SCH_EDIT_FRAME::applyAnvilPurpleFrameTheme()
 {
-    // 1) Dockable-pane chrome (backgrounds, sashes, borders, captions) via the AUI dock art.
-    if( wxAuiDockArt* dockArt = m_auimgr.GetArtProvider() )
-    {
-        dockArt->SetColour( wxAUI_DOCKART_BACKGROUND_COLOUR, ANVIL_BG_DEEP );
-        dockArt->SetColour( wxAUI_DOCKART_SASH_COLOUR, ANVIL_SASH );
-        dockArt->SetColour( wxAUI_DOCKART_BORDER_COLOUR, ANVIL_BORDER );
-        dockArt->SetColour( wxAUI_DOCKART_GRIPPER_COLOUR, ANVIL_BG_PANEL );
-        dockArt->SetColour( wxAUI_DOCKART_ACTIVE_CAPTION_COLOUR, ANVIL_CAP_ACTIVE );
-        dockArt->SetColour( wxAUI_DOCKART_ACTIVE_CAPTION_GRADIENT_COLOUR, ANVIL_CAP_ACTIVE );
-        dockArt->SetColour( wxAUI_DOCKART_INACTIVE_CAPTION_COLOUR, ANVIL_CAP_INACTIVE );
-        dockArt->SetColour( wxAUI_DOCKART_INACTIVE_CAPTION_GRADIENT_COLOUR, ANVIL_CAP_INACTIVE );
-        dockArt->SetColour( wxAUI_DOCKART_ACTIVE_CAPTION_TEXT_COLOUR, ANVIL_TEXT );
-        dockArt->SetColour( wxAUI_DOCKART_INACTIVE_CAPTION_TEXT_COLOUR, ANVIL_TEXT );
-    }
-
-    // 2) AUI tool-bars: the bar background and the hover/pressed/checked highlight.
-    for( ACTION_TOOLBAR* tb : { m_tbTopMain, m_tbTopAux, m_tbLeft, m_tbRight } )
-    {
-        if( !tb )
-            continue;
-
-        if( WX_AUI_TOOLBAR_ART* art = dynamic_cast<WX_AUI_TOOLBAR_ART*>( tb->GetArtProvider() ) )
-            art->EnableAnvilTheme( ANVIL_BG_PANEL, ANVIL_ACCENT );
-
-        tb->SetBackgroundColour( ANVIL_BG_PANEL );
-        tb->Refresh();
-    }
-
-    // 3) Child controls (panels, trees, lists, message panel, status bar).  The drawing canvas
-    //    and the AI web panel are excluded so the "screen" and the chat view keep their own
-    //    rendering — those are out of scope for the frame theme.
     std::vector<wxWindow*> exclude;
 
     if( GetCanvas() )
@@ -965,13 +896,7 @@ void SCH_EDIT_FRAME::applyAnvilPurpleFrameTheme()
     if( m_aiChatPanel )
         exclude.push_back( m_aiChatPanel );
 
-    if( m_infoBar )
-        exclude.push_back( m_infoBar );
-
-    for( wxWindow* child : GetChildren() )
-        anvilRecolorTree( child, exclude );
-
-    Refresh();
+    KIUI::ApplyAnvilFrameTheme( this, exclude );
 }
 
 

@@ -147,8 +147,28 @@ public:
 
     virtual void SetStatusWidths( int aSize, const int* aWidths ) override;
 
+protected:
+#ifdef __WXMSW__
+    /// Intercepts WM_PAINT / WM_ERASEBKGND so drawAnvilChrome() below is what actually paints.
+    /// An EVT_PAINT handler is NOT enough here: wxStatusBar forwards WM_PAINT to the Win32
+    /// status-bar control, which then repaints over whatever a wx paint handler drew.
+    WXLRESULT MSWWindowProc( WXUINT nMsg, WXWPARAM wParam, WXLPARAM lParam ) override;
+#endif
+
 private:
     void onSize( wxSizeEvent& aEvent );
+    void onPaint( wxPaintEvent& aEvent );
+
+    /// Anvil chrome: paint the strip and its field text from the ANVIL palette.  A NATIVE status
+    /// bar takes its text colour from the Windows visual style chosen when the process started,
+    /// which no runtime light/dark flip can move -- so after the toggle the footer kept the old
+    /// theme's ink (near-black on the dark strip, i.e. unreadable).  Drawing it ourselves is what
+    /// makes the footer follow the toggle in both directions.
+    void drawAnvilChrome( wxDC& aDc );
+
+    /// True when the Anvil theme owns this strip's painting (ADVANCED_CFG AnvilPurpleFrame).
+    bool m_anvilOwnerDrawn = false;
+
     void onBackgroundProgressClick( wxMouseEvent& aEvent );
     void onNotificationsIconClick( wxCommandEvent& aEvent );
     void onLoadWarningsIconClick( wxCommandEvent& aEvent );

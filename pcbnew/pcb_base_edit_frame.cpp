@@ -24,6 +24,8 @@
  */
 
 #include <kiface_base.h>
+#include <advanced_config.h>
+#include <kiplatform/anvil_theme.h>
 #include <kiplatform/ui.h>
 #include <background_jobs_monitor.h>
 #include <pcb_base_edit_frame.h>
@@ -306,6 +308,23 @@ void PCB_BASE_EDIT_FRAME::handleActivateEvent( wxActivateEvent& aEvent )
 }
 
 
+void PCB_BASE_EDIT_FRAME::ReapplyAnvilTheme()
+{
+    PCB_BASE_FRAME::ReapplyAnvilTheme();
+
+    // The Appearance panel builds a wxPanel per layer row and stores the row colour in each of
+    // them, and the nets grid holds colour renderers built the same way; a recursive recolour of
+    // the frame reaches neither.  OnDarkModeToggle() is the widget's own "re-derive your colours
+    // from the panel you sit on" entry point -- exactly what is needed after the flip, and it
+    // reads the new tones because the base call above has already repainted that panel.
+    if( m_appearancePanel )
+        m_appearancePanel->OnDarkModeToggle();
+
+    if( EDA_3D_VIEWER_FRAME* viewer = Get3DViewerFrame() )
+        viewer->OnDarkModeToggle();
+}
+
+
 void PCB_BASE_EDIT_FRAME::onDarkModeToggle( wxSysColourChangedEvent& aEvent )
 {
     if( m_appearancePanel )
@@ -382,6 +401,22 @@ void PCB_BASE_EDIT_FRAME::configureToolbars()
                 {
                     m_SelLayerBox = new PCB_LAYER_BOX_SELECTOR( aToolbar, ID_ON_LAYER_SELECT );
                     m_SelLayerBox->SetBoardFrame( this );
+
+                    // Anvil chrome: the mockups show the bare layer name ("F.Cu"), not
+                    // "F.Cu (PgUp)".  LAYER_SELECTOR defaults the hotkey suffix on, but this
+                    // toolbar box is the only selector in the app that leaves it on -- every
+                    // dialog-side one already opts out -- so the suffix is toolbar-only noise.
+                    // The hotkeys stay live and stay listed in Preferences > Hotkeys.
+                    if( ADVANCED_CFG::GetCfg().m_AnvilPurpleFrame )
+                        m_SelLayerBox->SetLayersHotkeys( false );
+
+                    if( ADVANCED_CFG::GetCfg().m_AnvilPurpleFrame )
+                    {
+                        m_SelLayerBox->SetBackgroundColour( ANVIL::CHROME_PANEL );
+                        m_SelLayerBox->SetForegroundColour( ANVIL::BONE );
+                        KIPLATFORM::UI::FlattenNativeBorder( m_SelLayerBox, ANVIL::CONTROL_EDGE,
+                                                             ANVIL::CHROME_PANEL );
+                    }
                 }
 
                 m_SelLayerBox->SetToolTip( _( "+/- to switch" ) );

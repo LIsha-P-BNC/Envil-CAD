@@ -193,6 +193,12 @@ public:
 
     void CommonSettingsChanged( int aFlags ) override;
 
+    /**
+     * Anvil emerald theme: on top of the base chrome repaint, point the CANVAS colour theme at
+     * the matching NEMI theme (Emerald Dark / Emerald Light) and redraw the drawing area.
+     */
+    void ReapplyAnvilTheme() override;
+
     virtual wxString GetScreenDesc() const;
     virtual wxString GetFullScreenDesc() const;
 
@@ -368,6 +374,18 @@ public:
     virtual void DisplayGridMsg();
 
     bool GetOverrideLocks() const;
+
+    /**
+     * Point this editor's canvas colour theme at the NEMI theme that matches the app theme:
+     * "NEMI Emerald Dark" (_builtin_default) or "NEMI Emerald Light" (_builtin_classic).
+     *
+     * Only ever moves BETWEEN those two built-ins — an editor sitting on a theme the user made
+     * or picked themselves is left alone, so the light/dark switch never destroys a custom
+     * colour set.
+     *
+     * @return true when the theme actually changed (the caller then has to redraw).
+     */
+    bool SyncCanvasThemeToAppTheme();
 
     void LoadSettings( APP_SETTINGS_BASE* aCfg ) override;
     void SaveSettings( APP_SETTINGS_BASE* aCfg ) override;

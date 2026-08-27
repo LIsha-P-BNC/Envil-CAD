@@ -124,6 +124,7 @@ static const wxChar ConfirmComponentPackage[] = wxT( "ConfirmComponentPackage" )
 static const wxChar AnvilAutoSaveRealFile[] = wxT( "AnvilAutoSaveRealFile" );
 static const wxChar AnvilPurpleFrame[] = wxT( "AnvilPurpleFrame" );
 static const wxChar AnvilEmeraldIcons[] = wxT( "AnvilEmeraldIcons" );
+static const wxChar AnvilMonoIcons[] = wxT( "AnvilMonoIcons" );
 static const wxChar AnvilTooltipDelay[] = wxT( "AnvilTooltipDelay" );
 static const wxChar AnvilFlatToolbars[] = wxT( "AnvilFlatToolbars" );
 static const wxChar AnvilUiFontPt[] = wxT( "AnvilUiFontPt" );
@@ -329,6 +330,8 @@ ADVANCED_CFG::ADVANCED_CFG()
                                   // labels stay ANVIL::BONE - unreadable light-on-light); see header
     m_AnvilEmeraldIcons = false;  // ships OFF: whole icon set is rich MULTI-COLOUR (native palette + custom multi-colour
                                   // editor icons); set AnvilEmeraldIcons=1 to opt back into the single-emerald recolor
+    m_AnvilMonoIcons = true;      // ships ON: chrome icons (toolbars, title bar, Project Files tree) are drawn as
+                                  // flat Bone-white glyphs that flip to Signal Emerald under the cursor (dark theme)
     m_AnvilTooltipDelayMs = 200;  // ships ON: toolbar tooltips appear after 200ms instead of the ~1s OS
                                   // default; 0 = instant, -1 = keep the OS default delay
     m_AnvilFlatToolbars = true;   // ships ON: ungroup toolbar tool-groups into individual buttons (every
@@ -667,6 +670,10 @@ void ADVANCED_CFG::loadSettings( wxConfigBase& aCfg )
     m_entries.push_back( std::make_unique<PARAM_CFG_BOOL>( true, AC_KEYS::AnvilEmeraldIcons,
                                                            &m_AnvilEmeraldIcons,
                                                            m_AnvilEmeraldIcons ) );
+
+    m_entries.push_back( std::make_unique<PARAM_CFG_BOOL>( true, AC_KEYS::AnvilMonoIcons,
+                                                           &m_AnvilMonoIcons,
+                                                           m_AnvilMonoIcons ) );
 
     m_entries.push_back( std::make_unique<PARAM_CFG_INT>( true, AC_KEYS::AnvilTooltipDelay,
                                                           &m_AnvilTooltipDelayMs,

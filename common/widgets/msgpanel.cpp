@@ -32,8 +32,21 @@
 
 #include <advanced_config.h>
 #include <kiid.h>
+#include <kiplatform/anvil_theme.h>
 
 #include <widgets/ui_common.h>
+
+
+/// Anvil chrome: read the panel colour from the live ANVIL palette so the light/dark toggle
+/// repaints this strip too — wxSYS_COLOUR_BTNFACE never follows the in-app theme flip, so a
+/// panel painted from it keeps the start-up theme for the whole session.
+static wxColour msgPanelBackground()
+{
+    if( ADVANCED_CFG::GetCfg().m_AnvilPurpleFrame )
+        return ANVIL::CHROME_BG;
+
+    return wxSystemSettings::GetColour( wxSYS_COLOUR_BTNFACE );
+}
 
 
 BEGIN_EVENT_TABLE( EDA_MSG_PANEL, wxPanel )
@@ -48,7 +61,7 @@ EDA_MSG_PANEL::EDA_MSG_PANEL( wxWindow* aParent, int aId, const wxPoint& aPositi
     wxPanel( aParent, aId, aPosition, aSize, style, name )
 {
     SetFont( KIUI::GetStatusFont( this ) );
-    SetBackgroundColour( wxSystemSettings::GetColour( wxSYS_COLOUR_BTNFACE ) );
+    SetBackgroundColour( msgPanelBackground() );
 
     // informs wx not to paint the background itself as we will paint it later in erase()
     SetBackgroundStyle( wxBG_STYLE_PAINT );
@@ -115,9 +128,9 @@ void EDA_MSG_PANEL::OnPaint( wxPaintEvent& aEvent )
 
     erase( &dc );
 
-    dc.SetBackground( wxSystemSettings::GetColour( wxSYS_COLOUR_BTNFACE ) );
+    dc.SetBackground( msgPanelBackground() );
     dc.SetBackgroundMode( wxSOLID );
-    dc.SetTextBackground( wxSystemSettings::GetColour( wxSYS_COLOUR_BTNFACE ) );
+    dc.SetTextBackground( msgPanelBackground() );
     dc.SetFont( KIUI::GetControlFont( this ) );
 
     for( const MSG_PANEL_ITEM& item : m_Items )
@@ -158,7 +171,13 @@ void EDA_MSG_PANEL::AppendMessage( const wxString& aUpperText, const wxString& a
 {
     MSG_PANEL_ITEM item;
 
-    item.m_UpperText = aUpperText;
+    // Anvil chrome: the upper line is the field label ("Pads", "Net", "Layer") and the mockups set
+    // every label in the app as muted uppercase, so fold it here.  This is the one place items are
+    // stored -- the MSG_PANEL_ITEM overload delegates to this signature -- which matters because
+    // updateItemPos() below measures the text to lay the columns out: uppercasing at draw time
+    // instead would let the wider glyphs overrun the column the layout reserved for them.
+    // Folding the already-translated string keeps the .po msgids intact.
+    item.m_UpperText = ADVANCED_CFG::GetCfg().m_AnvilPurpleFrame ? aUpperText.Upper() : aUpperText;
     item.m_LowerText = aLowerText;
 
     updateItemPos( item );
@@ -175,7 +194,9 @@ void EDA_MSG_PANEL::showItem( wxDC& aDC, const MSG_PANEL_ITEM& aItem )
     // Change the text to a disabled color when the window isn't active
     wxTopLevelWindow* tlw = dynamic_cast<wxTopLevelWindow*>( wxGetTopLevelParent( this ) );
 
-    if( tlw && !tlw->IsActive() )
+    if( ADVANCED_CFG::GetCfg().m_AnvilPurpleFrame )
+        color = ( tlw && !tlw->IsActive() ) ? COLOR4D( ANVIL::DIM ) : COLOR4D( ANVIL::BONE );
+    else if( tlw && !tlw->IsActive() )
         color = wxSystemSettings::GetColour( wxSYS_COLOUR_GRAYTEXT );
     else
         color = wxSystemSettings::GetColour( wxSYS_COLOUR_WINDOWTEXT );
@@ -204,7 +225,7 @@ void EDA_MSG_PANEL::erase( wxDC* aDC )
     wxBrush brush;
 
     wxSize  size  = GetClientSize();
-    wxColour color = wxSystemSettings::GetColour( wxSYS_COLOUR_BTNFACE );
+    wxColour color = msgPanelBackground();
 
     pen.SetColour( color );
 

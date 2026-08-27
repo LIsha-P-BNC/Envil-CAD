@@ -240,6 +240,42 @@ namespace KIPLATFORM
          * @param aWindow is the (already-created) popup window to shadow
          */
         void AddDropShadow( wxWindow* aWindow );
+
+        /**
+         * Overdraw the border a NATIVE control paints for itself (combo box / choice, text or
+         * search field, ...) with a flat 1px frame in @a aEdgeColour.
+         *
+         * In dark mode the borders Windows draws for these controls are a glaring light grey
+         * (or even a white 3D sunken edge on unthemed fields), which breaks the flat dark
+         * chrome of the Anvil mockups — wx offers no API to recolour them since they are
+         * painted by the OS control / uxtheme, not by wx.
+         *
+         * The control's window procedure is subclassed; after every WM_PAINT / WM_NCPAINT the
+         * outer pixel ring is repainted in @a aEdgeColour and any remaining native border rings
+         * (e.g. the 2px WS_EX_CLIENTEDGE) in @a aInnerColour, so every state repaint (hover,
+         * focus, theme change) stays flat.  Calling it again on the same control just updates
+         * the colours.  This is a NOP on GTK and macOS.
+         *
+         * @param aWindow is the native control whose border to flatten
+         * @param aEdgeColour is the flat border colour (typically ANVIL::CONTROL_EDGE)
+         * @param aInnerColour fills border rings inside the outer one (typically the control bg)
+         */
+        void FlattenNativeBorder( wxWindow* aWindow, const wxColour& aEdgeColour,
+                                  const wxColour& aInnerColour );
+
+        /**
+         * Re-point a native control's visual style at the light or dark Explorer theme.
+         *
+         * Windows applies the "DarkMode_Explorer" uxtheme to tree / list controls created
+         * while MSW dark mode is active, and offers no app-wide re-theme at runtime — so
+         * after the Anvil light/dark toggle a control keeps its start-up hover, selection
+         * and scrollbar chrome (a dark hover row on a white tree, or the reverse).  Calling
+         * this on the toggle flips that native layer in place.  NOP on GTK and macOS.
+         *
+         * @param aWindow is the native control (e.g. a wxTreeCtrl) to re-theme
+         * @param aDark selects the dark Explorer theme (true) or the light one (false)
+         */
+        void SetDarkExplorerTheme( wxWindow* aWindow, bool aDark );
     }
 }
 

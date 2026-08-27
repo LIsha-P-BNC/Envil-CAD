@@ -19,8 +19,17 @@
  */
 
 #include <windows.h>
+#include <commctrl.h>   // SetWindowSubclass / DefSubclassProc (FlattenNativeBorder)
+#include <uxtheme.h>    // SetWindowTheme (SetDarkExplorerTheme)
+
+#include <algorithm>
 
 #include <kiplatform/ui.h>
+
+#if defined( _MSC_VER )
+#pragma comment( lib, "comctl32.lib" )
+#pragma comment( lib, "uxtheme.lib" )
+#endif
 
 #include <wx/cursor.h>
 #include <wx/dialog.h>
@@ -237,4 +246,124 @@ void KIPLATFORM::UI::AddDropShadow( wxWindow* aWindow )
 
     if( !( style & CS_DROPSHADOW ) )
         ::SetClassLongPtr( hwnd, GCL_STYLE, style | CS_DROPSHADOW );
+}
+
+
+namespace
+{
+struct FLAT_BORDER_COLOURS
+{
+    COLORREF edge;
+    COLORREF inner;
+};
+
+const UINT_PTR FLAT_BORDER_SUBCLASS_ID = 0xA271;    // arbitrary, unique within the app
+
+LRESULT CALLBACK flatBorderSubclassProc( HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam,
+                                         UINT_PTR uIdSubclass, DWORD_PTR dwRefData )
+{
+    LRESULT ret = ::DefSubclassProc( hWnd, uMsg, wParam, lParam );
+
+    if( uMsg == WM_NCDESTROY )
+    {
+        ::RemoveWindowSubclass( hWnd, flatBorderSubclassProc, uIdSubclass );
+        delete reinterpret_cast<FLAT_BORDER_COLOURS*>( dwRefData );
+        return ret;
+    }
+
+    if( uMsg != WM_PAINT && uMsg != WM_NCPAINT )
+        return ret;
+
+    const FLAT_BORDER_COLOURS* colours = reinterpret_cast<FLAT_BORDER_COLOURS*>( dwRefData );
+
+    RECT wr, cr;
+    ::GetWindowRect( hWnd, &wr );
+    ::GetClientRect( hWnd, &cr );
+
+    // Native border thickness per side.  0 means the control paints its border inside the
+    // client area (themed combo boxes) — still one ring to overdraw.
+    int thickness = ( ( wr.right - wr.left ) - ( cr.right - cr.left ) ) / 2;
+    thickness = std::clamp( thickness, 1, 3 );
+
+    RECT rc = { 0, 0, wr.right - wr.left, wr.bottom - wr.top };
+
+    if( HDC hdc = ::GetWindowDC( hWnd ) )
+    {
+        HBRUSH edgeBrush = ::CreateSolidBrush( colours->edge );
+        ::FrameRect( hdc, &rc, edgeBrush );
+        ::DeleteObject( edgeBrush );
+
+        if( thickness > 1 )
+        {
+            HBRUSH innerBrush = ::CreateSolidBrush( colours->inner );
+
+            for( int ring = 1; ring < thickness; ++ring )
+            {
+                ::InflateRect( &rc, -1, -1 );
+                ::FrameRect( hdc, &rc, innerBrush );
+            }
+
+            ::DeleteObject( innerBrush );
+        }
+
+        ::ReleaseDC( hWnd, hdc );
+    }
+
+    return ret;
+}
+} // namespace
+
+
+void KIPLATFORM::UI::FlattenNativeBorder( wxWindow* aWindow, const wxColour& aEdgeColour,
+                                          const wxColour& aInnerColour )
+{
+    if( !aWindow )
+        return;
+
+    HWND hwnd = static_cast<HWND>( aWindow->GetHWND() );
+
+    if( !hwnd )
+        return;
+
+    // Re-flattening the same control just updates the colours: free the previous colour block
+    // first, since SetWindowSubclass overwrites the reference data without any callback.
+    DWORD_PTR prevData = 0;
+
+    if( ::GetWindowSubclass( hwnd, flatBorderSubclassProc, FLAT_BORDER_SUBCLASS_ID, &prevData )
+        && prevData )
+    {
+        delete reinterpret_cast<FLAT_BORDER_COLOURS*>( prevData );
+    }
+
+    FLAT_BORDER_COLOURS* colours = new FLAT_BORDER_COLOURS{
+        RGB( aEdgeColour.Red(), aEdgeColour.Green(), aEdgeColour.Blue() ),
+        RGB( aInnerColour.Red(), aInnerColour.Green(), aInnerColour.Blue() ) };
+
+    if( !::SetWindowSubclass( hwnd, flatBorderSubclassProc, FLAT_BORDER_SUBCLASS_ID,
+                              reinterpret_cast<DWORD_PTR>( colours ) ) )
+    {
+        delete colours;
+        return;
+    }
+
+    // Repaint frame + client now so the flat border shows without waiting for the next paint.
+    ::RedrawWindow( hwnd, nullptr, nullptr,
+                    RDW_FRAME | RDW_INVALIDATE | RDW_UPDATENOW | RDW_NOCHILDREN );
+}
+
+
+void KIPLATFORM::UI::SetDarkExplorerTheme( wxWindow* aWindow, bool aDark )
+{
+    if( !aWindow )
+        return;
+
+    HWND hwnd = static_cast<HWND>( aWindow->GetHandle() );
+
+    if( !hwnd )
+        return;
+
+    ::SetWindowTheme( hwnd, aDark ? L"DarkMode_Explorer" : L"Explorer", nullptr );
+
+    // The themed parts (hover band, selection, scrollbars) only repaint on invalidation.
+    ::RedrawWindow( hwnd, nullptr, nullptr, RDW_FRAME | RDW_INVALIDATE | RDW_ERASE );
 }

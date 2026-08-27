@@ -23,6 +23,9 @@
  * 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA
  */
 
+#include <vector>
+
+#include <advanced_config.h>
 #include <pgm_base.h>
 #include <bitmaps.h>
 #include <confirm.h>
@@ -31,6 +34,7 @@
 #include <kiface_base.h>
 #include <kiplatform/app.h>
 #include <kiway_mail.h>
+#include <widgets/anvil_frame_theme.h>
 #include <string_utils.h>
 #include <project/project_file.h>
 #include <netlist_reader/netlist_reader.h>
@@ -227,6 +231,11 @@ CVPCB_MAINFRAME::CVPCB_MAINFRAME( KIWAY* aKiway, wxWindow* aParent ) :
     m_filterTimer->StartOnce( 100 );
 
     KIPLATFORM::APP::SetShutdownBlockReason( this, _( "Symbol to footprint changes are unsaved" ) );
+
+    // Anvil chrome frame theme (matches the PCB/schematic editors + shell; byte-identical when off).
+    // No drawing canvas to exclude here -- cvpcb's panes are the library/footprint/symbol lists.
+    if( ADVANCED_CFG::GetCfg().m_AnvilPurpleFrame )
+        KIUI::ApplyAnvilFrameTheme( this );
 }
 
 

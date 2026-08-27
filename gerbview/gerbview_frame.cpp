@@ -18,6 +18,9 @@
  * with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
+#include <vector>
+
+#include <advanced_config.h>
 #include <kiface_base.h>
 #include <settings/color_settings.h>
 #include <base_units.h>
@@ -36,6 +39,7 @@
 #include <lset.h>
 #include <settings/settings_manager.h>
 #include <toolbars_gerber.h>
+#include <widgets/anvil_frame_theme.h>
 #include <tool/tool_manager.h>
 #include <tool/action_toolbar.h>
 #include <tool/tool_dispatcher.h>
@@ -201,6 +205,17 @@ GERBVIEW_FRAME::GERBVIEW_FRAME( KIWAY* aKiway, wxWindow* aParent ) :
     DragAcceptFiles( true );
 
     GetToolManager()->RunAction( ACTIONS::zoomFitScreen );
+
+    // Anvil chrome frame theme (matches the PCB/schematic editors + shell; byte-identical when off).
+    if( ADVANCED_CFG::GetCfg().m_AnvilPurpleFrame )
+    {
+        std::vector<wxWindow*> exclude;
+
+        if( GetCanvas() )
+            exclude.push_back( GetCanvas() );
+
+        KIUI::ApplyAnvilFrameTheme( this, exclude );
+    }
 
     // Ensure the window is on top
     Raise();

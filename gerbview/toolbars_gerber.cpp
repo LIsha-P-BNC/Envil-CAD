@@ -37,6 +37,7 @@
 #include "widgets/dcode_selection_box.h"
 #include <toolbars_gerber.h>
 #include <kiplatform/anvil_theme.h>
+#include <kiplatform/ui.h>
 
 
 std::optional<TOOLBAR_CONFIGURATION> GERBVIEW_TOOLBAR_SETTINGS::DefaultToolbarConfig( TOOLBAR_LOC aToolbar )
@@ -164,8 +165,11 @@ void GERBVIEW_FRAME::configureToolbars()
                 // Anvil dark theme: the owner-drawn bitmap combo (and the read-only text-info box
                 // below) don't follow wx's MSW dark-mode painting, so they render white-on-white.
                 // Pin them to the ANVIL content/text palette so their text stays readable.
-                m_SelLayerBox->SetBackgroundColour( ANVIL::CONTENT );
+                m_SelLayerBox->SetBackgroundColour( ANVIL::CHROME_PANEL );
                 m_SelLayerBox->SetForegroundColour( ANVIL::BONE );
+
+                if( ADVANCED_CFG::GetCfg().m_AnvilPurpleFrame )
+                    KIPLATFORM::UI::FlattenNativeBorder( m_SelLayerBox, ANVIL::CONTROL_EDGE, ANVIL::CHROME_PANEL );
 
                 m_SelLayerBox->Resync();
                 aToolbar->Add( m_SelLayerBox );
@@ -196,8 +200,11 @@ void GERBVIEW_FRAME::configureToolbars()
                 }
 
                 // Anvil dark theme: read-only text ctrl otherwise paints white-on-white on MSW.
-                m_TextInfo->SetBackgroundColour( ANVIL::CONTENT );
+                m_TextInfo->SetBackgroundColour( ANVIL::CHROME_PANEL );
                 m_TextInfo->SetForegroundColour( ANVIL::BONE );
+
+                if( ADVANCED_CFG::GetCfg().m_AnvilPurpleFrame )
+                    KIPLATFORM::UI::FlattenNativeBorder( m_TextInfo, ANVIL::CONTROL_EDGE, ANVIL::CHROME_PANEL );
 
                 aToolbar->Add( m_TextInfo );
             };

@@ -28,10 +28,13 @@
 
 #include <kicommon.h>
 #include "report_severity.h"      // enum SEVERITY
+#include <kiplatform/anvil_theme.h>
 #include <wx/string.h>
 #include <wx/font.h>
 
+class wxBitmap;
 class wxBitmapBundle;
+class wxColour;
 class wxSize;
 class wxTextCtrl;
 class wxTextEntry;
@@ -65,6 +68,49 @@ KICOMMON_API int GetStdMargin();
 KICOMMON_API wxSize GetTextSize( const wxString& aSingleLine, wxWindow* aWindow );
 
 /**
+ * Anvil mono chrome icons: repaint every pixel of @a aBitmap in @a aColor, keeping the
+ * per-pixel alpha (anti-aliased edges) and the bitmap's DPI scale factor — turning the
+ * multi-colour icon art into a flat single-colour glyph (e.g. a Bone-white toolbar icon
+ * that flips to Signal Emerald while hovered).
+ */
+KICOMMON_API wxBitmap RecolorFlat( const wxBitmap& aBitmap, const wxColour& aColor );
+
+/**
+ * True when the user has picked the NEMI Emerald **Light** app theme
+ * (COMMON_SETTINGS `appearance.app_theme` == APP_THEME::LIGHT).
+ *
+ * This is the one place that decides "which Anvil theme are we in"; everything else asks the
+ * palette (ANVIL::IsLight()) once SyncAnvilTheme() has run.
+ */
+KICOMMON_API bool AnvilLightTheme();
+
+/**
+ * Flip the **kicommon** copy of the ANVIL palette (see the DLL note in anvil_theme.h).
+ *
+ * kicommon is a shared library, so one call covers the whole process for everything that lives
+ * in it (dialog_shim, indicator_icon, ...).  The `common` static library, by contrast, is linked
+ * separately into anvilcad.exe and each _kiface DLL, so each of those needs its own
+ * ANVIL::SetMode() — which is exactly what SyncAnvilTheme() below pairs up.
+ */
+KICOMMON_API void SetAnvilThemeMode( bool aLight );
+
+/**
+ * Point BOTH palette copies reachable from the caller — this module's own and kicommon's — at
+ * the persisted app theme.
+ *
+ * Deliberately inline: ANVIL::SetMode() has to run against the *caller's* copy of the palette
+ * globals, so this cannot be a function exported from a library.  Call it before a module paints
+ * anything Anvil-themed (EDA_BASE_FRAME's ctor, the program init paths, the theme toggle).
+ */
+inline void SyncAnvilTheme()
+{
+    const bool light = AnvilLightTheme();
+
+    ANVIL::SetMode( light ? ANVIL::MODE::LIGHT : ANVIL::MODE::DARK );
+    SetAnvilThemeMode( light );
+}
+
+/**
  * Set @a aFont's face to @a aFaceName, but only when that face is really installed.
  *
  * wxFont::SetFaceName() INVALIDATES the font when the face is missing: IsOk() goes false and
@@ -77,6 +123,8 @@ KICOMMON_API wxSize GetTextSize( const wxString& aSingleLine, wxWindow* aWindow 
  */
 KICOMMON_API bool ApplyFontFace( wxFont& aFont, const wxString& aFaceName );
 
+KICOMMON_API wxFont GetUIFont();
+
 KICOMMON_API wxFont GetMonospacedUIFont();
 
 KICOMMON_API wxFont GetControlFont( wxWindow* aWindow );
@@ -84,6 +132,15 @@ KICOMMON_API wxFont GetInfoFont( wxWindow* aWindow );
 KICOMMON_API wxFont GetSmallInfoFont( wxWindow* aWindow );
 KICOMMON_API wxFont GetDockedPaneFont( wxWindow* aWindow );
 KICOMMON_API wxFont GetStatusFont( wxWindow* aWindow );
+
+/**
+ * GetInfoFont() in the brand monospaced face — for dense identifier lists (layer names, object
+ * names) where the mockups expect the same mono the status strip and project tree use.
+ *
+ * Set this on the CONTAINER window, not on each label: sibling code sizes those labels with
+ * container->GetTextExtent(), so a font that only reaches the labels would mis-measure them.
+ */
+KICOMMON_API wxFont GetMonoInfoFont( wxWindow* aWindow );
 
 /**
  * Set the minimum pixel width on a text control in order to make a text

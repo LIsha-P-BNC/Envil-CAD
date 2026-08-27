@@ -41,6 +41,10 @@
 #include <wx/statline.h>
 #include <wx/popupwin.h>
 
+#include <advanced_config.h>
+#include <kiplatform/anvil_theme.h>
+#include <kiplatform/ui.h>
+
 #include <eda_doc.h>                    // for GetAssociatedDocument()
 #include <pgm_base.h>                   // for PROJECT
 #include <settings/settings_manager.h>  // for PROJECT
@@ -79,6 +83,13 @@ LIB_TREE::LIB_TREE( wxWindow* aParent, const wxString& aRecentSearchesKey,
         m_query_ctrl = new wxSearchCtrl( this, wxID_ANY );
 
         m_query_ctrl->ShowCancelButton( true );
+
+        // Anvil chrome: the stock dark-mode wxSearchCtrl border is a glaring light-grey 3D
+        // sunken edge that wx has no API to recolour (it's painted by the native control) —
+        // overdraw it flat so the search field reads like the mockup instead of standing out
+        // as a bright box against the dark Libraries panel.
+        if( ADVANCED_CFG::GetCfg().m_AnvilPurpleFrame )
+            KIPLATFORM::UI::FlattenNativeBorder( m_query_ctrl, ANVIL::CONTROL_EDGE, ANVIL::CONTENT );
 
         m_debounceTimer = new wxTimer( this );
 

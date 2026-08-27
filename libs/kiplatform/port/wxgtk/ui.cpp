@@ -731,3 +731,11 @@ wxPoint KIPLATFORM::UI::GetMousePosition()
 
 
 #endif
+
+
+void KIPLATFORM::UI::SetDarkExplorerTheme( wxWindow* aWindow, bool aDark )
+{
+    // NOP: uxtheme visual styles are Windows-only; GTK controls follow the GTK theme live.
+    ( void ) aWindow;
+    ( void ) aDark;
+}

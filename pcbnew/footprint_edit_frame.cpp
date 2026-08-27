@@ -20,6 +20,8 @@
  * with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
+#include <vector>
+
 #include "tool/embed_tool.h"
 #include "tools/convert_tool.h"
 #include "tools/drawing_tool.h"
@@ -49,6 +51,7 @@
 #include <kiplatform/app.h>
 #include <kiplatform/ui.h>
 #include <kiway.h>
+#include <widgets/anvil_frame_theme.h>
 #include <macros.h>
 #include <pcbnew_id.h>
 #include <pgm_base.h>
@@ -317,6 +320,22 @@ FOOTPRINT_EDIT_FRAME::FOOTPRINT_EDIT_FRAME( KIWAY* aKiway, wxWindow* aParent ) :
     // Default shutdown reason until a file is loaded
     KIPLATFORM::APP::SetShutdownBlockReason( this, _( "Footprint changes are unsaved" ) );
 
+    // Anvil chrome frame theme (matches the PCB/schematic editors + shell; byte-identical when off).
+    if( ADVANCED_CFG::GetCfg().m_AnvilPurpleFrame )
+    {
+        std::vector<wxWindow*> exclude;
+
+        if( GetCanvas() )
+            exclude.push_back( GetCanvas() );
+
+        KIUI::ApplyAnvilFrameTheme( this, exclude );
+
+        // See PCB_EDIT_FRAME::applyAnvilFrameTheme(): the Appearance panel caches the colour of
+        // the panel it sits on at build time, so it has to re-derive after the theme lands.
+        if( m_appearancePanel )
+            m_appearancePanel->OnDarkModeToggle();
+    }
+
     // Catch unhandled accelerator command characters that were no handled by the library tree
     // panel.
     Bind( wxEVT_CHAR, &TOOL_DISPATCHER::DispatchWxEvent, m_toolDispatcher );
@@ -500,7 +519,7 @@ void FOOTPRINT_EDIT_FRAME::ToggleLayersManager()
 
 bool FOOTPRINT_EDIT_FRAME::IsLibraryTreeShown() const
 {
-    return const_cast<wxAuiManager&>( m_auimgr ).GetPane( m_treePane ).IsShown();
+    return const_cast<EDA_AUI_MANAGER&>( m_auimgr ).GetPane( m_treePane ).IsShown();
 }
 
 

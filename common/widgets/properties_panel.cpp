@@ -20,6 +20,9 @@
  */
 
 #include "properties_panel.h"
+#include <advanced_config.h>
+#include <kiplatform/anvil_theme.h>
+#include <kiplatform/ui.h>
 #include <tool/selection.h>
 #include <eda_base_frame.h>
 #include <eda_item.h>
@@ -85,6 +88,8 @@ PROPERTIES_PANEL::PROPERTIES_PANEL( wxWindow* aParent, EDA_BASE_FRAME* aFrame ) 
     m_grid = new wxPropertyGrid( this );
     m_grid->SetUnspecifiedValueAppearance( wxPGCell( wxT( "<...>" ) ) );
     m_grid->SetExtraStyle( wxPG_EX_HELP_AS_TOOLTIPS );
+
+    ApplyAnvilTheme();
 
 #if wxCHECK_VERSION( 3, 3, 0 )
     m_grid->SetValidationFailureBehavior( wxPGVFBFlags::MarkCell );
@@ -154,6 +159,36 @@ PROPERTIES_PANEL::PROPERTIES_PANEL( wxWindow* aParent, EDA_BASE_FRAME* aFrame ) 
 PROPERTIES_PANEL::~PROPERTIES_PANEL()
 {
     m_frame->Unbind( EDA_LANG_CHANGED, &PROPERTIES_PANEL::OnLanguageChanged, this );
+}
+
+
+void PROPERTIES_PANEL::ApplyAnvilTheme()
+{
+    // Anvil chrome: the property grid paints its own surfaces (a plain SetBackgroundColour has
+    // no effect on the empty space below the rows), so feed it the panel palette directly —
+    // otherwise the Properties pane stays a black hole inside the lighter chrome ring.
+    //
+    // Re-callable on purpose: these colours are COPIED into the grid, so a light/dark flip has
+    // to push them again.  KIUI::ApplyAnvilFrameTheme() calls this as it walks the frame.
+    if( !ADVANCED_CFG::GetCfg().m_AnvilPurpleFrame || !m_grid )
+        return;
+
+    m_grid->SetEmptySpaceColour( ANVIL::CHROME_PANEL );
+    m_grid->SetMarginColour( ANVIL::CHROME_PANEL );
+    m_grid->SetCellBackgroundColour( ANVIL::CHROME_PANEL );
+    m_grid->SetCellTextColour( ANVIL::BONE );
+    // CHROME_BAR2, not CHROME_BAR: a property-grid category row is a light strip inside a
+    // panel, not one of the Deep Emerald tool-bar bands (the two tokens are identical in the
+    // dark theme).
+    m_grid->SetCaptionBackgroundColour( ANVIL::CHROME_BAR2 );
+    m_grid->SetCaptionTextColour( ANVIL::CAPTION_TEXT );
+    m_grid->SetLineColour( ANVIL::CHROME_LINE );
+
+    // The outer window border is a separate, native-drawn ring the surface colours above
+    // don't touch — left alone it stays the stock light-grey box around the whole grid.
+    KIPLATFORM::UI::FlattenNativeBorder( m_grid, ANVIL::CONTROL_EDGE, ANVIL::CHROME_PANEL );
+
+    m_grid->Refresh();
 }
 
 

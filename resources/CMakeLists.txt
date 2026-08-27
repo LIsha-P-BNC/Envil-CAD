@@ -214,5 +214,13 @@ install( DIRECTORY ${PROJECT_SOURCE_DIR}/resources/ai_chat
          COMPONENT resources
          )
 
+# Install NEMI brand fonts (Space Grotesk / IBM Plex Mono), registered as app-private
+# fonts at startup by PGM_BASE::InitPgm() so the app-wide UI faces (AnvilUiFontFace /
+# AnvilMonoFontFace) work without requiring the fonts to be installed system-wide.
+install( DIRECTORY ${PROJECT_SOURCE_DIR}/resources/fonts
+         DESTINATION ${KICAD_DATA}
+         COMPONENT resources
+         )
+
 add_subdirectory(bitmaps_png)
 add_subdirectory(project_template)

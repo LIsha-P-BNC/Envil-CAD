@@ -136,12 +136,6 @@ private:
     HANDLER_RESULT<PadstackPresenceResponse> handleCheckPadstackPresenceOnLayers(
             const HANDLER_CONTEXT<CheckPadstackPresenceOnLayers>& aCtx );
 
-    HANDLER_RESULT<types::TitleBlockInfo> handleGetTitleBlockInfo(
-            const HANDLER_CONTEXT<commands::GetTitleBlockInfo>& aCtx );
-
-    HANDLER_RESULT<Empty> handleSetTitleBlockInfo(
-            const HANDLER_CONTEXT<commands::SetTitleBlockInfo>& aCtx );
-
     HANDLER_RESULT<commands::ExpandTextVariablesResponse> handleExpandTextVariables(
             const HANDLER_CONTEXT<commands::ExpandTextVariables>& aCtx );
 
@@ -234,6 +228,10 @@ protected:
                               const std::string& aClientName ) override;
 
     std::optional<EDA_ITEM*> getItemFromDocument( const DocumentSpecifier& aDocument, const KIID& aId ) override;
+
+    std::optional<TITLE_BLOCK*> getTitleBlock() override;
+
+    void onModified() override;
 
 private:
     BOARD_CONTEXT* context() const { return m_context.get(); }

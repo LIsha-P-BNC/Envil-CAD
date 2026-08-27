@@ -67,6 +67,15 @@ public:
     void SetSplitterProportion( float aProportion );
     float SplitterProportion() const { return m_splitter_key_proportion; }
 
+    /**
+     * Push the Anvil chrome palette into the property grid's own surface colours.
+     *
+     * The grid COPIES these values rather than querying them, so this has to run again after a
+     * light/dark flip — see KIUI::ApplyAnvilFrameTheme(), which calls it while walking the frame.
+     */
+    void ApplyAnvilTheme();
+
+
 protected:
     /**
      * Generates the property grid for a given selection of items.

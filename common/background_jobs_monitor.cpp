@@ -35,6 +35,7 @@
 
 #include <background_jobs_monitor.h>
 #include <widgets/kistatusbar.h>
+#include <widgets/ui_common.h>
 
 
 class BACKGROUND_JOB_PANEL : public wxPanel
@@ -45,6 +46,7 @@ public:
                      wxBORDER_SIMPLE ),
             m_job( aJob )
     {
+        SetFont( KIUI::GetUIFont() );
         SetSizeHints( wxDefaultSize, wxDefaultSize );
 
         wxBoxSizer* mainSizer;

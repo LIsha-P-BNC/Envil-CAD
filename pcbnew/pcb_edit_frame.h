@@ -835,6 +835,13 @@ protected:
 
     void onCloseModelessBookReporterDialogs( wxCommandEvent& aEvent );
 
+    /**
+     * Anvil chrome frame theme (mirrors SCH_EDIT_FRAME::applyAnvilPurpleFrameTheme): dock art,
+     * tool-bars and side panels in the dark chrome palette so the PCB tab matches the mockups.
+     * Called once at the end of the constructor when the AnvilPurpleFrame flag is set.
+     */
+    void applyAnvilFrameTheme();
+
 #ifdef KICAD_IPC_API
     void onPluginAvailabilityChanged( wxCommandEvent& aEvt );
 #endif

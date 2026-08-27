@@ -23,6 +23,8 @@
  * 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA
  */
 
+#include <vector>
+
 #include <advanced_config.h>
 #include <bitmaps.h>
 #include <wx/hyperlink.h>
@@ -37,6 +39,7 @@
 #include <kidialog.h>
 #include <kiface_base.h>
 #include <kiplatform/app.h>
+#include <widgets/anvil_frame_theme.h>
 #include <kiway_mail.h>
 #include <symbol_edit_frame.h>
 #include <lib_symbol_library_manager.h>
@@ -239,10 +242,21 @@ SYMBOL_EDIT_FRAME::SYMBOL_EDIT_FRAME( KIWAY* aKiway, wxWindow* aParent ) :
     RestoreAuiLayout();
 
     // Protect against broken saved Perspective() due to bugs in previous version
-    // This is currently a workaround.
-    m_auimgr.GetPane( "TopMainToolbar" ).Top().Layer( 6 ).Position(0).Show( true );
-    m_auimgr.GetPane( "LeftToolbar" ).Position(0).Show( true );
-    m_auimgr.GetPane( "RightToolbar" ).Show( true );
+    // This is currently a workaround.  The IsOk() guards matter because the left/right rails do
+    // not exist in the modern toolbar layout, and GetPane() then hands back the shared
+    // wxAuiNullPaneInfo sentinel, which must never be written to.
+    wxAuiPaneInfo& topToolbarPane = m_auimgr.GetPane( "TopMainToolbar" );
+    wxAuiPaneInfo& leftToolbarPane = m_auimgr.GetPane( "LeftToolbar" );
+    wxAuiPaneInfo& rightToolbarPane = m_auimgr.GetPane( "RightToolbar" );
+
+    if( topToolbarPane.IsOk() )
+        topToolbarPane.Top().Layer( 6 ).Position( 0 ).Show( true );
+
+    if( leftToolbarPane.IsOk() )
+        leftToolbarPane.Position( 0 ).Show( true );
+
+    if( rightToolbarPane.IsOk() )
+        rightToolbarPane.Show( true );
 
     // Show or hide m_propertiesPanel depending on current settings:
     wxAuiPaneInfo& propertiesPaneInfo = m_auimgr.GetPane( PropertiesPaneName() );
@@ -297,6 +311,17 @@ SYMBOL_EDIT_FRAME::SYMBOL_EDIT_FRAME( KIWAY* aKiway, wxWindow* aParent ) :
     DragAcceptFiles( true );
 
     KIPLATFORM::APP::SetShutdownBlockReason( this, _( "Library changes are unsaved" ) );
+
+    // Anvil chrome frame theme (matches the PCB/schematic editors + shell; byte-identical when off).
+    if( ADVANCED_CFG::GetCfg().m_AnvilPurpleFrame )
+    {
+        std::vector<wxWindow*> exclude;
+
+        if( GetCanvas() )
+            exclude.push_back( GetCanvas() );
+
+        KIUI::ApplyAnvilFrameTheme( this, exclude );
+    }
 
     // Catch unhandled accelerator command characters that were no handled by the library tree
     // panel.
@@ -813,7 +838,7 @@ void SYMBOL_EDIT_FRAME::ToggleLibraryTree()
 
 bool SYMBOL_EDIT_FRAME::IsLibraryTreeShown() const
 {
-    return const_cast<wxAuiManager&>( m_auimgr ).GetPane( m_treePane ).IsShown();
+    return const_cast<EDA_AUI_MANAGER&>( m_auimgr ).GetPane( m_treePane ).IsShown();
 }
 
 

@@ -138,8 +138,11 @@
 #include <widgets/pcb_properties_panel.h>
 #include <widgets/pcb_net_inspector_panel.h>
 #include <widgets/wx_aui_utils.h>
+#include <kiplatform/anvil_theme.h>
 #include <kiplatform/app.h>
 #include <kiplatform/ui.h>
+#include <widgets/anvil_frame_theme.h>
+#include <widgets/wx_aui_art_providers.h>
 #include <core/profile.h>
 #include <math/box2_minmax.h>
 #include <view/wx_view_controls.h>
@@ -403,9 +406,9 @@ PCB_EDIT_FRAME::PCB_EDIT_FRAME( KIWAY* aKiway, wxWindow* aParent ) :
                 pcbFile.Replace( wxT( "\\" ), wxT( "/" ) );
                 pcbFile.Replace( wxT( " " ), wxT( "%20" ) );
             }
-            fileUrl += wxString::Format( wxT( "?t=%ld&backend=localhost:8765&app=pcbnew&project=%s&pcb=%s" ),
-                                         wxDateTime::Now().GetTicks(),
-                                         projPath, pcbFile );
+            fileUrl += wxString::Format( wxT( "?t=%ld&backend=localhost:8765&app=pcbnew&project=%s&pcb=%s&theme=%s" ),
+                                         wxDateTime::Now().GetTicks(), projPath, pcbFile,
+                                         ANVIL::IsLight() ? wxT( "light" ) : wxT( "dark" ) );
             wxLogDebug( wxT( "AI Chat: loading URL %s" ), fileUrl );
             m_aiChatPanel->LoadURL( fileUrl );
         }
@@ -1012,6 +1015,31 @@ PCB_EDIT_FRAME::PCB_EDIT_FRAME( KIWAY* aKiway, wxWindow* aParent ) :
     DragAcceptFiles( true );
 
     Bind( EDA_EVT_CLOSE_DIALOG_BOOK_REPORTER, &PCB_EDIT_FRAME::onCloseModelessBookReporterDialogs, this );
+
+    // Anvil chrome frame theme (matches the schematic editor + shell; byte-identical when off).
+    if( ADVANCED_CFG::GetCfg().m_AnvilPurpleFrame )
+        applyAnvilFrameTheme();
+}
+
+
+void PCB_EDIT_FRAME::applyAnvilFrameTheme()
+{
+    std::vector<wxWindow*> exclude;
+
+    if( GetCanvas() )
+        exclude.push_back( GetCanvas() );
+
+    if( m_aiChatPanel )
+        exclude.push_back( m_aiChatPanel );
+
+    KIUI::ApplyAnvilFrameTheme( this, exclude );
+
+    // The Appearance panel snapshots the colour of the panel it sits on when it is BUILT, which
+    // happens before the line above repaints that panel -- so without this its layer rows, the
+    // space under them and the Selection Filter keep the stock system grey while everything
+    // around them is Soft-Oat.  OnDarkModeToggle() is the widget's own re-derive entry point.
+    if( m_appearancePanel )
+        m_appearancePanel->OnDarkModeToggle();
 }
 
 
