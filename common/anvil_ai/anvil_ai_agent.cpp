@@ -32,8 +32,14 @@
 #ifndef NOMINMAX
 #define NOMINMAX
 #endif
+#include <winsock2.h>            // bridge port probe -- must precede windows.h
+#include <ws2tcpip.h>
 #include <windows.h>
+#pragma comment( lib, "ws2_32.lib" )
 #endif
+
+#include <mutex>
+#include <vector>
 
 using json = nlohmann::json;
 
@@ -55,6 +61,24 @@ static const char* ANVIL_DEFAULT_PROMPT =
         "Workflow for a NEW circuit request: search parts -> build -> create_pcb (if asked) "
         "-> open in the app -> verify with check_live or run_drc. Always report real file "
         "paths and real ERC/DRC results; never claim success without them.\n"
+        "\n"
+        "CONTINUE vs NEW project -- decide from context, do not ask by default. The window "
+        "context below always shows the currently-open project and a summary of the design "
+        "already in it (its sheets and what each contains). Before you build, look at that "
+        "summary and at any file the user attached earlier in this conversation:\n"
+        " - If a project is already open and the new request extends it (the next sheet of "
+        "the same PDF/image, another block of the same circuit, or 'add this ...'), CONTINUE "
+        "that same project. Do NOT create a fresh project and do NOT regenerate the existing "
+        "sheets. Read what is already there, then ADD only the new sheet/section on top of "
+        "it, keeping every existing sheet, part and net intact.\n"
+        " - Start a NEW project only when the request is unrelated to the open design, or the "
+        "user explicitly asks for a new/separate project. When genuinely unsure between "
+        "extending and starting fresh, ask a single short question naming both choices.\n"
+        " - A source document (PDF/image/text/URL/doc) attached earlier stays available for "
+        "the whole conversation: reuse it for later sheets or additions instead of asking the "
+        "user to send it again. The user may design just one part of a document first, then "
+        "later ask for another part, an edit, or an added circuit -- treat the attachment as "
+        "still in hand every time.\n"
         "\n"
         "For CHANGES to the open design: batch every edit from one user request into a "
         "single edit_schematic_live / edit_board_live call using the ops array, then "
@@ -143,6 +167,206 @@ static bool hasOwnClaudeLogin()
 }
 
 
+// ---------------------------------------------------------------------------------------
+// Shared-credential helpers. The deployment's AI credentials live in the .env beside the
+// exe: either a direct Anthropic key (ClaudeApiKey), or a proxy base URL (ClaudeBaseUrl).
+// A LOOPBACK base URL means the bundled OpenAI bridge (bin/ai/bridge): it forwards to the
+// OpenAI API with the same .env's OpenAiApiKey, and the app is responsible for starting
+// it before the engine's first request.
+// ---------------------------------------------------------------------------------------
+
+// How long a cold bridge gets to bind its port before the engine is launched anyway
+// (the engine's own request retries cover a slightly late start).
+static const int BRIDGE_START_TIMEOUT_MS = 20000;
+
+
+// Split "http://host:port/..." into host and port (port 0 when the URL names none).
+static bool parseHostPort( const wxString& aUrl, wxString* aHost, unsigned short* aPort )
+{
+    wxString rest   = aUrl;
+    int      scheme = rest.Find( wxS( "://" ) );
+
+    if( scheme != wxNOT_FOUND )
+        rest = rest.Mid( scheme + 3 );
+
+    rest = rest.BeforeFirst( '/' );
+
+    wxString host = rest.BeforeFirst( ':' );
+    wxString port = rest.AfterFirst( ':' );
+
+    if( host.IsEmpty() )
+        return false;
+
+    *aHost = host;
+
+    unsigned long p = 0;
+
+    if( !port.IsEmpty() && port.ToULong( &p ) && p > 0 && p <= 65535 )
+        *aPort = static_cast<unsigned short>( p );
+    else
+        *aPort = 0;
+
+    return true;
+}
+
+
+static bool isLoopbackHost( const wxString& aHost )
+{
+    return aHost == wxS( "127.0.0.1" ) || aHost.CmpNoCase( wxS( "localhost" ) ) == 0;
+}
+
+
+// True when the .env ships everything "API key" mode needs to work with no per-user
+// login: a direct Anthropic key, a local bridge URL with the OpenAI key it forwards to,
+// or a remote proxy URL (authenticated per user with the signed-in JWT).
+static bool hasSharedAiCredentials()
+{
+    if( !ANVIL_AUTH_CONFIG::ClaudeApiKey().IsEmpty() )
+        return true;
+
+    const wxString base = ANVIL_AUTH_CONFIG::ClaudeBaseUrl();
+
+    if( base.IsEmpty() )
+        return false;
+
+    wxString       host;
+    unsigned short port = 0;
+
+    if( parseHostPort( base, &host, &port ) && isLoopbackHost( host ) )
+        return !ANVIL_AUTH_CONFIG::OpenAiApiKey().IsEmpty();    // bundled bridge
+
+    return true;                                                // remote proxy
+}
+
+
+#ifdef _WIN32
+// True when something is listening on 127.0.0.1:aPort (non-blocking connect + select).
+static bool localPortOpen( unsigned short aPort, int aTimeoutMs )
+{
+    WSADATA wsa;
+
+    if( WSAStartup( MAKEWORD( 2, 2 ), &wsa ) != 0 )
+        return false;
+
+    bool   open = false;
+    SOCKET s = ::socket( AF_INET, SOCK_STREAM, IPPROTO_TCP );
+
+    if( s != INVALID_SOCKET )
+    {
+        u_long nonblock = 1;
+        ioctlsocket( s, FIONBIO, &nonblock );
+
+        sockaddr_in addr;
+        ZeroMemory( &addr, sizeof( addr ) );
+        addr.sin_family = AF_INET;
+        addr.sin_port   = htons( aPort );
+        inet_pton( AF_INET, "127.0.0.1", &addr.sin_addr );
+
+        ::connect( s, reinterpret_cast<sockaddr*>( &addr ), sizeof( addr ) );
+
+        fd_set wr, ex;
+        FD_ZERO( &wr );
+        FD_ZERO( &ex );
+        FD_SET( s, &wr );
+        FD_SET( s, &ex );
+
+        timeval tv;
+        tv.tv_sec  = aTimeoutMs / 1000;
+        tv.tv_usec = ( aTimeoutMs % 1000 ) * 1000;
+
+        // A refused connect lands in the EXCEPT set on Windows, success in the WRITE set.
+        if( select( 0, nullptr, &wr, &ex, &tv ) > 0 && FD_ISSET( s, &wr ) )
+            open = true;
+
+        closesocket( s );
+    }
+
+    WSACleanup();
+    return open;
+}
+
+
+// Start the bundled OpenAI bridge if the base URL points at this machine and nothing is
+// listening yet. Runs on the (detached) turn thread, so the startup wait cannot freeze
+// the UI. The bridge is spawned hidden and tied to a kill-on-close job object so every
+// process it starts (cmd -> python) dies with the app.
+static void ensureLocalBridgeRunning( const wxString& aBaseUrl )
+{
+    static std::mutex s_bridgeMutex;
+    std::lock_guard<std::mutex> lock( s_bridgeMutex );
+
+    wxString       host;
+    unsigned short port = 0;
+
+    if( !parseHostPort( aBaseUrl, &host, &port ) || !isLoopbackHost( host ) || port == 0 )
+        return;                                     // remote proxy: nothing to start
+
+    if( localPortOpen( port, 250 ) )
+        return;                                     // already up (earlier turn / manual)
+
+    wxString   exeDir = wxFileName( wxStandardPaths::Get().GetExecutablePath() ).GetPath();
+    wxFileName bat( exeDir, wxS( "start_bridge.bat" ) );
+    bat.AppendDir( wxS( "ai" ) );
+    bat.AppendDir( wxS( "bridge" ) );
+
+    if( !bat.FileExists() )
+        return;                                     // not a bridge deployment
+
+    // cmd.exe /c "<bat>" -- outer quotes protect the inner quoted path.
+    std::wstring cmdLine =
+            L"cmd.exe /c \"\"" + std::wstring( bat.GetFullPath().wc_str() ) + L"\"\"";
+    std::vector<wchar_t> buf( cmdLine.begin(), cmdLine.end() );
+    buf.push_back( L'\0' );
+
+    STARTUPINFOW si;
+    ZeroMemory( &si, sizeof( si ) );
+    si.cb = sizeof( si );
+
+    PROCESS_INFORMATION pi;
+    ZeroMemory( &pi, sizeof( pi ) );
+
+    // Suspended so the job object is attached before cmd can spawn python.
+    if( !CreateProcessW( nullptr, buf.data(), nullptr, nullptr, FALSE,
+                         CREATE_NO_WINDOW | CREATE_SUSPENDED, nullptr, nullptr, &si, &pi ) )
+        return;
+
+    // Kill-on-close job: the handle is intentionally kept for the process lifetime, so
+    // the OS tears the bridge down whenever the app exits, however it exits.
+    static HANDLE s_bridgeJob = nullptr;
+
+    if( !s_bridgeJob )
+    {
+        s_bridgeJob = CreateJobObjectW( nullptr, nullptr );
+
+        if( s_bridgeJob )
+        {
+            JOBOBJECT_EXTENDED_LIMIT_INFORMATION lim;
+            ZeroMemory( &lim, sizeof( lim ) );
+            lim.BasicLimitInformation.LimitFlags = JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE;
+            SetInformationJobObject( s_bridgeJob, JobObjectExtendedLimitInformation, &lim,
+                                     sizeof( lim ) );
+        }
+    }
+
+    if( s_bridgeJob )
+        AssignProcessToJobObject( s_bridgeJob, pi.hProcess );
+
+    ResumeThread( pi.hThread );
+    CloseHandle( pi.hThread );
+    CloseHandle( pi.hProcess );
+
+    // Give it a moment to bind the port; the engine's own retries cover the rest.
+    for( int waited = 0; waited < BRIDGE_START_TIMEOUT_MS; waited += 500 )
+    {
+        if( localPortOpen( port, 250 ) )
+            break;
+
+        Sleep( 500 );
+    }
+}
+#endif // _WIN32
+
+
 ANVIL_AI_AGENT::ANVIL_AI_AGENT( KIWAY* aKiway, wxWindow* aParent, WEBVIEW_PANEL* aPanel ) :
         m_kiway( aKiway ),
         m_parent( aParent ),
@@ -154,6 +378,7 @@ ANVIL_AI_AGENT::ANVIL_AI_AGENT( KIWAY* aKiway, wxWindow* aParent, WEBVIEW_PANEL*
         m_heartbeatRun( false ),
         m_child( nullptr )
 {
+    loadSessionState();
 }
 
 
@@ -186,11 +411,30 @@ void ANVIL_AI_AGENT::SetDocumentContext( const wxString& aProjectPath,
                                          const wxString& aSchematicFile,
                                          const wxString& aBoardFile )
 {
-    // A different project must not inherit the previous design's conversation.
+    // A different project must not inherit the previous design's CLI conversation, so the
+    // resumable session is dropped on a real project change.
+    //
+    // Attachments are deliberately NOT dropped here. A multi-sheet flow (reproduce a PDF
+    // one sheet at a time) creates a brand-new project on the first sheet and the app then
+    // auto-opens it; that fires this same path-changed branch. Clearing the attachment list
+    // there made the second-sheet request arrive with no source, so the model forgot the
+    // PDF/image/text the user attached and asked for it again. The list holds only on-disk
+    // file paths, re-listed each turn and re-read only when relevant, so carrying them across
+    // projects is harmless and lets any earlier attachment (PDF / image / text / doc) stay
+    // available for follow-up sheets. Continuity of the design itself comes from the live
+    // project-analysis context injected each turn, not from the stale CLI conversation.
     if( !m_projectPath.IsEmpty() && !aProjectPath.IsEmpty() && aProjectPath != m_projectPath )
     {
-        m_session.Clear();
-        m_sessionAttachments.Clear();
+        // ...but NOT when a turn is in flight: then the switch was made by the conversation
+        // itself (build → auto-open of the project it just created), and wiping the session
+        // here is exactly what made the AI forget its own work and restart the whole
+        // workflow on the next turn. A user-driven switch happens between turns (m_busy
+        // false) and still gets a fresh conversation.
+        if( !m_busy.load() )
+        {
+            m_session.Clear();
+            m_savedSession.Clear();
+        }
     }
 
     if( !aProjectPath.IsEmpty() )
@@ -202,6 +446,15 @@ void ANVIL_AI_AGENT::SetDocumentContext( const wxString& aProjectPath,
     if( !aBoardFile.IsEmpty() )
         m_boardFile = aBoardFile;
 
+    // A restart of the SAME project picks its conversation back up (the mid-turn spawn case
+    // is already handled in loadSessionState via turn_active).
+    if( m_session.IsEmpty() && !m_savedSession.IsEmpty() && !m_projectPath.IsEmpty()
+            && m_projectPath == m_savedProject )
+    {
+        m_session = m_savedSession;
+    }
+
+    saveSessionState();
     pushContextToPage();
 }
 
@@ -232,6 +485,74 @@ void ANVIL_AI_AGENT::pushContextToPage()
            << wxString::FromUTF8( args[3].dump() ) << wxS( ");" );
 
     m_panel->RunScriptAsync( script );
+}
+
+
+wxString ANVIL_AI_AGENT::buildProjectAnalysis() const
+{
+    if( m_projectPath.IsEmpty() )
+        return wxEmptyString;
+
+    wxFileName proj( m_projectPath );
+    wxString   dir = proj.GetPath();
+
+    if( dir.IsEmpty() || !wxDirExists( dir ) )
+        return wxEmptyString;
+
+    // Collect every schematic sheet on disk, whatever extension family is in use. A
+    // hierarchical design yields several files; a single-sheet design (which may still
+    // carry block sections drawn inside the one sheet) yields one. We never assume which
+    // layout it is -- we report exactly what is present.
+    wxArrayString sheets;
+    wxDir::GetAllFiles( dir, &sheets, wxS( "*.kicad_sch" ), wxDIR_FILES );
+    wxDir::GetAllFiles( dir, &sheets, wxS( "*.anvil_sch" ), wxDIR_FILES );
+
+    if( sheets.IsEmpty() )
+        return wxEmptyString;
+
+    sheets.Sort();
+
+    wxString summary;
+    summary << wxS( "Design already in this project (" ) << (int) sheets.GetCount()
+            << ( sheets.GetCount() == 1 ? wxS( " schematic sheet):" )
+                                        : wxS( " schematic sheets):" ) );
+
+    for( const wxString& path : sheets )
+    {
+        wxFileName sf( path );
+
+        // Count placed component instances cheaply by scanning for the instance token.
+        // In the sheet format only placed symbols carry "(lib_id " (library definitions
+        // and child-sheet references do not), so this is an approximate part count that
+        // works for any sheet regardless of hierarchy or internal block layout.
+        wxString text;
+        {
+            wxLogNull noPopups;   // never pop a modal on an unreadable file
+            wxFFile  f;
+
+            if( f.Open( path, wxS( "rb" ) ) )
+                f.ReadAll( &text );
+        }
+
+        int    parts = 0;
+        size_t from  = 0;
+
+        for( ;; )
+        {
+            size_t at = text.find( wxS( "(lib_id " ), from );
+
+            if( at == wxString::npos )
+                break;
+
+            parts++;
+            from = at + 8;
+        }
+
+        summary << wxS( "\n - " ) << sf.GetFullName() << wxS( " (~" ) << parts
+                << ( parts == 1 ? wxS( " part)" ) : wxS( " parts)" ) );
+    }
+
+    return summary;
 }
 
 
@@ -292,6 +613,97 @@ wxArrayString ANVIL_AI_AGENT::saveAttachments( const nlohmann::json& aAtts )
     }
 
     return paths;
+}
+
+
+static wxString sessionStateFile()
+{
+    wxFileName fn( SETTINGS_MANAGER::GetUserSettingsPath(), wxS( "anvil_ai_session.json" ) );
+    return fn.GetFullPath();
+}
+
+
+void ANVIL_AI_AGENT::saveSessionState()
+{
+    // Called from both the UI thread (SetDocumentContext, reset) and the turn worker
+    // (session-id capture, closeTurn); the mutex keeps the file write atomic per caller.
+    std::lock_guard<std::mutex> lock( m_stateMutex );
+
+    nlohmann::json j;
+    j["project"] = std::string( m_projectPath.utf8_str() );
+    j["session"] = std::string( m_session.utf8_str() );
+
+    // turn_active tells a NEW window spawned while this turn is still running (the shell
+    // opens a different project as a separate window) that it was created BY this
+    // conversation and should adopt it, not start blank.
+    j["turn_active"] = m_busy.load();
+
+    nlohmann::json atts = nlohmann::json::array();
+
+    for( const wxString& p : m_sessionAttachments )
+        atts.push_back( std::string( p.utf8_str() ) );
+
+    j["attachments"] = atts;
+
+    wxLogNull noLog;                                // a failed state write must never pop UI
+    wxFFile   f( sessionStateFile(), wxS( "wb" ) );
+
+    if( f.IsOpened() )
+        f.Write( wxString::FromUTF8( j.dump( 2 ).c_str() ), wxConvUTF8 );
+}
+
+
+void ANVIL_AI_AGENT::loadSessionState()
+{
+    wxString path = sessionStateFile();
+
+    if( !wxFileName::FileExists( path ) )
+        return;
+
+    wxLogNull noLog;
+    wxFFile   f( path, wxS( "rb" ) );
+    wxString  raw;
+
+    if( !f.IsOpened() || !f.ReadAll( &raw, wxConvUTF8 ) )
+        return;
+
+    nlohmann::json j;
+
+    try
+    {
+        j = nlohmann::json::parse( std::string( raw.utf8_str() ) );
+    }
+    catch( const std::exception& )
+    {
+        return;
+    }
+
+    // Attachments are plain disk paths: restore every one that still exists, so a follow-up
+    // after a restart or in a freshly spawned window can still re-open the user's source
+    // document instead of asking for it again.
+    if( j.contains( "attachments" ) && j["attachments"].is_array() )
+    {
+        for( const nlohmann::json& a : j["attachments"] )
+        {
+            if( !a.is_string() )
+                continue;
+
+            wxString p = wxString::FromUTF8( a.get<std::string>() );
+
+            if( wxFileName::FileExists( p ) && m_sessionAttachments.Index( p ) == wxNOT_FOUND )
+                m_sessionAttachments.Add( p );
+        }
+    }
+
+    m_savedSession = wxString::FromUTF8( j.value( "session", std::string() ) );
+    m_savedProject = wxString::FromUTF8( j.value( "project", std::string() ) );
+
+    // turn_active means the writing window was mid-turn when this instance started — i.e.
+    // the conversation itself spawned this window (build → auto-open of a different project)
+    // or the app died mid-turn. Either way, continuing that conversation is the right call,
+    // so adopt the session immediately regardless of which project we end up showing.
+    if( j.value( "turn_active", false ) && !m_savedSession.IsEmpty() )
+        m_session = m_savedSession;
 }
 
 
@@ -406,6 +818,7 @@ void ANVIL_AI_AGENT::endTurn( const std::string& aReason, const wxString& aErrTe
 
     stopHeartbeat();
     m_busy = false;
+    saveSessionState();                 // records turn_active=false + the final session id
 
     if( aReason == "error" && !aErrText.IsEmpty() )
         emit( { { "kind", "error" }, { "text", std::string( aErrText.utf8_str() ) } } );
@@ -479,7 +892,7 @@ void ANVIL_AI_AGENT::onBridgeMessage( const wxString& aJson )
         emit( { { "kind", "authmode" },
                 { "mode", std::string( readAuthMode().utf8_str() ) },
                 { "hasLogin", hasOwnClaudeLogin() },
-                { "hasKey", !ANVIL_AUTH_CONFIG::ClaudeApiKey().IsEmpty() } } );
+                { "hasKey", hasSharedAiCredentials() } } );
     }
     else if( kind == "setauth" )
     {
@@ -491,7 +904,7 @@ void ANVIL_AI_AGENT::onBridgeMessage( const wxString& aJson )
         emit( { { "kind", "authmode" },
                 { "mode", std::string( readAuthMode().utf8_str() ) },
                 { "hasLogin", hasOwnClaudeLogin() },
-                { "hasKey", !ANVIL_AUTH_CONFIG::ClaudeApiKey().IsEmpty() } } );
+                { "hasKey", hasSharedAiCredentials() } } );
     }
     else if( kind == "claudelogin" )
     {
@@ -535,6 +948,8 @@ void ANVIL_AI_AGENT::onBridgeMessage( const wxString& aJson )
 
         m_session.Clear();              // fresh CLI session on the next turn
         m_sessionAttachments.Clear();   // forget earlier attachments too
+        m_savedSession.Clear();
+        saveSessionState();             // an explicit New chat also forgets on disk
         emit( { { "kind", "status" }, { "text", "New conversation." } } );
     }
     else if( kind == "message" )
@@ -564,6 +979,8 @@ void ANVIL_AI_AGENT::onBridgeMessage( const wxString& aJson )
                 if( m_sessionAttachments.Index( p ) == wxNOT_FOUND )
                     m_sessionAttachments.Add( p );
             }
+
+            saveSessionState();
         }
 
         if( !m_sessionAttachments.IsEmpty() )
@@ -807,7 +1224,7 @@ wxString ANVIL_AI_AGENT::writeSystemPromptFile()
 
     if( !m_projectPath.IsEmpty() )
     {
-        full << wxS( "\n\n--- WINDOW CONTEXT (reference only) ---\n"
+        full << wxS( "\n\n--- WINDOW CONTEXT (the open project) ---\n"
                      "The project currently open in the app window is at: " )
              << m_projectPath << wxS( "." );
 
@@ -817,16 +1234,32 @@ wxString ANVIL_AI_AGENT::writeSystemPromptFile()
         if( !m_boardFile.IsEmpty() )
             full << wxS( " Open board: " ) << m_boardFile << wxS( "." );
 
-        full << wxS( " Treat this field as passive background only. NEVER take the SUBJECT "
-                     "of a design from it. If the user asks to create / design / build "
-                     "something new, or names any part, spec, or a new project name, build a "
-                     "SEPARATE new project from the USER'S OWN WORDS ALONE, and do NOT "
-                     "mention, build around, continue, or report the status of the open "
-                     "project above. Use this open project as the target ONLY when the user "
-                     "EXPLICITLY says to change / edit / continue THIS open design. If a "
-                     "short reply (e.g. a clicked choice) is ambiguous, re-read the earlier "
-                     "conversation for the real subject; if it is still unclear, ask the "
-                     "user which design they mean — never assume the open one." );
+        wxString analysis = buildProjectAnalysis();
+
+        if( !analysis.IsEmpty() )
+        {
+            full << wxS( "\n\n" ) << analysis
+                 << wxS( "\n(The above is an approximate, always-current snapshot of what "
+                         "already exists so you never have to ask what is in the project. It "
+                         "may be a hierarchical design (several sheets) or a single sheet "
+                         "holding block sections — do not assume; for exact parts, nets and "
+                         "block layout call read_live before editing.)" );
+        }
+
+        full << wxS( "\n\nHow to use this: decide from the user's words whether the request "
+                     "EXTENDS this open design or is a genuinely NEW one.\n"
+                     " - EXTENDS (the next sheet of the same source, another block/section, "
+                     "'add this ...', or a change to what is shown above): CONTINUE this same "
+                     "project. Read what is already there first (read_live), keep every "
+                     "existing sheet, part and net, and ADD only the new part on top — never "
+                     "regenerate or overwrite the existing sheets.\n"
+                     " - NEW / unrelated (names a different circuit, part, spec, or a new "
+                     "project name, or explicitly asks for a new/separate project): build a "
+                     "SEPARATE new project from the USER'S OWN WORDS ALONE; do NOT build "
+                     "around, continue, or report the status of the open project above.\n"
+                     " - A short reply (e.g. a clicked choice) that is ambiguous: re-read the "
+                     "earlier conversation for the real subject; if still unclear, ask the "
+                     "user which design they mean — never guess." );
     }
 
     // This is appended even when the user has an older, already-seeded prompt file.  It
@@ -967,10 +1400,12 @@ void ANVIL_AI_AGENT::runTurn( wxString aUserText )
 
     // Choose the AI engine's credentials. CreateProcessW below passes a nullptr environment, so
     // the child claude inherits whatever we set here. The USER picks the mode in the chat
-    // header ("API key" = the deployment's shared ClaudeApiKey, billed centrally; "Claude
+    // header ("API key" = the deployment's shared credentials, billed centrally; "Claude
     // login" = their own browser-signed-in Claude account, billed to them). With no explicit
-    // choice, auto: an existing own login wins, else the shared key. We only test the
-    // PRESENCE of claude's own credential file; its contents are never read.
+    // choice, the DEPLOYMENT's credentials win whenever they exist -- billing must be
+    // predictable, never silently switched to whatever login a machine happens to have; a
+    // user's own account is used only when they explicitly pick it (or nothing is shipped).
+    // We only test the PRESENCE of claude's own credential file; its contents are never read.
     wxString authMode = readAuthMode();
     bool     userHasOwnClaudeLogin = hasOwnClaudeLogin();
     bool     useSharedKey;
@@ -991,13 +1426,15 @@ void ANVIL_AI_AGENT::runTurn( wxString aUserText )
         }
 
         useSharedKey = false;
-        // Their login must win: clear any inherited key/token that would override it.
+        // Their login must win: clear any inherited key/token/base-url that would
+        // override it or reroute their account through the deployment's proxy.
         wxUnsetEnv( wxS( "ANTHROPIC_API_KEY" ) );
         wxUnsetEnv( wxS( "ANTHROPIC_AUTH_TOKEN" ) );
+        wxUnsetEnv( wxS( "ANTHROPIC_BASE_URL" ) );
     }
     else
     {
-        useSharedKey = !userHasOwnClaudeLogin;      // auto
+        useSharedKey = hasSharedAiCredentials() || !userHasOwnClaudeLogin;      // auto
     }
 
     if( useSharedKey )
@@ -1006,7 +1443,12 @@ void ANVIL_AI_AGENT::runTurn( wxString aUserText )
         wxString claudeBase = ANVIL_AUTH_CONFIG::ClaudeBaseUrl();
 
         if( !claudeBase.IsEmpty() )
+        {
+#ifdef _WIN32
+            ensureLocalBridgeRunning( claudeBase );     // bundled OpenAI bridge, if any
+#endif
             wxSetEnv( wxS( "ANTHROPIC_BASE_URL" ), claudeBase );
+        }
 
         if( !claudeKey.IsEmpty() )
         {
@@ -1016,13 +1458,27 @@ void ANVIL_AI_AGENT::runTurn( wxString aUserText )
         }
         else if( !claudeBase.IsEmpty() )
         {
-            // Per-user proxy: authenticate with the signed-in user's JWT as a bearer token.
-            wxString userToken = ANVIL_AUTH::GetSessionToken();
+            wxString       host;
+            unsigned short port = 0;
 
-            if( !userToken.IsEmpty() )
+            if( parseHostPort( claudeBase, &host, &port ) && isLoopbackHost( host ) )
             {
-                wxSetEnv( wxS( "ANTHROPIC_AUTH_TOKEN" ), userToken );
-                wxUnsetEnv( wxS( "ANTHROPIC_API_KEY" ) );
+                // Bundled bridge: it authenticates upstream itself (OpenAiApiKey), but the
+                // engine refuses to start with no credential at all -- give it a marker
+                // key the bridge ignores.
+                wxSetEnv( wxS( "ANTHROPIC_API_KEY" ), wxS( "anvil-local-bridge" ) );
+                wxUnsetEnv( wxS( "ANTHROPIC_AUTH_TOKEN" ) );
+            }
+            else
+            {
+                // Per-user proxy: authenticate with the signed-in user's JWT bearer token.
+                wxString userToken = ANVIL_AUTH::GetSessionToken();
+
+                if( !userToken.IsEmpty() )
+                {
+                    wxSetEnv( wxS( "ANTHROPIC_AUTH_TOKEN" ), userToken );
+                    wxUnsetEnv( wxS( "ANTHROPIC_API_KEY" ) );
+                }
             }
         }
     }
@@ -1200,6 +1656,7 @@ bool ANVIL_AI_AGENT::handleStreamEvent( const std::string& aLine )
         if( j.value( "subtype", std::string() ) == "init" && j.contains( "session_id" ) )
         {
             m_session = wxString::FromUTF8( j["session_id"].get<std::string>() );
+            saveSessionState();     // persist ASAP: a window spawned mid-turn adopts this
             setPhase( _( "Reading your design" ) );
         }
     }
@@ -1252,7 +1709,10 @@ bool ANVIL_AI_AGENT::handleStreamEvent( const std::string& aLine )
     else if( type == "result" )
     {
         if( j.contains( "session_id" ) )
+        {
             m_session = wxString::FromUTF8( j["session_id"].get<std::string>() );
+            saveSessionState();
+        }
 
         if( j.value( "is_error", false ) )
         {

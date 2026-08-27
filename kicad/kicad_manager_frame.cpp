@@ -2939,6 +2939,71 @@ void KICAD_MANAGER_FRAME::restoreEditorTopToolbar( EDA_BASE_FRAME* aEditor )
 }
 
 
+void KICAD_MANAGER_FRAME::onDockedEditorDestroyed( wxWindowDestroyEvent& aEvent )
+{
+    // Let wx and any other handlers still see the destroy notification.
+    aEvent.Skip();
+
+#ifdef __WXMSW__
+    // Shutdown-ordering guard: when the SHELL itself is being destroyed, its wxAuiManager member is
+    // torn down before its child editor frames are, so the editor destroys below would touch a dead
+    // m_auimgr.  There is also nothing to protect then -- no further idle passes will run -- so bail.
+    if( IsBeingDeleted() )
+        return;
+
+    // wxWindowDestroyEvent is a command event, so it also bubbles up from descendant windows.  Only
+    // act when the frame we bound this on (a docked editor, keyed by its window id) is the one being
+    // destroyed; a bubbled child destroy has a different id and matches nothing below.
+    wxWindow* dying = aEvent.GetWindow();
+
+    if( !dying )
+        return;
+
+    const int dyingId = dying->GetId();
+
+    // Drop any stale docked-editor registry entry so later id lookups can't resolve to a dead frame.
+    for( std::vector<std::pair<int, wxWindow*>>::iterator it = m_dockedEditors.begin();
+         it != m_dockedEditors.end(); ++it )
+    {
+        if( it->first == dyingId )
+        {
+            m_dockedEditors.erase( it );
+            break;
+        }
+    }
+
+    // If this editor still has toolbars hoisted into the shell (i.e. it is being destroyed WITHOUT
+    // going through DetachDockedEditor()/restoreEditorTopToolbar() first), tear them down now while
+    // we still hold valid pointers.  These ACTION_TOOLBARs are reparented to the shell, so the dying
+    // editor never frees them; left alone they would remain dangling children of the shell and the
+    // next idle wxWindow::SendIdleEvents pass would call UpdateWindowUI() on freed memory.  Detach
+    // each from the shell AUI and Destroy() it (a non-top-level window deletes immediately and
+    // unlinks itself from the shell's child list), so nothing dangling can be walked.
+    for( std::vector<HOISTED_EDITOR_TOOLBAR>::iterator it = m_hoistedToolbars.begin();
+         it != m_hoistedToolbars.end(); ++it )
+    {
+        if( it->editorId != dyingId )
+            continue;
+
+        for( ACTION_TOOLBAR* tb : { it->main, it->aux, it->activeBar, it->left, it->right } )
+        {
+            if( !tb )
+                continue;
+
+            if( m_auimgr.GetPane( tb ).IsOk() )
+                m_auimgr.DetachPane( tb );
+
+            tb->Destroy();
+        }
+
+        m_hoistedToolbars.erase( it );
+        m_auimgr.Update();
+        break;
+    }
+#endif
+}
+
+
 void KICAD_MANAGER_FRAME::syncShellToolbarToActiveTab()
 {
 #ifdef __WXMSW__
@@ -3653,6 +3718,12 @@ bool KICAD_MANAGER_FRAME::DockEditorAsTab( KIWAY_PLAYER* aPlayer, const wxString
 
     m_editorTabs->AddPage( host, tabLabel, true );
     m_dockedEditors.emplace_back( aPlayer->GetId(), host );
+
+    // Safety net: if this editor frame is ever destroyed while still docked (any path other than an
+    // explicit tab close, which reparents its toolbars back first), evict its hoisted toolbars from
+    // the shell so no dangling toolbar child is left for the idle UI-update walk to dereference.
+    // See onDockedEditorDestroyed(): this was a use-after-free crash in wxAuiToolBar::DoIdleUpdate.
+    aPlayer->Bind( wxEVT_DESTROY, &KICAD_MANAGER_FRAME::onDockedEditorDestroyed, this );
 
     host->Layout();
 

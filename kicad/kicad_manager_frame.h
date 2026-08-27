@@ -520,6 +520,17 @@ private:
     /// DetachDockedEditor(), and for every editor at shell teardown.
     void restoreEditorTopToolbar( EDA_BASE_FRAME* aEditor );
 
+    /// Safety net for the single-window shell.  A docked editor's top toolbars are reparented
+    /// (hoisted) INTO the shell.  An explicit tab close routes through DetachDockedEditor() ->
+    /// restoreEditorTopToolbar() and hands them back to the editor, but any OTHER path that
+    /// destroys the editor frame (KIWAY teardown, project reload, app shutdown) would leave those
+    /// toolbars behind as dangling children of the shell.  The idle wxWindow::SendIdleEvents walk
+    /// then dereferences a freed toolbar -> use-after-free crash inside wxAuiToolBar::DoIdleUpdate
+    /// (seen when opening ERC/DRC/BOM, whose dialogs churn idle events).  Bound on every docked
+    /// editor; on its wxEVT_DESTROY we evict its still-hoisted toolbars from the shell so nothing
+    /// dangling survives.
+    void onDockedEditorDestroyed( wxWindowDestroyEvent& aEvent );
+
     /// Show the active editor tab's hoisted toolbar strip and hide every other editor's, so only
     /// the front tab's toolbar is visible above the tabs.
     void syncShellToolbarToActiveTab();
