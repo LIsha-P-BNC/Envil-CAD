@@ -603,12 +603,10 @@ private:
 
         dc.SetFont( GetFont() );
 
-        // Mockup: "AnvilCAD MCP" is the single accented entry in the menu bar; everything else
-        // stays warm Bone primary text (matches popup rows), not cold #FFF.
-        wxString plain = m_label;
-        plain.Replace( wxT( "&" ), wxEmptyString );
-
-        dc.SetTextForeground( plain == wxT( "AnvilCAD MCP" ) ? ANVIL::ACCENT : ANVIL::ON_BAR );
+        // Every menu-bar entry — including "AnvilCAD MCP" — stays warm Bone primary text
+        // (matches popup rows), not cold #FFF; the accent treatment on MCP read as a
+        // permanently-hovered item.
+        dc.SetTextForeground( ANVIL::ON_BAR );
 
         wxSize sz  = GetClientSize();
         wxSize ext = dc.GetTextExtent( m_label );
@@ -3178,28 +3176,34 @@ void KICAD_MANAGER_FRAME::applyAnvilShellTheme()
 
         if( wxAuiTabArt* tabArt = nb->GetArtProvider() )
         {
-            // Header tone, not the panel-body tone: the tab strip IS a heading row -- it sits
-            // on the same line as the PROJECT FILES / APPEARANCE pane captions, so it takes the
-            // oat heading colour while the white page below it stays content.
-            tabArt->SetColour( bgHeader );
+            // The strip is a CHROME band, so it carries the same tone as the title / tool-bar
+            // band above it (oat in the light theme, dark grey in the dark one).
+            tabArt->SetColour( ANVIL::TAB_STRIP );
 
-            // Active tab: the emerald accent in the dark theme, the warm oat card of the light
-            // mockup in the light theme (emerald-on-white would shout louder than the canvas).
+            // Active tab: the CONTENT tone in both themes, so the selected tab reads as a
+            // continuation of the canvas below it rather than as another chrome block.
             tabArt->SetActiveColour( ANVIL::TAB_ACTIVE );
+
+            // A wxAuiNotebook hands each of its wxAuiTabCtrl strips a CLONE of this provider
+            // and only re-clones on layout events (AddPage, font change...), so recolouring
+            // the master alone leaves every existing tab strip painting the PREVIOUS theme —
+            // the "tab bar is one toggle behind" bug.  Re-setting the provider pushes fresh
+            // clones, carrying the colours set above, into every tab ctrl right now.
+            nb->SetArtProvider( tabArt->Clone() );
         }
 
         nb->SetBackgroundColour( bgPanel );
 
         // The strip a wxAuiNotebook draws its tabs on is a child wxAuiTabCtrl, not the notebook
         // itself: colouring only the notebook leaves that strip -- and the empty run to the
-        // right of the last tab -- on the stock system grey.  Colour the tab ctrls with the oat
-        // heading tone so the whole header row reads as one band, and leave every other child
-        // (the pages) on the white panel tone.
+        // right of the last tab -- on the stock system grey.  Colour the tab ctrls with the
+        // strip band tone so the whole header row reads as one band, and leave every other
+        // child (the pages) on the panel-body tone.
         for( wxWindow* child : nb->GetChildren() )
         {
             const bool isTabStrip = dynamic_cast<wxAuiTabCtrl*>( child ) != nullptr;
 
-            child->SetBackgroundColour( isTabStrip ? bgHeader : bgPanel );
+            child->SetBackgroundColour( isTabStrip ? ANVIL::TAB_STRIP : bgPanel );
             child->SetForegroundColour( text );
             child->Refresh();
         }
@@ -3257,6 +3261,12 @@ void KICAD_MANAGER_FRAME::ToggleAppTheme()
     if( m_projectTreePane && m_projectTreePane->m_TreeProject )
     {
         m_projectTreePane->m_TreeProject->LoadIcons();
+
+        // The tree's hover band / selection / scrollbar are drawn by the native Explorer
+        // visual style picked when the control was CREATED, so a runtime flip leaves e.g. a
+        // dark hover row on the white light-theme tree.  Re-point the uxtheme to match.
+        KIPLATFORM::UI::SetDarkExplorerTheme( m_projectTreePane->m_TreeProject, !goLight );
+
         m_projectTreePane->m_TreeProject->Refresh();
     }
 

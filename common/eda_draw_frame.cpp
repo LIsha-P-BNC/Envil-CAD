@@ -216,11 +216,14 @@ void EDA_DRAW_FRAME::configureToolbars()
 
                     // Anvil chrome: flatten the stock dark-mode light-grey combo border (see
                     // KIPLATFORM::UI::FlattenNativeBorder) so the toolbar value combos read
-                    // like the mockup's flat dark controls instead of standing out.
+                    // like the mockup's flat dark controls instead of standing out.  The fill is
+                    // PANEL GREY: elevated pills on the #070707 bar, per the two-variant system.
                     if( ADVANCED_CFG::GetCfg().m_AnvilPurpleFrame )
                     {
+                        m_gridSelectBox->SetBackgroundColour( ANVIL::CHROME_PANEL );
+                        m_gridSelectBox->SetForegroundColour( ANVIL::BONE );
                         KIPLATFORM::UI::FlattenNativeBorder( m_gridSelectBox, ANVIL::CONTROL_EDGE,
-                                                             ANVIL::CONTENT );
+                                                             ANVIL::CHROME_PANEL );
                     }
                 }
 
@@ -241,8 +244,10 @@ void EDA_DRAW_FRAME::configureToolbars()
 
                     if( ADVANCED_CFG::GetCfg().m_AnvilPurpleFrame )
                     {
+                        m_zoomSelectBox->SetBackgroundColour( ANVIL::CHROME_PANEL );
+                        m_zoomSelectBox->SetForegroundColour( ANVIL::BONE );
                         KIPLATFORM::UI::FlattenNativeBorder( m_zoomSelectBox, ANVIL::CONTROL_EDGE,
-                                                             ANVIL::CONTENT );
+                                                             ANVIL::CHROME_PANEL );
                     }
                 }
 

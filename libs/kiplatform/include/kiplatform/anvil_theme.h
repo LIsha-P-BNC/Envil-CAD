@@ -51,8 +51,12 @@
  * covers the per-kiface copies.
  *
  * Brand tokens (see NEMI LMM Brand Book v2.0): ACCENT = Signal Emerald #10A37E,
- * CAP_ACTIVE = Deep Emerald #0A4938, PANEL = Warm Graphite #292926, CONTENT = Black Ground
- * #070707, TEXT = Bone/Soft-Oat #ECE7DD.
+ * CAP_ACTIVE = Deep Emerald #0A4938, TEXT = Bone/Soft-Oat #ECE7DD.
+ *
+ * DARK SURFACES (2026-08 two-variant pass): the dark theme uses EXACTLY TWO neutral dark
+ * surface values — CANVAS DARK #070707 (Black Ground: all bars/strips/wells, matching the
+ * drawing canvas) and PANEL GREY #1E1E1E (panel bodies, dialogs, popups, active tab).  No
+ * green-cast darks; emerald appears only as the ACCENT / hover / caption colours.
  */
 namespace ANVIL
 {
@@ -76,7 +80,7 @@ enum class MODE
     /*  name              dark  R    G    B        light  R    G    B                       */    \
     _( ACCENT,                  16, 163, 126,             16, 163, 126 )  /* Signal Emerald  */    \
     _( CAP_ACTIVE,              10,  73,  56,             10,  73,  56 )  /* Deep Emerald    */    \
-    _( PANEL,                   41,  41,  38,            234, 231, 219 )  /* dialog faces    */    \
+    _( PANEL,                   30,  30,  30,            234, 231, 219 )  /* dialog faces    */    \
     _( CONTENT,                  7,   7,   7,            255, 255, 255 )  /* content areas   */    \
     _( BONE,                   236, 231, 221,             20,  20,  15 )  /* primary text    */    \
                                                                                                    \
@@ -100,39 +104,53 @@ enum class MODE
     _( FILL_ICON_IDLE,         236, 231, 221,            226, 221, 205 )  /* filled glyph    */    \
                                                                                                    \
     /* ---- Main-window chrome surface tiers ---------------------------------------------- */    \
-    /* Dark theme, dark -> light: canvas < CHROME_BG/SASH < CHROME_BAR < CHROME_PANEL.       */    \
+    /* Dark theme (2026-08 two-variant pass): EXACTLY TWO neutral dark surfaces, no green     */    \
+    /* cast.  PANEL GREY #1E1E1E — the title/menu/status strips and ALL tool-bar rows (the    */    \
+    /* dark analogue of the light theme's Deep Emerald band), plus the panel BODIES (Project  */    \
+    /* Files tree, Appearance, Properties, AI Assistant), dialog faces, popups and the        */    \
+    /* active tab.  CANVAS DARK #070707 — sashes, heading strips, the tab strip and every     */    \
+    /* content well — matches the drawing canvas' Black Ground, so the content zone reads as  */    \
+    /* ONE surface the grey chrome lifts off of.  Every dark surface below must be one of     */    \
+    /* those two values.                                                                     */    \
     /* Light theme: the title + status strips are oat, the menu row and the main tool-bar are */    \
     /* Deep Emerald (that inversion is the whole light mockup), and the panel BODIES are      */    \
     /* white -- only the HEADING strips above them (pane captions + the editor tab strip) are */    \
     /* oat.  That is the CHROME_PANEL / CHROME_HEADER split: one is the body a list or tree   */    \
-    /* sits on, the other is the caption row that titles it.  In the dark theme the two are   */    \
-    /* the same value, so the split is a no-op there.                                        */    \
-    _( CHROME_BG,               12,  12,  12,            247, 245, 236 )  /* title/status    */    \
-    _( CHROME_MENU,             12,  12,  12,             11,  74,  55 )  /* menu row band   */    \
-    _( CHROME_BAR,              15,  15,  14,             11,  74,  55 )  /* main tool-bar   */    \
-    _( CHROME_BAR2,             15,  15,  14,            242, 240, 230 )  /* aux/value row   */    \
-    _( CHROME_PANEL,            17,  17,  16,            255, 255, 255 )  /* panel bodies    */    \
-    _( CHROME_HEADER,           17,  17,  16,            234, 231, 219 )  /* heading strips  */    \
-    _( CHROME_LINE,             36,  36,  34,            216, 212, 196 )  /* hairlines       */    \
-    _( CHROME_SASH,             11,  11,  10,            226, 222, 208 )  /* pane seams      */    \
-    _( CAPTION_TEXT,           124, 125, 118,            126, 124, 112 )  /* pane captions   */    \
-    _( TAB_ACTIVE,              16, 163, 126,            255, 255, 255 )  /* active tab fill */    \
+    /* sits on, the other is the caption row that titles it.                                 */    \
+    _( CHROME_BG,               30,  30,  30,            247, 245, 236 )  /* title/status    */    \
+    _( CHROME_MENU,             30,  30,  30,             11,  74,  55 )  /* menu row band   */    \
+    _( CHROME_BAR,              30,  30,  30,             11,  74,  55 )  /* main tool-bar   */    \
+    _( CHROME_BAR2,             30,  30,  30,            242, 240, 230 )  /* aux/value row   */    \
+    _( CHROME_PANEL,            30,  30,  30,            255, 255, 255 )  /* panel bodies    */    \
+    _( CHROME_HEADER,            7,   7,   7,            234, 231, 219 )  /* heading strips  */    \
+    _( CHROME_LINE,             38,  38,  38,            216, 212, 196 )  /* hairlines       */    \
+    _( CHROME_SASH,              7,   7,   7,            226, 222, 208 )  /* pane seams      */    \
+    _( CAPTION_TEXT,           122, 122, 122,            126, 124, 112 )  /* pane captions   */    \
+    /* Editor tab strip.  Its own token rather than CHROME_HEADER: the strip is a CHROME band  */    \
+    /* (it must match the title / tool-bar band), while CHROME_HEADER also drives the pane      */    \
+    /* CAPTIONS and the checked-toolbar marker, which must stay a step apart from the bars.     */    \
+    /* Both themes follow one rule -- strip = the chrome tone, active tab = the CONTENT tone,   */    \
+    /* so the selected tab reads as a continuation of the canvas below it.                     */    \
+    _( TAB_STRIP,               30,  30,  30,            234, 231, 219 )  /* tab strip band  */    \
+    _( TAB_ACTIVE,               7,   7,   7,            255, 255, 255 )  /* active tab fill */    \
                                                                                                    \
     /* ---- On-the-emerald-bar text + hover ----------------------------------------------- */    \
     _( ON_BAR,                 236, 231, 221,            236, 231, 221 )  /* text on the bar */    \
-    _( BAR_HOVER,               30,  72,  60,             20,  84,  65 )  /* hover on the bar*/    \
+    _( BAR_HOVER,               21,  48,  40,             20,  84,  65 )  /* hover on the bar*/    \
                                                                                                    \
     /* ---- Native-control edge ----------------------------------------------------------- */    \
     /* Overdrawn flat by KIPLATFORM::UI::FlattenNativeBorder so a stock light-grey / white    */    \
     /* dark-mode border never shows through.                                                 */    \
-    _( CONTROL_EDGE,            46,  46,  44,            207, 202, 186 )                            \
+    _( CONTROL_EDGE,            46,  46,  46,            207, 202, 186 )                            \
                                                                                                    \
     /* ---- Chrome surfaces / edges ------------------------------------------------------- */    \
-    _( POPUP_BG,                24,  48,  42,            247, 245, 236 )  /* popup / menu bg */    \
-    _( BORDER,                  34,  90,  74,            208, 203, 186 )  /* control edge    */    \
-    _( HOVER,                   30,  72,  60,            221, 232, 224 )  /* subtle hover    */    \
-    _( CAP_INACTIVE,            22,  22,  21,            234, 231, 219 )  /* inactive caption*/    \
-    _( SASH,                    22,  22,  21,            226, 222, 208 )  /* dock sash       */    \
+    /* Dark popups follow the two-variant system: PANEL GREY #1E1E1E surfaces with a neutral  */    \
+    /* border — emerald lives in the ACCENT hover row, not the surface itself.               */    \
+    _( POPUP_BG,                30,  30,  30,            247, 245, 236 )  /* popup / menu bg */    \
+    _( BORDER,                  48,  48,  48,            208, 203, 186 )  /* control edge    */    \
+    _( HOVER,                   21,  48,  40,            221, 232, 224 )  /* subtle hover    */    \
+    _( CAP_INACTIVE,             7,   7,   7,            234, 231, 219 )  /* inactive caption*/    \
+    _( SASH,                     7,   7,   7,            226, 222, 208 )  /* dock sash       */    \
                                                                                                    \
     /* ---- Login / sign-in screen (identical in both themes) ----------------------------- */    \
     _( LOGIN_GRAD_TOP,           7,   7,   7,              7,   7,   7 )                            \

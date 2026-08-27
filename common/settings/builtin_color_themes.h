@@ -30,7 +30,9 @@ static const std::map<int, COLOR4D> s_defaultTheme =
             // ---- NEMI Emerald Dark (schematic) : Black Ground #070707 + emerald accents ----
             { LAYER_SCHEMATIC_ANCHOR,     CSS_COLOR( 244, 114, 182, 1 ) },
             { LAYER_SCHEMATIC_AUX_ITEMS,  CSS_COLOR( 236, 231, 221, 1 ) },
-            { LAYER_SCHEMATIC_BACKGROUND, CSS_COLOR( 255, 255, 255, 1 ) },
+            // Black Ground, per the header comment above.  The light theme's white sheet comes
+            // from s_anvilLightOverrides below, never from this row.
+            { LAYER_SCHEMATIC_BACKGROUND, CSS_COLOR( 7,   7,   7,   1 ) },
             { LAYER_HOVERED,              CSS_COLOR( 248, 245, 238, 1 ) },
             { LAYER_BRIGHTENED,           CSS_COLOR( 255, 45,  201, 1 ) },
             { LAYER_BUS,                  CSS_COLOR( 45,  212, 191, 1 ) },
@@ -44,8 +46,10 @@ static const std::map<int, COLOR4D> s_defaultTheme =
             { LAYER_ERC_WARN,             CSS_COLOR( 255, 176, 32,  1 ) },
             { LAYER_ERC_EXCLUSION,        CSS_COLOR( 138, 138, 133, 0.8 ) },
             { LAYER_FIELDS,               CSS_COLOR( 138, 138, 133, 1 ) },
-            { LAYER_SCHEMATIC_GRID,       CSS_COLOR( 9,   56,  50,  1 ) },
-            { LAYER_SCHEMATIC_GRID_AXES,  CSS_COLOR( 16,  110, 90,  1 ) },
+            // Two-variant dark pass: the grid furniture is NEUTRAL dark grey, never green —
+            // emerald is reserved for content (wires, pins, the drawing-sheet frame).
+            { LAYER_SCHEMATIC_GRID,       CSS_COLOR( 28,  28,  28,  1 ) },
+            { LAYER_SCHEMATIC_GRID_AXES,  CSS_COLOR( 42,  42,  42,  1 ) },
             { LAYER_HIDDEN,               CSS_COLOR( 100, 110, 105, 1 ) },
             { LAYER_JUNCTION,             CSS_COLOR( 52,  211, 153, 1 ) },
             { LAYER_GLOBLABEL,            CSS_COLOR( 251, 146, 60,  1 ) },
@@ -77,7 +81,7 @@ static const std::map<int, COLOR4D> s_defaultTheme =
             { LAYER_VALUEPART,              CSS_COLOR( 170, 180, 175, 1 ) },
             { LAYER_WIRE,                   CSS_COLOR( 16,  185, 129, 1 ) },
             { LAYER_SCHEMATIC_DRAWINGSHEET, CSS_COLOR( 45,  212, 191, 1 ) },
-            { LAYER_SCHEMATIC_PAGE_LIMITS,  CSS_COLOR( 20,  50,  44,  1 ) },
+            { LAYER_SCHEMATIC_PAGE_LIMITS,  CSS_COLOR( 32,  32,  32,  1 ) },
             { LAYER_OP_VOLTAGES,            CSS_COLOR( 251, 146, 60,  1 ) },
             { LAYER_OP_CURRENTS,            CSS_COLOR( 248, 113, 113, 1 ) },
 
@@ -158,13 +162,15 @@ static const std::map<int, COLOR4D> s_defaultTheme =
             { LAYER_LOCKED_ITEM_SHADOW,     CSS_COLOR( 255, 38,  226, 0.5 ) },
             { LAYER_CONFLICTS_SHADOW,       CSS_COLOR( 255,  0,   05, 0.5 ) },
             { LAYER_AUX_ITEMS,              CSS_COLOR( 255, 255, 255, 1 ) },
-            { LAYER_PCB_BACKGROUND,         CSS_COLOR( 255, 255, 255, 1 ) },
+            // Black Ground board canvas; the light theme's white board sheet is an override in
+            // s_anvilLightOverrides, so this row is dark-only.
+            { LAYER_PCB_BACKGROUND,         CSS_COLOR( 7,   7,   7,   1 ) },
             { LAYER_CURSOR,                 CSS_COLOR( 255, 255, 255, 1 ) },
             { LAYER_DRC_ERROR,              CSS_COLOR( 215, 91,  107, 0.8 ) },
             { LAYER_DRC_WARNING,            CSS_COLOR( 255, 208, 66,  0.8 ) },
             { LAYER_DRC_EXCLUSION,          CSS_COLOR( 255, 255, 255, 0.8 ) },
             { LAYER_DRC_HIGHLIGHTED,          CSS_COLOR( 255, 0, 255, 1 ) },
-            { LAYER_GRID,                   CSS_COLOR( 9,   56,  50,  1 ) },
+            { LAYER_GRID,                   CSS_COLOR( 28,  28,  28,  1 ) },
             { LAYER_GRID_AXES,              CSS_COLOR( 194, 194, 194, 1 ) },
             { LAYER_PAD_PLATEDHOLES,        CSS_COLOR( 194, 194, 0, 1 ) },
             { LAYER_NON_PLATEDHOLES,        CSS_COLOR( 26,  196, 210, 1 ) },
@@ -173,7 +179,7 @@ static const std::map<int, COLOR4D> s_defaultTheme =
             { LAYER_VIA_HOLES,              CSS_COLOR( 227, 183, 46, 1 ) },
             { LAYER_VIA_HOLEWALLS,          CSS_COLOR( 236, 236, 236, 1 ) },
             { LAYER_DRAWINGSHEET,           CSS_COLOR( 45,  212, 191, 1 ) },
-            { LAYER_PAGE_LIMITS,            CSS_COLOR( 20,  50,  44,  1 ) },
+            { LAYER_PAGE_LIMITS,            CSS_COLOR( 32,  32,  32,  1 ) },
             { LAYER_BOARD_OUTLINE_AREA,     CSS_COLOR( 100, 100, 100, 0.35 ) },
             { NETNAMES_LAYER_ID_START,      CSS_COLOR( 255, 255, 255, 0.7 ) },
             { LAYER_PAD_NETNAMES,           CSS_COLOR( 255, 255, 255, 0.9 ) },

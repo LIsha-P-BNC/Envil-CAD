@@ -266,3 +266,11 @@ void KIPLATFORM::UI::AddDropShadow( wxWindow* aWindow )
 {
     // macOS already draws shadows under popup/menu windows.
 }
+
+
+void KIPLATFORM::UI::SetDarkExplorerTheme( wxWindow* aWindow, bool aDark )
+{
+    // NOP: uxtheme visual styles are Windows-only; Cocoa controls follow the appearance live.
+    ( void ) aWindow;
+    ( void ) aDark;
+}

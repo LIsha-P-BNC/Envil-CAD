@@ -20,6 +20,7 @@
 
 #include <windows.h>
 #include <commctrl.h>   // SetWindowSubclass / DefSubclassProc (FlattenNativeBorder)
+#include <uxtheme.h>    // SetWindowTheme (SetDarkExplorerTheme)
 
 #include <algorithm>
 
@@ -27,6 +28,7 @@
 
 #if defined( _MSC_VER )
 #pragma comment( lib, "comctl32.lib" )
+#pragma comment( lib, "uxtheme.lib" )
 #endif
 
 #include <wx/cursor.h>
@@ -347,4 +349,21 @@ void KIPLATFORM::UI::FlattenNativeBorder( wxWindow* aWindow, const wxColour& aEd
     // Repaint frame + client now so the flat border shows without waiting for the next paint.
     ::RedrawWindow( hwnd, nullptr, nullptr,
                     RDW_FRAME | RDW_INVALIDATE | RDW_UPDATENOW | RDW_NOCHILDREN );
+}
+
+
+void KIPLATFORM::UI::SetDarkExplorerTheme( wxWindow* aWindow, bool aDark )
+{
+    if( !aWindow )
+        return;
+
+    HWND hwnd = static_cast<HWND>( aWindow->GetHandle() );
+
+    if( !hwnd )
+        return;
+
+    ::SetWindowTheme( hwnd, aDark ? L"DarkMode_Explorer" : L"Explorer", nullptr );
+
+    // The themed parts (hover band, selection, scrollbars) only repaint on invalidation.
+    ::RedrawWindow( hwnd, nullptr, nullptr, RDW_FRAME | RDW_INVALIDATE | RDW_ERASE );
 }

@@ -114,8 +114,10 @@ void CVPCB_MAINFRAME::configureToolbars()
 
                 if( ADVANCED_CFG::GetCfg().m_AnvilPurpleFrame )
                 {
+                    m_tcFilterString->SetBackgroundColour( ANVIL::CHROME_PANEL );
+                    m_tcFilterString->SetForegroundColour( ANVIL::BONE );
                     KIPLATFORM::UI::FlattenNativeBorder( m_tcFilterString, ANVIL::CONTROL_EDGE,
-                                                         ANVIL::CONTENT );
+                                                         ANVIL::CHROME_PANEL );
                 }
             }
 

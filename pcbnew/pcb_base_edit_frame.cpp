@@ -412,8 +412,10 @@ void PCB_BASE_EDIT_FRAME::configureToolbars()
 
                     if( ADVANCED_CFG::GetCfg().m_AnvilPurpleFrame )
                     {
+                        m_SelLayerBox->SetBackgroundColour( ANVIL::CHROME_PANEL );
+                        m_SelLayerBox->SetForegroundColour( ANVIL::BONE );
                         KIPLATFORM::UI::FlattenNativeBorder( m_SelLayerBox, ANVIL::CONTROL_EDGE,
-                                                             ANVIL::CONTENT );
+                                                             ANVIL::CHROME_PANEL );
                     }
                 }
 

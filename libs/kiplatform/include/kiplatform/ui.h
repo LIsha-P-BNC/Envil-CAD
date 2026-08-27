@@ -262,6 +262,20 @@ namespace KIPLATFORM
          */
         void FlattenNativeBorder( wxWindow* aWindow, const wxColour& aEdgeColour,
                                   const wxColour& aInnerColour );
+
+        /**
+         * Re-point a native control's visual style at the light or dark Explorer theme.
+         *
+         * Windows applies the "DarkMode_Explorer" uxtheme to tree / list controls created
+         * while MSW dark mode is active, and offers no app-wide re-theme at runtime — so
+         * after the Anvil light/dark toggle a control keeps its start-up hover, selection
+         * and scrollbar chrome (a dark hover row on a white tree, or the reverse).  Calling
+         * this on the toggle flips that native layer in place.  NOP on GTK and macOS.
+         *
+         * @param aWindow is the native control (e.g. a wxTreeCtrl) to re-theme
+         * @param aDark selects the dark Explorer theme (true) or the light one (false)
+         */
+        void SetDarkExplorerTheme( wxWindow* aWindow, bool aDark );
     }
 }
 

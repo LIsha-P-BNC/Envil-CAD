@@ -41,7 +41,14 @@
 #include <reporter.h>
 #include <dialog_HTML_reporter_base.h>
 #include <trace_helpers.h>
+#include <advanced_config.h>
+#include <kiplatform/anvil_theme.h>
+#include <wx/dcbuffer.h>
 #include <wx/dcclient.h>
+
+#ifdef __WXMSW__
+#include <wx/msw/private.h>
+#endif
 
 
 class STATUSBAR_WARNING_REPORTER_DIALOG : public DIALOG_HTML_REPORTER
@@ -229,8 +236,84 @@ KISTATUSBAR::KISTATUSBAR( int aNumberFields, wxWindow* parent, wxWindowID id, ST
     Bind( wxEVT_SIZE, &KISTATUSBAR::onSize, this );
     m_backgroundProgressBar->Bind( wxEVT_LEFT_DOWN, &KISTATUSBAR::onBackgroundProgressClick, this );
 
+    m_anvilOwnerDrawn = ADVANCED_CFG::GetCfg().m_AnvilPurpleFrame;
+
+    if( m_anvilOwnerDrawn )
+    {
+        SetBackgroundStyle( wxBG_STYLE_PAINT );
+        Bind( wxEVT_PAINT, &KISTATUSBAR::onPaint, this );
+    }
+
     HideBackgroundProgressBar();
     Layout();
+}
+
+
+#ifdef __WXMSW__
+WXLRESULT KISTATUSBAR::MSWWindowProc( WXUINT nMsg, WXWPARAM wParam, WXLPARAM lParam )
+{
+    if( m_anvilOwnerDrawn )
+    {
+        if( nMsg == WM_ERASEBKGND )
+            return 1;   // drawAnvilChrome() covers every pixel, so erasing would only flicker
+
+        if( nMsg == WM_PAINT )
+        {
+            // Validate the update region the way the native control would, then draw the strip
+            // ourselves onto a buffered client DC.
+            PAINTSTRUCT ps;
+            HWND        hwnd = static_cast<HWND>( GetHWND() );
+
+            ::BeginPaint( hwnd, &ps );
+            ::EndPaint( hwnd, &ps );
+
+            wxClientDC   cdc( this );
+            wxBufferedDC dc( &cdc, GetClientSize() );
+
+            drawAnvilChrome( dc );
+            return 0;
+        }
+    }
+
+    return wxStatusBar::MSWWindowProc( nMsg, wParam, lParam );
+}
+#endif
+
+
+void KISTATUSBAR::onPaint( wxPaintEvent& aEvent )
+{
+    wxAutoBufferedPaintDC dc( this );
+    drawAnvilChrome( dc );
+}
+
+
+void KISTATUSBAR::drawAnvilChrome( wxDC& dc )
+{
+    dc.SetPen( *wxTRANSPARENT_PEN );
+    dc.SetBrush( wxBrush( ANVIL::CHROME_BG ) );
+    dc.DrawRectangle( wxRect( GetClientSize() ) );
+
+    dc.SetFont( GetFont() );
+    dc.SetTextForeground( ANVIL::BONE );
+
+    const int pad = FromDIP( 4 );
+
+    for( int i = 0; i < GetFieldsCount(); ++i )
+    {
+        const wxString text = GetStatusText( i );
+        wxRect         rect;
+
+        // Fields that host a child widget (gauge, warning / notification buttons) carry no text;
+        // those windows paint themselves over this strip.
+        if( text.IsEmpty() || !GetFieldRect( i, rect ) )
+            continue;
+
+        wxDCClipper clip( dc, rect );
+
+        wxCoord tw = 0, th = 0;
+        dc.GetTextExtent( text, &tw, &th );
+        dc.DrawText( text, rect.x + pad, rect.y + ( rect.height - th ) / 2 );
+    }
 }
 
 

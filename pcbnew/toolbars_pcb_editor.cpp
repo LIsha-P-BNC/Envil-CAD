@@ -553,11 +553,14 @@ void PCB_EDIT_FRAME::configureToolbars()
                                                        wxDefaultPosition, wxDefaultSize, 0, nullptr );
 
                     // Anvil chrome: flatten the stock dark-mode light-grey combo border to
-                    // match the mockup's flat dark toolbar controls.
+                    // match the mockup's flat toolbar controls — PANEL GREY pills on the
+                    // #070707 bar (two-variant system).
                     if( ADVANCED_CFG::GetCfg().m_AnvilPurpleFrame )
                     {
+                        m_SelTrackWidthBox->SetBackgroundColour( ANVIL::CHROME_PANEL );
+                        m_SelTrackWidthBox->SetForegroundColour( ANVIL::BONE );
                         KIPLATFORM::UI::FlattenNativeBorder( m_SelTrackWidthBox, ANVIL::CONTROL_EDGE,
-                                                             ANVIL::CONTENT );
+                                                             ANVIL::CHROME_PANEL );
                     }
                 }
 
@@ -585,8 +588,10 @@ void PCB_EDIT_FRAME::configureToolbars()
 
                     if( ADVANCED_CFG::GetCfg().m_AnvilPurpleFrame )
                     {
+                        m_SelViaSizeBox->SetBackgroundColour( ANVIL::CHROME_PANEL );
+                        m_SelViaSizeBox->SetForegroundColour( ANVIL::BONE );
                         KIPLATFORM::UI::FlattenNativeBorder( m_SelViaSizeBox, ANVIL::CONTROL_EDGE,
-                                                             ANVIL::CONTENT );
+                                                             ANVIL::CHROME_PANEL );
                     }
                 }
 
@@ -607,8 +612,10 @@ void PCB_EDIT_FRAME::configureToolbars()
 
                     if( ADVANCED_CFG::GetCfg().m_AnvilPurpleFrame )
                     {
+                        m_CurrentVariantCtrl->SetBackgroundColour( ANVIL::CHROME_PANEL );
+                        m_CurrentVariantCtrl->SetForegroundColour( ANVIL::BONE );
                         KIPLATFORM::UI::FlattenNativeBorder( m_CurrentVariantCtrl, ANVIL::CONTROL_EDGE,
-                                                             ANVIL::CONTENT );
+                                                             ANVIL::CHROME_PANEL );
                     }
                 }
 
