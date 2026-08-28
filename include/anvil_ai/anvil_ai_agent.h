@@ -95,6 +95,20 @@ private:
     /// plus the live document context, written to a per-turn tmp file for
     /// --append-system-prompt-file.
     wxString writeSystemPromptFile();
+    /// A compact, structure-agnostic summary of the design already in the open project
+    /// (its schematic sheet files and roughly how many parts each holds), so the model
+    /// always knows what exists and can continue/extend it without re-asking. Empty when
+    /// no project is open or nothing can be read. Works for a hierarchical design (many
+    /// sheet files) or a single sheet carrying block sections alike -- it reports what is
+    /// actually on disk, never assumes one layout.
+    wxString buildProjectAnalysis() const;
+
+    /// Persist the resumable conversation (session id + attachment paths + owning project +
+    /// whether a turn is in flight) to <settings>/anvil_ai_session.json, and load it back on
+    /// construction. This is what lets a project switch, a new window spawned mid-build, or
+    /// an app restart continue the same conversation instead of starting from scratch.
+    void saveSessionState();
+    void loadSessionState();
 
     KIWAY*          m_kiway;
     wxWindow*       m_parent;
@@ -106,6 +120,12 @@ private:
 
     wxString        m_session;          // claude CLI session id (--resume)
     wxArrayString   m_sessionAttachments;  // files attached this conversation (re-listed each turn)
+
+    // Conversation state loaded from disk at construction, adopted lazily by
+    // SetDocumentContext once the owning project is known (see loadSessionState).
+    wxString        m_savedSession;
+    wxString        m_savedProject;
+    std::mutex      m_stateMutex;       // serialises saveSessionState across UI/worker threads
 
     std::atomic<bool> m_busy;
     std::atomic<bool> m_cancel;

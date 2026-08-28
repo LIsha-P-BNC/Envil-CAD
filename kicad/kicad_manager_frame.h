@@ -337,6 +337,17 @@ public:
     void OpenJobsFile( const wxFileName& aFileName, bool aCreate = false,
                        bool aResaveProjectPreferences = true );
 
+    /**
+     * Open a CSV / tabular text file (e.g. a BOM) as a read-only grid TAB inside the shell,
+     * instead of shelling out to an external app.  Additive: the external open path stays
+     * available (double-click still routes here, the tree's right-click "open externally"
+     * still shells out).  Returns false when in-shell tabs are unavailable (flag off /
+     * non-Windows / no tab host) so the caller can fall back to the external launcher.
+     *
+     * If a tab for @a aPath is already open it is just re-selected (no duplicate).
+     */
+    bool OpenCsvTab( const wxString& aPath );
+
 
     void LoadSettings( APP_SETTINGS_BASE* aCfg ) override;
 
@@ -508,6 +519,17 @@ private:
     /// (undocked) editor keeps its toolbar.  Called before the WS_CHILD reversal in
     /// DetachDockedEditor(), and for every editor at shell teardown.
     void restoreEditorTopToolbar( EDA_BASE_FRAME* aEditor );
+
+    /// Safety net for the single-window shell.  A docked editor's top toolbars are reparented
+    /// (hoisted) INTO the shell.  An explicit tab close routes through DetachDockedEditor() ->
+    /// restoreEditorTopToolbar() and hands them back to the editor, but any OTHER path that
+    /// destroys the editor frame (KIWAY teardown, project reload, app shutdown) would leave those
+    /// toolbars behind as dangling children of the shell.  The idle wxWindow::SendIdleEvents walk
+    /// then dereferences a freed toolbar -> use-after-free crash inside wxAuiToolBar::DoIdleUpdate
+    /// (seen when opening ERC/DRC/BOM, whose dialogs churn idle events).  Bound on every docked
+    /// editor; on its wxEVT_DESTROY we evict its still-hoisted toolbars from the shell so nothing
+    /// dangling survives.
+    void onDockedEditorDestroyed( wxWindowDestroyEvent& aEvent );
 
     /// Show the active editor tab's hoisted toolbar strip and hide every other editor's, so only
     /// the front tab's toolbar is visible above the tabs.

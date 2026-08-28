@@ -70,7 +70,13 @@ public:
     /// Optional base URL of the Anthropic-compatible Claude proxy (no trailing slash), or
     /// empty. When set (and no shared key), the AI engine is pointed here (ANTHROPIC_BASE_URL)
     /// and authenticated with the signed-in user's JWT, for per-user metering instead.
+    /// A LOOPBACK URL means the bundled OpenAI bridge, which the app starts itself.
     static wxString ClaudeBaseUrl();
+
+    /// Optional OpenAI API key, or empty. Not used by the app directly: the bundled
+    /// OpenAI bridge (bin/ai/bridge) reads it from the same .env to authenticate the
+    /// requests it forwards to the OpenAI API.
+    static wxString OpenAiApiKey();
 
     /// Local session lifetime (days) used when the server reports no expiry.  Default 30.
     static int SessionDays();

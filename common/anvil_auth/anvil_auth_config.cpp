@@ -36,6 +36,7 @@ const wxChar* KEY_PROJECT_ID     = wxT( "ProjectId" );
 const wxChar* KEY_SESSION_DAYS   = wxT( "SessionDays" );
 const wxChar* KEY_CLAUDE_API_KEY  = wxT( "ClaudeApiKey" );
 const wxChar* KEY_CLAUDE_BASE_URL = wxT( "ClaudeBaseUrl" );
+const wxChar* KEY_OPENAI_API_KEY  = wxT( "OpenAiApiKey" );
 
 
 wxString readValue( const wxChar* aKey )
@@ -105,6 +106,12 @@ wxString ANVIL_AUTH_CONFIG::ClaudeBaseUrl()
         base.RemoveLast();
 
     return base;
+}
+
+
+wxString ANVIL_AUTH_CONFIG::OpenAiApiKey()
+{
+    return readValue( KEY_OPENAI_API_KEY );
 }
 
 

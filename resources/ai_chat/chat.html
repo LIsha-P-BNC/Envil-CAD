@@ -550,7 +550,7 @@ function addUser(text, atts){
     atts.forEach(a=>{ if(a.kind==="image"&&a.dataUrl){ const im=new Image(); im.src=a.dataUrl; const c=document.createElement("div"); c.className="msg-att"; c.appendChild(im); w.appendChild(c);} else { const c=document.createElement("div"); c.className="msg-att"; c.textContent="📄 "+a.name; w.appendChild(c);} });
     b.appendChild(w); }
   row.appendChild(b); row.appendChild(userAvatar());
-  msgs.insertBefore(row,busy); scrollEnd();
+  msgs.insertBefore(row,busy); scrollEnd(); saveTX();
 }
 /* Copy helpers: clipboard API first, hidden-textarea fallback for older webviews. */
 function copyText(t){
@@ -602,6 +602,59 @@ function ensureAi(){
   msgs.insertBefore(row,busy); curAi=b; return b;
 }
 function addErr(t){ hideEmpty(); const d=document.createElement("div"); d.className="err-msg"; d.textContent=t; msgs.insertBefore(d,busy); scrollEnd(); }
+
+/* ---------- transcript persistence (soft open) ----------
+   The visible conversation used to live only in this DOM, so a new window (build
+   auto-opening a different project) or an app restart started blank even though the
+   C++ side can resume the CLI session. Mirror the finished bubbles to localStorage
+   and replay them on load; storage being unavailable just degrades to the old
+   blank-page behaviour (every call is try/caught). */
+const TX_KEY="anvilChatTranscript";
+function saveTX(){
+  try{
+    const tx=[];
+    msgs.querySelectorAll(".row,.err-msg").forEach(el=>{
+      if(el.classList.contains("err-msg")){ tx.push({t:"e",text:el.textContent}); return; }
+      const b=el.querySelector(".bubble"); if(!b) return;
+      if(el.classList.contains("user")){
+        const atts=[...el.querySelectorAll(".msg-att")].map(a=>a.textContent.replace(/^📄\s*/,""));
+        tx.push({t:"u",text:(b.firstChild&&b.firstChild.textContent)||"",atts:atts});
+      } else if(el.classList.contains("ai")&&b._raw){
+        tx.push({t:"a",raw:b._raw});
+      }
+    });
+    localStorage.setItem(TX_KEY,JSON.stringify(tx));
+  }catch(e){}
+}
+function restoreTX(){
+  try{
+    const tx=JSON.parse(localStorage.getItem(TX_KEY)||"[]");
+    if(!tx.length) return;
+    hideEmpty();
+    tx.forEach(m=>{
+      if(m.t==="u"){
+        const row=document.createElement("div"); row.className="row user";
+        const b=document.createElement("div"); b.className="bubble";
+        b.appendChild(Object.assign(document.createElement("div"),{textContent:m.text,style:"white-space:pre-wrap"}));
+        if(m.atts&&m.atts.length){ const w=document.createElement("div"); w.className="msg-atts";
+          m.atts.forEach(n=>{ const c=document.createElement("div"); c.className="msg-att"; c.textContent="📄 "+n; w.appendChild(c); });
+          b.appendChild(w); }
+        row.appendChild(b); row.appendChild(userAvatar());
+        msgs.insertBefore(row,busy);
+      } else if(m.t==="a"){
+        const row=document.createElement("div"); row.className="row ai";
+        const b=document.createElement("div"); b.className="bubble"; b._raw=m.raw;
+        row.appendChild(aiAvatar()); row.appendChild(b); renderBubble(b);
+        msgs.insertBefore(row,busy);
+      } else if(m.t==="e"){
+        const d=document.createElement("div"); d.className="err-msg"; d.textContent=m.text;
+        msgs.insertBefore(d,busy);
+      }
+    });
+    scrollEnd();
+  }catch(e){}
+}
+function clearTX(){ try{ localStorage.removeItem(TX_KEY); }catch(e){} }
 function setBusy(on,t){ busy.className=on?"on":""; if(t)busyTxt.textContent=t; stopBtn.className="send-btn"+(on?" on":""); sendBtn.style.display=on?"none":"grid"; setStatus(on?"busy":"ok"); scrollEnd(); }
 
 /* ---------- inbound ---------- */
@@ -619,8 +672,8 @@ window.anvilRecv=function(s){
       curThink.textContent=(curThink.textContent||"")+ev.text; scrollEnd(); break;
     case "reply":
       { const b=ensureAi(); b._raw+=(ev.text||""); renderBubble(b); scrollEnd(); } break;
-    case "done": turnOpen=false; curAi=null; curThink=null; setBusy(false); break;
-    case "error": addErr(ev.text||"Unknown error"); turnOpen=false; curAi=null; curThink=null; setBusy(false); setStatus("err"); break;
+    case "done": turnOpen=false; curAi=null; curThink=null; setBusy(false); saveTX(); break;
+    case "error": addErr(ev.text||"Unknown error"); turnOpen=false; curAi=null; curThink=null; setBusy(false); setStatus("err"); saveTX(); break;
   }
 };
 window.anvilSetContext=function(project,sch,pcb,app){
@@ -694,6 +747,7 @@ function newChat(silent){
   seq++; turnOpen=false; curAi=null; curThink=null; pending=[]; renderTray();
   post({kind:"reset"});
   if(!silent){ msgs.querySelectorAll(".row,.err-msg,.think,.sys-note").forEach(m=>m.remove()); if(empty) empty.style.display=""; }
+  clearTX();
   setBusy(false);
 }
 sendBtn.addEventListener("click",sendChat);
@@ -767,6 +821,7 @@ $("authPill").addEventListener("click",()=>{
 (function(){
   const q=new URLSearchParams(location.search);
   window.anvilSetContext(q.get("project")||"",q.get("schematic")||"",q.get("pcb")||"",q.get("app")||"");
+  restoreTX();
   post({kind:"hello",context:ctx});
   setStatus("ok"); autoSize();
 })();
