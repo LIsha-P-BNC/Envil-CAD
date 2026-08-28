@@ -111,6 +111,7 @@
 #include <wx/file.h>                       // read ipc_port.txt for the AI IPC client
 #include <wx/utils.h>                      // wxGetEnv / wxGetHomeDir (IPC port discovery)
 #include <wx/filename.h>
+#include <wx/dir.h>                        // FindOwningProjectFile directory scan
 #include <wx/webview.h>                    // wxWebView / wxEVT_WEBVIEW_LOADED
 #include <wx/datetime.h>                   // wxDateTime::Now (chat.html cache-buster)
 #include <wx/panel.h>
@@ -987,6 +988,72 @@ private:
     bool     m_hover  = false;
     bool     m_active = true;
 };
+
+
+// The app logo mark: owner-drawn so EVERY paint re-tints the icon master to the CURRENT
+// theme's BONE -- warm white on the dark strip, near-black ink on the light one ("dark ku
+// white, light ku black").  A wxStaticBitmap set once would go stale on theme flips; this is
+// the same always-fresh pattern the other title-bar buttons use.
+class TITLEBAR_APP_MARK : public wxWindow
+{
+public:
+    TITLEBAR_APP_MARK( wxWindow* aParent, int aSide ) :
+            wxWindow( aParent, wxID_ANY ),
+            m_side( aSide )
+    {
+        SetBackgroundStyle( wxBG_STYLE_PAINT );
+        SetMinSize( wxSize( aSide, aSide ) );
+        Bind( wxEVT_PAINT, &TITLEBAR_APP_MARK::onPaint, this );
+    }
+
+private:
+    void onPaint( wxPaintEvent& )
+    {
+        wxAutoBufferedPaintDC dc( this );
+        const wxSize          sz = GetClientSize();
+
+        dc.SetPen( *wxTRANSPARENT_PEN );
+        dc.SetBrush( wxBrush( GetParent()->GetBackgroundColour() ) );
+        dc.DrawRectangle( 0, 0, sz.x, sz.y );
+
+        wxBitmap bmp = KiBitmapBundleDef( BITMAPS::icon_kicad, m_side )
+                               .GetBitmap( wxSize( m_side, m_side ) );
+
+        if( bmp.IsOk() )
+        {
+            // Flat re-tint keeping the ORIGINAL alpha at full strength -- deliberately not
+            // KIUI::RecolorFlat, whose soft-thinning pass reads the mark as fine line-work;
+            // the brand mark must stay BOLD.
+            wxImage img = bmp.ConvertToImage();
+
+            if( img.IsOk() )
+            {
+                if( !img.HasAlpha() )
+                    img.InitAlpha();
+
+                unsigned char*      rgb = img.GetData();
+                const unsigned char r   = ANVIL::BONE.Red();
+                const unsigned char g   = ANVIL::BONE.Green();
+                const unsigned char b   = ANVIL::BONE.Blue();
+
+                for( long px = (long) img.GetWidth() * img.GetHeight(); px > 0; --px )
+                {
+                    rgb[0] = r;
+                    rgb[1] = g;
+                    rgb[2] = b;
+                    rgb += 3;
+                }
+
+                bmp = wxBitmap( img );
+            }
+
+            dc.DrawBitmap( bmp, ( sz.x - bmp.GetWidth() ) / 2, ( sz.y - bmp.GetHeight() ) / 2,
+                           true );
+        }
+    }
+
+    int m_side;
+};
 } // namespace
 
 
@@ -1041,10 +1108,12 @@ public:
 
         // Altium-style app mark: the Anvil logo anchors the far left of the title bar
         // (Altium/OrCAD and native Windows apps lead the caption with the app icon).
-        wxStaticBitmap* appMark = new wxStaticBitmap( this, wxID_ANY,
-                KiBitmapBundle( BITMAPS::icon_kicad_24 ) );
+        // Logo rendered from the base icon_kicad (higher-res source) at a larger cell so the
+        // infinity mark reads as prominently as the reference -- the icon_kicad_24 cell carries
+        // app-icon padding that shrank the visible glyph to ~14px next to the 15px tools.
+        // Owner-drawn (TITLEBAR_APP_MARK): re-tints to the live theme's BONE on every paint.
         m_sizer->AddSpacer( FromDIP( 10 ) );
-        m_sizer->Add( appMark, 0, wxALIGN_CENTRE_VERTICAL );
+        m_sizer->Add( new TITLEBAR_APP_MARK( this, FromDIP( 30 ) ), 0, wxALIGN_CENTRE_VERTICAL );
 
         m_sizer->AddSpacer( FromDIP( 8 ) );
         m_sizer->Add( m_qaSave, 0, wxEXPAND );
@@ -1424,7 +1493,10 @@ private:
         if( split <= 0 || split >= sz.y )
             split = sz.y / 2;
 
-        dc.SetBrush( wxBrush( ANVIL::CHROME_BG ) );
+        // Row 1 (title strip): CONTENT -- black #070707 in dark (matches the canvas; user wants
+        // ONLY the title bar + canvas black), white in the light theme (the mockup's white title
+        // strip).  Row 2 (menu row) stays CHROME_MENU so the menu band remains grey / Deep Emerald.
+        dc.SetBrush( wxBrush( ANVIL::CONTENT ) );
         dc.DrawRectangle( 0, 0, sz.x, split );
 
         dc.SetBrush( wxBrush( ANVIL::CHROME_MENU ) );
@@ -1492,7 +1564,8 @@ private:
             // Match the rest of the Anvil "Vibrant Purple & Indigo" frame.  Use an explicit
             // colour (not wxSYS_COLOUR_MENUBAR, whose public query doesn't return the dark-mode
             // purple override) so the title-bar strip is the same tone as the toolbar strips.
-            bg = ANVIL::CHROME_BG;  // mockup tonal pass: dark neutral chrome strip
+            bg = ANVIL::CONTENT;    // title strip = black (dark) / white (light); row-1 buttons
+                                    // read this as their background so they match the strip
             fg = ANVIL::BONE;       // NEMI Bone
         }
         else
@@ -1512,6 +1585,7 @@ private:
             child->SetForegroundColour( fg );
             child->Refresh();
         }
+        // (the app mark repaints itself from the live palette -- see TITLEBAR_APP_MARK)
     }
 
     KICAD_MANAGER_FRAME*   m_frame;
@@ -3306,64 +3380,48 @@ void KICAD_MANAGER_FRAME::ToggleAppTheme()
 
     cfg->m_Appearance.app_theme = goLight ? APP_THEME::LIGHT : APP_THEME::DARK;
 
-    // One repaint, not a cascade.  The flip walks the title bar, every dock pane and every
-    // docked editor; without freezing, each of those repaints as it is touched and the switch
-    // reads as a slow ripple instead of an instant change.
-    Freeze();
-
-    // Persist straight away rather than at shutdown.  The native half of the theme -- wx's MSW
-    // dark mode, which owns pop-up menus, scrollbars and the inside of native controls -- can
-    // only be established at start-up, so the setting has to be on disk even if the user quits
-    // the moment after clicking.
+    // Persist first: the restart below reads the theme back at start-up.
     Pgm().GetSettingsManager().Save( cfg );
 
-    // Flip the palette copies this module can reach (its own + kicommon's), then repaint.
-    KIUI::SyncAnvilTheme();
+    // A LIVE flip cannot be complete: wx's MSW dark mode (pop-up menus, scrollbars, native
+    // control interiors), the Explorer visual style latched by the project tree, and the GAL
+    // canvases' colour state are all establish-at-start-up only, so the old in-place walk
+    // always left stale surfaces (live-verified: a restart renders the new theme perfectly,
+    // the walk did not).  So the toggle now IS a restart: spawn a detached relauncher that
+    // waits for this process to exit, then close normally -- autosave and the usual shutdown
+    // path run, and the relauncher reopens the same project in the new theme.  The 30 s
+    // timeout means a cancelled close simply expires the relauncher instead of resurrecting
+    // the app minutes later.
+    wxString exe  = wxStandardPaths::Get().GetExecutablePath();
+    wxString proj = Prj().GetProjectFullName();
 
-    applyAnvilShellTheme();
+    // The relauncher is a script FILE: inline -Command quoting of two nested paths is fragile
+    // enough that one broken escape silently kills the relaunch, which reads as "the theme
+    // toggle just closes the app".  A file needs no escaping at all.
+    wxFileName scriptFn( wxFileName::GetTempDir(), wxS( "anvil_theme_restart.ps1" ) );
+    wxString   script;
 
-    // The Project Files icons are baked into a wxImageList at load time, tinted for whichever
-    // theme was active then — so unlike the toolbar / title-bar glyphs (recoloured at draw time)
-    // they have to be rebuilt, or bone-white icons stay on a white panel.
-    if( m_projectTreePane && m_projectTreePane->m_TreeProject )
+    script << wxS( "Wait-Process -Id " ) << wxGetProcessId()
+           << wxS( " -Timeout 30 -ErrorAction SilentlyContinue\n" )
+           << wxS( "Start-Process -FilePath '" ) << exe << wxS( "'" );
+
+    if( !proj.IsEmpty() && wxFileName::FileExists( proj ) )
+        script << wxS( " -ArgumentList '\"" ) << proj << wxS( "\"'" );
+
+    script << wxS( "\n" );
+
+    wxFile scriptFile;
+
+    if( scriptFile.Create( scriptFn.GetFullPath(), true ) && scriptFile.Write( script ) )
     {
-        m_projectTreePane->m_TreeProject->LoadIcons();
-
-        // The tree's hover band / selection / scrollbar are drawn by the native Explorer
-        // visual style picked when the control was CREATED, so a runtime flip leaves e.g. a
-        // dark hover row on the white light-theme tree.  Re-point the uxtheme to match.
-        KIPLATFORM::UI::SetDarkExplorerTheme( m_projectTreePane->m_TreeProject, !goLight );
-
-        m_projectTreePane->m_TreeProject->Refresh();
+        scriptFile.Close();
+        wxExecute( wxString::Format( wxS( "powershell.exe -NoProfile -ExecutionPolicy Bypass"
+                                          " -WindowStyle Hidden -File \"%s\"" ),
+                                     scriptFn.GetFullPath() ),
+                   wxEXEC_ASYNC );
     }
 
-    if( m_titleBar )
-        m_titleBar->RefreshTheme();
-
-    // The AI panel is an HTML page in a WebView, so it is themed by CSS rather than by the
-    // palette: hand it the same flip through the hook chat.html installs (see anvilSetTheme).
-    if( m_aiChatPanel )
-    {
-        m_aiChatPanel->RunScriptAsync(
-                wxString::Format( wxT( "window.anvilSetTheme && window.anvilSetTheme('%s');" ),
-                                  goLight ? wxT( "light" ) : wxT( "dark" ) ) );
-    }
-
-    // Every docked editor lives in its own _kiface DLL with its own copy of the palette globals,
-    // so the flip has to be dispatched through the virtual -- that is what makes it run inside
-    // that DLL.  Resolve by window id (not a stored pointer) so a torn-down editor reads as null.
-    for( const std::pair<int, wxWindow*>& entry : m_dockedEditors )
-    {
-        if( EDA_BASE_FRAME* editor =
-                    dynamic_cast<EDA_BASE_FRAME*>( wxWindow::FindWindowById( entry.first ) ) )
-        {
-            editor->ReapplyAnvilTheme();
-        }
-    }
-
-    Layout();
-    Thaw();
-    Refresh();
+    Close( false );
 }
 
 
@@ -3794,6 +3852,37 @@ bool KICAD_MANAGER_FRAME::IsPlayerDocked( KIWAY_PLAYER* aPlayer )
 }
 
 
+// Anvil keeps one project per directory: return the project file (.anvil_pro, then .kicad_pro,
+// then legacy .pro) living in aDir, or an invalid wxFileName if none is found.  Used instead of
+// deriving the project name from a sibling file's basename, because that guess breaks for any
+// file with an infix before the extension (e.g. "board.attempt1.anvil_pcb").
+static wxFileName FindOwningProjectFile( const wxString& aDir )
+{
+    static const std::string* const exts[] = { &FILEEXT::AnvilProjectFileExtension,
+                                                &FILEEXT::ProjectFileExtension,
+                                                &FILEEXT::LegacyProjectFileExtension };
+
+    wxDir dir( aDir );
+
+    if( !dir.IsOpened() )
+        return wxFileName();
+
+    for( const std::string* ext : exts )
+    {
+        wxString    match;
+        wxFileName  candidate;
+
+        if( dir.GetFirst( &match, wxS( "*." ) + wxString( *ext ), wxDIR_FILES ) )
+        {
+            candidate.Assign( aDir, match );
+            return candidate;
+        }
+    }
+
+    return wxFileName();
+}
+
+
 void KICAD_MANAGER_FRAME::OpenAnvilFile( const wxString& aPath )
 {
     // Opening a file focuses the one running window (VS Code / Cursor behaviour).
@@ -3873,22 +3962,21 @@ void KICAD_MANAGER_FRAME::OpenAnvilFile( const wxString& aPath )
         return;
     }
 
-    // A project and its schematic / board share one basename in one directory, so the owning
-    // project is the sibling carrying the project extension.  Make it the active project (if it
-    // isn't already) so ShowPlayer resolves the right file to open as a tab.  Compare by
-    // directory + basename (ignoring the .anvil_/.kicad_ spelling) so we don't needlessly reload
-    // the project that is already open.
-    wxFileName projectFn = fn;
-    projectFn.SetExt( FILEEXT::AnvilProjectFileExtension );
-
-    if( !projectFn.FileExists() )
-        projectFn.SetExt( FILEEXT::ProjectFileExtension );   // Anvil-native sibling
+    // The owning project is whichever project file lives in the SAME DIRECTORY as the file being
+    // opened -- NOT necessarily one sharing its exact basename.  wxFileName::SetExt() only swaps
+    // the text after the last dot, so for a file like "board.attempt1.anvil_pcb" it produced
+    // "board.attempt1.anvil_pro", which never exists (the real project is "board.anvil_pro").
+    // That silently failed to resolve the project for any board/schematic carrying an infix
+    // (backups, revision attempts, etc.), so those files fell through as if no project matched.
+    // Anvil keeps one project per directory (see HandleForwardedOpen), so scan the directory
+    // instead of guessing from the filename.
+    wxFileName projectFn = FindOwningProjectFile( fn.GetPath() );
 
     wxFileName activeFn( GetProjectFileName() );
 
     const bool sameProject = IsProjectActive()
-                             && activeFn.GetPath() == projectFn.GetPath()
-                             && activeFn.GetName() == projectFn.GetName();
+                             && projectFn.FileExists()
+                             && activeFn.GetPath() == projectFn.GetPath();
 
     if( projectFn.FileExists() && !sameProject )
         LoadProject( projectFn );

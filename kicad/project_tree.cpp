@@ -48,9 +48,12 @@ IMPLEMENT_ABSTRACT_CLASS( PROJECT_TREE, wxTreeCtrl )
 #endif
 
 PROJECT_TREE::PROJECT_TREE( PROJECT_TREE_PANE* parent ) :
+        // wxBORDER_NONE: without it wxTreeCtrl gets the Windows default themed (sunken) border,
+        // which paints a light grey ~#82878F hairline down the pane's right edge over the dark
+        // NEMI chrome.  The pane draws its own themed edge in onPaint, so the native one must go.
         wxTreeCtrl( parent, ID_PROJECT_TREE, wxDefaultPosition, wxDefaultSize,
-                    PLATFORM_STYLE | wxTR_HAS_BUTTONS | wxTR_MULTIPLE, wxDefaultValidator,
-                    wxT( "EDATreeCtrl" ) ),
+                    PLATFORM_STYLE | wxTR_HAS_BUTTONS | wxTR_MULTIPLE | wxBORDER_NONE,
+                    wxDefaultValidator, wxT( "EDATreeCtrl" ) ),
         m_statusImageList( nullptr )
 {
     m_projectTreePane = parent;

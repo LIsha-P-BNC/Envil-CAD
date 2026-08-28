@@ -87,6 +87,7 @@
 
 #include <kiplatform/io.h>
 #include <kiplatform/secrets.h>
+#include <kiplatform/anvil_theme.h>   // NEMI chrome palette (panel bg + border) for onPaint
 
 
 /* Note about the project tree build process:
@@ -1811,8 +1812,11 @@ void PROJECT_TREE_PANE::onPaint( wxPaintEvent& event )
     wxRect    rect( wxPoint( 0, 0 ), GetClientSize() );
     wxPaintDC dc( this );
 
-    dc.SetBrush( wxSystemSettings::GetColour( wxSYS_COLOUR_FRAMEBK ) );
-    dc.SetPen( wxPen( wxSystemSettings::GetColour( wxSYS_COLOUR_ACTIVEBORDER ), 1 ) );
+    // Anvil: paint the pane edges from the NEMI chrome palette instead of the Windows system
+    // colours.  wxSYS_COLOUR_ACTIVEBORDER resolves to a light/white edge under a light Windows
+    // theme, which bled a white hairline down the left/right of the dark Project Files pane.
+    dc.SetBrush( ANVIL::CHROME_PANEL );
+    dc.SetPen( wxPen( ANVIL::BORDER, 1 ) );
 
     dc.DrawLine( rect.GetLeft(), rect.GetTop(), rect.GetLeft(), rect.GetBottom() );
     dc.DrawLine( rect.GetRight(), rect.GetTop(), rect.GetRight(), rect.GetBottom() );

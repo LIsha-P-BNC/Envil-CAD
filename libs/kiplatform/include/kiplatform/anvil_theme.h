@@ -122,7 +122,7 @@ enum class MODE
     _( CHROME_BAR,              30,  30,  30,             11,  74,  55 )  /* main tool-bar   */    \
     _( CHROME_BAR2,             30,  30,  30,            242, 240, 230 )  /* aux/value row   */    \
     _( CHROME_PANEL,            30,  30,  30,            255, 255, 255 )  /* panel bodies    */    \
-    _( CHROME_HEADER,            7,   7,   7,            234, 231, 219 )  /* heading strips  */    \
+    _( CHROME_HEADER,           30,  30,  30,            234, 231, 219 )  /* heading strips  */    \
     _( CHROME_LINE,             38,  38,  38,            216, 212, 196 )  /* hairlines       */    \
     _( CHROME_SASH,              7,   7,   7,            226, 222, 208 )  /* pane seams      */    \
     _( CAPTION_TEXT,           122, 122, 122,            126, 124, 112 )  /* pane captions   */    \

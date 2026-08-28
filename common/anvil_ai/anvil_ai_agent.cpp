@@ -97,7 +97,7 @@ static const char* ANVIL_DEFAULT_PROMPT =
         "the user to click AnvilCAD MCP -> Start: that menu is only for an external MCP "
         "client and is not required for this chat.\n"
         "\n"
-        "Be concise. Answer in the user's language when it is not English.\n";
+        "Be concise. Always answer in English, regardless of what language the user writes in.\n";
 
 
 // ---------------------------------------------------------------------------------------

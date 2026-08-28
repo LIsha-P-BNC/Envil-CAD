@@ -26,6 +26,7 @@
 #include <kiplatform/anvil_theme.h>
 #include <thread_pool.h>
 #include <build_version.h>
+#include <bitmaps.h>
 #include <widgets/ui_common.h>
 
 #include <algorithm>
@@ -36,6 +37,9 @@
 
 #include <wx/dcbuffer.h>
 #include <wx/dcmemory.h>
+#ifdef __WXMSW__
+#include <wx/msw/private.h>   // WS_EX_APPWINDOW for the sign-in gate's taskbar button
+#endif
 #include <wx/display.h>
 #include <wx/datetime.h>
 #include <wx/graphics.h>
@@ -2707,7 +2711,7 @@ private:
         wxFont sub = base;
         sub.SetFractionalPointSize( base.GetFractionalPointSize() * 1.72 );
 
-        aGc->SetFont( wordmark, ANVIL::BONE );
+        aGc->SetFont( wordmark, ANVIL::LOGIN_SURFACE );
 
         const double tracking = 6 * aPx;
         const double markW = trackedWidthGC( aGc, wxS( "ANVIL CAD" ), tracking );
@@ -2752,7 +2756,7 @@ private:
             aGc->StrokePath( tick );
         }
 
-        aGc->SetFont( wordmark, ANVIL::BONE );
+        aGc->SetFont( wordmark, ANVIL::LOGIN_SURFACE );
         drawTrackedGC( aGc, wxS( "ANVIL CAD" ), aCentreX - markW * 0.5, aTop + 16 * aPx,
                        tracking );
 
@@ -2791,7 +2795,7 @@ private:
         const double tileX = aX + inset * 1.3;
 
         drawSnippedBox( aGc, tileX, aY + inset, tileW, tileH, 0.0,
-                        withAlpha( ANVIL::CONTENT, 200 ),
+                        withAlpha( ANVIL::LOGIN_GRAD_TOP, 200 ),
                         withAlpha( ANVIL::LOGIN_BOARD_EDGE, 110 ), 1.3 * aPx );
 
         aFeature.glyph( aGc, tileX + tileW * 0.22, aY + inset + tileH * 0.20, tileW * 0.56,
@@ -2808,21 +2812,21 @@ private:
 
         // On the Deep-Emerald active card the heading flips to oat, the way brand type does
         // on emerald fills; on the graphite cards the emerald heading is the tying accent.
-        const wxColour titleInk = active ? ANVIL::BONE : ANVIL::ACCENT;
+        const wxColour titleInk = active ? ANVIL::LOGIN_SURFACE : ANVIL::ACCENT;
 
         const double textX = tileX + tileW + 22 * aPx;
 
         aGc->SetFont( title, titleInk );
         const double titleH = lineHeightGC( aGc );
 
-        aGc->SetFont( caption, withAlpha( ANVIL::BONE, 195 ) );
+        aGc->SetFont( caption, withAlpha( ANVIL::LOGIN_SURFACE, 195 ) );
         const double captionH = lineHeightGC( aGc );
         const double textY = aY + ( aH - ( titleH + captionH + 6 * aPx ) ) * 0.5;
 
         aGc->SetFont( title, titleInk );
         aGc->DrawText( aFeature.title, textX, textY );
 
-        aGc->SetFont( caption, withAlpha( ANVIL::BONE, 195 ) );
+        aGc->SetFont( caption, withAlpha( ANVIL::LOGIN_SURFACE, 195 ) );
         aGc->DrawText( aFeature.caption, textX, textY + titleH + 6 * aPx );
 
         // Bracketed mono index tag in the top-right, seated beside the snip.
@@ -2831,7 +2835,7 @@ private:
 
         const wxString tagText = wxString::Format( wxS( "[%03d]" ), aIndex + 1 );
 
-        aGc->SetFont( tag, withAlpha( ANVIL::BONE, active ? 175 : 120 ) );
+        aGc->SetFont( tag, withAlpha( ANVIL::LOGIN_SURFACE, active ? 175 : 120 ) );
 
         const double tagTracking = 1.5 * aPx;
         const double tagW = trackedWidthGC( aGc, tagText, tagTracking );
@@ -2945,7 +2949,7 @@ private:
                 mark.AddLineToPoint( aCx, aCy + arm );
 
                 gc->SetBrush( *wxTRANSPARENT_BRUSH );
-                gc->SetPen( wxPen( withAlpha( ANVIL::BONE, 95 ), 1.4 * px ) );
+                gc->SetPen( wxPen( withAlpha( ANVIL::LOGIN_SURFACE, 95 ), 1.4 * px ) );
                 gc->StrokePath( mark );
             };
 
@@ -2966,7 +2970,7 @@ private:
         heading.MakeBold();
         heading.SetFractionalPointSize( base.GetFractionalPointSize() * 2.85 );
 
-        gc->SetFont( heading, ANVIL::BONE );
+        gc->SetFont( heading, ANVIL::LOGIN_SURFACE );
         const double headingH = lineHeightGC( gc.get() );
 
         double y = sz.y * 0.055;
@@ -3006,7 +3010,7 @@ private:
         y += 32 * px;
 
         // --- hero line -------------------------------------------------------------------
-        gc->SetFont( heading, ANVIL::BONE );
+        gc->SetFont( heading, ANVIL::LOGIN_SURFACE );
         gc->DrawText( _( "A Unified Electronics Workflow." ), margin, y );
         y += headingH + 34 * px;
 
@@ -3153,6 +3157,39 @@ DIALOG_ANVIL_LOGIN::DIALOG_ANVIL_LOGIN( wxWindow* aParent, wxTopLevelWindow* aCo
         m_busy( false )
 {
     m_async->handler = this;
+
+    // The sign-in gate is a top-level window in its own right (no parent), so it carries its
+    // own taskbar button.  Give it the Anvil application icon the same way the manager frame
+    // does, or the button would fall back to the generic wxWidgets icon instead of the brand
+    // mark while the workspace is hidden behind the gate.
+    {
+        wxIcon       icon;
+        wxIconBundle iconBundle;
+
+        const BITMAPS appIcon = IsNightlyVersion() ? BITMAPS::icon_kicad_nightly
+                                                    : BITMAPS::icon_kicad;
+
+        icon.CopyFromBitmap( KiBitmap( appIcon, 48 ) );
+        iconBundle.AddIcon( icon );
+        icon.CopyFromBitmap( KiBitmap( appIcon, 128 ) );
+        iconBundle.AddIcon( icon );
+        icon.CopyFromBitmap( KiBitmap( appIcon, 256 ) );
+        iconBundle.AddIcon( icon );
+
+        SetIcons( iconBundle );
+    }
+
+#ifdef __WXMSW__
+    // Despite the intent above, the gate is in practice created with the (hidden) manager frame
+    // as its OWNER -- and Windows gives an owned window no taskbar button, so while the gate is
+    // up the app vanishes from the taskbar entirely.  WS_EX_APPWINDOW forces the button (which
+    // then shows the icon bundle set above).
+    {
+        HWND hwnd = (HWND) GetHWND();
+        ::SetWindowLongPtr( hwnd, GWL_EXSTYLE,
+                            ::GetWindowLongPtr( hwnd, GWL_EXSTYLE ) | WS_EX_APPWINDOW );
+    }
+#endif
 
     wxBoxSizer* split = new wxBoxSizer( wxHORIZONTAL );
 
