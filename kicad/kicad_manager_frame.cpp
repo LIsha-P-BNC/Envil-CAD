@@ -61,6 +61,7 @@
 #include <ki_exception.h>           // IO_ERROR (editor pre-warm)
 #include <frame_type.h>             // FRAME_T values warmed by the editor pre-warm
 #include <wx/timer.h>
+#include <cstdlib>                 // std::abs (menu popup hit tests)
 #include <wx/graphics.h>           // wxGraphicsContext for the title-bar AI logo mark
 #include <wx/mstream.h>            // wxMemoryInputStream to decode the embedded AI logo PNG
 #include "anvil_ai_logo_png.h"     // embedded Anvil "A" logo bytes for the title-bar AI icon
@@ -206,8 +207,22 @@ public:
         Bind( wxEVT_PAINT, &ANVIL_POPUP_MENU::onPaint, this );
         Bind( wxEVT_MOTION, &ANVIL_POPUP_MENU::onMotion, this );
         Bind( wxEVT_LEFT_UP, &ANVIL_POPUP_MENU::onClick, this );
+        Bind( wxEVT_MOUSEWHEEL, &ANVIL_POPUP_MENU::onWheel, this );
         Bind( wxEVT_LEAVE_WINDOW,
-              [this]( wxMouseEvent& ) { if( !m_child ) { m_hover = -1; Refresh(); } } );
+              [this]( wxMouseEvent& )
+              {
+                  stopAutoScroll();
+
+                  if( !m_child )
+                  {
+                      m_hover = -1;
+                      Refresh();
+                  }
+              } );
+
+        // Auto-scroll while the pointer rests in the arrow zone of an over-tall menu.
+        m_scrollTimer.SetOwner( this );
+        Bind( wxEVT_TIMER, &ANVIL_POPUP_MENU::onScrollTimer, this );
 
         // Soft drop shadow (like a native menu) so the flat emerald popup reads as floating
         // above the window instead of painted onto it.  Must be set before the first Popup().
@@ -241,13 +256,40 @@ public:
         // right against the window's right edge, so a menu anchored at the button's left corner
         // runs past the screen and its labels (e.g. the account email) get clipped.
         wxPoint      pos = aScreenPos;
-        const wxSize sz  = GetSize();
 
         const int    idx  = wxDisplay::GetFromPoint( aScreenPos );
         const wxRect area = wxDisplay( idx == wxNOT_FOUND ? 0u : (unsigned) idx ).GetClientArea();
 
+        // A composed editor menu can be taller than the monitor (the shell splices its own
+        // commands into the tab's, and the schematic editor's Tools menu then runs past a 1080p
+        // screen at 125% DPI).  Clamping such a menu into view slid it UP over the menu-bar
+        // button that opened it, so the button-up of the very click that opened it landed on a
+        // row and fired that command before the menu was ever seen.  Cap the height and scroll
+        // instead: a drop-down stays anchored under its button, a submenu keeps its slide-up.
+        const int below  = area.GetBottom() - pos.y;
+        int       height = m_contentH;
+
+        if( !m_parentPopup && height > below && below >= area.GetHeight() / 2 )
+            height = below;
+        else if( height > area.GetHeight() )
+            height = area.GetHeight();
+
+        if( height != GetSize().y )
+            SetSize( wxSize( GetSize().x, height ) );
+
+        m_maxScroll = std::max( 0, m_contentH - height );
+        m_scroll    = 0;
+
+        const wxSize sz = GetSize();
+
         pos.x = std::max( area.GetLeft(), std::min( pos.x, area.GetRight() - sz.x ) );
         pos.y = std::max( area.GetTop(), std::min( pos.y, area.GetBottom() - sz.y ) );
+
+        // Belt and braces for the same trap: the mouse button that opened this menu is still
+        // down, and its release is delivered here once Popup() takes the capture.  Ignore a
+        // release that never left the press point; a real press-drag-release still selects.
+        m_openMousePos   = wxGetMousePosition();
+        m_swallowFirstUp = true;
 
         Move( pos );
         Popup();
@@ -337,16 +379,92 @@ private:
             y += r.height;
         }
 
-        SetSize( wxSize( width, y + FromDIP( 4 ) ) );
+        m_contentH = y + FromDIP( 4 );
+        m_arrowH   = FromDIP( 14 );
+
+        SetSize( wxSize( width, m_contentH ) );
     }
 
+    /// Row under a client-area y, or -1 for none (separators, the scroll arrows, empty space).
     int rowAt( int aY ) const
     {
+        if( inArrowZone( aY ) )
+            return -1;
+
+        const int y = aY + m_scroll;
+
         for( size_t i = 0; i < m_rows.size(); ++i )
-            if( aY >= m_rows[i].top && aY < m_rows[i].top + m_rows[i].height )
+            if( y >= m_rows[i].top && y < m_rows[i].top + m_rows[i].height )
                 return static_cast<int>( i );
 
         return -1;
+    }
+
+    /// True when @p aY sits in one of the auto-scroll arrow bands (only when scrollable).
+    bool inArrowZone( int aY ) const
+    {
+        if( m_maxScroll <= 0 )
+            return false;
+
+        if( m_scroll > 0 && aY < m_arrowH )
+            return true;
+
+        return m_scroll < m_maxScroll && aY > GetClientSize().y - m_arrowH;
+    }
+
+    void scrollBy( int aDelta )
+    {
+        const int target = std::max( 0, std::min( m_scroll + aDelta, m_maxScroll ) );
+
+        if( target == m_scroll )
+            return;
+
+        m_scroll = target;
+
+        // The rows moved under a stationary pointer, so re-read what is hovered now.
+        const wxPoint local = ScreenToClient( wxGetMousePosition() );
+
+        m_hover = GetClientRect().Contains( local ) ? rowAt( local.y ) : -1;
+        Refresh();
+    }
+
+    void startAutoScroll( int aDir )
+    {
+        if( m_autoScrollDir == aDir )
+            return;
+
+        m_autoScrollDir = aDir;
+        m_scrollTimer.Start( 60 );
+    }
+
+    void stopAutoScroll()
+    {
+        m_autoScrollDir = 0;
+        m_scrollTimer.Stop();
+    }
+
+    void onScrollTimer( wxTimerEvent& )
+    {
+        if( m_autoScrollDir == 0 )
+            return;
+
+        scrollBy( m_autoScrollDir * m_rowH );
+
+        if( ( m_autoScrollDir < 0 && m_scroll == 0 )
+                || ( m_autoScrollDir > 0 && m_scroll == m_maxScroll ) )
+        {
+            stopAutoScroll();
+            Refresh();
+        }
+    }
+
+    void onWheel( wxMouseEvent& aEvent )
+    {
+        if( m_maxScroll <= 0 || aEvent.GetWheelDelta() == 0 )
+            return;
+
+        const int lines = aEvent.GetWheelRotation() / aEvent.GetWheelDelta();
+        scrollBy( -lines * m_rowH * 3 );
     }
 
     void onPaint( wxPaintEvent& )
@@ -373,10 +491,17 @@ private:
         {
             const ROW& r = m_rows[i];
 
+            // Rows are laid out in content space; m_scroll is 0 unless the menu was capped to
+            // the monitor in PopupAt(), in which case only a window of them is on screen.
+            const int top = r.top - m_scroll;
+
+            if( top + r.height < 0 || top > sz.y )
+                continue;
+
             if( r.separator )
             {
                 dc.SetPen( wxPen( border ) );
-                int ly = r.top + r.height / 2;
+                int ly = top + r.height / 2;
                 dc.DrawLine( m_padL + m_iconW, ly, sz.x - m_padR, ly );
                 continue;
             }
@@ -385,7 +510,7 @@ private:
             {
                 dc.SetPen( *wxTRANSPARENT_PEN );
                 dc.SetBrush( wxBrush( hover ) );
-                dc.DrawRectangle( FromDIP( 3 ), r.top, sz.x - FromDIP( 6 ), r.height );
+                dc.DrawRectangle( FromDIP( 3 ), top, sz.x - FromDIP( 6 ), r.height );
             }
 
             // Icon (or checkmark for a checked checkable item).
@@ -396,12 +521,12 @@ private:
 
                 if( bmp.IsOk() )
                     dc.DrawBitmap( bmp, m_padL + ( m_iconW - bmp.GetWidth() ) / 2 - FromDIP( 2 ),
-                                   r.top + ( r.height - bmp.GetHeight() ) / 2, true );
+                                   top + ( r.height - bmp.GetHeight() ) / 2, true );
             }
             else if( r.checked )
             {
                 dc.SetPen( wxPen( text, FromDIP( 2 ) ) );
-                int cx = m_padL + FromDIP( 4 ), cy = r.top + r.height / 2;
+                int cx = m_padL + FromDIP( 4 ), cy = top + r.height / 2;
                 dc.DrawLine( cx, cy, cx + FromDIP( 3 ), cy + FromDIP( 3 ) );
                 dc.DrawLine( cx + FromDIP( 3 ), cy + FromDIP( 3 ), cx + FromDIP( 9 ),
                              cy - FromDIP( 4 ) );
@@ -410,7 +535,7 @@ private:
             dc.SetFont( GetFont() );
             dc.SetTextForeground( r.enabled ? text : dim );
 
-            int ty = r.top + ( r.height - GetTextExtent( r.label ).y ) / 2;
+            int ty = top + ( r.height - GetTextExtent( r.label ).y ) / 2;
             dc.DrawText( r.label, m_padL + m_iconW, ty );
 
             if( !r.accel.IsEmpty() )
@@ -424,15 +549,63 @@ private:
             {
                 // Right-pointing chevron.
                 dc.SetPen( wxPen( r.enabled ? text : dim, FromDIP( 1 ) ) );
-                int ax = sz.x - m_padR - FromDIP( 8 ), ay = r.top + r.height / 2;
+                int ax = sz.x - m_padR - FromDIP( 8 ), ay = top + r.height / 2;
                 dc.DrawLine( ax, ay - FromDIP( 4 ), ax + FromDIP( 4 ), ay );
                 dc.DrawLine( ax + FromDIP( 4 ), ay, ax, ay + FromDIP( 4 ) );
             }
         }
+
+        drawScrollArrows( dc, sz, text, bg );
+    }
+
+    /// Native-style "there is more above / below" chevrons, painted over the clipped rows.
+    void drawScrollArrows( wxDC& aDC, const wxSize& aSize, const wxColour& aText,
+                           const wxColour& aBg )
+    {
+        if( m_maxScroll <= 0 )
+            return;
+
+        const int w = FromDIP( 5 );
+
+        auto arrow =
+                [&]( int aBandTop, bool aUp )
+                {
+                    aDC.SetPen( *wxTRANSPARENT_PEN );
+                    aDC.SetBrush( wxBrush( aBg ) );
+                    aDC.DrawRectangle( FromDIP( 1 ), aBandTop, aSize.x - FromDIP( 2 ), m_arrowH );
+
+                    const int cx = aSize.x / 2;
+                    const int cy = aBandTop + m_arrowH / 2;
+
+                    aDC.SetPen( wxPen( aText, FromDIP( 1 ) ) );
+
+                    if( aUp )
+                    {
+                        aDC.DrawLine( cx - w, cy + w / 2, cx, cy - w / 2 );
+                        aDC.DrawLine( cx, cy - w / 2, cx + w, cy + w / 2 );
+                    }
+                    else
+                    {
+                        aDC.DrawLine( cx - w, cy - w / 2, cx, cy + w / 2 );
+                        aDC.DrawLine( cx, cy + w / 2, cx + w, cy - w / 2 );
+                    }
+                };
+
+        if( m_scroll > 0 )
+            arrow( 0, true );
+
+        if( m_scroll < m_maxScroll )
+            arrow( aSize.y - m_arrowH, false );
     }
 
     void onMotion( wxMouseEvent& aEvent )
     {
+        // Resting the pointer in an arrow band scrolls, exactly as a native over-tall menu does.
+        if( inArrowZone( aEvent.GetY() ) )
+            startAutoScroll( aEvent.GetY() < m_arrowH ? -1 : 1 );
+        else
+            stopAutoScroll();
+
         int row = rowAt( aEvent.GetY() );
 
         if( row != m_hover )
@@ -450,6 +623,25 @@ private:
 
     void onClick( wxMouseEvent& aEvent )
     {
+        if( m_swallowFirstUp )
+        {
+            m_swallowFirstUp = false;
+
+            // Release of the very click that opened this menu: the popup may have been placed
+            // over the pointer, and acting on it would fire whatever row landed there.
+            const wxPoint delta = wxGetMousePosition() - m_openMousePos;
+
+            if( std::abs( delta.x ) <= FromDIP( 3 ) && std::abs( delta.y ) <= FromDIP( 3 ) )
+                return;
+        }
+
+        // A click in an arrow band pages instead of selecting.
+        if( inArrowZone( aEvent.GetY() ) )
+        {
+            scrollBy( ( aEvent.GetY() < m_arrowH ? -1 : 1 ) * GetClientSize().y );
+            return;
+        }
+
         int row = rowAt( aEvent.GetY() );
 
         if( row < 0 || m_rows[row].separator || !m_rows[row].enabled )
@@ -478,7 +670,7 @@ private:
 
         m_child = new ANVIL_POPUP_MENU( GetParent(), m_rows[aRow].item->GetSubMenu(), this );
         wxPoint pt = ClientToScreen( wxPoint( GetClientSize().x - FromDIP( 2 ),
-                                              m_rows[aRow].top ) );
+                                              m_rows[aRow].top - m_scroll ) );
         m_child->PopupAt( pt );
     }
 
@@ -500,6 +692,7 @@ private:
             return;
 
         m_dismissed = true;
+        stopAutoScroll();
 
         if( m_child )
         {
@@ -541,6 +734,18 @@ private:
     int               m_hover = -1;
     int               m_iconW = 0, m_padL = 0, m_padR = 0, m_gap = 0, m_arrowW = 0;
     int               m_rowH = 0, m_sepH = 0;
+
+    /// Natural (unclipped) height of all rows; the window may be shorter -- see PopupAt().
+    int               m_contentH = 0;
+    int               m_scroll = 0;         ///< First visible content pixel.
+    int               m_maxScroll = 0;      ///< 0 when the whole menu fits (the normal case).
+    int               m_arrowH = 0;         ///< Height of each auto-scroll arrow band.
+    int               m_autoScrollDir = 0;  ///< -1 up, +1 down, 0 idle.
+    wxTimer           m_scrollTimer;
+
+    /// The click that opened this popup has not been released yet; see PopupAt().
+    bool              m_swallowFirstUp = false;
+    wxPoint           m_openMousePos;
 };
 
 
