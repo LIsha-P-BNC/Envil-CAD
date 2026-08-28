@@ -3606,12 +3606,22 @@ void KICAD_MANAGER_FRAME::ToggleAppTheme()
     wxFileName scriptFn( wxFileName::GetTempDir(), wxS( "anvil_theme_restart.ps1" ) );
     wxString   script;
 
+    // Wait-Process does NOT stop the script when the timeout expires — it just returns.  The
+    // liveness check below is what actually implements "a cancelled close expires the
+    // relauncher": relaunching while this process is still alive would race the dying DDE
+    // single-instance service (the new instance forwards into a closing window and the user
+    // ends up with no app at all).
     script << wxS( "Wait-Process -Id " ) << wxGetProcessId()
            << wxS( " -Timeout 30 -ErrorAction SilentlyContinue\n" )
+           << wxS( "if( Get-Process -Id " ) << wxGetProcessId()
+           << wxS( " -ErrorAction SilentlyContinue ) { exit }\n" )
            << wxS( "Start-Process -FilePath '" ) << exe << wxS( "'" );
 
+    // --new skips the single-instance handoff in the relaunched process: a stale/zombie
+    // instance holding the IPC service must not swallow the restart.  Only usable with an
+    // explicit project argument — a bare --new would also skip last-session restore.
     if( !proj.IsEmpty() && wxFileName::FileExists( proj ) )
-        script << wxS( " -ArgumentList '\"" ) << proj << wxS( "\"'" );
+        script << wxS( " -ArgumentList '--new', '\"" ) << proj << wxS( "\"'" );
 
     script << wxS( "\n" );
 

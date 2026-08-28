@@ -30,6 +30,7 @@
 #include <footprint_editor_settings.h>
 #include <gal/graphics_abstraction_layer.h>
 #include <kiplatform/ui.h>
+#include <kiway.h>   // KIWAY::GetTabHost() — complete type needed for the tab-dock guard below
 #include <pad.h>
 #include <pcb_base_frame.h>
 #include <preview_items/ruler_item.h>
@@ -87,8 +88,12 @@ int PCB_VIEWER_TOOLS::Show3DViewer( const TOOL_EVENT& aEvent )
 
     EDA_3D_VIEWER_FRAME* draw3DFrame = frame()->CreateAndShow3D_Frame();
 
-    if( frame()->IsType( FRAME_FOOTPRINT_VIEWER )
-     || frame()->IsType( FRAME_FOOTPRINT_WIZARD ) )
+    // Skip the modal-raise when the viewer was docked as a tab in the single-window shell
+    // (GetTabHost() non-null): ReparentModal() would pull the WS_CHILD tab back out into a
+    // floating window, defeating the docking.  Only the still-floating case needs it.
+    if( ( frame()->IsType( FRAME_FOOTPRINT_VIEWER )
+       || frame()->IsType( FRAME_FOOTPRINT_WIZARD ) )
+        && !frame()->Kiway().GetTabHost() )
     {
         // A stronger version of Raise() which promotes the window to its parent's level.
         KIPLATFORM::UI::ReparentModal( draw3DFrame );

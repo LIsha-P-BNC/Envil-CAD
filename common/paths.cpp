@@ -32,6 +32,16 @@
 #include <wx_filename.h>
 
 
+// Anvil: the versioned per-user directories (settings, documents, cache) are PINNED to one
+// directory version, decoupled from the product's semantic version.  The 1.0.1 -> 1.2.5
+// product bump silently re-pointed the settings path from anvil/1.0 to an EMPTY anvil/1.2,
+// which orphaned every user's settings and library tables and fired the first-run wizard on
+// every launch (which then crashed).  Bump this constant only when the on-disk format
+// genuinely breaks compatibility (the start wizard then migrates users from the previous
+// directory).
+static const wxString ANVIL_USER_DIR_VERSION = wxS( "1.0" );
+
+
 void PATHS::getUserDocumentPath( wxFileName& aPath )
 {
     wxString envPath;
@@ -42,7 +52,7 @@ void PATHS::getUserDocumentPath( wxFileName& aPath )
         aPath.AssignDir( KIPLATFORM::ENV::GetDocumentsPath() );
 
     aPath.AppendDir( KICAD_PATH_STR );
-    aPath.AppendDir( GetMajorMinorVersion().ToStdString() );
+    aPath.AppendDir( ANVIL_USER_DIR_VERSION.ToStdString() );
 }
 
 
@@ -472,7 +482,7 @@ wxString PATHS::GetUserCachePath()
     }
 
     tmp.AppendDir( KICAD_PATH_STR );
-    tmp.AppendDir( GetMajorMinorVersion().ToStdString() );
+    tmp.AppendDir( ANVIL_USER_DIR_VERSION.ToStdString() );   // pinned; see top of file
 
     return tmp.GetPathWithSep();
 }
@@ -662,7 +672,7 @@ wxString PATHS::CalculateUserSettingsPath( bool aIncludeVer, bool aUseEnv )
     }
 
     if( aIncludeVer )
-        cfgpath.AppendDir( GetMajorMinorVersion().ToStdString() );
+        cfgpath.AppendDir( ANVIL_USER_DIR_VERSION.ToStdString() );   // pinned; see top of file
 
     return cfgpath.GetPath();
 }

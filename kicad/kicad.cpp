@@ -264,8 +264,7 @@ class STARTUP_COVER_GUARD
 public:
     explicit STARTUP_COVER_GUARD( wxApp& aApp ) :
             m_app( aApp ),
-            m_cover( nullptr ),
-            m_exitOnFrameDelete( aApp.GetExitOnFrameDelete() )
+            m_cover( nullptr )
     {
         m_app.SetExitOnFrameDelete( false );
     }
@@ -297,13 +296,19 @@ public:
             m_cover = nullptr;
         }
 
-        m_app.SetExitOnFrameDelete( m_exitOnFrameDelete );
+        // Restore the automatic quit-on-last-window rule with an explicit 'true' — NOT a
+        // value captured from GetExitOnFrameDelete().  wx starts in the tri-state 'Later'
+        // (auto), which GetExitOnFrameDelete() reports as false; capturing and "restoring"
+        // that false turned the rule OFF for the life of the process, so every window close
+        // left a running window-less zombie.  The theme-toggle restart then either relaunched
+        // into the zombie's dead single-instance IPC service (startup access violation) or,
+        // with the guarded relauncher, never relaunched at all.
+        m_app.SetExitOnFrameDelete( true );
     }
 
 private:
     wxApp&               m_app;
     ANVIL_STARTUP_COVER* m_cover;
-    const bool           m_exitOnFrameDelete;
 };
 
 } // namespace

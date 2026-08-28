@@ -688,6 +688,16 @@ EDA_3D_VIEWER_FRAME* PCB_BASE_FRAME::CreateAndShow3D_Frame()
     if( !draw3DFrame )
         draw3DFrame = new EDA_3D_VIEWER_FRAME( &Kiway(), this, _( "3D Viewer" ) );
 
+    // Anvil single-window shell: dock the 3D Viewer as a tab in the one window instead of
+    // floating it as its own top-level window (user request: every tool lives in tabs).
+    // DockPlayer() returns false when no shell is hosting (stand-alone pcbnew / footprint
+    // editor), so the legacy floating path below still runs everywhere else.  Docking a
+    // FRESH, not-yet-shown frame is safe for the OpenGL canvas: its GL context is created on
+    // first paint, which now happens after the WS_CHILD reparent, not before it.  On a
+    // repeat open the viewer is already docked, so DockPlayer just re-selects its tab.
+    if( Kiway().DockPlayer( draw3DFrame ) )
+        return draw3DFrame;
+
     // Raising the window does not show the window on Windows if iconized. This should work
     // on any platform.
     if( draw3DFrame->IsIconized() )

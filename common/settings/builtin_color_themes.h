@@ -28,6 +28,11 @@
 static const std::map<int, COLOR4D> s_defaultTheme =
         {
             // ---- NEMI Emerald Dark (schematic) : Black Ground #070707 + emerald accents ----
+            // Analysis-colors pass (2026-08-28, user request): the DRAWING itself uses classic
+            // EDA colors — component outline yellow, wire/junction green, pin red, text white —
+            // because an all-emerald schematic is unreadable for circuit analysis.  Only the
+            // surfaces (Black Ground background, grid) stay NEMI; the light theme re-points all
+            // of these via s_anvilLightOverrides below, so this pass is dark-theme-only.
             { LAYER_SCHEMATIC_ANCHOR,     CSS_COLOR( 244, 114, 182, 1 ) },
             { LAYER_SCHEMATIC_AUX_ITEMS,  CSS_COLOR( 236, 231, 221, 1 ) },
             // Black Ground, per the header comment above.  The light theme's white sheet comes
@@ -35,15 +40,15 @@ static const std::map<int, COLOR4D> s_defaultTheme =
             { LAYER_SCHEMATIC_BACKGROUND, CSS_COLOR( 7,   7,   7,   1 ) },
             { LAYER_HOVERED,              CSS_COLOR( 248, 245, 238, 1 ) },
             { LAYER_BRIGHTENED,           CSS_COLOR( 255, 45,  201, 1 ) },
-            { LAYER_BUS,                  CSS_COLOR( 45,  212, 191, 1 ) },
-            { LAYER_BUS_JUNCTION,         CSS_COLOR( 45,  212, 191, 1 ) },
+            { LAYER_BUS,                  CSS_COLOR( 0,   200, 120, 1 ) },  /* bus = green */
+            { LAYER_BUS_JUNCTION,         CSS_COLOR( 0,   200, 120, 1 ) },  /* bus = green */
             { LAYER_DEVICE_BACKGROUND,    CSS_COLOR( 22,  22,  21,  1 ) },
-            { LAYER_DEVICE,               CSS_COLOR( 236, 231, 221, 1 ) },
+            { LAYER_DEVICE,               CSS_COLOR( 255, 213, 0,   1 ) },
             { LAYER_SCHEMATIC_CURSOR,     CSS_COLOR( 236, 231, 221, 1 ) },
             { LAYER_DNP_MARKER,           CSS_COLOR( 220, 9,   13,  0.85 ) },
             { LAYER_EXCLUDED_FROM_SIM,    CSS_COLOR( 138, 138, 133, 0.95 ) },
-            { LAYER_ERC_ERR,              CSS_COLOR( 255, 59,  48,  1 ) },
-            { LAYER_ERC_WARN,             CSS_COLOR( 255, 176, 32,  1 ) },
+            { LAYER_ERC_ERR,              CSS_COLOR( 255, 40,  40,  1 ) },  /* ERC = red */
+            { LAYER_ERC_WARN,             CSS_COLOR( 255, 140, 0,   1 ) },
             { LAYER_ERC_EXCLUSION,        CSS_COLOR( 138, 138, 133, 0.8 ) },
             { LAYER_FIELDS,               CSS_COLOR( 138, 138, 133, 1 ) },
             // Two-variant dark pass: the grid furniture is NEUTRAL dark grey, never green —
@@ -51,36 +56,36 @@ static const std::map<int, COLOR4D> s_defaultTheme =
             { LAYER_SCHEMATIC_GRID,       CSS_COLOR( 28,  28,  28,  1 ) },
             { LAYER_SCHEMATIC_GRID_AXES,  CSS_COLOR( 42,  42,  42,  1 ) },
             { LAYER_HIDDEN,               CSS_COLOR( 100, 110, 105, 1 ) },
-            { LAYER_JUNCTION,             CSS_COLOR( 52,  211, 153, 1 ) },
-            { LAYER_GLOBLABEL,            CSS_COLOR( 251, 146, 60,  1 ) },
-            { LAYER_HIERLABEL,            CSS_COLOR( 250, 204, 21,  1 ) },
-            { LAYER_LOCLABEL,             CSS_COLOR( 236, 231, 221, 1 ) },
-            { LAYER_NETCLASS_REFS,        CSS_COLOR( 138, 138, 133, 1 ) },
+            { LAYER_JUNCTION,             CSS_COLOR( 0,   210, 0,   1 ) },
+            { LAYER_GLOBLABEL,            CSS_COLOR( 255, 255, 255, 1 ) },  /* net name = white */
+            { LAYER_HIERLABEL,            CSS_COLOR( 255, 255, 255, 1 ) },  /* net name = white */
+            { LAYER_LOCLABEL,             CSS_COLOR( 255, 255, 255, 1 ) },  /* net name = white */
+            { LAYER_NETCLASS_REFS,        CSS_COLOR( 255, 255, 255, 1 ) },  /* net name = white */
             { LAYER_DRAG_NET_COLLISION,   CSS_COLOR( 255, 59,  48,  0.9 ) },
             { LAYER_RULE_AREAS,           CSS_COLOR( 255, 0,   0,   1 ) },
             { LAYER_NOCONNECT,            CSS_COLOR( 96,  165, 250, 1 ) },
-            { LAYER_NOTES,                CSS_COLOR( 214, 209, 199, 1 ) },
+            { LAYER_NOTES,                CSS_COLOR( 102, 163, 191, 1 ) },  /* block box + title = #66A3BF */
             { LAYER_PRIVATE_NOTES,        CSS_COLOR( 150, 210, 195, 1 ) },
             { LAYER_NOTES_BACKGROUND,     CSS_COLOR( 0,   0,   0,   0 ) },
-            { LAYER_PIN,                  CSS_COLOR( 94,  234, 212, 1 ) },
-            { LAYER_PINNAM,               CSS_COLOR( 203, 213, 225, 1 ) },
-            { LAYER_PINNUM,               CSS_COLOR( 236, 231, 221, 1 ) },
-            { LAYER_REFERENCEPART,        CSS_COLOR( 125, 211, 252, 1 ) },
+            { LAYER_PIN,                  CSS_COLOR( 255, 82,  82,  1 ) },
+            { LAYER_PINNAM,               CSS_COLOR( 255, 255, 255, 1 ) },  /* pin name = white text */
+            { LAYER_PINNUM,               CSS_COLOR( 165, 170, 175, 1 ) },  /* pin number = grey (distinct from text) */
+            { LAYER_REFERENCEPART,        CSS_COLOR( 255, 255, 255, 1 ) },  /* name = white */
 #ifdef __WXMAC__
             // Try to mimic the system highlight color on Mac
             { LAYER_SELECTION_SHADOWS,      COLOR4D( 0.93, 0.91, 0.85, 0.6 ) },
 #else
             { LAYER_SELECTION_SHADOWS,      COLOR4D( 0.93, 0.91, 0.85, 0.8 ) },
 #endif
-            { LAYER_SHEET,                  CSS_COLOR( 94,  234, 212, 1 ) },
+            { LAYER_SHEET,                  CSS_COLOR( 102, 163, 191, 1 ) },  /* box = #66A3BF */
             { LAYER_SHEET_BACKGROUND,       CSS_COLOR( 255, 255, 255, 0 ) },
-            { LAYER_SHEETFILENAME,          CSS_COLOR( 45,  212, 191, 1 ) },
+            { LAYER_SHEETFILENAME,          CSS_COLOR( 102, 163, 191, 1 ) },  /* title = #66A3BF */
             { LAYER_SHEETFIELDS,            CSS_COLOR( 138, 138, 133, 1 ) },
-            { LAYER_SHEETLABEL,             CSS_COLOR( 250, 204, 21,  1 ) },
-            { LAYER_SHEETNAME,              CSS_COLOR( 94,  234, 212, 1 ) },
-            { LAYER_VALUEPART,              CSS_COLOR( 170, 180, 175, 1 ) },
-            { LAYER_WIRE,                   CSS_COLOR( 16,  185, 129, 1 ) },
-            { LAYER_SCHEMATIC_DRAWINGSHEET, CSS_COLOR( 45,  212, 191, 1 ) },
+            { LAYER_SHEETLABEL,             CSS_COLOR( 255, 255, 255, 1 ) },  /* net name = white */
+            { LAYER_SHEETNAME,              CSS_COLOR( 102, 163, 191, 1 ) },  /* title = #66A3BF */
+            { LAYER_VALUEPART,              CSS_COLOR( 255, 255, 255, 1 ) },  /* value = white */
+            { LAYER_WIRE,                   CSS_COLOR( 0,   210, 0,   1 ) },
+            { LAYER_SCHEMATIC_DRAWINGSHEET, CSS_COLOR( 16,  163, 126, 1 ) },  /* sheet border = NEMI Signal Emerald #10A37E */
             { LAYER_SCHEMATIC_PAGE_LIMITS,  CSS_COLOR( 32,  32,  32,  1 ) },
             { LAYER_OP_VOLTAGES,            CSS_COLOR( 251, 146, 60,  1 ) },
             { LAYER_OP_CURRENTS,            CSS_COLOR( 248, 113, 113, 1 ) },
@@ -178,7 +183,7 @@ static const std::map<int, COLOR4D> s_defaultTheme =
             { LAYER_SELECT_OVERLAY,         CSS_COLOR( 4,   255, 67,  1 ) },
             { LAYER_VIA_HOLES,              CSS_COLOR( 227, 183, 46, 1 ) },
             { LAYER_VIA_HOLEWALLS,          CSS_COLOR( 236, 236, 236, 1 ) },
-            { LAYER_DRAWINGSHEET,           CSS_COLOR( 45,  212, 191, 1 ) },
+            { LAYER_DRAWINGSHEET,           CSS_COLOR( 16,  163, 126, 1 ) },  /* PCB sheet border = NEMI Signal Emerald #10A37E */
             { LAYER_PAGE_LIMITS,            CSS_COLOR( 32,  32,  32,  1 ) },
             { LAYER_BOARD_OUTLINE_AREA,     CSS_COLOR( 100, 100, 100, 0.35 ) },
             { NETNAMES_LAYER_ID_START,      CSS_COLOR( 255, 255, 255, 0.7 ) },
@@ -309,36 +314,41 @@ static const std::map<int, COLOR4D> s_defaultTheme =
  */
 static const std::map<int, COLOR4D> s_anvilLightOverrides =
         {
-            // ---- Schematic: white sheet, ink-dark symbols -------------------------------
+            // ---- Schematic: white sheet, SAME bright colour-code as dark (2026-08-28) -----
+            // User rule: whatever the theme, component=yellow, wire=green, pin=red, ERC=red,
+            // names/boxes/block-titles=blue.  On the white sheet the hues are deepened just
+            // enough to stay legible (a pure #FFD500 outline vanishes on white), but they are
+            // the SAME four colours the dark theme uses.  Only the sheet stays white.
             { LAYER_SCHEMATIC_BACKGROUND,   CSS_COLOR( 255, 255, 255, 1 ) },
             { LAYER_SCHEMATIC_GRID,         CSS_COLOR( 216, 226, 222, 1 ) },
             { LAYER_SCHEMATIC_GRID_AXES,    CSS_COLOR( 158, 194, 184, 1 ) },
             { LAYER_SCHEMATIC_CURSOR,       CSS_COLOR( 20,  20,  15,  1 ) },
             { LAYER_SCHEMATIC_AUX_ITEMS,    CSS_COLOR( 20,  20,  15,  1 ) },
-            { LAYER_SCHEMATIC_DRAWINGSHEET, CSS_COLOR( 82,  118, 110, 1 ) },
+            { LAYER_SCHEMATIC_DRAWINGSHEET, CSS_COLOR( 16,  163, 126, 1 ) },  /* sheet border = NEMI Signal Emerald #10A37E */
             { LAYER_SCHEMATIC_PAGE_LIMITS,  CSS_COLOR( 199, 210, 206, 1 ) },
-            { LAYER_DEVICE,                 CSS_COLOR( 20,  20,  15,  1 ) },
+            { LAYER_DEVICE,                 CSS_COLOR( 190, 140, 0,   1 ) },  /* component = yellow */
             { LAYER_DEVICE_BACKGROUND,      CSS_COLOR( 255, 252, 242, 1 ) },
-            { LAYER_LOCLABEL,               CSS_COLOR( 20,  20,  15,  1 ) },
-            { LAYER_PINNUM,                 CSS_COLOR( 20,  20,  15,  1 ) },
-            { LAYER_PINNAM,                 CSS_COLOR( 46,  84,  110, 1 ) },
-            { LAYER_NOTES,                  CSS_COLOR( 60,  60,  55,  1 ) },
+            { LAYER_LOCLABEL,               CSS_COLOR( 34,  48,  63,  1 ) },  /* net name = dark slate */
+            { LAYER_NETCLASS_REFS,          CSS_COLOR( 34,  48,  63,  1 ) },  /* net name = dark slate */
+            { LAYER_PINNUM,                 CSS_COLOR( 120, 125, 130, 1 ) },  /* pin number = grey (distinct from text) */
+            { LAYER_PINNAM,                 CSS_COLOR( 46,  84,  110, 1 ) },  /* pin name = dark blue text */
+            { LAYER_NOTES,                  CSS_COLOR( 102, 163, 191, 1 ) },  /* block box + title = #66A3BF */
             { LAYER_PRIVATE_NOTES,          CSS_COLOR( 46,  128, 113, 1 ) },
             { LAYER_HIDDEN,                 CSS_COLOR( 176, 181, 176, 1 ) },
-            { LAYER_WIRE,                   CSS_COLOR( 11,  138, 97,  1 ) },
-            { LAYER_BUS,                    CSS_COLOR( 15,  140, 130, 1 ) },
-            { LAYER_BUS_JUNCTION,           CSS_COLOR( 15,  140, 130, 1 ) },
-            { LAYER_JUNCTION,               CSS_COLOR( 11,  138, 97,  1 ) },
-            { LAYER_PIN,                    CSS_COLOR( 15,  140, 130, 1 ) },
-            { LAYER_SHEET,                  CSS_COLOR( 15,  140, 130, 1 ) },
-            { LAYER_SHEETNAME,              CSS_COLOR( 15,  140, 130, 1 ) },
-            { LAYER_SHEETFILENAME,          CSS_COLOR( 15,  140, 130, 1 ) },
-            { LAYER_HIERLABEL,              CSS_COLOR( 166, 128, 8,   1 ) },
-            { LAYER_SHEETLABEL,             CSS_COLOR( 166, 128, 8,   1 ) },
-            { LAYER_GLOBLABEL,              CSS_COLOR( 199, 98,  20,  1 ) },
-            { LAYER_NOCONNECT,              CSS_COLOR( 37,  106, 199, 1 ) },
-            { LAYER_REFERENCEPART,          CSS_COLOR( 34,  106, 166, 1 ) },
-            { LAYER_VALUEPART,              CSS_COLOR( 92,  102, 97,  1 ) },
+            { LAYER_WIRE,                   CSS_COLOR( 0,   150, 0,   1 ) },  /* wire = green */
+            { LAYER_BUS,                    CSS_COLOR( 0,   140, 90,  1 ) },  /* bus = green */
+            { LAYER_BUS_JUNCTION,           CSS_COLOR( 0,   140, 90,  1 ) },
+            { LAYER_JUNCTION,               CSS_COLOR( 0,   150, 0,   1 ) },  /* wire = green */
+            { LAYER_PIN,                    CSS_COLOR( 215, 30,  30,  1 ) },  /* pin = red */
+            { LAYER_SHEET,                  CSS_COLOR( 102, 163, 191, 1 ) },  /* box = #66A3BF */
+            { LAYER_SHEETNAME,              CSS_COLOR( 102, 163, 191, 1 ) },  /* title = #66A3BF */
+            { LAYER_SHEETFILENAME,          CSS_COLOR( 102, 163, 191, 1 ) },  /* title = #66A3BF */
+            { LAYER_HIERLABEL,              CSS_COLOR( 34,  48,  63,  1 ) },  /* net name = dark slate */
+            { LAYER_SHEETLABEL,             CSS_COLOR( 34,  48,  63,  1 ) },  /* net name = dark slate */
+            { LAYER_GLOBLABEL,              CSS_COLOR( 34,  48,  63,  1 ) },  /* net name = dark slate */
+            { LAYER_NOCONNECT,              CSS_COLOR( 215, 30,  30,  1 ) },
+            { LAYER_REFERENCEPART,          CSS_COLOR( 34,  48,  63,  1 ) },  /* name = dark slate */
+            { LAYER_VALUEPART,              CSS_COLOR( 34,  48,  63,  1 ) },  /* value = dark slate */
             { LAYER_HOVERED,                CSS_COLOR( 16,  163, 126, 1 ) },
             { LAYER_SELECTION_SHADOWS,      COLOR4D( 0.06, 0.64, 0.49, 0.8 ) },
 
@@ -348,7 +358,7 @@ static const std::map<int, COLOR4D> s_anvilLightOverrides =
             { LAYER_GRID_AXES,              CSS_COLOR( 150, 160, 158, 1 ) },
             { LAYER_CURSOR,                 CSS_COLOR( 20,  20,  15,  1 ) },
             { LAYER_AUX_ITEMS,              CSS_COLOR( 20,  20,  15,  1 ) },
-            { LAYER_DRAWINGSHEET,           CSS_COLOR( 82,  118, 110, 1 ) },
+            { LAYER_DRAWINGSHEET,           CSS_COLOR( 16,  163, 126, 1 ) },  /* PCB sheet border = NEMI Signal Emerald #10A37E */
             { LAYER_PAGE_LIMITS,            CSS_COLOR( 199, 210, 206, 1 ) },
             { LAYER_DRC_EXCLUSION,          CSS_COLOR( 70,  70,  64,  0.8 ) },
             { LAYER_VIA_HOLEWALLS,          CSS_COLOR( 70,  70,  64,  1 ) },
