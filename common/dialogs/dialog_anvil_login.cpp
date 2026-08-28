@@ -18,6 +18,7 @@
  */
 
 #include <dialogs/dialog_anvil_login.h>
+#include <dialogs/anvil_startup_cover.h>
 
 #include <anvil_auth/anvil_auth.h>
 #include <anvil_auth/anvil_api_defs.h>
@@ -3124,6 +3125,59 @@ private:
 };
 
 
+
+// -------------------------------------------------------------------------------------
+// startup geometry — shared by the sign-in gate and the startup cover, so the two stand in
+// exactly the same place and swapping one for the other shows no jump
+// -------------------------------------------------------------------------------------
+
+/// Open @a aWindow as a full startup page: maximized, with a sane windowed size behind the
+/// maximize box.  @a aCoverWindow, when given, is the window whose place it takes.
+void applyAnvilStartupGeometry( wxTopLevelWindow* aWindow, wxTopLevelWindow* aCoverWindow )
+{
+    // Size on the display of the window we are taking over from, not on whatever display an
+    // unshown window happens to report.
+    wxWindow* reference = aCoverWindow ? static_cast<wxWindow*>( aCoverWindow ) : aWindow;
+
+    int index = wxDisplay::GetFromWindow( reference );
+
+    if( index == wxNOT_FOUND )
+        index = 0;
+
+    const wxRect work = wxDisplay( index ).GetClientArea();
+
+    // Floor for a restored-down window: below this the brand panel and the card start fighting
+    // over the width, so refuse to be dragged any smaller.
+    aWindow->SetMinSize( wxSize( std::min( aWindow->FromDIP( 1000 ), work.width ),
+                                 std::min( aWindow->FromDIP( 640 ), work.height ) ) );
+
+    // What the maximize box toggles back to: a comfortable window centred on the work area,
+    // never larger than the display can hold.
+    const wxSize restored( std::min( aWindow->FromDIP( 1280 ), work.width ),
+                           std::min( aWindow->FromDIP( 820 ), work.height ) );
+
+    // Taking over from a windowed main frame: stand exactly where it stands, so the swap reads
+    // as one window changing what it shows rather than a second window appearing.
+    // (Its rect is read even while it is hidden — during a re-login it is hidden behind us, and
+    // that is exactly the geometry we have to keep standing in for.)
+    if( aCoverWindow && !aCoverWindow->IsMaximized() && !aCoverWindow->IsIconized() )
+    {
+        const wxRect frameRect = aCoverWindow->GetRect();
+
+        aWindow->SetSize( wxRect( frameRect.x, frameRect.y,
+                                  std::max( frameRect.width, restored.x ),
+                                  std::max( frameRect.height, restored.y ) ) );
+        return;
+    }
+
+    aWindow->SetSize( wxRect( work.x + ( work.width - restored.x ) / 2,
+                              work.y + ( work.height - restored.y ) / 2, restored.x,
+                              restored.y ) );
+
+    aWindow->Maximize( true );
+}
+
+
 } // namespace
 
 
@@ -3404,44 +3458,7 @@ wxWindow* DIALOG_ANVIL_LOGIN::buildOpeningPage( wxWindow* aParent )
 
 void DIALOG_ANVIL_LOGIN::applyStartupGeometry()
 {
-    // Size ourselves on the display of the window we are taking over from, not on whatever
-    // display an unshown dialog happens to report.
-    wxWindow* reference = m_coverWindow ? static_cast<wxWindow*>( m_coverWindow ) : this;
-
-    int index = wxDisplay::GetFromWindow( reference );
-
-    if( index == wxNOT_FOUND )
-        index = 0;
-
-    const wxRect work = wxDisplay( index ).GetClientArea();
-
-    // Floor for a restored-down window: below this the brand panel and the sign-in card start
-    // fighting over the width, so refuse to be dragged any smaller.
-    SetMinSize( wxSize( std::min( FromDIP( 1000 ), work.width ),
-                        std::min( FromDIP( 640 ), work.height ) ) );
-
-    // What the maximize box toggles back to: a comfortable window centred on the work area,
-    // never larger than the display can hold.
-    const wxSize restored( std::min( FromDIP( 1280 ), work.width ),
-                           std::min( FromDIP( 820 ), work.height ) );
-
-    // Taking over from a windowed main frame: stand exactly where it stands, so the swap
-    // reads as one window changing what it shows rather than a second window appearing.
-    // (Its rect is read even while it is hidden — during a re-login it is hidden behind us,
-    // and that is exactly the geometry we have to keep standing in for.)
-    if( m_coverWindow && !m_coverWindow->IsMaximized() && !m_coverWindow->IsIconized() )
-    {
-        const wxRect frameRect = m_coverWindow->GetRect();
-
-        SetSize( wxRect( frameRect.x, frameRect.y, std::max( frameRect.width, restored.x ),
-                         std::max( frameRect.height, restored.y ) ) );
-        return;
-    }
-
-    SetSize( wxRect( work.x + ( work.width - restored.x ) / 2,
-                     work.y + ( work.height - restored.y ) / 2, restored.x, restored.y ) );
-
-    Maximize( true );
+    applyAnvilStartupGeometry( this, m_coverWindow );
 }
 
 
@@ -3717,4 +3734,168 @@ void DIALOG_ANVIL_LOGIN::onResendTick( wxTimerEvent& )
     }
 
     Layout();
+}
+
+
+// -----------------------------------------------------------------------------------------
+// ANVIL_STARTUP_COVER
+//
+// Implemented here, rather than in a file of its own, so that it can be built out of the
+// sign-in screen's own surfaces: the same populated board, the same light page, the same card.
+// Those are file-local classes, and the cover only exists so the hand-off from the gate looks
+// like one window changing what it shows — splitting them apart would guarantee they drift.
+// -----------------------------------------------------------------------------------------
+
+ANVIL_STARTUP_COVER::ANVIL_STARTUP_COVER() :
+        // A framed window, not a borderless splash.  The close box is dropped and a close is
+        // refused below: startup drives this window through a raw pointer it holds for seconds
+        // at a time, and the pumps that keep the rail painting would happily dispatch a click
+        // on it.
+        wxFrame( nullptr, wxID_ANY, wxS( "ANVIL CAD | EDA DESIGN SUITE" ), wxDefaultPosition,
+                 wxDefaultSize, ( wxDEFAULT_FRAME_STYLE & ~wxCLOSE_BOX ) | wxCLIP_CHILDREN ),
+        m_track( nullptr )
+{
+    // Whatever shows through before the panels paint should be the page, not the system's
+    // window background.
+    SetBackgroundColour( ANVIL::LOGIN_SURFACE );
+
+    wxBoxSizer* split = new wxBoxSizer( wxHORIZONTAL );
+
+    split->Add( new BRAND_PANEL( this ), 13, wxEXPAND );
+
+    FORM_PANEL* form = new FORM_PANEL( this );
+    split->Add( form, 8, wxEXPAND );
+
+    // ---- right page: the card, centred ---------------------------------------------------
+    wxBoxSizer* formOuter = new wxBoxSizer( wxHORIZONTAL );
+    wxBoxSizer* column = new wxBoxSizer( wxVERTICAL );
+
+    column->AddStretchSpacer( 1 );
+
+    CARD_PANEL* card = new CARD_PANEL( form );
+    wxBoxSizer* cardOuter = new wxBoxSizer( wxVERTICAL );
+    wxBoxSizer* cardSizer = new wxBoxSizer( wxVERTICAL );
+
+    const wxFont base = GetFont();
+
+    // ---- card header: badge + title + subtitle, laid out as the gate's ------------------
+    {
+        wxBoxSizer* header = new wxBoxSizer( wxHORIZONTAL );
+        header->Add( new BADGE_ICON( card ), 0, wxALIGN_CENTER_VERTICAL );
+
+        wxBoxSizer* headerText = new wxBoxSizer( wxVERTICAL );
+
+        wxStaticText* heading = new wxStaticText( card, wxID_ANY, _( "You're signed in" ) );
+        {
+            wxFont headingFont = base;
+            headingFont.MakeBold();
+            headingFont.SetFractionalPointSize( base.GetFractionalPointSize() * 1.5 );
+            heading->SetFont( headingFont );
+            heading->SetForegroundColour( ANVIL::LOGIN_INK );
+            heading->SetBackgroundColour( ANVIL::LOGIN_SURFACE );
+        }
+        headerText->Add( heading, 0 );
+
+        // Naming the account is the one thing this page can say that the gate could not, and
+        // it is what tells a returning user which session is being restored.
+        const ANVIL_USER user = ANVIL_AUTH::GetUser();
+        const wxString   subtitle =
+                user.email.IsEmpty()
+                        ? _( "Opening your workspace…" )
+                        : wxString::Format( _( "%s — opening your workspace…" ), user.Label() );
+
+        wxStaticText* sub = new wxStaticText( card, wxID_ANY, subtitle );
+        sub->SetForegroundColour( ANVIL::LOGIN_MUTED );
+        sub->SetBackgroundColour( ANVIL::LOGIN_SURFACE );
+        headerText->Add( sub, 0, wxTOP, FromDIP( 4 ) );
+
+        header->Add( headerText, 1, wxALIGN_CENTER_VERTICAL | wxLEFT, FromDIP( 16 ) );
+        cardSizer->Add( header, 0, wxEXPAND );
+    }
+
+    // ---- where the gate puts its form, the cover puts the loading rail -------------------
+    {
+        wxBoxSizer* body = new wxBoxSizer( wxVERTICAL );
+
+        body->Add( new TRACKED_LABEL( card, _( "SESSION ESTABLISHED" ), ANVIL::ACCENT,
+                                      ANVIL::LOGIN_SURFACE ),
+                   0, wxBOTTOM, FromDIP( 8 ) );
+
+        // Startup is long enough that a page saying only "signed in" reads as a hang.  The
+        // rail names the step under way and how far in we are; SetProgress() drives it.
+        m_track = new ANVIL_LOADING_TRACK( card );
+        body->Add( m_track, 0, wxEXPAND | wxTOP, FromDIP( 6 ) );
+
+        // The same fixed width the gate caps its form at: on a maximized window a proportional
+        // column would stretch the rail across half the display.
+        body->SetMinSize( FromDIP( wxSize( 400, -1 ) ) );
+
+        cardSizer->Add( body, 0, wxEXPAND | wxTOP, FromDIP( 24 ) );
+    }
+
+    cardSizer->Add( new RULE_LABEL( card, wxEmptyString ), 0, wxEXPAND | wxTOP, FromDIP( 16 ) );
+    cardSizer->Add( new TRUST_LINE( card, _( "Secure. Reliable. Engineered for teams." ) ), 0,
+                    wxEXPAND | wxTOP, FromDIP( 12 ) );
+
+    // GUTTER of the border is the halo/shadow gutter; the rest is the card's inner padding.
+    cardOuter->Add( cardSizer, 1, wxEXPAND | wxALL, FromDIP( CARD_PANEL::GUTTER + 30 ) );
+    card->SetSizer( cardOuter );
+
+    column->Add( card, 0, wxEXPAND );
+    column->AddStretchSpacer( 1 );
+
+    formOuter->AddStretchSpacer( 1 );
+    formOuter->Add( column, 0, wxEXPAND );
+    formOuter->AddStretchSpacer( 1 );
+    form->SetSizer( formOuter );
+
+    SetSizer( split );
+
+    // Alt+F4 and the system menu's Close reach a window with no close box, and would delete it
+    // out from under the pointer startup is still driving.
+    Bind( wxEVT_CLOSE_WINDOW,
+          []( wxCloseEvent& aEvent )
+          {
+              if( aEvent.CanVeto() )
+                  aEvent.Veto();
+              else
+                  aEvent.Skip();
+          } );
+}
+
+
+bool ANVIL_STARTUP_COVER::Show( bool aShow )
+{
+    if( !aShow )
+        return wxFrame::Show( false );
+
+    // Size while still off screen, so the window never appears at one size and jumps to
+    // another.
+    applyAnvilStartupGeometry( this, nullptr );
+
+    const bool shown = wxFrame::Show( true );
+
+    // Paint it now, whole.  The caller is about to block building the main window, the window
+    // has just been resized to its maximized geometry, and so nothing on screen has been drawn
+    // at all; a repaint left queued here is a repaint that never happens.
+    Refresh();
+    Update();
+
+    return shown;
+}
+
+
+void ANVIL_STARTUP_COVER::SetProgress( double aFraction, const wxString& aStep )
+{
+    if( !m_track || !IsShown() )
+        return;
+
+    m_track->SetProgress( aFraction, aStep );
+    m_track->Refresh();
+
+    // Nothing is going to service these paints for us: the caller holds the UI thread for the
+    // whole of the step it just announced.  Flush the queue by hand — the rail we dirtied plus
+    // anything else still carrying an unpainted region — with input to other windows suspended,
+    // so a stray click cannot reach the half-built workspace behind us.
+    wxSafeYield( this, true );
 }

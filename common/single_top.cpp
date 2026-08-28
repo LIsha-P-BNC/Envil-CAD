@@ -57,6 +57,7 @@
 #include <settings/settings_manager.h>
 #include <paths.h>
 #include <anvil_auth/anvil_auth.h>
+#include <dialogs/anvil_startup_cover.h>
 #include <dialogs/dialog_anvil_login.h>
 
 #include <kiplatform/app.h>
@@ -427,19 +428,18 @@ bool PGM_SINGLE_TOP::OnPgmInit()
     m_api_server = std::make_unique<KICAD_API_SERVER>();
 #endif
 
-    // Anvil sign-in gate: standalone editors get the same email-OTP login as the project
-    // manager shell, shown before any editor window exists.  Cancelling means "don't start".
-    // Anvil sign-in gate — same shape as the one in kicad.cpp: the dialog stays on screen as
-    // a cover while the editor frame is built and is destroyed only once that window shows,
-    // and wxWidgets' "last window closed => quit" rule is suspended while it is the only
-    // top-level window.
+    // Anvil sign-in gate, then the startup cover — same shape as kicad.cpp: standalone
+    // editors get the email-OTP login before any editor window exists (cancelling means
+    // "don't start"), and then a cover stands in for the app while the editor frame is
+    // built, on every launch, signed in or not.  wxWidgets' "last window closed => quit"
+    // rule is suspended while one of them is the only top-level window.
     std::unique_ptr<DIALOG_ANVIL_LOGIN> loginDlg;
     const bool                          exitOnDelete = App().GetExitOnFrameDelete();
 
+    App().SetExitOnFrameDelete( false );
+
     if( !ANVIL_AUTH::IsLoggedIn() )
     {
-        App().SetExitOnFrameDelete( false );
-
         loginDlg = std::make_unique<DIALOG_ANVIL_LOGIN>( nullptr );
 
         if( loginDlg->ShowModal() != wxID_OK )
@@ -449,10 +449,19 @@ bool PGM_SINGLE_TOP::OnPgmInit()
             OnPgmExit();
             return false;
         }
+    }
 
-        loginDlg->ShowOpeningState();
-        loginDlg->Show( true );
-        loginDlg->Raise();
+    // Up before the gate comes down, so the desktop never shows through in between; painted
+    // by Show() because the frame build about to start blocks the event loop for seconds.
+    ANVIL_STARTUP_COVER* cover = new ANVIL_STARTUP_COVER();
+    cover->Show( true );
+    cover->Raise();
+    cover->SetProgress( 0.10, _( "Opening the editor…" ) );
+
+    if( loginDlg )
+    {
+        loginDlg->Destroy();
+        loginDlg.release();     // wxWidgets owns it after Destroy()
     }
 
     // Use KIWAY to create a top window, which registers its existence also.
@@ -462,7 +471,10 @@ bool PGM_SINGLE_TOP::OnPgmInit()
 
     if( frame == nullptr )
     {
-        // Clean up
+        // Clean up — the cover included, or the process would sit there showing nothing but
+        // a loading bar with no way to close it.
+        cover->Destroy();
+        App().SetExitOnFrameDelete( exitOnDelete );
         OnPgmExit();
         return false;
     }
@@ -471,6 +483,8 @@ bool PGM_SINGLE_TOP::OnPgmInit()
 
     STARTWIZARD startWizard;
     startWizard.CheckAndRun( frame );
+
+    cover->SetProgress( 0.70, _( "Loading the component libraries…" ) );
 
     // Load library tables after startup wizard
     GetLibraryManager().LoadGlobalTables();
@@ -487,16 +501,19 @@ bool PGM_SINGLE_TOP::OnPgmInit()
     // The 2 calls to wxSafeYield are needed on wxGTK for best results.
     wxSafeYield();
     HideSplash();
-    frame->Show();
 
-    // Editor window is up: retire the sign-in cover and restore the normal shutdown rule.
-    if( loginDlg )
-    {
-        loginDlg->Destroy();
-        loginDlg.release();     // wxWidgets owns it after Destroy()
-        App().SetExitOnFrameDelete( exitOnDelete );
-        frame->Raise();
-    }
+    cover->SetProgress( 0.92, _( "Almost ready…" ) );
+
+    frame->Show();
+    frame->Raise();
+
+    // Let the editor frame actually paint before the cover comes down: Show() only queues its
+    // paints, and swapping too early uncovers the empty rectangle the cover exists to hide.
+    wxSafeYield( frame, true );
+
+    // Editor window is up: retire the cover and restore the normal shutdown rule.
+    cover->Destroy();
+    App().SetExitOnFrameDelete( exitOnDelete );
     wxSafeYield();
 
     // Now after the frame processing, the rest of the positional args are files

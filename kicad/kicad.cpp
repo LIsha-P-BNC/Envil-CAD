@@ -39,6 +39,7 @@
 #include <wx/socket.h>   // non-Windows IPC rides TCP; used for the pre-connect timeout probe
 #endif
 #include <wx/snglinst.h>
+#include <wx/utils.h>   // wxSafeYield
 
 #include <functional>
 #include <memory>
@@ -51,6 +52,7 @@
 #include <macros.h>
 #include <paths.h>
 #include <anvil_auth/anvil_auth.h>
+#include <dialogs/anvil_startup_cover.h>
 #include <dialogs/dialog_anvil_login.h>
 #include <richio.h>
 #include <settings/settings_manager.h>
@@ -243,6 +245,68 @@ static bool anvilForwardToRunningInstance( const wxString& aPayload )
     return ok;
 }
 #endif // wxUSE_IPC
+
+
+namespace
+{
+
+/**
+ * Keeps the startup cover and wxWidgets' "last window closed => quit" rule in step with each
+ * other, on every path out of OnPgmInit().
+ *
+ * Suspending that rule is what lets the cover stand alone before the shell exists; retiring
+ * the cover is what has to happen before OnPgmInit() returns, whether it succeeded or bailed
+ * out.  A cover left standing after a failed startup would keep the process alive with nothing
+ * on screen but a loading bar, and no way to close it.
+ */
+class STARTUP_COVER_GUARD
+{
+public:
+    explicit STARTUP_COVER_GUARD( wxApp& aApp ) :
+            m_app( aApp ),
+            m_cover( nullptr ),
+            m_exitOnFrameDelete( aApp.GetExitOnFrameDelete() )
+    {
+        m_app.SetExitOnFrameDelete( false );
+    }
+
+    ~STARTUP_COVER_GUARD() { Retire(); }
+
+    STARTUP_COVER_GUARD( const STARTUP_COVER_GUARD& ) = delete;
+    STARTUP_COVER_GUARD& operator=( const STARTUP_COVER_GUARD& ) = delete;
+
+    /// Put the cover on screen, painted, and return it.  Never null.
+    ANVIL_STARTUP_COVER* ShowCover()
+    {
+        if( !m_cover )
+        {
+            m_cover = new ANVIL_STARTUP_COVER();
+            m_cover->Show( true );
+            m_cover->Raise();
+        }
+
+        return m_cover;
+    }
+
+    /// Take the cover down and hand the shutdown rule back.  Idempotent.
+    void Retire()
+    {
+        if( m_cover )
+        {
+            m_cover->Destroy();     // wxWidgets owns its windows; one is never deleted
+            m_cover = nullptr;
+        }
+
+        m_app.SetExitOnFrameDelete( m_exitOnFrameDelete );
+    }
+
+private:
+    wxApp&               m_app;
+    ANVIL_STARTUP_COVER* m_cover;
+    const bool           m_exitOnFrameDelete;
+};
+
+} // namespace
 
 
 bool PGM_KICAD::OnPgmInit()
@@ -442,50 +506,51 @@ bool PGM_KICAD::OnPgmInit()
             insertExpanded( it->second.GetValue() );
     }
 
-    // Anvil sign-in gate.  The dialog is deliberately NOT destroyed here: it stays on screen
-    // showing "opening your workspace" while the manager frame is built, and is torn down
-    // only once that window is visible (see below).  Destroying it first would leave the
-    // desktop bare for the whole of startup, which reads as the app having restarted.
+    // Anvil sign-in gate, then the startup cover.
     //
-    // While it is the only top-level window, wxWidgets' "last window closed => quit" rule
-    // must also be suspended, or its destruction would end the app.
+    // The gate only appears when there is no stored session; the cover appears on EVERY
+    // launch.  Building the shell takes seconds on the UI thread, and with nothing on screen
+    // that is a blank desktop — which reads as the app having failed to start.
+    //
+    // While the gate or the cover is the only top-level window, wxWidgets' "last window
+    // closed => quit" rule must be suspended, or retiring one would end the app.  The guard
+    // below restores it, and retires the cover, on every path out of this function — including
+    // the early failure returns further down.
     std::unique_ptr<DIALOG_ANVIL_LOGIN> loginDlg;
-    const bool                          exitOnDelete = App().GetExitOnFrameDelete();
+    STARTUP_COVER_GUARD                 coverGuard( App() );
 
     if( !ANVIL_AUTH::IsLoggedIn() )
     {
-        App().SetExitOnFrameDelete( false );
-
         loginDlg = std::make_unique<DIALOG_ANVIL_LOGIN>( nullptr );
 
         if( loginDlg->ShowModal() != wxID_OK )
         {
             loginDlg.reset();
-            App().SetExitOnFrameDelete( exitOnDelete );
             OnPgmExit();
             return false;
         }
-
-        // ShowModal() hid the dialog; bring it back as a plain window so it covers the
-        // screen for the rest of startup.
-        //
-        // Order matters.  The window has to be up, and at its final maximized size, BEFORE
-        // ShowOpeningState() paints it: a repaint asked for while it is hidden is dropped, and
-        // the very next thing this thread does is block for seconds building the main window,
-        // with no event loop left to service one later.  Painting last is what stops the cover
-        // standing there full of whatever the desktop had under it.
-        loginDlg->Show( true );
-        loginDlg->Raise();
-        loginDlg->ShowOpeningState();
     }
 
-    // Advance the cover's loading rail as each real startup step clears.  Harmless when there
-    // is no cover (an already-signed-in launch), so the call sites need no guard of their own.
+    // ShowModal() has already hidden the gate, so the cover has to go up before the gate comes
+    // down or the desktop shows through in between.  Show() sizes it to the display and paints
+    // it whole; the very next thing this thread does is block for seconds building the main
+    // window, with no event loop left to service a repaint asked for later.
+    ANVIL_STARTUP_COVER* cover = coverGuard.ShowCover();
+
+    cover->SetProgress( 0.05, _( "Preparing your workspace…" ) );
+
+    // The cover is standing in the gate's place now, so this cannot leave the desktop bare.
+    if( loginDlg )
+    {
+        loginDlg->Destroy();
+        loginDlg.release();     // wxWidgets owns it after Destroy()
+    }
+
+    // Advance the cover's loading rail as each real startup step clears.
     auto openingStep =
-            [&loginDlg]( double aFraction, const wxString& aStep )
+            [cover]( double aFraction, const wxString& aStep )
             {
-                if( loginDlg )
-                    loginDlg->SetOpeningProgress( aFraction, aStep );
+                cover->SetProgress( aFraction, aStep );
             };
 
     wxFrame*      frame = nullptr;
@@ -677,21 +742,28 @@ bool PGM_KICAD::OnPgmInit()
         }
 
         if( !loaded && appType == KICAD_MAIN_FRAME_T )
+        {
+            // PreloadAllLibraries() only queues the work (it runs via CallAfter); the pump
+            // inside the step below is the event pass that actually runs it.  Announcing it
+            // first is what keeps the caption honest while the libraries load, and what keeps
+            // that load behind the cover instead of in front of a frozen main window.
             managerFrame->PreloadAllLibraries();
+            openingStep( 0.80, _( "Loading symbol and footprint libraries…" ) );
+        }
     }
 
     openingStep( 0.92, _( "Almost ready…" ) );
 
     frame->Show( true );
-
-    // The workspace is up: retire the sign-in cover and restore the normal shutdown rule.
-    if( loginDlg )
-    {
-        loginDlg->Destroy();
-        loginDlg.release();     // wxWidgets owns it after Destroy()
-        App().SetExitOnFrameDelete( exitOnDelete );
-    }
     frame->Raise();
+
+    // Show() only queues the shell's paints — it returns long before anything is drawn.  Let
+    // the frame and its panes actually paint before the cover comes down, or the swap uncovers
+    // an empty white rectangle, which is the blank screen the cover exists to hide.
+    wxSafeYield( frame, true );
+
+    // The workspace is up: retire the cover and hand back the normal shutdown rule.
+    coverGuard.Retire();
 
 #if wxUSE_IPC
     // First (and only) instance: start the local IPC listener so later launches can hand us a
