@@ -118,6 +118,12 @@ DIALOG_SHIM::DIALOG_SHIM( wxWindow* aParent, wxWindowID id, const wxString& titl
     KIWAY_HOLDER* kiwayHolder = nullptr;
     m_initialSize = size;
 
+    // Anvil: wx stamps the caption dark at creation whenever its dark-mode machinery is on,
+    // which since the live-theme work is ALWAYS (see KIPLATFORM::APP::SetLiveDarkMode) — so a
+    // dialog opened while the light theme is active would wear a dark title bar.  Re-stamp it
+    // with the actual app theme.
+    KIPLATFORM::UI::SetDarkTitlebar( this, !ANVIL::IsLight() );
+
     // Anvil: apply the app-wide UI base font size (AnvilUiFontPt) before the derived dialog builds
     // its controls, so every widget inherits it.  A dialog is a top-level window and does not
     // inherit its parent frame's font, so it must be set here independently of EDA_BASE_FRAME.

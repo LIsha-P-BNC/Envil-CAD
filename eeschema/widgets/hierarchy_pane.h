@@ -53,9 +53,12 @@ class HIERARCHY_TREE : public wxTreeCtrl
 {
 public:
     HIERARCHY_TREE( HIERARCHY_PANE* parent ) :
+            // wxBORDER_NONE: the stock themed control edge (#828790) reads as a dark line down
+            // the pane's left side in the Anvil light theme, and the AUI pane border already
+            // frames this tree.
             wxTreeCtrl( (wxWindow*) parent, wxID_ANY, wxDefaultPosition, wxDefaultSize,
-                        wxTR_HAS_BUTTONS | wxTR_EDIT_LABELS | wxTR_HIDE_ROOT, wxDefaultValidator,
-                        wxT( "HierachyTreeCtrl" ) )
+                        wxTR_HAS_BUTTONS | wxTR_EDIT_LABELS | wxTR_HIDE_ROOT | wxBORDER_NONE,
+                        wxDefaultValidator, wxT( "HierachyTreeCtrl" ) )
     {
     }
 

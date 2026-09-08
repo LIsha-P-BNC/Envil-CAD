@@ -189,7 +189,7 @@ void KICAD_MANAGER_FRAME::doReCreateMenuBar()
     ACTION_MENU* viewMenu = new ACTION_MENU( false, controlTool );
 
     ACTION_MENU* panelsMenu = new ACTION_MENU( false, controlTool );
-    panelsMenu->SetTitle( _( "Panels" ) );
+    panelsMenu->SetTitle( _( "Project Panels" ) );
     buildPanelsMenu( panelsMenu );
     viewMenu->Add( panelsMenu );
 
@@ -458,7 +458,7 @@ void KICAD_MANAGER_FRAME::buildViewMenu( ACTION_MENU* viewMenu )
     KICAD_MANAGER_CONTROL* controlTool = m_toolManager->GetTool<KICAD_MANAGER_CONTROL>();
 
     ACTION_MENU* panelsMenu = new ACTION_MENU( false, controlTool );
-    panelsMenu->SetTitle( _( "Panels" ) );
+    panelsMenu->SetTitle( _( "Project Panels" ) );
     buildPanelsMenu( panelsMenu );
     viewMenu->Add( panelsMenu );
 

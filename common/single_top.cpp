@@ -409,19 +409,14 @@ bool PGM_SINGLE_TOP::OnPgmInit()
 
 
     // Same two-theme handshake as the shell (kicad.cpp): flip this module's + kicommon's ANVIL
-    // palette first, and only enable wx's MSW dark mode when we are NOT in the light theme.
+    // palette first, then establish wx's MSW dark mode unconditionally (it can only be enabled
+    // before the first window exists, and the live theme toggle needs it in place) and steer
+    // the OS-level per-app mode to the persisted theme — light renders exactly as if dark mode
+    // had never been enabled.
     KIUI::SyncAnvilTheme();
 
-    if( !ANVIL::IsLight() )
-    {
-        if( const COMMON_SETTINGS* cfg = Pgm().GetCommonSettings() )
-        {
-            if( cfg->m_Appearance.app_theme == APP_THEME::DARK )
-                KIPLATFORM::APP::EnableDarkMode( true );
-            else if( cfg->m_Appearance.app_theme == APP_THEME::AUTO )
-                KIPLATFORM::APP::EnableDarkMode( false );
-        }
-    }
+    KIPLATFORM::APP::EnableDarkMode( true );
+    KIPLATFORM::APP::SetLiveDarkMode( !ANVIL::IsLight() );
 
 #ifdef KICAD_IPC_API
     // Create the API server thread once the app event loop exists

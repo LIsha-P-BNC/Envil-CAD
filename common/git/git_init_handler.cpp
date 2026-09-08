@@ -86,7 +86,7 @@ static void ensureProjectGitignore( const wxString& aProjectPath )
         return;
 
     if( !fileExists )
-        out.Write( wxS( "# KiCad-generated files and directories.\n" ) );
+        out.Write( wxS( "# Anvil-generated files and directories.\n" ) );
     else if( !hasTrailingNewline )
         out.Write( wxS( "\n" ) );
 

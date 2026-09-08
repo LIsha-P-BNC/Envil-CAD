@@ -3837,6 +3837,16 @@ void PCB_EDIT_FRAME::CommonSettingsChanged( int aFlags )
 
     GetGalDisplayOptions().ReadWindowSettings( GetPcbNewSettings()->m_Window );
 
+    // A live theme flip can't touch netclasses, design rules or layout — skip the DRC engine
+    // re-init (rule file parse + compile, pure latency on the toggle) and the size event, but
+    // still repaint the canvas in the new colours.
+    if( aFlags & ANVIL_THEME_FLIP )
+    {
+        GetCanvas()->GetView()->MarkTargetDirty( KIGFX::TARGET_NONCACHED );
+        GetCanvas()->ForceRefresh();
+        return;
+    }
+
     // Netclass definitions could have changed, either by us or by Eeschema, so we need to
     // recompile the implicit rules
     DRC_TOOL*   drcTool = m_toolManager->GetTool<DRC_TOOL>();

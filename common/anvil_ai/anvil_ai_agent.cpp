@@ -950,7 +950,11 @@ void ANVIL_AI_AGENT::onBridgeMessage( const wxString& aJson )
         m_sessionAttachments.Clear();   // forget earlier attachments too
         m_savedSession.Clear();
         saveSessionState();             // an explicit New chat also forgets on disk
-        emit( { { "kind", "status" }, { "text", "New conversation." } } );
+
+        // Ack with "done", NOT "status": the page shows every "status" as an open
+        // turn (spinner + Stop button) until a "done"/"error" closes it, so a
+        // "status" ack here left the panel stuck busy on "New conversation.".
+        emit( { { "kind", "done" } } );
     }
     else if( kind == "message" )
     {

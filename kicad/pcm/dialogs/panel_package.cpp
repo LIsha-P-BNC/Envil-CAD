@@ -89,7 +89,7 @@ PANEL_PACKAGE::PANEL_PACKAGE( wxWindow* parent, const ActionCallback& aCallback,
 
     m_warningIcon->SetBitmap( KiBitmapBundle( BITMAPS::small_warning ) );
     m_warningIcon->SetToolTip( _( "Warning: This plugin only supports the legacy Python API "
-                                  "and will not run in this KiCad version." ) );
+                                  "and will not run in this Anvil version." ) );
     m_warningIcon->Show( m_data.swig_warning );
 
     SetState( m_data.state, m_data.pinned );
@@ -210,7 +210,7 @@ void PANEL_PACKAGE::OnButtonClicked( wxCommandEvent& event )
             // Don't swallow the click: without this the button just does nothing and the user
             // has no way to tell the package apart from one that failed to install.
             wxMessageBox( wxString::Format( _( "Package '%s' has no version that can be installed "
-                                               "with this version of KiCad on this platform." ),
+                                               "with this version of Anvil on this platform." ),
                                             m_data.package.name ),
                           _( "Install package" ), wxICON_INFORMATION | wxOK,
                           wxGetTopLevelParent( this ) );

@@ -979,14 +979,18 @@ COLOR4D FOOTPRINT_VIEWER_FRAME::GetGridColor()
 void FOOTPRINT_VIEWER_FRAME::UpdateTitle()
 {
     wxString title;
-    LIBRARY_MANAGER& manager = Pgm().GetLibraryManager();
 
+    // This title doubles as the shell tab label, so it names the library and footprint the
+    // user selected in the lists -- not the library's full filesystem path, which is
+    // unreadable in a tab and far too long.  UpdateTitle() is called from every selection
+    // path (library click, footprint click, SelectAndViewFootprint), and the tab label
+    // follows the title, so the label tracks the selection live.
     if( !getCurNickname().IsEmpty() )
     {
-        if( std::optional<wxString> optUri = manager.GetFullURI( LIBRARY_TABLE_TYPE::FOOTPRINT, getCurNickname(), true ) )
-            title = getCurNickname() + wxT( " \u2014 " ) + *optUri;
-        else
-            title = _( "[no library selected]" );
+        title = getCurNickname();
+
+        if( !getCurFootprintName().IsEmpty() )
+            title += wxT( ":" ) + getCurFootprintName();
     }
     else
     {

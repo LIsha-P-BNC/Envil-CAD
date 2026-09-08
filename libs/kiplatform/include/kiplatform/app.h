@@ -39,6 +39,19 @@ namespace KIPLATFORM
         void EnableDarkMode( bool aForce );
 
         /**
+         * Switch the OS-level per-app dark mode at RUNTIME, without restarting.
+         *
+         * wxMSW's own dark mode (MSWEnableDarkMode) can only be established before the first
+         * window exists and can never be turned off again, so Anvil enables it unconditionally
+         * at start-up and then steers the effective mode through here: the per-app preferred
+         * mode (the same uxtheme machinery wx uses) plus a WM_THEMECHANGED sweep over every
+         * open window, so native menus, scrollbars, captions and control themes follow the
+         * flip immediately.  Pair with ANVIL::SetMode()/KIUI::SyncAnvilTheme(), which repaint
+         * the app-drawn chrome.  No-op on non-Windows platforms.
+         */
+        void SetLiveDarkMode( bool aDark );
+
+        /**
          * Anvil "Vibrant Purple & Indigo" theme: when enabled, the MSW dark-mode palette
          * (window/panel backgrounds, text, highlight, the native menu bar and title bar) is
          * tinted dark purple instead of the default grey.  Must be called BEFORE EnableDarkMode()

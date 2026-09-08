@@ -18,6 +18,7 @@
  */
 
 #include <build_version.h>
+#include <kiplatform/anvil_theme.h>
 
 #include <tool/tool_manager.h>
 #include <tool/tool_base.h>
@@ -90,9 +91,14 @@ WEBVIEW_PANEL::WEBVIEW_PANEL( wxWindow* aParent, wxWindowID aId, const wxPoint& 
     browser->RegisterHandler( wxSharedPtr<wxWebViewHandler>( new wxWebViewFSHandler( "memory" ) ) );
 #endif
     browser->SetUserAgent( wxString::Format( "Anvil/%s WebView/%s", GetMajorMinorPatchVersion(), wxGetOsDescription() ) );
-    browser->Create( this, wxID_ANY, wxEmptyString, wxDefaultPosition, wxDefaultSize );
+    // wxBORDER_NONE + a theme-toned host background: the panel shows through as a 1px sliver
+    // beside the WebView, and any border/default fill here reads as a dark line down the AI
+    // panel's edge in the light theme.
+    browser->Create( this, wxID_ANY, wxEmptyString, wxDefaultPosition, wxDefaultSize,
+                     wxBORDER_NONE );
     sizer->Add( browser, 1, wxEXPAND );
     SetSizer( sizer );
+    SetBackgroundColour( ANVIL::CHROME_PANEL );
 
 #ifndef __WXMAC__
     browser->RegisterHandler( wxSharedPtr<wxWebViewHandler>( new wxWebViewArchiveHandler( "wxfs" ) ) );

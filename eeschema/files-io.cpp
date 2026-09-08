@@ -150,6 +150,24 @@ bool SCH_EDIT_FRAME::OpenProjectFiles( const std::vector<wxString>& aFileSet, in
     wxFileName pro = fullFileName;
     pro.SetExt( FILEEXT::ProjectFileExtension );
 
+    // Anvil keeps ONE project per directory, so a schematic living in the loaded
+    // project's directory belongs to THAT project.  Deriving the project name by
+    // swapping the extension breaks for any file carrying an infix (AI-generated
+    // "name.attempt1.*" siblings): it yields "name.attempt1.kicad_pro", which never
+    // exists, so the differentProject block below unloaded the real project, CREATED
+    // the phantom project file on disk and switched the whole single-window app to it.
+    // Only a schematic from a directory the loaded project does not own may still
+    // re-derive and switch (classic standalone open).
+    {
+        wxFileName loadedPro( Prj().GetProjectFullName() );
+
+        if( loadedPro.IsOk() && !loadedPro.GetFullPath().IsEmpty()
+                && loadedPro.GetPath() == wxFileName( fullFileName ).GetPath() )
+        {
+            pro = loadedPro;
+        }
+    }
+
     bool is_new = !wxFileName::IsFileReadable( fullFileName );
 
     // If its a non-existent schematic and caller thinks it exists

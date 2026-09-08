@@ -163,6 +163,26 @@ public:
     bool IsPlayerDocked( KIWAY_PLAYER* aPlayer ) override;
 
     /**
+     * KIFACE_TAB_HOST implementation: re-label the tab hosting @a aPlayer after the frame
+     * re-titled itself, so a docked view that changes what it is showing (the library
+     * browsers walking their lists, an editor swapping documents) updates its tab live
+     * instead of keeping the label captured when it was docked.  No-op when the player is
+     * not docked.
+     */
+    void UpdatePlayerTabTitle( KIWAY_PLAYER* aPlayer, const wxString& aTitle ) override;
+
+    /**
+     * KIFACE_TAB_HOST implementation: re-host a non-player top-level window (e.g. the
+     * modeless BOM / Symbol Fields Table dialog) as a tab in the center editor notebook,
+     * using the same WS_CHILD re-hosting surgery as DockEditorAsTab().  The window gets
+     * no toolbar/menu/status-bar syncing — it is just a tabbed document view.  Closing
+     * its tab Close()es the window (vetoable); the tab is removed when the window is
+     * destroyed.  Returns false (caller floats the window) when the shell is off or on
+     * non-Windows platforms.
+     */
+    bool DockWindowAsTab( wxWindow* aWindow, const wxString& aTitle ) override;
+
+    /**
      * Remove docked editor tabs whose KIWAY_PLAYER frame has been destroyed (e.g. on
      * project close).  Validity is tested by window-id via wxWindow::FindWindowById —
      * the same mechanism KIWAY itself uses — so it never dereferences a freed frame and
@@ -421,13 +441,10 @@ protected:
 
 public:
     /**
-     * Anvil Next: titlebar quick access (0=Save, 1=Undo, 2=Redo) and the Preferences gear
-     * (3), dispatched to the ACTIVE editor tab's tool manager (resolved per click).
+     * Anvil Next: titlebar Preferences gear (3), dispatched to the ACTIVE editor tab's
+     * tool manager (resolved per click).
      */
     void RunQuickAccessAction( int aWhich );
-
-    /// Dim/brighten the quick-access buttons from the active editor's real state.
-    void RefreshQuickAccess();
 
     /// Update the Altium-style document/project name shown in the title bar.
     void RefreshShellDocumentTitle();
@@ -531,6 +548,11 @@ private:
     /// dangling survives.
     void onDockedEditorDestroyed( wxWindowDestroyEvent& aEvent );
 
+    /// A docked non-player window (see m_dockedWindows) was destroyed: drop its registry
+    /// entry and delete its (now empty) host tab.  Page deletion is deferred via CallAfter
+    /// because this fires from inside the window's destructor.
+    void onDockedWindowDestroyed( wxWindowDestroyEvent& aEvent );
+
     /// Show the active editor tab's hoisted toolbar strip and hide every other editor's, so only
     /// the front tab's toolbar is visible above the tabs.
     void syncShellToolbarToActiveTab();
@@ -602,6 +624,20 @@ private:
     /// Docked editors as (player window-id, host page) pairs.  Window-id (not pointer)
     /// so a destroyed player is detected via FindWindowById without a dangling deref.
     std::vector<std::pair<int, wxWindow*>> m_dockedEditors;
+
+    /// Docked non-player windows (e.g. the BOM dialog) as (window-id, host page) pairs —
+    /// same id-keyed scheme as m_dockedEditors, but these tabs get no toolbar/menu/status
+    /// syncing and closing their tab Close()es the window instead of detaching it.
+    std::vector<std::pair<int, wxWindow*>> m_dockedWindows;
+
+    /// Background-tab editors still awaiting their theme re-apply after a light/dark flip
+    /// (window ids, same scheme as m_dockedEditors).  ToggleAppTheme() themes only the ACTIVE
+    /// tab synchronously and drains this queue one editor per event-loop tick — the flip then
+    /// costs one editor's rebuild instead of one per open tab.
+    std::vector<int>      m_themeReapplyQueue;
+
+    /// Drain one entry of m_themeReapplyQueue and reschedule itself while any remain.
+    void processThemeReapplyQueue();
 
     /// Single-window shell editor pre-warm: FRAME_T values (stored as int to keep this
     /// header light) still to warm, and the timer that warms the next one after a short

@@ -43,6 +43,12 @@ void KIPLATFORM::APP::SetDarkModePurple( bool aOn )
 }
 
 
+void KIPLATFORM::APP::SetLiveDarkMode( bool aDark )
+{
+    // The runtime dark-mode flip is MSW-only; the app-drawn chrome still follows ANVIL::SetMode().
+}
+
+
 bool KIPLATFORM::APP::AttachConsole( bool aTryAlloc )
 {
     // Not implemented on this platform

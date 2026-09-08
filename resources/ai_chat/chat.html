@@ -121,23 +121,9 @@
   .icon-btn svg { width: 16px; height: 16px; }
 
   /* ---------- context strip ---------- */
-  #ctx {
-    flex: 0 0 auto;
-    display: flex; align-items: center; gap: 8px;
-    padding: 6px 14px;
-    font-family: var(--mono); font-size: 10.5px; color: var(--bone-faint);
-    background: var(--header);
-    border-bottom: 1px solid var(--line);
-    white-space: nowrap; overflow: hidden;
-  }
-  #ctx .chip {
-    display: inline-flex; align-items: center; gap: 5px;
-    padding: 2px 8px; border-radius: 6px;
-    background: var(--panel); border: 1px solid var(--line);
-    box-shadow: var(--card-shadow);
-    overflow: hidden; text-overflow: ellipsis; max-width: 46%;
-  }
-  #ctx .chip b { color: var(--emerald); font-weight: 500; }
+  /* Hidden: project/file context is tracked in ctx (sent to C++ with each
+     message) but no longer displayed as chips in the panel. */
+  #ctx { display: none; }
 
   /* ---------- messages ---------- */
   #msgs {
@@ -391,7 +377,6 @@
   :root[data-theme="light"] .bubble a  { color: var(--emerald-dim); }
   :root[data-theme="light"] .chat-btn  { color: var(--emerald-dim); }
   :root[data-theme="light"] .bubble strong { color: var(--emerald-dim); }
-  :root[data-theme="light"] #ctx .chip b   { color: var(--emerald-dim); }
   :root[data-theme="light"] .bubble th     { color: var(--emerald-dim); }
   :root[data-theme="light"] .err-msg {
     background: rgba(196,61,61,.07); border-color: rgba(196,61,61,.32); color: #8E2B2B;
@@ -488,7 +473,7 @@
 const $ = (id) => document.getElementById(id);
 const msgs=$("msgs"), empty=$("empty"), busy=$("busy"), busyTxt=$("busyTxt");
 const inp=$("inp"), sendBtn=$("sendBtn"), stopBtn=$("stopBtn"), tray=$("tray");
-const dot=$("dot"), ctxEl=$("ctx"), fileInput=$("fileInput");
+const dot=$("dot"), fileInput=$("fileInput");
 
 let turnOpen=false, curAi=null, curThink=null, seq=1;
 let ctx={project:"",sch:"",pcb:"",app:""};
@@ -679,11 +664,6 @@ window.anvilRecv=function(s){
 window.anvilSetContext=function(project,sch,pcb,app){
   const changed=project&&project!==ctx.project;
   ctx={project:project||"",sch:sch||"",pcb:pcb||"",app:app||ctx.app};
-  const bits=[];
-  if(ctx.project) bits.push('<span class="chip"><b>proj</b> '+esc(base(ctx.project))+'</span>');
-  if(ctx.sch) bits.push('<span class="chip"><b>sch</b> '+esc(base(ctx.sch))+'</span>');
-  if(ctx.pcb) bits.push('<span class="chip"><b>pcb</b> '+esc(base(ctx.pcb))+'</span>');
-  ctxEl.innerHTML=bits.length?bits.join(""):'<span class="chip">no project</span>';
   $("hsub").textContent = ctx.app?("design · edit · verify — "+ctx.app):"design · edit · verify";
   // NOTE: deliberately NO newChat() here. The page must never decide to kill the
   // conversation on a context ping — C++ resets the session on real project switches.

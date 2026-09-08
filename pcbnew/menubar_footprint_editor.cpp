@@ -138,7 +138,7 @@ void FOOTPRINT_EDIT_FRAME::doReCreateMenuBar()
     ACTION_MENU* viewMenu = new ACTION_MENU( false, selTool );
 
     ACTION_MENU* showHidePanels = new ACTION_MENU( false, selTool );
-    showHidePanels->SetTitle( _( "Panels" ) );
+    showHidePanels->SetTitle( _( "Editor Panels" ) );
     buildPanelsMenu( showHidePanels );
     viewMenu->Add( showHidePanels );
     viewMenu->AppendSeparator();
@@ -406,7 +406,7 @@ void FOOTPRINT_EDIT_FRAME::buildViewMenu( ACTION_MENU* viewMenu )
     PCB_SELECTION_TOOL* selTool = m_toolManager->GetTool<PCB_SELECTION_TOOL>();
 
     ACTION_MENU* showHidePanels = new ACTION_MENU( false, selTool );
-    showHidePanels->SetTitle( _( "Panels" ) );
+    showHidePanels->SetTitle( _( "Editor Panels" ) );
     buildPanelsMenu( showHidePanels );
     viewMenu->Add( showHidePanels );
     viewMenu->AppendSeparator();

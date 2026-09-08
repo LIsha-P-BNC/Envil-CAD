@@ -153,6 +153,19 @@ bool KIWAY_PLAYER::ShowModal( wxString* aResult, wxWindow* aResultantFocusWindow
 }
 
 
+void KIWAY_PLAYER::SetTitle( const wxString& aTitle )
+{
+    EDA_BASE_FRAME::SetTitle( aTitle );
+
+    // Tab labels are captured from the frame title at dock time, so a docked view that
+    // re-titles itself has to tell the shell or its tab keeps the stale label.  Guarded:
+    // wx sets a title during frame construction, long before there is a KIWAY to ask, and
+    // a standalone (undocked) editor simply finds no host.
+    if( HasKiway() )
+        Kiway().UpdatePlayerTab( this, aTitle );
+}
+
+
 bool KIWAY_PLAYER::Destroy()
 {
     Kiway().PlayerDidClose( GetFrameType() );

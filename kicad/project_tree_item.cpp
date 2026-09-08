@@ -297,6 +297,21 @@ void PROJECT_TREE_ITEM::Activate( PROJECT_TREE_PANE* aTreePrjFrame )
         if( isRootSchematic )
         {
             toolMgr->RunAction( KICAD_MANAGER_ACTIONS::editSchematic );
+
+            // The already-open editor may be displaying a SUBSHEET: ShowPlayer cannot tell,
+            // because GetCurrentFileName() reports the root file for every sheet, so it only
+            // re-selected the tab and the editor kept showing the subsheet's name.  Navigate
+            // to the root sheet explicitly; the mail handler no-ops when it is already the
+            // displayed sheet.  Mail the LOADED root filename (not the clicked spelling) so
+            // a dual-extension sibling (x.kicad_sch clicked while x.anvil_sch is loaded)
+            // still matches.
+            if( KIWAY_PLAYER* schFrame = kiway.Player( FRAME_SCH, false ) )
+            {
+                packet = schFrame->GetCurrentFileName().ToStdString();
+
+                if( !packet.empty() )
+                    kiway.ExpressMail( FRAME_SCH, MAIL_SCH_NAVIGATE_TO_SHEET, packet );
+            }
         }
         else
         {
@@ -336,11 +351,12 @@ void PROJECT_TREE_ITEM::Activate( PROJECT_TREE_PANE* aTreePrjFrame )
                 // re-selects the editor's tab otherwise.
                 toolMgr->RunAction( KICAD_MANAGER_ACTIONS::editSchematic );
 
-                KIWAY_PLAYER* schFrame = kiway.Player( FRAME_SCH, false );
-
-                // Only mail a navigation when the editor is not already showing that sheet;
-                // re-navigating to the open sheet would needlessly reset the view.
-                if( schFrame && schFrame->GetCurrentFileName() != fullFileName )
+                // Mail the navigation unconditionally: GetCurrentFileName() reports the ROOT
+                // file for every sheet, so comparing it against the clicked sheet's file could
+                // never detect "already showing it".  The mail handler itself skips the sheet
+                // change when the target is already the displayed sheet, so the view is not
+                // needlessly reset.
+                if( kiway.Player( FRAME_SCH, false ) )
                 {
                     packet = fullFileName.ToStdString();
                     kiway.ExpressMail( FRAME_SCH, MAIL_SCH_NAVIGATE_TO_SHEET, packet );
@@ -358,11 +374,68 @@ void PROJECT_TREE_ITEM::Activate( PROJECT_TREE_PANE* aTreePrjFrame )
 
     case TREE_FILE_TYPE::LEGACY_PCB:
     case TREE_FILE_TYPE::SEXPR_PCB:
-        // Boards not part of the project are opened in a separate process.
         if( fullFileName == frame->PcbFileName() || fullFileName == frame->PcbLegacyFileName() )
+        {
             toolMgr->RunAction( KICAD_MANAGER_ACTIONS::editPCB );
+        }
         else
+        {
+            // Anvil keeps one project per directory, so a sibling board in the project
+            // directory (the AI build's <base>.attempt<N>.anvil_pcb / <base>.best.anvil_pcb
+            // snapshots, manual copies, ...) belongs to THIS project.  Open it in the
+            // docked PCB editor tab like the project board; only a board from a different
+            // directory (= a different project) keeps the separate-process launch below.
+            wxFileName clickedFn( fullFileName );
+            wxFileName activeProFn( frame->GetProjectFileName() );
+
+            if( frame->IsProjectActive() && clickedFn.GetPath() == activeProFn.GetPath() )
+            {
+                KIWAY_PLAYER* pcbFrame = nullptr;
+
+                try
+                {
+                    pcbFrame = kiway.Player( FRAME_PCB_EDITOR, true );
+                }
+                catch( const IO_ERROR& )
+                {
+                    pcbFrame = nullptr;   // no PCB KIFACE -> external launch below
+                }
+
+                if( pcbFrame )
+                {
+                    // OpenProjectFiles() is the same path pcbnew's own File>Open uses:
+                    // it flushes/prompts unsaved edits and handles file locks itself,
+                    // so swapping a live board here is safe.  Skip the reload when the
+                    // clicked board is already the one open (compare via wxFileName:
+                    // the loaded name may carry UNIX separators, and Windows paths are
+                    // case-insensitive).
+                    if( !wxFileName( pcbFrame->GetCurrentFileName() ).GetFullPath()
+                                .IsSameAs( wxFileName( fullFileName ).GetFullPath(), false ) )
+                    {
+                        if( !pcbFrame->OpenProjectFiles( std::vector<wxString>( 1, fullFileName ) ) )
+                            break;   // user cancelled the unsaved-changes prompt, or load failed
+                    }
+
+                    // Dock as a tab (idempotent: re-selects the tab if already docked);
+                    // fall back to an in-process floating window where docking is
+                    // unavailable (non-Windows, or flag off).
+                    if( !frame->DockPlayerAsTab( pcbFrame ) )
+                    {
+                        pcbFrame->Show( true );
+
+                        if( pcbFrame->IsIconized() )
+                            pcbFrame->Iconize( false );
+
+                        pcbFrame->Raise();
+                    }
+
+                    break;
+                }
+            }
+
+            // Boards from another project are opened in a separate process.
             toolMgr->RunAction<wxString*>( KICAD_MANAGER_ACTIONS::editOtherPCB, &fullFileName );
+        }
 
         break;
 

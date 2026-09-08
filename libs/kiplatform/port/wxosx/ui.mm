@@ -274,3 +274,11 @@ void KIPLATFORM::UI::SetDarkExplorerTheme( wxWindow* aWindow, bool aDark )
     ( void ) aWindow;
     ( void ) aDark;
 }
+
+
+void KIPLATFORM::UI::SetDarkTitlebar( wxWindow* aWindow, bool aDark )
+{
+    // NOP: the immersive-dark caption is Windows DWM state; Cocoa captions follow the appearance.
+    ( void ) aWindow;
+    ( void ) aDark;
+}

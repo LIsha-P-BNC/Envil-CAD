@@ -61,8 +61,12 @@ static const wxChar tracePcm[] = wxT( "KICAD_PCM" );
 static const std::string PCM_ACCEPT_V2 = "application/vnd.kicad.pcm.v2+json";
 
 
-const std::tuple<int, int, int> PLUGIN_CONTENT_MANAGER::m_kicad_version =
-        GetMajorMinorPatchTuple();
+// Packages declare compatibility against upstream KiCad-format versions (the
+// "kicad_version"/"kicad_version_max" fields in repository metadata), so the
+// check must use the upstream base this fork tracks (see origin/master), not
+// the Anvil product version (1.x) -- the latter marks every package
+// incompatible.
+const std::tuple<int, int, int> PLUGIN_CONTENT_MANAGER::m_kicad_version = { 10, 99, 0 };
 
 
 class THROWING_ERROR_HANDLER : public nlohmann::json_schema::error_handler

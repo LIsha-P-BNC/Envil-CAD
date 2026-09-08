@@ -194,6 +194,21 @@ ANVIL_COLOUR_TABLE( ANVIL_DEFINE_COLOUR )
 #undef ANVIL_DEFINE_COLOUR
 
 
+/**
+ * Per-token mode queries: `name_For( MODE )` returns the value token `name` holds in the given
+ * mode, regardless of what the live palette currently holds.  For call sites that must
+ * RECOGNISE the other theme's colour — e.g. the live-flip re-pin of the label colour wx stamps
+ * on every check-box / radio button at creation (libs/kiplatform/os/windows/app.cpp).
+ */
+#define ANVIL_DEFINE_COLOUR_FOR( name, dr, dg, db, lr, lg, lb )                                    \
+    inline wxColour name##_For( MODE aMode )                                                       \
+    {                                                                                              \
+        return aMode == MODE::LIGHT ? wxColour( lr, lg, lb ) : wxColour( dr, dg, db );             \
+    }
+ANVIL_COLOUR_TABLE( ANVIL_DEFINE_COLOUR_FOR )
+#undef ANVIL_DEFINE_COLOUR_FOR
+
+
 /// The mode this module's copy of the palette currently holds.  See the DLL note above.
 inline MODE g_mode = MODE::DARK;
 

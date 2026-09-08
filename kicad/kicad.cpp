@@ -441,24 +441,19 @@ bool PGM_KICAD::OnPgmInit()
 
     KIUI::SyncAnvilTheme();
 
-    // NEMI Emerald LIGHT: leave wx's MSW dark mode alone.  wxMSW offers only DarkMode_Auto and
-    // DarkMode_Always (there is no DarkMode_Never) and dark mode is opt-in, so simply not
-    // enabling it is what gives genuinely light native controls, menus and scrollbars.  The
-    // Anvil chrome (title bar, menu band, tool-bars, panels) paints itself from the palette
-    // either way.
-    if( !ANVIL::IsLight() )
-    {
-        if( anvilPurpleFrame )
-            KIPLATFORM::APP::SetDarkModePurple( true );
+    // Establish wx's MSW dark-mode machinery UNCONDITIONALLY — even for the light theme.
+    // wx only allows enabling it before the first window exists and never allows turning it
+    // off, so this is the one moment the live light/dark toggle can be made possible at all.
+    // The settings object answers wx's colour queries from the ANVIL palette (dark) or the
+    // classic light system palette (light), and SetLiveDarkMode() steers the OS-level per-app
+    // mode to match the persisted theme: started light, native controls, menus and scrollbars
+    // render exactly as they did when dark mode was simply never enabled.  The toggle then
+    // flips both halves at runtime — no restart.
+    if( anvilPurpleFrame )
+        KIPLATFORM::APP::SetDarkModePurple( true );
 
-        if( const COMMON_SETTINGS* cfg = Pgm().GetCommonSettings() )
-        {
-            if( anvilPurpleFrame || cfg->m_Appearance.app_theme == APP_THEME::DARK )
-                KIPLATFORM::APP::EnableDarkMode( true );
-            else if( cfg->m_Appearance.app_theme == APP_THEME::AUTO )
-                KIPLATFORM::APP::EnableDarkMode( false );
-        }
-    }
+    KIPLATFORM::APP::EnableDarkMode( true );
+    KIPLATFORM::APP::SetLiveDarkMode( !ANVIL::IsLight() );
 
     // Add search paths to feed the PGM_KICAD::SysSearch() function,
     // currently limited in support to only look for project templates

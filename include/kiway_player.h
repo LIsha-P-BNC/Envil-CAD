@@ -172,6 +172,16 @@ public:
      */
     virtual void ExecuteRemoteCommand( const char* cmdline ){}
 
+    /**
+     * Set the frame title, and re-label this frame's tab when the single-window shell is
+     * hosting it.
+     *
+     * Tab labels are taken from the frame title, so every view that re-titles itself while
+     * docked (library browsers following the list selection, an editor swapping documents)
+     * gets a live tab label instead of the one it happened to have when it was docked.
+     */
+    void SetTitle( const wxString& aTitle ) override;
+
 protected:
 
     /// Event handler, routes to derivative specific virtual #KiwayMailIn().

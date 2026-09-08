@@ -41,8 +41,22 @@
 bool KIPLATFORM::UI::IsDarkTheme()
 {
 #if wxCHECK_VERSION( 3, 3, 0 )
-    wxSystemAppearance appearance = wxSystemSettings::GetAppearance();
-    return appearance.IsDark();
+    // NOT wxSystemAppearance: that follows the app's own dark-mode state, which Anvil forces
+    // ON for the life of the process so the theme can be flipped live (see
+    // KIPLATFORM::APP::SetLiveDarkMode) — it would answer "dark" even on a light Windows.
+    // This must report the USER's Windows preference, which lives in AppsUseLightTheme.
+    DWORD light = 1;
+    DWORD size  = sizeof( light );
+
+    if( ::RegGetValueW( HKEY_CURRENT_USER,
+                        L"Software\\Microsoft\\Windows\\CurrentVersion\\Themes\\Personalize",
+                        L"AppsUseLightTheme", RRF_RT_REG_DWORD, nullptr, &light, &size )
+            == ERROR_SUCCESS )
+    {
+        return light == 0;
+    }
+
+    return false;   // value absent on very old Win10 = light apps
 #else
     wxColour bg = wxSystemSettings::GetColour( wxSYS_COLOUR_WINDOW );
 
@@ -366,4 +380,40 @@ void KIPLATFORM::UI::SetDarkExplorerTheme( wxWindow* aWindow, bool aDark )
 
     // The themed parts (hover band, selection, scrollbars) only repaint on invalidation.
     ::RedrawWindow( hwnd, nullptr, nullptr, RDW_FRAME | RDW_INVALIDATE | RDW_ERASE );
+}
+
+
+void KIPLATFORM::UI::SetDarkTitlebar( wxWindow* aWindow, bool aDark )
+{
+    if( !aWindow )
+        return;
+
+    HWND hwnd = static_cast<HWND>( aWindow->GetHandle() );
+
+    if( !hwnd )
+        return;
+
+    // Loaded at runtime so kiplatform needs no dwmapi import-library dependency.
+    typedef HRESULT( WINAPI* DWM_SET_WINDOW_ATTRIBUTE )( HWND, DWORD, LPCVOID, DWORD );
+
+    static DWM_SET_WINDOW_ATTRIBUTE s_dwmSetWindowAttribute = nullptr;
+    static bool                     s_resolved = false;
+
+    if( !s_resolved )
+    {
+        s_resolved = true;
+
+        if( HMODULE dwm = ::LoadLibraryExW( L"dwmapi.dll", nullptr,
+                                            LOAD_LIBRARY_SEARCH_SYSTEM32 ) )
+        {
+            s_dwmSetWindowAttribute = reinterpret_cast<DWM_SET_WINDOW_ATTRIBUTE>(
+                    ::GetProcAddress( dwm, "DwmSetWindowAttribute" ) );
+        }
+    }
+
+    if( !s_dwmSetWindowAttribute )
+        return;
+
+    const BOOL dark = aDark ? TRUE : FALSE;
+    s_dwmSetWindowAttribute( hwnd, 20 /* DWMWA_USE_IMMERSIVE_DARK_MODE */, &dark, sizeof( dark ) );
 }

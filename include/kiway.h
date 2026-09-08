@@ -317,6 +317,35 @@ public:
      * false), so this guards against needlessly re-opening (and thus reverting) it.
      */
     virtual bool IsPlayerDocked( KIWAY_PLAYER* aPlayer ) = 0;
+
+    /**
+     * Re-host an arbitrary top-level window (e.g. a modeless dialog such as the BOM /
+     * Symbol Fields Table) as a tab in the single-window shell, so document-style views
+     * open in the tabbed editor area instead of floating.
+     *
+     * Unlike DockPlayerAsTab() the hosted window is not a KIWAY_PLAYER, so the shell only
+     * re-hosts it: no toolbar hoisting, menu or status-bar syncing is performed for it.
+     * Closing the tab asks the window to Close() (vetoable); the tab disappears when the
+     * window is destroyed.
+     *
+     * @return true if the window was docked (or already docked and its tab re-selected),
+     *         false if docking is unavailable so the caller should float it instead.
+     */
+    virtual bool DockWindowAsTab( wxWindow* aWindow, const wxString& aTitle )
+    {
+        return false;
+    }
+
+    /**
+     * Re-label the tab hosting @a aPlayer after its title changed.
+     *
+     * A docked editor's tab label is captured from the frame title when it is docked, so
+     * without this a view that re-titles itself while it stays docked (the library
+     * browsers as the user walks the library / symbol / footprint lists, an editor that
+     * swaps documents) would keep the label it was born with.  A no-op when @a aPlayer is
+     * not currently docked.
+     */
+    virtual void UpdatePlayerTabTitle( KIWAY_PLAYER* aPlayer, const wxString& aTitle ) {}
 };
 
 
@@ -524,6 +553,18 @@ public:
     bool DockPlayer( KIWAY_PLAYER* aPlayer )
     {
         return m_tabHost && aPlayer ? m_tabHost->DockPlayerAsTab( aPlayer ) : false;
+    }
+
+    /**
+     * Keep the shell tab label of @a aPlayer in step with its frame title.
+     *
+     * Called from KIWAY_PLAYER::SetTitle(), so any editor or viewer that re-titles itself
+     * re-labels its tab too.  Harmless when nothing is hosting or the player is floating.
+     */
+    void UpdatePlayerTab( KIWAY_PLAYER* aPlayer, const wxString& aTitle )
+    {
+        if( m_tabHost && aPlayer )
+            m_tabHost->UpdatePlayerTabTitle( aPlayer, aTitle );
     }
 
     void OnKiCadExit();

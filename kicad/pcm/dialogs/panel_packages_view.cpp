@@ -182,7 +182,7 @@ void PANEL_PACKAGES_VIEW::setPackageDetails( const PACKAGE_VIEW_DATA& aPackageDa
     {
         details << wxT( "<p><b>" )
                 + _( "Warning: This plugin only supports the legacy Python API "
-                     "and will not run in this KiCad version." )
+                     "and will not run in this Anvil version." )
                 + wxT( "</b></p>" );
     }
 

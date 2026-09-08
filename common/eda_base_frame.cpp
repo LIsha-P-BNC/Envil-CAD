@@ -72,6 +72,7 @@
 #include <widgets/wx_grid.h>
 #include <widgets/wx_treebook.h>
 #include <wx/app.h>
+#include <wx/weakref.h>
 #include <wx/config.h>
 #include <wx/display.h>
 #include <wx/stdpaths.h>
@@ -291,6 +292,12 @@ EDA_BASE_FRAME::EDA_BASE_FRAME( wxWindow* aParent, FRAME_T aFrameType, const wxS
     // idempotent, so running it per frame costs nothing and guarantees a freshly-loaded kiface
     // never paints the wrong theme.
     KIUI::SyncAnvilTheme();
+
+    // wx stamps the native caption dark at creation whenever its dark-mode machinery is on,
+    // which since the live-theme work is ALWAYS (see KIPLATFORM::APP::SetLiveDarkMode) — so a
+    // frame created while the light theme is active would wear a dark title bar.  Re-stamp it
+    // with the actual app theme.
+    KIPLATFORM::UI::SetDarkTitlebar( this, !ANVIL::IsLight() );
 
     // Anvil: apply the app-wide UI base font size (AnvilUiFontPt) up-front, before commonInit()
     // and the derived frame build their child controls, so the status bar, tool-bars, side panels
@@ -1128,6 +1135,33 @@ void EDA_BASE_FRAME::CommonSettingsChanged( int aFlags )
 
     GetBitmapStore()->ThemeChanged();
     ThemeChanged();
+
+    if( aFlags & ANVIL_THEME_FLIP )
+    {
+        // Live theme flip: ThemeChanged() above already re-tinted every toolbar icon in place
+        // (RefreshBitmaps), so the from-scratch toolbar rebuild is redundant — and together
+        // with the menu-bar rebuild it made up most of the flip's ~600 ms freeze.  The menu
+        // bar DOES need a rebuild (menu-item icons carry the icon-theme tint), but it is not
+        // visible until a menu opens, so run it right after the flip has painted.
+        //
+        // wxTheApp (not this window) so it shares ONE FIFO queue with the shell's deferred
+        // title-bar re-sync, which MUST run after this rebuild (the title bar shows menus
+        // taken from this very menu bar — see KICAD_MANAGER_FRAME::ToggleAppTheme).  The
+        // weak ref covers the frame being torn down before the event loop gets here.
+        wxWeakRef<EDA_BASE_FRAME> self( this );
+
+        wxTheApp->CallAfter(
+                [self]()
+                {
+                    if( self && self->GetMenuBar() )
+                    {
+                        self->ReCreateMenuBar();
+                        self->GetMenuBar()->Refresh();
+                    }
+                } );
+
+        return;
+    }
 
     if( GetMenuBar() )
     {

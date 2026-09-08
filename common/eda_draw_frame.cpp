@@ -386,19 +386,23 @@ void EDA_DRAW_FRAME::CommonSettingsChanged( int aFlags )
     }
 
 #ifndef __WXMAC__
-    resolveCanvasType();
-
-    if( m_canvasType != GetCanvas()->GetBackend() )
+    // A live theme flip cannot change the canvas backend; skip the re-resolve/switch probe.
+    if( !( aFlags & ANVIL_THEME_FLIP ) )
     {
-        // Try to switch (will automatically fallback if necessary)
-        SwitchCanvas( m_canvasType );
-        EDA_DRAW_PANEL_GAL::GAL_TYPE newGAL = GetCanvas()->GetBackend();
-        bool                         success = newGAL == m_canvasType;
+        resolveCanvasType();
 
-        if( !success )
+        if( m_canvasType != GetCanvas()->GetBackend() )
         {
-            m_canvasType = newGAL;
-            m_openGLFailureOccured = true; // Store failure for other EDA_DRAW_FRAMEs
+            // Try to switch (will automatically fallback if necessary)
+            SwitchCanvas( m_canvasType );
+            EDA_DRAW_PANEL_GAL::GAL_TYPE newGAL = GetCanvas()->GetBackend();
+            bool                         success = newGAL == m_canvasType;
+
+            if( !success )
+            {
+                m_canvasType = newGAL;
+                m_openGLFailureOccured = true; // Store failure for other EDA_DRAW_FRAMEs
+            }
         }
     }
 #endif
@@ -863,9 +867,11 @@ void EDA_DRAW_FRAME::ReapplyAnvilTheme()
 
     // The canvas is not chrome: its colours come from a COLOR_SETTINGS theme, so the light /
     // dark flip has to move the theme too or the drawing area stays black under a white frame.
-    // CommonSettingsChanged() is what every editor already uses to re-read colours and redraw.
+    // CommonSettingsChanged() is what every editor already uses to re-read colours and redraw;
+    // ANVIL_THEME_FLIP lets the receivers skip the work a colour change can't affect (see
+    // tools_holder.h).
     if( SyncCanvasThemeToAppTheme() )
-        CommonSettingsChanged( 0 );
+        CommonSettingsChanged( ANVIL_THEME_FLIP );
 }
 
 

@@ -19,6 +19,8 @@
  */
 #include <wx/aui/framemanager.h>    // ensure class wxAuiPaneInfo is defined for other includes
 
+#include <algorithm>
+
 #include "settings/kicad_settings.h"
 #include <json_common.h>
 #include <settings/aui_settings.h>
@@ -31,7 +33,7 @@ const int kicadSchemaVersion = 0;
 
 const nlohmann::json PCM_DEFAULT_REPOSITORIES = nlohmann::json::array( {
     nlohmann::json( {
-        { "name", "Anvil official repository" },
+        { "name", PCM_DEFAULT_REPOSITORY_NAME },
         { "url", PCM_DEFAULT_REPOSITORY_URL },
     } )
 } );
@@ -87,9 +89,29 @@ KICAD_SETTINGS::KICAD_SETTINGS() :
                     if( entry.empty() || !entry.is_object() )
                         continue;
 
-                    m_PcmRepositories.emplace_back(
-                            std::make_pair( wxString( entry["name"].get<std::string>() ),
-                                            wxString( entry["url"].get<std::string>() ) ) );
+                    wxString name( entry["name"].get<std::string>() );
+                    wxString url( entry["url"].get<std::string>() );
+
+                    // Migrate stale default entries persisted by earlier builds: the
+                    // anvilcad.com repository was never live ("Could not resolve
+                    // hostname"), and pre-rebrand configs may still carry a
+                    // KiCad-branded default.
+                    if( url.Contains( wxS( "repository.anvilcad.com" ) )
+                        || url.Contains( wxS( "repository.kicad.org" ) ) )
+                    {
+                        name = wxS( PCM_DEFAULT_REPOSITORY_NAME );
+                        url = wxS( PCM_DEFAULT_REPOSITORY_URL );
+                    }
+
+                    bool duplicate = std::any_of( m_PcmRepositories.begin(),
+                                                  m_PcmRepositories.end(),
+                                                  [&url]( const auto& repo )
+                                                  {
+                                                      return repo.second == url;
+                                                  } );
+
+                    if( !duplicate )
+                        m_PcmRepositories.emplace_back( std::make_pair( name, url ) );
                 }
             },
             PCM_DEFAULT_REPOSITORIES ) );

@@ -1045,10 +1045,50 @@ int KICAD_MANAGER_CONTROL::ShowPlayer( const TOOL_EVENT& aEvent )
         if( !docked )
             player->Show( true );
     }
-    else if( ADVANCED_CFG::GetCfg().m_SingleWindowShell )
+    else
     {
-        // Already created (e.g. opened earlier) — just (re-)select its tab.
-        docked = m_frame->DockEditorAsTab( player, player->GetTitle() );
+        // Already created and visible.  The editor may hold a SIBLING document rather
+        // than the project's own (an AI "board.attempt1.anvil_pcb" snapshot opened from
+        // the Project Explorer): this action means "open the PROJECT schematic/board",
+        // so load it back — merely re-selecting the tab made returning to the project
+        // board impossible.  OpenProjectFiles() prompts/flushes unsaved edits itself.
+        wxString projectDoc;
+
+        if( playerType == FRAME_SCH )
+        {
+            wxFileName kicad_schematic( m_frame->SchFileName() );
+            wxFileName legacy_schematic( m_frame->SchLegacyFileName() );
+
+            if( !legacy_schematic.FileExists() || kicad_schematic.FileExists() )
+                projectDoc = kicad_schematic.GetFullPath();
+            else
+                projectDoc = legacy_schematic.GetFullPath();
+        }
+        else if( playerType == FRAME_PCB_EDITOR )
+        {
+            wxFileName kicad_board( m_frame->PcbFileName() );
+            wxFileName legacy_board( m_frame->PcbLegacyFileName() );
+
+            if( !legacy_board.FileExists() || kicad_board.FileExists() )
+                projectDoc = kicad_board.GetFullPath();
+            else
+                projectDoc = legacy_board.GetFullPath();
+        }
+
+        // Compare via wxFileName: the loaded name may carry UNIX separators while the
+        // project name carries native ones, and Windows paths are case-insensitive.
+        if( !projectDoc.IsEmpty() && wxFileName::FileExists( projectDoc )
+                && !wxFileName( player->GetCurrentFileName() ).GetFullPath()
+                            .IsSameAs( wxFileName( projectDoc ).GetFullPath(), false ) )
+        {
+            player->OpenProjectFiles( std::vector<wxString>( 1, projectDoc ) );
+        }
+
+        if( ADVANCED_CFG::GetCfg().m_SingleWindowShell )
+        {
+            // (Re-)select — and retitle — its tab.
+            docked = m_frame->DockEditorAsTab( player, player->GetTitle() );
+        }
     }
 
     if( !docked )

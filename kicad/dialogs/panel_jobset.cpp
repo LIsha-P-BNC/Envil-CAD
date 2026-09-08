@@ -47,6 +47,7 @@
 #include <jobs/job_special_execute.h>
 #include <jobs/job_special_copyfiles.h>
 #include <dialogs/dialog_executecommand_job_settings.h>
+#include <advanced_config.h>
 #include <common.h>
 
 
@@ -874,7 +875,6 @@ bool PANEL_JOBSET::GetCanClose()
 
 void PANEL_JOBSET::EnsurePcbSchFramesOpen()
 {
-    PROJECT&      project = m_frame->Kiway().Prj();
     KIWAY_PLAYER* frame = m_frame->Kiway().Player( FRAME_PCB_EDITOR, false );
 
     if( !frame )
@@ -886,15 +886,23 @@ void PANEL_JOBSET::EnsurePcbSchFramesOpen()
         if( !frame )
             return;
 
-        wxFileName boardfn = project.GetProjectFullName();
-        boardfn.SetExt( FILEEXT::PcbFileExtension );
+        // Anvil dual-extension: PcbFileName() prefers the .anvil_pcb spelling and falls
+        // back to an existing .kicad_pcb.  A hard-coded .kicad_pcb path opens an EMPTY
+        // board on Anvil-native projects, so every PCB job would run against nothing.
+        wxFileName boardfn( m_frame->PcbFileName() );
 
         // Prevent our window from being closed during the open process
         wxEventBlocker blocker( this );
 
         frame->OpenProjectFiles( std::vector<wxString>( 1, boardfn.GetFullPath() ) );
 
-        if( !frame->IsVisible() )
+        // Single-window shell: host the editor as a tab instead of floating a window.
+        bool docked = false;
+
+        if( ADVANCED_CFG::GetCfg().m_SingleWindowShell )
+            docked = m_frame->DockEditorAsTab( frame, frame->GetTitle() );
+
+        if( !docked && !frame->IsVisible() )
             frame->Show( true );
     }
 
@@ -909,16 +917,26 @@ void PANEL_JOBSET::EnsurePcbSchFramesOpen()
         if( !frame )
             return;
 
-        wxFileName schFn = project.GetProjectFullName();
-        schFn.SetExt( FILEEXT::KiCadSchematicFileExtension );
+        wxFileName schFn( m_frame->SchFileName() );
 
         wxEventBlocker blocker( this );
 
         frame->OpenProjectFiles( std::vector<wxString>( 1, schFn.GetFullPath() ) );
 
-        if( !frame->IsVisible() )
+        bool docked = false;
+
+        if( ADVANCED_CFG::GetCfg().m_SingleWindowShell )
+            docked = m_frame->DockEditorAsTab( frame, frame->GetTitle() );
+
+        if( !docked && !frame->IsVisible() )
             frame->Show( true );
     }
+
+    // Docking an editor selects its tab; bring this job-set tab back in front.
+    int idx = m_parentBook->FindPage( this );
+
+    if( idx != wxNOT_FOUND )
+        m_parentBook->SetSelection( idx );
 
     SetFocus();
 }
