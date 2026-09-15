@@ -399,7 +399,7 @@
   :root[data-theme="light"] #mcpBanner.on {
     background: rgba(169,118,42,.09); border-color: rgba(169,118,42,.34);
   }
-  /* the "Connect Claude" secondary sits on the cream composer: give it the white surface */
+  /* the "Connect Account" secondary sits on the cream composer: give it the white surface */
   :root[data-theme="light"] #authBanner button {
     background: var(--panel-2); box-shadow: var(--card-shadow);
   }
@@ -432,7 +432,7 @@
       <div class="h-sub" id="hsub">design · edit · verify</div>
     </div>
     <div class="grow"></div>
-    <span id="authPill" title="Which Claude account powers the AI">AI: …</span>
+    <span id="authPill" title="Which account powers Anvil AI">AI: …</span>
     <div id="dot" title="status"></div>
     <button class="icon-btn" id="newBtn" title="New conversation">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14M5 12h14"/></svg>
@@ -764,7 +764,7 @@ function autoSize(){
 }
 inp.addEventListener("input",autoSize);
 
-/* ---------- AI account (auth mode): "API Key" vs "Claude (Chrome login)" ---------- */
+/* ---------- AI account (auth mode): "API Key" vs "Anvil AI (own login)" ---------- */
 /* C++ sends {kind:"authmode", mode:""|"shared"|"own", hasLogin:bool, hasKey:bool}.
    Empty mode = auto (login wins when present, else API key). The pill always shows
    what will ACTUALLY be used; the banner appears only when no choice was made yet. */
@@ -783,17 +783,17 @@ function renderAuth(ev){
   authSeen=true;
   auth={mode:ev.mode||"",hasLogin:!!ev.hasLogin,hasKey:!!ev.hasKey};
   const pill=$("authPill");
-  pill.textContent = authEffective()==="own" ? "■ Claude" : "API key";
+  pill.textContent = authEffective()==="own" ? "■ Anvil AI" : "API key";
   pill.title = authEffective()==="own"
-      ? "AI engine: your Claude account login. Click to switch to the API key."
-      : "AI engine: built-in API key. Click to connect your Claude login.";
+      ? "Anvil AI: connected to your account. Click to switch to the API key."
+      : "Anvil AI: using the built-in API key. Click to connect your account.";
   const b=$("authBanner");
   if(!auth.mode){
     b.className="on";
     b.innerHTML='<div>Choose the AI engine account. Change it any time from the header pill.</div>'
       +'<div class="ab-row">'
       +'<button id="abKey" class="primary">Use API key</button>'
-      +'<button id="abOwn">Connect Claude</button>'
+      +'<button id="abOwn">Connect Account</button>'
       +'</div>';
     $("abKey").onclick=()=>{ post({kind:"setauth",mode:"shared"}); b.className=""; b.innerHTML=""; };
     $("abOwn").onclick=()=>{ chooseOwn(); };
@@ -805,7 +805,7 @@ function chooseOwn(){
   if(!auth.hasLogin){
     post({kind:"claudelogin"});
     b.className="on";
-    b.innerHTML='<div><b>Claude sign-in window opened.</b> In that window type '
+    b.innerHTML='<div><b>Sign-in window opened.</b> In that window type '
       +'<b>/login</b> and press Enter — your browser opens to sign in. '
       +'When done, close that window and chat here normally.</div>';
     setTimeout(()=>{ b.className=""; b.innerHTML=""; post({kind:"authmode"}); }, 30000);
