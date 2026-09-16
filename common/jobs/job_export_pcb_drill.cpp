@@ -62,7 +62,7 @@ JOB_EXPORT_PCB_DRILL::JOB_EXPORT_PCB_DRILL() :
         m_filename(),
         m_excellonMirrorY( false ),
         m_excellonMinimalHeader( false ),
-        m_excellonCombinePTHNPTH( true ),
+        m_excellonCombinePTHNPTH( false ),
         m_excellonOvalDrillRoute( false ),
         m_format( DRILL_FORMAT::EXCELLON ),
         m_drillOrigin( DRILL_ORIGIN::ABS ),
