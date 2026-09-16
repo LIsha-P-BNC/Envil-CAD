@@ -458,6 +458,19 @@ void KISTATUSBAR::layoutControls()
 }
 
 
+void KISTATUSBAR::ShowPanelsButton( bool aShow )
+{
+    if( !m_panelsButton || m_panelsButton->IsShown() == aShow )
+        return;
+
+    m_panelsButton->Show( aShow );
+
+    // updateAuxFieldWidths() collapses the PANELS field to zero for a hidden button, so the
+    // neighbouring fields take the space back instead of leaving a gap on the strip.
+    updateAuxFieldWidths();
+}
+
+
 void KISTATUSBAR::ShowBackgroundProgressBar( bool aCancellable )
 {
     m_backgroundProgressBar->Show();

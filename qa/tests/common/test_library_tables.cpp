@@ -239,7 +239,7 @@ BOOST_AUTO_TEST_CASE( InsertRowPreservesExistingRowPointers )
         LIBRARY_TABLE_ROW& row = table.InsertRow();
         row.SetNickname( wxString::Format( wxS( "seed_%d" ), i ) );
         row.SetURI( wxString::Format( wxS( "${KIPRJMOD}/libs/seed_%d.kicad_sym" ), i ) );
-        row.SetType( wxS( "KiCad" ) );
+        row.SetType( wxS( "Anvil" ) );
 
         seededPointers.push_back( &row );
         seededUris.push_back( row.URI() );
@@ -253,7 +253,7 @@ BOOST_AUTO_TEST_CASE( InsertRowPreservesExistingRowPointers )
         LIBRARY_TABLE_ROW& row = table.InsertRow();
         row.SetNickname( wxString::Format( wxS( "extra_%d" ), i ) );
         row.SetURI( wxString::Format( wxS( "${KIPRJMOD}/libs/extra_%d.kicad_sym" ), i ) );
-        row.SetType( wxS( "KiCad" ) );
+        row.SetType( wxS( "Anvil" ) );
 
         for( size_t j = 0; j < seededPointers.size(); ++j )
         {

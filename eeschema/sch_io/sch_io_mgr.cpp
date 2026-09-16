@@ -117,7 +117,7 @@ SCH_IO_MGR::SCH_FILE_T SCH_IO_MGR::EnumFromStr( const wxString& aType )
     // text spellings.  If you change the spellings, you will obsolete
     // library tables, so don't do change, only additions are ok.
 
-    if( aType == wxT( "Anvil" ) || aType == wxT( "KiCad" ) )
+    if( aType == wxT( "Anvil" ) )
         return SCH_KICAD;
     else if( aType == wxT( "Legacy" ) )
         return SCH_LEGACY;

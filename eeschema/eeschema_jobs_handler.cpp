@@ -874,6 +874,7 @@ int EESCHEMA_JOBS_HANDLER::JobExportBom( JOB* aJob )
         fmt.refRangeDelimiter = aBomJob->m_refRangeDelimiter;
         fmt.keepTabs = aBomJob->m_keepTabs;
         fmt.keepLineBreaks = aBomJob->m_keepLineBreaks;
+        fmt.xlsx = aBomJob->m_xlsx;
     }
 
     if( aBomJob->GetConfiguredOutputPath().IsEmpty() )

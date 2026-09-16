@@ -36,8 +36,10 @@ SCH_RENDER_SETTINGS::SCH_RENDER_SETTINGS() :
         m_ShowUnit( 0 ),
         m_ShowBodyStyle( 0 ),
         m_ShowPinsElectricalType( true ),
-        m_ShowHiddenPins( true ),
-        m_ShowHiddenFields( true ),
+        // Hidden pins/fields are opt-in: frames that support revealing them load the
+        // user's choice from their settings; everything else must not draw them.
+        m_ShowHiddenPins( false ),
+        m_ShowHiddenFields( false ),
         m_ShowVisibleFields( true ),
         m_ShowPinNumbers( false ),
         m_ShowPinNames( false ),

@@ -26,6 +26,9 @@
 #include <wx/brush.h>
 #include <wx/checkbox.h>
 #include <wx/dc.h>
+#include <wx/dcclient.h>
+#include <wx/event.h>
+#include <wx/spinbutt.h>
 #include <wx/graphics.h>
 #include <wx/image.h>
 #include <wx/log.h>
@@ -273,9 +276,17 @@ public:
 
     wxPen GetBorderPen() override
     {
-        // Live light theme: an invalid pen tells wx to draw the normal system border.
+        // Live light theme: this MUST be a valid pen.  Not every wx consumer tolerates an
+        // invalid one: wxStaticBox falls back to native border drawing (statbox.cpp checks
+        // IsOk()), but wxSpinButton::OnPaint calls GetColour() on it unchecked, which raises
+        // a wx assert from INSIDE WM_PAINT — the modal assert dialog then repaints the same
+        // control and the recursion ends in wxTrap()/app death (every dialog with a
+        // wxSpinCtrl died this way in the light theme).  Spin buttons are painted natively
+        // by LiveThemeEventFilter() below, and the colour here matches the flat light-grey
+        // border Windows 10/11 natively gives group boxes, so statbox borders drawn with it
+        // look the same as the native fallback did.
         if( g_anvilLiveLight )
-            return wxPen();
+            return wxPen( wxColour( 220, 220, 220 ) );
 
         if( g_anvilPurpleDark )
             return wxPen( ANVIL::BORDER );   // visible group-box / static-box outline
@@ -607,6 +618,43 @@ void KIPLATFORM::APP::EnableDarkMode( bool aForce )
 void KIPLATFORM::APP::SetDarkModePurple( bool aOn )
 {
     g_anvilPurpleDark = aOn;
+}
+
+
+int KIPLATFORM::APP::LiveThemeEventFilter( wxEvent& aEvent )
+{
+#if wxCHECK_VERSION( 3, 3, 0 )
+    // wx's dark-mode machinery stays enabled for the life of the process (SetLiveDarkMode),
+    // so wxSpinButton::OnPaint ALWAYS takes its dark-mode branch: render the control natively
+    // into a bitmap, INVERT every pixel, and outline the buddy edge in the colour of
+    // wxMSWDarkMode::GetBorderPen().  With the LIGHT theme live, that inversion turns the
+    // natively light-rendered arrows dark — and historically GetBorderPen() also returned an
+    // invalid pen there, whose unchecked GetColour() asserted from INSIDE WM_PAINT and
+    // recursed (via the modal assert dialog repainting the same control) until wxTrap()
+    // brought the application down — every dialog holding a wxSpinCtrl (Export PNG job
+    // settings, plot dialogs, ...) died this way.
+    //
+    // wxApp::FilterEvent runs before any event handler, so intercepting the paint here keeps
+    // wx's dark OnPaint from ever running and paints the control natively instead.
+    if( g_anvilLiveLight && aEvent.GetEventType() == wxEVT_PAINT )
+    {
+        if( wxSpinButton* spin = wxDynamicCast( aEvent.GetEventObject(), wxSpinButton ) )
+        {
+            wxPaintDC dc( spin );   // proper BeginPaint/EndPaint bookkeeping
+
+            // WM_PRINTCLIENT makes the native up-down control draw itself into our DC with
+            // the (light) visual style that is active for it.
+            ::SendMessageW( static_cast<HWND>( spin->GetHWND() ), WM_PRINTCLIENT,
+                            reinterpret_cast<WPARAM>( dc.GetHDC() ), PRF_CLIENT );
+
+            return 1;   // fully handled; wx's dark-mode OnPaint must not run
+        }
+    }
+#else
+    ( void ) aEvent;
+#endif
+
+    return -1;          // not ours — continue normal event processing
 }
 
 

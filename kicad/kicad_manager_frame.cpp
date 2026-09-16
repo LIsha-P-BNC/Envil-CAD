@@ -1795,6 +1795,10 @@ KICAD_MANAGER_FRAME::KICAD_MANAGER_FRAME( wxWindow* parent, const wxString& titl
                         return;
                     }
 
+                    // Nothing has "opened" this menu, so the check marks have to be brought up
+                    // to date by hand -- otherwise every panel toggle reads as off.
+                    target->RefreshMenuState( menu );
+
                     ANVIL_POPUP_MENU* popup = new ANVIL_POPUP_MENU( GetStatusBar(), menu );
 
                     // The popup destroys itself on dismiss; free the menu with it.
@@ -2539,26 +2543,46 @@ void KICAD_MANAGER_FRAME::PruneDeadEditorTabs()
         return;
 
     std::vector<std::pair<int, wxWindow*>> live;
+    std::vector<wxWindow*>                 orphanHosts;
     live.reserve( m_dockedEditors.size() );
 
     for( const std::pair<int, wxWindow*>& entry : m_dockedEditors )
     {
         // FindWindowById returns null once the player frame has been destroyed (the
         // same test KIWAY uses), so this never touches a freed frame.
-        if( wxWindow::FindWindowById( entry.first ) )
-        {
-            live.push_back( entry );
-        }
-        else
-        {
-            int idx = m_editorTabs->GetPageIndex( entry.second );
+        wxWindow* frame = wxWindow::FindWindowById( entry.first );
 
-            if( idx != wxNOT_FOUND )
-                m_editorTabs->DeletePage( idx );   // destroys the now-orphaned host page
+        // A frame that has already accepted a close is only *pending* deletion: wxFrame::Destroy()
+        // defers the delete to the next idle pass, so FindWindowById still resolves it for a while.
+        // Project close runs PlayersClose() and prunes in the same call stack, so without this test
+        // every just-closed editor still reads as live here and its tab is left behind for good
+        // (the later wxEVT_DESTROY drops the registry entry, so no later prune can ever match it).
+        if( EDA_BASE_FRAME* edaFrame = dynamic_cast<EDA_BASE_FRAME*>( frame ); edaFrame
+            && edaFrame->IsClosing() )
+        {
+            frame = nullptr;
         }
+
+        if( frame )
+            live.push_back( entry );
+        else
+            orphanHosts.push_back( entry.second );
     }
 
+    // Commit the new registry BEFORE touching the notebook.  Deleting a host page whose editor is
+    // merely pending deletion destroys that editor as a child, which re-enters
+    // onDockedEditorDestroyed() and erases from m_dockedEditors -- invalidating the iterator if we
+    // were still walking it.  With the registry already settled, that re-entry matches nothing and
+    // its deferred page delete is a no-op.
     m_dockedEditors = std::move( live );
+
+    for( wxWindow* host : orphanHosts )
+    {
+        int idx = m_editorTabs->GetPageIndex( host );
+
+        if( idx != wxNOT_FOUND )
+            m_editorTabs->DeletePage( idx );   // destroys the now-orphaned host page
+    }
 #endif
 }
 
@@ -3123,13 +3147,36 @@ void KICAD_MANAGER_FRAME::onDockedEditorDestroyed( wxWindowDestroyEvent& aEvent 
 
     const int dyingId = dying->GetId();
 
-    // Drop any stale docked-editor registry entry so later id lookups can't resolve to a dead frame.
+    // Drop any stale docked-editor registry entry so later id lookups can't resolve to a dead frame,
+    // and take the orphaned host page down with it.  This handler is the LAST place that still knows
+    // which tab belonged to this editor -- once the entry is gone, PruneDeadEditorTabs() has nothing
+    // left to match, so a page not deleted here stays in the notebook forever as an empty tab
+    // carrying the previous project's document name.
     for( std::vector<std::pair<int, wxWindow*>>::iterator it = m_dockedEditors.begin();
          it != m_dockedEditors.end(); ++it )
     {
         if( it->first == dyingId )
         {
+            wxWindow* host = it->second;
             m_dockedEditors.erase( it );
+
+            // We are inside the editor frame's destructor and it is still a child of the host page,
+            // so the page must outlive this call: defer its deletion to the next event-loop pass
+            // (same recipe as onDockedWindowDestroyed()).
+            CallAfter(
+                    [this, host]()
+                    {
+                        if( !m_editorTabs || IsBeingDeleted() )
+                            return;
+
+                        int idx = m_editorTabs->GetPageIndex( host );
+
+                        if( idx != wxNOT_FOUND )
+                            m_editorTabs->DeletePage( idx );
+
+                        HideTabsIfNeeded();
+                    } );
+
             break;
         }
     }
@@ -4368,8 +4415,8 @@ void KICAD_MANAGER_FRAME::OpenAnvilFile( const wxString& aPath )
             }
 
             DisplayInfoMessage( this, wxString::Format(
-                    _( "'%s' is a Anvil file.\n\nAnvil opens Anvil designs through import: use "
-                       "File > Import > Anvil Project." ),
+                    _( "'%s' is a KiCad file.\n\nAnvil opens KiCad designs through import: use "
+                       "File > Import Non-Anvil Project > KiCad Project." ),
                     fn.GetFullName() ) );
             return;
         }
@@ -5022,6 +5069,13 @@ bool KICAD_MANAGER_FRAME::CloseProject( bool aSave )
             {
                 if( panel->GetProjectTied() )
                     book->DeletePage( i );
+            }
+            else if( page && page->GetName().Contains( wxFileName::GetPathSeparator() ) )
+            {
+                // Document tabs (OpenCsvTab) are plain panels tagged with the document's full
+                // path -- the only pages carrying a path as their wxWindow name.  They belong to
+                // the project being closed, so they must not survive into the next one.
+                book->DeletePage( i );
             }
         }
     }
@@ -5778,6 +5832,40 @@ void KICAD_MANAGER_FRAME::onToolbarSizeChanged()
 
     m_auimgr.Update();
 }
+
+
+#ifdef __WXMSW__
+void KICAD_MANAGER_FRAME::SetMenuBar( wxMenuBar* aMenuBar )
+{
+    // Unified single-window shell: the menus are presented by the custom title bar —
+    // buildTitleBarMenuButtons() strips every menu out of the bar right after it is built —
+    // so the bar must never reach the native frame.  wxFrame::SetMenuBar → ::SetMenu() makes
+    // Windows render the OS menu band immediately, and with the caption removed
+    // (WM_NCCALCSIZE returns 0) that band lands ON TOP of the custom title bar; with the OS
+    // dark menu theme forced app-wide (see KIPLATFORM::APP::SetLiveDarkMode) it painted a
+    // black box beside the app mark for the duration of every menu rebuild — the "black
+    // square blink" on each theme toggle.  Storing the bar detached keeps GetMenuBar(),
+    // the title-bar strip and the caller's delete working while Windows never sees an HMENU.
+    if( m_titleBar && UseUnifiedMenuBar() )
+    {
+        if( wxMenuBar* oldBar = GetMenuBar() )
+        {
+            // A bar attached before the title bar existed (start-up order) must go through
+            // the real detach so the HWND drops its HMENU; a bar this override stored is
+            // not attached, and DetachMenuBar() would assert on it.
+            if( oldBar->IsAttached() )
+                DetachMenuBar();
+            else
+                m_frameMenuBar = nullptr;
+        }
+
+        m_frameMenuBar = aMenuBar;
+        return;
+    }
+
+    EDA_BASE_FRAME::SetMenuBar( aMenuBar );
+}
+#endif
 
 
 void KICAD_MANAGER_FRAME::buildTitleBarMenuButtons()

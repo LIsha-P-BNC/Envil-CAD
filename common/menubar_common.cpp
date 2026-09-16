@@ -57,6 +57,7 @@
 
 #include <wx/menu.h>
 #include <wx/msgdlg.h>
+#include <wx/utils.h>
 #include <wx/window.h>
 
 
@@ -89,6 +90,50 @@ void EDA_BASE_FRAME::SetWindowMenuActivator( std::function<void( EDA_BASE_FRAME*
 void EDA_BASE_FRAME::SetMcpMenuController( MCP_MENU_CONTROLLER aController )
 {
     s_mcpMenuController = std::move( aController );
+}
+
+
+void EDA_BASE_FRAME::RefreshMenuState( ACTION_MENU* aMenu )
+{
+    if( !aMenu )
+        return;
+
+    // UpdateAll() refreshes the hotkey text; UpdateUI() fires the wxEVT_UPDATE_UI round this
+    // frame answers from its registered ACTION_CONDITIONS, which is what puts the check mark
+    // against the panels that are currently open.
+    aMenu->UpdateAll();
+    aMenu->UpdateUI( this );
+}
+
+
+void EDA_BASE_FRAME::ShowPanelsMenuAt( wxWindow* aAnchor )
+{
+    // Built fresh on every click: which panels exist, and which are open, both change between
+    // clicks, so a cached menu would go stale.
+    ACTION_MENU* menu = new ACTION_MENU( false, getCurrentMenuTool() );
+    buildPanelsMenu( menu );
+
+    if( menu->GetMenuItemCount() == 0 )
+    {
+        delete menu;
+        return;
+    }
+
+    RefreshMenuState( menu );
+
+    // The Panels button sits on the bottom edge of the window, so the dropdown has to grow
+    // upwards out of it; MSW flips a menu that does not fit below the anchor by itself.
+    wxPoint anchorPos = aAnchor ? aAnchor->GetScreenPosition() : wxGetMousePosition();
+
+    PopupMenu( menu, ScreenToClient( anchorPos ) );
+
+    // Not deleted inline: a chosen item may still be unwinding through the tool manager when
+    // PopupMenu() returns.
+    CallAfter(
+            [menu]()
+            {
+                delete menu;
+            } );
 }
 
 

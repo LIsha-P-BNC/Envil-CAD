@@ -1,4 +1,4 @@
 (fp_lib_table
   (version 7)
-  (lib (name "complex_hierarchy")(type "KiCad")(uri "${KIPRJMOD}/legacy_hierarchy.pretty")(options "")(descr ""))
+  (lib (name "complex_hierarchy")(type "Anvil")(uri "${KIPRJMOD}/legacy_hierarchy.pretty")(options "")(descr ""))
 )

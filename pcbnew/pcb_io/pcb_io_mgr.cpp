@@ -101,10 +101,6 @@ PCB_IO_MGR::PCB_FILE_T PCB_IO_MGR::EnumFromStr( const wxString& aType )
     if( aType == LIBRARY_TABLE_ROW::TABLE_TYPE_NAME )
         return PCB_IO_MGR::NESTED_TABLE;
 
-    // Backward-compat: legacy library tables may use the old "KiCad" type name.
-    if( aType.CmpNoCase( wxT( "KiCad" ) ) == 0 )
-        return PCB_IO_MGR::KICAD_SEXP;
-
     const auto& plugins = PLUGIN_REGISTRY::Instance()->AllPlugins();
 
     for( const auto& plugin : plugins )

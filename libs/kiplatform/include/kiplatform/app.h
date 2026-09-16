@@ -21,6 +21,7 @@
 #ifndef KIPLATFORM_APP_H_
 #define KIPLATFORM_APP_H_
 
+class wxEvent;
 class wxString;
 class wxWindow;
 
@@ -59,6 +60,19 @@ namespace KIPLATFORM
          * window chrome — the drawing canvas is painted from the colour theme, not these colours.
          */
         void SetDarkModePurple( bool aOn );
+
+        /**
+         * App-wide event filter hook; call from wxApp::FilterEvent() BEFORE any other handling.
+         *
+         * On Windows this guards the live-light theme against wx's always-on dark-mode paint
+         * paths (see the implementation for the wxSpinButton story: its dark-mode OnPaint
+         * both inverts the natively light-rendered pixels and trips a wx assert from inside
+         * WM_PAINT, which recurses into an application crash).  No-op elsewhere.
+         *
+         * @return wxApp::FilterEvent semantics: -1 to continue normal processing, 0/1 when the
+         *         event was fully handled here.
+         */
+        int LiveThemeEventFilter( wxEvent& aEvent );
 
         /**
          * Tries to attach a console window with stdout, stderr and stdin.

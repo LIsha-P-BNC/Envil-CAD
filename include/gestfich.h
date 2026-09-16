@@ -135,6 +135,27 @@ KICOMMON_API bool CopyFilesOrDirectory( const wxString& aSourceDir, const wxStri
                                         wxString& aErrors, std::vector<wxString>& aPathsWritten );
 
 /**
+ * Copy a single file, retrying briefly when the source or destination is transiently locked
+ * by another process.
+ *
+ * On Windows a freshly generated file is frequently still held open for a short time by
+ * antivirus scanners, search indexers or cloud-sync clients, and a destination file can be
+ * locked by a viewer still displaying a previous export.  A single wxCopyFile() attempt then
+ * fails with a sharing violation ("the file is being used by another process") even though
+ * the lock clears moments later.  This wrapper retries such failures with backoff and only
+ * reports an error once the lock proves to be persistent.
+ *
+ * @param aSrcPath source file path.
+ * @param aDestPath destination file path.
+ * @param aOverwrite true to overwrite an existing destination file.
+ * @param aErrors if non-null, receives a detailed error message (including the operating
+ *                system error text) on failure.
+ * @return true if the file was copied.
+ */
+KICOMMON_API bool CopyFileWithRetry( const wxString& aSrcPath, const wxString& aDestPath,
+                                     bool aOverwrite = true, wxString* aErrors = nullptr );
+
+/**
  * Add a directory and its contents to a zip file.
  *
  * @param aZip is the zip file to add to.

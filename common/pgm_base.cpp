@@ -959,7 +959,10 @@ void PGM_BASE::HandleAssert( const wxString& aFile, int aLine, const wxString& a
                                       aCond );
     }
 
-#ifndef NDEBUG
+    // Only surface assert popups in Debug builds: production builds (which may define
+    // neither DEBUG nor NDEBUG — RelWithDebInfo) must not interrupt the user with an
+    // "Anvil Error" dialog for a survivable assert; Sentry still records it below.
+#ifdef DEBUG
     wxLogError( assertStr );
 #endif
 

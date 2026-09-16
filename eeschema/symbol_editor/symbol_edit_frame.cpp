@@ -650,6 +650,12 @@ void SYMBOL_EDIT_FRAME::setupUIConditions()
 
     mgr->SetConditions( SCH_ACTIONS::toggleSyncedPinsMode, ACTION_CONDITIONS().Enable( multiUnitModeCond ).Check( syncedPinsModeCond ) );
 
+    // Explicit condition so the hoisted-toolbar button never falls through to the shell's
+    // update-UI map (per-module action-id aliasing would grey it out); enabled as soon as a
+    // symbol is loaded -- the handler itself reports "No schematic currently open." when the
+    // schematic editor is not running.
+    mgr->SetConditions( SCH_ACTIONS::addSymbolToSchematic, ENABLE( haveSymbolCond ) );
+
 // Only enable a tool if the symbol is edtable
 #define EDIT_TOOL( tool ) ACTION_CONDITIONS().Enable( isEditableCond ).Check( cond.CurrentTool( tool ) )
 

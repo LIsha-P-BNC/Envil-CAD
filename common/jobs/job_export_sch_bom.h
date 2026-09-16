@@ -47,6 +47,9 @@ public:
     bool     m_keepTabs;
     bool     m_keepLineBreaks;
 
+    /// Write a native .xlsx workbook instead of delimited text.
+    bool     m_xlsx;
+
     // Fields options
     std::vector<wxString> m_fieldsOrdered;
     std::vector<wxString> m_fieldsLabels;

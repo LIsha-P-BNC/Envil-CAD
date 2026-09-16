@@ -1232,7 +1232,22 @@ void ACTION_TOOLBAR::onUpdateUI( wxUpdateUIEvent& aEvent )
     }
 
     if( !m_parent->GetEventHandler()->ProcessEvent( aEvent ) )
-        aEvent.Skip();
+    {
+        // The owning frame has no condition registered for this tool.  Do NOT Skip() here:
+        // the unhandled event would keep propagating from this (reparented) toolbar into the
+        // shell frame, whose update-UI map is keyed in the SHELL module's action-id space.
+        // TOOL_ACTION ids are numbered per-module, so an unrelated shell action routinely
+        // aliases this tool's id -- e.g. the shell's always-disabled cut/copy/paste
+        // registrations landed on the symbol editor's "Add Symbol to Schematic" button and
+        // kept it permanently greyed out.  A standalone (un-hoisted) frame never sees this
+        // because propagation stops at the owning top-level frame and the tool keeps its wx
+        // default state.  Mimic that here for our own tools: condition-less tools stay
+        // enabled.  Events that merely bubbled up from other child controls still Skip().
+        if( m_toolActions.count( aEvent.GetId() ) )
+            aEvent.Enable( true );
+        else
+            aEvent.Skip();
+    }
 }
 
 

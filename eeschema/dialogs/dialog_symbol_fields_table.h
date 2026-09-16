@@ -102,6 +102,7 @@ private:
     void OnClose( wxCloseEvent& aEvent ) override;
 
     void OnOutputFileBrowseClicked( wxCommandEvent& event ) override;
+    void onOutputFileNameKillFocus( wxFocusEvent& aEvent );
     void OnPageChanged( wxNotebookEvent& event ) override;
     void OnPreviewRefresh( wxCommandEvent& event ) override;
     void PreviewRefresh();
@@ -178,6 +179,11 @@ private:
     std::map<wxString, BOM_FMT_PRESET> m_bomFmtPresets;
     BOM_FMT_PRESET*                    m_currentBomFmtPreset;
     BOM_FMT_PRESET*                    m_lastSelectedBomFmtPreset;
+
+    /// Whether the selected export format is a native .xlsx workbook.  This is dialog state in
+    /// its own right (the XLSX preset differs from CSV only by this flag), so it cannot be
+    /// re-derived from the delimiter controls the way the rest of the format preset can.
+    bool                               m_bomFmtXlsx;
     wxArrayString                      m_bomFmtPresetMRU;
 
     SCH_EDIT_FRAME*                    m_parent;

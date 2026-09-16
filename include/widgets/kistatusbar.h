@@ -135,6 +135,14 @@ public:
     BITMAP_BUTTON* GetPanelsButton() const { return m_panelsButton; }
 
     /**
+     * Show or hide the Panels button, reclaiming its field width when hidden.
+     *
+     * Frames with no dockable panels at all (the symbol/footprint viewers, the footprint
+     * chooser) would otherwise carry a button whose menu is always empty.
+     */
+    void ShowPanelsButton( bool aShow );
+
+    /**
      * Add warning/error messages thread-safely.
      * Can be called from any thread. UI update is deferred to main thread.
      */

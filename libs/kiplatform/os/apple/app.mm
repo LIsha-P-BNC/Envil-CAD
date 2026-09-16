@@ -43,6 +43,13 @@ void KIPLATFORM::APP::SetDarkModePurple( bool aOn )
 }
 
 
+int KIPLATFORM::APP::LiveThemeEventFilter( wxEvent& aEvent )
+{
+    // The live-theme paint guard is MSW-only; nothing to filter here.
+    return -1;
+}
+
+
 void KIPLATFORM::APP::SetLiveDarkMode( bool aDark )
 {
     // The runtime dark-mode flip is MSW-only; the app-drawn chrome still follows ANVIL::SetMode().

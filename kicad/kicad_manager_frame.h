@@ -494,6 +494,12 @@ protected:
     /// Custom single-row title bar: intercept WM_NCCALCSIZE/NCHITTEST/GETMINMAXINFO so the
     /// native caption is removed and replaced by the app-drawn title strip (VS Code style).
     WXLRESULT MSWWindowProc( WXUINT message, WXWPARAM wParam, WXLPARAM lParam ) override;
+
+    /// Unified shell: keep the menu bar DETACHED from the native frame.  The custom title bar
+    /// presents the menus; a native attach (::SetMenu) makes Windows draw the OS menu band
+    /// over the caption-less title bar for the length of a menu rebuild — the black box that
+    /// blinked beside the app mark on every theme toggle.
+    void SetMenuBar( wxMenuBar* aMenuBar ) override;
 #endif
 
     /// (Re)populate the custom title bar's menu buttons from the live menu bar.

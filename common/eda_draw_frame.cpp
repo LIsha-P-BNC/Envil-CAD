@@ -53,6 +53,7 @@
 #include <settings/common_settings.h>
 #include <settings/settings_manager.h>
 #include <title_block.h>
+#include <tool/action_menu.h>
 #include <tool/actions.h>
 #include <tool/action_toolbar.h>
 #include <tool/common_tools.h>
@@ -68,6 +69,7 @@
 #include <drawing_sheet/ds_draw_item.h>
 #include <view/view_controls.h>
 #include <widgets/kistatusbar.h>
+#include <widgets/bitmap_button.h>
 #include <widgets/msgpanel.h>
 #include <widgets/properties_panel.h>
 #include <widgets/net_inspector_panel.h>
@@ -818,7 +820,47 @@ void EDA_DRAW_FRAME::updateStatusBarWidths()
 
 wxStatusBar* EDA_DRAW_FRAME::OnCreateStatusBar( int number, long style, wxWindowID id, const wxString& name )
 {
-    return new KISTATUSBAR( number, this, id, KISTATUSBAR::STYLE_FLAGS::WARNING_ICON );
+    // Altium-style Panels button at the right edge of the footer.  It has to live on the
+    // EDITOR's status bar, not only on the shell's: the single-window shell hides its own footer
+    // while an editor tab is in front (UnifiedStatusBar), so a shell-only button disappeared the
+    // moment any Anvil tool was opened.
+    KISTATUSBAR* sb = new KISTATUSBAR( number, this, id,
+                                       static_cast<KISTATUSBAR::STYLE_FLAGS>(
+                                               KISTATUSBAR::WARNING_ICON
+                                               | KISTATUSBAR::PANELS_BUTTON ) );
+
+    if( BITMAP_BUTTON* panelsBtn = sb->GetPanelsButton() )
+    {
+        panelsBtn->Bind( wxEVT_BUTTON,
+                [this, panelsBtn]( wxCommandEvent& )
+                {
+                    // This frame's own panels (Properties, Search, Hierarchy, Layers, ...),
+                    // rebuilt per click so the check marks track the panes.
+                    ShowPanelsMenuAt( panelsBtn );
+                } );
+
+        // buildPanelsMenu() is virtual, and this runs from EDA_DRAW_FRAME's constructor -- the
+        // derived frame's override is not reachable yet.  Defer the "does this frame have any
+        // panels at all?" test to the first idle, by which point the real frame exists, and drop
+        // the button on the frames that have none (the symbol/footprint viewers, the footprint
+        // chooser) rather than leaving a button whose menu is always empty.
+        CallAfter(
+                [this, panelsBtn]()
+                {
+                    ACTION_MENU probe( false, nullptr );
+                    buildPanelsMenu( &probe );
+
+                    if( probe.GetMenuItemCount() == 0 )
+                    {
+                        if( KISTATUSBAR* bar = dynamic_cast<KISTATUSBAR*>( GetStatusBar() ) )
+                            bar->ShowPanelsButton( false );
+                        else
+                            panelsBtn->Hide();
+                    }
+                } );
+    }
+
+    return sb;
 }
 
 

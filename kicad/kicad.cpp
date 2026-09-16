@@ -878,7 +878,7 @@ void PGM_KICAD::Destroy()
 
 KIWAY  Kiway( KFCTL_CPP_PROJECT_SUITE );
 
-#ifdef NDEBUG
+#ifndef DEBUG
 // Define a custom assertion handler
 void CustomAssertHandler(const wxString& file,
                          int line,
@@ -906,7 +906,12 @@ struct APP_KICAD : public wxApp
 
     bool OnInit()           override
     {
-#ifdef NDEBUG
+        // Gate on DEBUG (only defined for Debug configs), not NDEBUG: the production
+        // RelWithDebInfo builds define NEITHER macro, and an NDEBUG gate left them running
+        // with wx's default assert handler — a MODAL assert dialog.  An assert raised from
+        // inside a paint handler then re-painted the asserting control from the dialog's own
+        // message loop, recursing until wxTrap() took the whole app down.
+#ifndef DEBUG
         // These checks generate extra assert noise
         wxSizerFlags::DisableConsistencyChecks();
         wxDISABLE_DEBUG_SUPPORT();
@@ -977,6 +982,13 @@ struct APP_KICAD : public wxApp
 
     int FilterEvent( wxEvent& aEvent ) override
     {
+        // Live-theme paint guard (MSW): keeps wx's always-on dark-mode paint paths from
+        // running while the light theme is active — see KIPLATFORM::APP::LiveThemeEventFilter.
+        int result = KIPLATFORM::APP::LiveThemeEventFilter( aEvent );
+
+        if( result != Event_Skip )
+            return result;
+
         if( aEvent.GetEventType() == wxEVT_SHOW )
         {
             wxShowEvent& event = static_cast<wxShowEvent&>( aEvent );

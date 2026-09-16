@@ -31,7 +31,7 @@
 
 
 ///! Update the schema version whenever a migration is required
-const int libeditSchemaVersion = 1;
+const int libeditSchemaVersion = 2;
 
 
 SYMBOL_EDITOR_SETTINGS::SYMBOL_EDITOR_SETTINGS() :
@@ -85,10 +85,10 @@ SYMBOL_EDITOR_SETTINGS::SYMBOL_EDITOR_SETTINGS() :
             &m_ShowPinAltIcons, true ) );
 
     m_params.emplace_back( new PARAM<bool>( "show_hidden_lib_fields",
-            &m_ShowHiddenFields, true ) );
+            &m_ShowHiddenFields, false ) );
 
     m_params.emplace_back( new PARAM<bool>( "show_hidden_lib_pins",
-            &m_ShowHiddenPins, true ) );
+            &m_ShowHiddenPins, false ) );
 
     m_params.emplace_back( new PARAM<bool>( "drag_pins_along_with_edges",
             &m_dragPinsAlongWithEdges, true ) );
@@ -167,6 +167,17 @@ SYMBOL_EDITOR_SETTINGS::SYMBOL_EDITOR_SETTINGS() :
                        {
                            // This is actually a migration for APP_SETTINGS_BASE::m_LibTree
                            return migrateLibTreeWidth();
+                       } );
+
+    registerMigration( 1, 2,
+                       [&]() -> bool
+                       {
+                           // The defaults for these changed to false so that the canvas matches
+                           // the field/pin visibility checkboxes; reset values persisted under
+                           // the old always-true default.
+                           Set( "show_hidden_lib_fields", false );
+                           Set( "show_hidden_lib_pins", false );
+                           return true;
                        } );
 }
 

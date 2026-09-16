@@ -20,6 +20,7 @@
 
 #include <jobs/jobs_output_folder.h>
 #include <wx/filename.h>
+#include <wx/log.h>
 #include <gestfich.h>
 #include <common.h>
 
@@ -48,6 +49,8 @@ bool JOBS_OUTPUT_FOLDER::HandleOutputs( const wxString&                baseTempP
     {
         if( !wxFileName::Mkdir( outputPath, wxS_DIR_DEFAULT, wxPATH_MKDIR_FULL ) )
         {
+            wxLogError( _( "Could not create output directory '%s'." ), outputPath );
+
             aResolvedOutputPath.reset();
             return false;
         }
@@ -57,6 +60,10 @@ bool JOBS_OUTPUT_FOLDER::HandleOutputs( const wxString&                baseTempP
 
     if( !CopyDirectory( baseTempPath, outputPath, aPathsWithOverwriteDisallowed, errors ) )
     {
+        // Without this the run just flags "failed" and the user never learns which file
+        // could not be copied or why (e.g. still locked by another application).
+        wxLogError( _( "Failed to copy job outputs to '%s':\n%s" ), outputPath, errors );
+
         aResolvedOutputPath.reset();
         return false;
     }

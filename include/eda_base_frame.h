@@ -759,6 +759,24 @@ public:
      */
     virtual void buildPanelsMenu( ACTION_MENU* aMenu ) {}
 
+    /**
+     * Anvil Next: pop this frame's panels menu (buildPanelsMenu()) anchored to @p aAnchor --
+     * the status-bar Panels button.  Every editor footer carries that button, so the dropdown
+     * has to be buildable from the editor side too, not just from the shell.
+     *
+     * Does nothing when buildPanelsMenu() adds no items (a frame with no dockable panels).
+     */
+    void ShowPanelsMenuAt( wxWindow* aAnchor );
+
+    /**
+     * Anvil Next: bring @p aMenu's check marks and hotkey labels up to date.
+     *
+     * A menu-bar menu gets this pass for free on wxEVT_MENU_OPEN (the tool dispatcher forwards
+     * it), but a menu built for a button dropdown has never been "opened", so the toggles would
+     * otherwise render unchecked no matter which panels are on screen.
+     */
+    void RefreshMenuState( ACTION_MENU* aMenu );
+
 protected:
     /// Default style flags used for wxAUI toolbars.
     static constexpr int KICAD_AUI_TB_STYLE = wxAUI_TB_DEFAULT_STYLE | wxAUI_TB_PLAIN_BACKGROUND;

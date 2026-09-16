@@ -32,6 +32,7 @@
 
 #include <map>
 #include <mutex>
+#include <set>
 #include <unordered_map>
 #include <vector>
 #include <future>
@@ -292,7 +293,36 @@ private:
      * @return the Id for the new tree item
      */
     wxTreeItemId addItemToProjectTree( const wxString& aName, const wxTreeItemId& aParent,
-                                       std::vector<wxString>* aProjectNames, bool aRecurse );
+                                       std::vector<wxString>* aProjectNames, bool aRecurse,
+                                       bool aIsSubSheet = false );
+
+    /**
+     * Rebuild the parent-schematic -> sub-sheet-files map used to nest hierarchical sheets.
+     *
+     * The project manager never loads a schematic, so the sheet links are read straight off
+     * the files with a lightweight text scan, starting from the project's top-level sheets.
+     *
+     * @return true if the hierarchy differs from the one previously recorded.
+     */
+    bool rebuildSheetHierarchy();
+
+    /**
+     * Append the sub-sheet files of aSchFile under its tree item, recursively.
+     */
+    void addSheetChildren( const wxTreeItemId& aParent, const wxString& aSchFile );
+
+    /**
+     * Expand the schematic items that carry nested sheets, so the sheets of a hierarchy are
+     * visible under their parent as soon as the tree is shown.
+     */
+    void expandSheetNodes( const wxTreeItemId& aParent );
+
+    /**
+     * Re-file the schematic items after a schematic on disk gained or lost a sheet.
+     * Does nothing when the hierarchy is unchanged, so the editor's periodic saves don't
+     * churn the tree.
+     */
+    void refreshSheetNesting();
 
     /**
      * Function findSubdirTreeItem
@@ -350,6 +380,17 @@ private:
     wxTimer                 m_gitFeedbackTimer;
     std::future<void>       m_gitSyncTask;
     std::future<void>       m_gitStatusIconTask;
+
+    /// Sub-sheet files of each schematic, keyed by sheetKey() of the parent schematic.
+    /// An entry with an empty value marks a schematic that was scanned and has no sheets.
+    std::map<wxString, std::vector<wxString>> m_sheetChildren;
+
+    /// Every schematic that is a sub-sheet of another one in this project, as
+    /// sheetKey() -> full path.  These are shown nested under their parent, not beside it.
+    std::map<wxString, wxString>              m_subSheetFiles;
+
+    /// Recursion guard for the addItemToProjectTree() <-> addSheetChildren() pair.
+    std::set<wxString>                        m_sheetNestingStack;
 
     std::mutex                                       m_gitTreeCacheMutex;
     std::unordered_map<wxString, wxTreeItemId>       m_gitTreeCache;

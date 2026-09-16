@@ -170,7 +170,7 @@ private:
 wxIMPLEMENT_DYNAMIC_CLASS(HtmlModule, wxModule);
 
 
-#ifdef NDEBUG
+#ifndef DEBUG
 // Define a custom assertion handler
 void CustomAssertHandler( const wxString& file,
                           int line,
@@ -200,7 +200,10 @@ struct APP_SINGLE_TOP : public wxApp
 
     bool OnInit() override
     {
-#ifdef NDEBUG
+        // Gate on DEBUG (only defined for Debug configs), not NDEBUG: production
+        // RelWithDebInfo builds define neither macro, and an NDEBUG gate left wx's default
+        // MODAL assert dialog active in shipped binaries (see kicad.cpp for the full story).
+#ifndef DEBUG
         // These checks generate extra assert noise
         wxSizerFlags::DisableConsistencyChecks();
         wxDISABLE_DEBUG_SUPPORT();
@@ -271,6 +274,13 @@ struct APP_SINGLE_TOP : public wxApp
 
     int FilterEvent( wxEvent& aEvent ) override
     {
+        // Live-theme paint guard (MSW): keeps wx's always-on dark-mode paint paths from
+        // running while the light theme is active — see KIPLATFORM::APP::LiveThemeEventFilter.
+        int result = KIPLATFORM::APP::LiveThemeEventFilter( aEvent );
+
+        if( result != Event_Skip )
+            return result;
+
         if( aEvent.GetEventType() == wxEVT_SHOW )
         {
             wxShowEvent& event = static_cast<wxShowEvent&>( aEvent );
