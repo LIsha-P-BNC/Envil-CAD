@@ -110,6 +110,11 @@ private:
     void saveSessionState();
     void loadSessionState();
 
+    /// Forget the conversation (session id, attachments, saved state on disk) and tell the
+    /// panel. Called directly by an idle "New chat", or deferred via m_pendingReset when
+    /// New chat arrives mid-turn (endTurn performs it once the cancelled turn closes).
+    void resetConversation();
+
     KIWAY*          m_kiway;
     wxWindow*       m_parent;
     WEBVIEW_PANEL*  m_panel;
@@ -131,6 +136,7 @@ private:
     std::atomic<bool> m_cancel;
     std::atomic<bool> m_sawReply;
     std::atomic<bool> m_turnClosed;
+    std::atomic<bool> m_pendingReset;   // New chat pressed mid-turn: reset once the turn closes
 
     // liveness ticker: the model can be silent for minutes, so the panel's "working" state
     // rides on these ticks, not on traffic
@@ -142,6 +148,9 @@ private:
     std::chrono::steady_clock::time_point m_turnStart;
 
     void*           m_child;            // HANDLE of the running claude.exe (Windows)
+    void*           m_childJob;         // job (KILL_ON_JOB_CLOSE) holding the child's
+                                        // WHOLE tree — killing only claude.exe orphaned
+                                        // its spawned MCP-server python.exe
     std::mutex      m_childMutex;
 };
 

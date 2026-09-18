@@ -446,11 +446,7 @@
       <div class="big-mark">A</div>
       <h2>Anvil AI</h2>
       <p>Design a circuit, edit the open schematic or board, and run ERC / DRC — all in chat. Attach a photo or datasheet to work from.</p>
-      <div class="suggests" id="suggests">
-        <div class="suggest" data-p="Design a simple 555 LED blinker and open it.">Design a 555 LED blinker</div>
-        <div class="suggest" data-p="Review the open schematic and run ERC.">Review this schematic + ERC</div>
-        <div class="suggest" data-p="What parts are in the current design?">What parts are in this design?</div>
-      </div>
+      <div class="suggests" id="suggests"></div><!-- filled by renderSuggests() from ctx -->
     </div>
     <div id="busy"><div class="spinner"></div><span id="busyTxt">working…</span></div>
   </main>
@@ -665,6 +661,13 @@ window.anvilRecv=function(s){
     case "pong": break;
     case "authmode": renderAuth(ev); break;
     case "status": setBusy(true, ev.text||"working…"); break;
+    case "note":
+      // Informational line ("New conversation.") — must NOT flip the panel to busy:
+      // routing it through "status" showed the red Stop button with no turn running
+      // and read as "stuck thinking" after every New chat.
+      { const d=document.createElement("div"); d.className="sys-note";
+        d.textContent=ev.text||""; msgs.insertBefore(d,busy); scrollEnd(); setBusy(false); }
+      break;
     case "thinking":
       if(!curThink){ const t=document.createElement("div"); t.className="think";
         t.innerHTML='<details><summary>Reasoning…</summary><div class="body"></div></details>';
@@ -689,7 +692,41 @@ window.anvilSetContext=function(project,sch,pcb,app){
   // conversation on a context ping — C++ resets the session on real project switches.
   // A spurious/renormalized project string arriving mid-turn was wiping the chat.
   void changed;
+  renderSuggests();
 };
+
+/* Context-aware starter prompts (the empty state IS the onboarding: 3-4 specific,
+   clickable prompts matched to what is actually open — never generic fillers). */
+function renderSuggests(){
+  const box=$("suggests"); if(!box) return;
+  const proj=ctx.project?base(ctx.project).replace(/\.[^.]*$/,""):"";
+  let items;
+  if(!ctx.project){
+    items=[
+      ["Design a 555 LED blinker","Design a simple 555 LED blinker and open it."],
+      ["5V / 3.3V power supply","Design a 5V input to 3.3V regulated supply with protection and open it."],
+      ["Build from a photo or datasheet","I will attach a circuit photo or datasheet PDF — recreate it as a schematic."],
+      ["What can you do?","What can you help me with in Anvil CAD? Give a short list with examples."]];
+  } else if(!ctx.pcb){
+    items=[
+      ["Continue "+proj+" — add a block","Continue the project "+proj+": I want to add the next functional block. Ask me what it should be."],
+      ["Review this schematic + ERC","Review the open schematic and run ERC."],
+      ["Make the PCB","Create the PCB for "+proj+" — ask me the board requirements first."],
+      ["Bill of materials","Generate the BOM for "+proj+"."]];
+  } else {
+    items=[
+      ["Run DRC on the board","Run DRC on the open board and explain any problems."],
+      ["Change the schematic","I want to change the schematic of "+proj+" — ask me what to change, then update the board."],
+      ["Review the routing","Review the board's routing, track widths and clearances."],
+      ["Export for manufacturing","Export the manufacturing files (gerbers, drill, BOM, pick and place) for "+proj+"."]];
+  }
+  box.innerHTML="";
+  for(const [label,prompt] of items){
+    const d=document.createElement("div");
+    d.className="suggest"; d.dataset.p=prompt; d.textContent=label;
+    box.appendChild(d);
+  }
+}
 window.anvilPanelOpened=function(){ if(!document.body.classList.contains("mcp-off")) inp.focus(); };
 
 /* Mutual exclusion with the AnvilCAD MCP server: when MCP is ON, an external client
@@ -746,14 +783,16 @@ function sendChat(){
 function newChat(silent){
   seq++; turnOpen=false; curAi=null; curThink=null; pending=[]; renderTray();
   post({kind:"reset"});
-  if(!silent){ msgs.querySelectorAll(".row,.err-msg,.think,.sys-note").forEach(m=>m.remove()); if(empty) empty.style.display=""; }
+  if(!silent){ msgs.querySelectorAll(".row,.err-msg,.think,.sys-note").forEach(m=>m.remove()); if(empty) empty.style.display=""; renderSuggests(); }
   clearTX();
   setBusy(false);
 }
 sendBtn.addEventListener("click",sendChat);
 stopBtn.addEventListener("click",()=>{ post({kind:"cancel"}); setBusy(false); });
 $("newBtn").addEventListener("click",()=>newChat(false));
-document.querySelectorAll(".suggest").forEach(s=>s.addEventListener("click",()=>{ inp.value=s.dataset.p; autoSize(); sendChat(); }));
+/* delegated: suggestion chips are re-rendered per context, so bind the container */
+$("suggests").addEventListener("click",e=>{ const s=e.target.closest(".suggest"); if(!s) return; inp.value=s.dataset.p; autoSize(); sendChat(); });
+renderSuggests();
 
 inp.addEventListener("keydown",e=>{ if(e.key==="Enter"&&!e.shiftKey){ e.preventDefault(); sendChat(); } });
 function autoSize(){

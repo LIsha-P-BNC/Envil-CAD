@@ -375,8 +375,10 @@ ANVIL_AI_AGENT::ANVIL_AI_AGENT( KIWAY* aKiway, wxWindow* aParent, WEBVIEW_PANEL*
         m_cancel( false ),
         m_sawReply( false ),
         m_turnClosed( true ),
+        m_pendingReset( false ),
         m_heartbeatRun( false ),
-        m_child( nullptr )
+        m_child( nullptr ),
+        m_childJob( nullptr )
 {
     loadSessionState();
 }
@@ -824,6 +826,21 @@ void ANVIL_AI_AGENT::endTurn( const std::string& aReason, const wxString& aErrTe
         emit( { { "kind", "error" }, { "text", std::string( aErrText.utf8_str() ) } } );
     else
         emit( { { "kind", "done" }, { "reason", aReason } } );
+
+    // A "New chat" that arrived mid-turn deferred its reset to here, after the turn is
+    // fully closed (so no worker can save a stale session id over the cleared one).
+    if( m_pendingReset.exchange( false ) )
+        resetConversation();
+}
+
+
+void ANVIL_AI_AGENT::resetConversation()
+{
+    m_session.Clear();              // fresh CLI session on the next turn
+    m_sessionAttachments.Clear();   // forget earlier attachments too
+    m_savedSession.Clear();
+    saveSessionState();             // an explicit New chat also forgets on disk
+    emit( { { "kind", "note" }, { "text", "New conversation." } } );
 }
 
 
@@ -847,11 +864,12 @@ void ANVIL_AI_AGENT::killChild()
 #ifdef _WIN32
     std::lock_guard<std::mutex> lock( m_childMutex );
 
-    if( m_child )
-    {
+    if( m_childJob )
+        TerminateJobObject( (HANDLE) m_childJob, 1 );   // CLI + its MCP-server python
+    else if( m_child )
         TerminateProcess( (HANDLE) m_child, 1 );
-        m_child = nullptr;              // the worker still owns (and closes) the handle
-    }
+
+    m_child = nullptr;                  // the worker still owns (and closes) the handles
 #endif
 }
 
@@ -941,16 +959,19 @@ void ANVIL_AI_AGENT::onBridgeMessage( const wxString& aJson )
     {
         if( m_busy )
         {
-            emit( { { "kind", "error" },
-                    { "text", "Still working on the previous request — press Stop first." } } );
+            // New chat DURING a turn means "abandon that work and start over" — making the
+            // user press Stop first (the old behavior) just left the panel stuck on
+            // "thinking". Cancel the running turn now and let endTurn() perform the reset
+            // once the killed worker actually closes, so a second turn can't start on top.
+            m_pendingReset = true;
+            emit( { { "kind", "note" },
+                    { "text", "Stopping the current request — starting a new "
+                              "conversation." } } );
+            cancelTurn();
             return;
         }
 
-        m_session.Clear();              // fresh CLI session on the next turn
-        m_sessionAttachments.Clear();   // forget earlier attachments too
-        m_savedSession.Clear();
-        saveSessionState();             // an explicit New chat also forgets on disk
-        emit( { { "kind", "status" }, { "text", "New conversation." } } );
+        resetConversation();
     }
     else if( kind == "message" )
     {
@@ -1531,10 +1552,34 @@ void ANVIL_AI_AGENT::runTurn( wxString aUserText )
         return;
     }
 
-    // Publish the handle so Stop can kill the child and unblock the ReadFile below.
+    // Contain the child's WHOLE process tree in a kill-on-close job: the CLI spawns the
+    // MCP tool-server python.exe, and terminating only claude.exe left that python
+    // running forever (observed as orphaned <install>\bin\ai\python\python.exe processes
+    // holding file locks after the app closed). With the job, Stop kills the tree and
+    // an app crash/exit reaps it automatically when the job handle closes.
+    HANDLE hJob = CreateJobObjectW( nullptr, nullptr );
+
+    if( hJob )
+    {
+        JOBOBJECT_EXTENDED_LIMIT_INFORMATION jeli;
+        ZeroMemory( &jeli, sizeof( jeli ) );
+        jeli.BasicLimitInformation.LimitFlags = JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE;
+
+        if( !SetInformationJobObject( hJob, JobObjectExtendedLimitInformation, &jeli,
+                                      sizeof( jeli ) )
+                || !AssignProcessToJobObject( hJob, pi.hProcess ) )
+        {
+            // e.g. an outer job without nested-job rights: fall back to plain kill
+            CloseHandle( hJob );
+            hJob = nullptr;
+        }
+    }
+
+    // Publish the handles so Stop can kill the child and unblock the ReadFile below.
     {
         std::lock_guard<std::mutex> lock( m_childMutex );
         m_child = pi.hProcess;
+        m_childJob = hJob;
     }
 
     if( m_cancel )                      // Stop pressed between the flag and the handle
@@ -1578,14 +1623,20 @@ void ANVIL_AI_AGENT::runTurn( wxString aUserText )
     DWORD exitCode = 0;
     GetExitCodeProcess( pi.hProcess, &exitCode );
 
+    HANDLE hJobDone = nullptr;
     {
         std::lock_guard<std::mutex> lock( m_childMutex );
         m_child = nullptr;              // before CloseHandle, so Stop can't hit a dead handle
+        hJobDone = (HANDLE) m_childJob;
+        m_childJob = nullptr;
     }
 
     CloseHandle( hOutRd );
     CloseHandle( pi.hProcess );
     CloseHandle( pi.hThread );
+
+    if( hJobDone )
+        CloseHandle( hJobDone );        // KILL_ON_JOB_CLOSE reaps any straggler the CLI left
 
     if( m_cancel )
     {
