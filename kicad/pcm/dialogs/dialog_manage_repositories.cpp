@@ -131,11 +131,18 @@ void DIALOG_MANAGE_REPOSITORIES::addRepository( const wxString& aUrl )
 
     if( m_pcm->FetchRepository( aUrl, repository, &reporter ) )
     {
-        wxString name = repository.name;
+        // The default repository's metadata self-declares an upstream (KiCad)
+        // name; always show the Anvil-branded name for it.
+        wxString base_name = repository.name;
+
+        if( aUrl == wxS( PCM_DEFAULT_REPOSITORY_URL ) )
+            base_name = wxS( PCM_DEFAULT_REPOSITORY_NAME );
+
+        wxString name = base_name;
         int      increment = 1;
 
         while( findRow( 0, name ) >= 0 )
-            name = wxString::Format( "%s (%d)", repository.name, increment++ );
+            name = wxString::Format( "%s (%d)", base_name, increment++ );
 
         m_grid->Freeze();
 

@@ -739,3 +739,11 @@ void KIPLATFORM::UI::SetDarkExplorerTheme( wxWindow* aWindow, bool aDark )
     ( void ) aWindow;
     ( void ) aDark;
 }
+
+
+void KIPLATFORM::UI::SetDarkTitlebar( wxWindow* aWindow, bool aDark )
+{
+    // NOP: the immersive-dark caption is Windows DWM state; GTK captions follow the GTK theme.
+    ( void ) aWindow;
+    ( void ) aDark;
+}

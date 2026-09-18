@@ -130,9 +130,12 @@ BOM_PRESET BOM_PRESET::DefaultEditing()
         { "Reference", "Reference", true, false },
         { "${QUANTITY}", "Qty", true, false },
         { "Value", "Value", true, true },
+        { "Manufacturer", "Manufacturer", true, false },
+        { "MPN", "MPN", true, false },
+        { "Description", "Description", true, false },
         { "${DNP}", "DNP", true, true },
-        { "${EXCLUDE_FROM_BOM}", "Exclude from BOM", true, true },
-        { "${EXCLUDE_FROM_BOARD}", "Exclude from Board", true, true },
+        { "${EXCLUDE_FROM_BOM}", "Exclude from BOM", false, true },
+        { "${EXCLUDE_FROM_BOARD}", "Exclude from Board", false, true },
         { "Footprint", "Footprint", true, true },
         { "Datasheet", "Datasheet", true, false },
     };
@@ -215,7 +218,7 @@ bool BOM_FMT_PRESET::operator==( const BOM_FMT_PRESET& rhs ) const
            && this->fieldDelimiter == rhs.fieldDelimiter
            && this->stringDelimiter == rhs.stringDelimiter && this->refDelimiter == rhs.refDelimiter
            && this->refRangeDelimiter == rhs.refRangeDelimiter && this->keepTabs == rhs.keepTabs
-           && this->keepLineBreaks == rhs.keepLineBreaks;
+           && this->keepLineBreaks == rhs.keepLineBreaks && this->xlsx == rhs.xlsx;
 }
 
 
@@ -239,7 +242,8 @@ void to_json( nlohmann::json& j, const BOM_FMT_PRESET& p )
                         { "ref_delimiter", p.refDelimiter },
                         { "ref_range_delimiter", p.refRangeDelimiter },
                         { "keep_tabs", p.keepTabs },
-                        { "keep_line_breaks", p.keepLineBreaks } };
+                        { "keep_line_breaks", p.keepLineBreaks },
+                        { "xlsx", p.xlsx } };
 }
 
 
@@ -252,6 +256,9 @@ void from_json( const nlohmann::json& j, BOM_FMT_PRESET& f )
     j.at( "ref_range_delimiter" ).get_to( f.refRangeDelimiter );
     j.at( "keep_tabs" ).get_to( f.keepTabs );
     j.at( "keep_line_breaks" ).get_to( f.keepLineBreaks );
+
+    // Not present before the native Excel export was added, so default to false
+    f.xlsx = j.value( "xlsx", false );
 }
 
 
@@ -275,9 +282,19 @@ BOM_FMT_PRESET BOM_FMT_PRESET::Semicolons()
 }
 
 
+BOM_FMT_PRESET BOM_FMT_PRESET::XLSX()
+{
+    // Delimited-text settings only drive the preview and the reference-list separators;
+    // the actual output is a native Excel workbook.
+    return { _HKI( "XLSX (Excel)" ), true, wxS( "," ), wxT( "\"" ), wxT( "," ), wxT( "" ),
+             false,  false, true };
+}
+
+
 std::vector<BOM_FMT_PRESET> BOM_FMT_PRESET::BuiltInPresets()
 {
-    return { BOM_FMT_PRESET::CSV(), BOM_FMT_PRESET::TSV(), BOM_FMT_PRESET::Semicolons() };
+    return { BOM_FMT_PRESET::CSV(), BOM_FMT_PRESET::TSV(), BOM_FMT_PRESET::Semicolons(),
+             BOM_FMT_PRESET::XLSX() };
 }
 
 

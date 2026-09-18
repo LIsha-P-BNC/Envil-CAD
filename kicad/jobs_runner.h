@@ -69,7 +69,7 @@ public:
 
 private:
     int runSpecialExecute( const JOBSET_JOB* aJob, REPORTER* aReporter, PROJECT* aProject );
-    int runSpecialCopyFiles( const JOB_SPECIAL_COPYFILES* aJob, PROJECT* aProject,
+    int runSpecialCopyFiles( const JOB_SPECIAL_COPYFILES* aJob, REPORTER* aReporter, PROJECT* aProject,
                              std::vector<wxString>& aPathsWritten );
 
 private:

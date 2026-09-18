@@ -179,7 +179,13 @@ static const std::map<int, COLOR4D> s_defaultTheme =
             { LAYER_GRID_AXES,              CSS_COLOR( 194, 194, 194, 1 ) },
             { LAYER_PAD_PLATEDHOLES,        CSS_COLOR( 194, 194, 0, 1 ) },
             { LAYER_NON_PLATEDHOLES,        CSS_COLOR( 26,  196, 210, 1 ) },
-            { LAYER_RATSNEST,               CSS_COLOR( 0,   248, 255, 0.35 ) },
+            // Airwires must stay readable in BOTH halves of the NEMI pair, so each theme carries
+            // a ratsnest tuned to its own canvas: >= 3:1 against it (the WCAG floor for a thin
+            // graphical line), at the LOWEST alpha that buys it -- the alpha is what lets copper
+            // still read through where an airwire crosses a pad.  Dark: this cyan on Black Ground
+            // measured 2.6:1 at 0.35 and vanished into the canvas; 0.5 is 4.2:1 and still 50%
+            // see-through.  Light re-points the hue entirely -- see s_anvilLightOverrides.
+            { LAYER_RATSNEST,               CSS_COLOR( 0,   248, 255, 0.5 ) },
             { LAYER_SELECT_OVERLAY,         CSS_COLOR( 4,   255, 67,  1 ) },
             { LAYER_VIA_HOLES,              CSS_COLOR( 227, 183, 46, 1 ) },
             { LAYER_VIA_HOLEWALLS,          CSS_COLOR( 236, 236, 236, 1 ) },
@@ -362,7 +368,12 @@ static const std::map<int, COLOR4D> s_anvilLightOverrides =
             { LAYER_PAGE_LIMITS,            CSS_COLOR( 199, 210, 206, 1 ) },
             { LAYER_DRC_EXCLUSION,          CSS_COLOR( 70,  70,  64,  0.8 ) },
             { LAYER_VIA_HOLEWALLS,          CSS_COLOR( 70,  70,  64,  1 ) },
-            { LAYER_RATSNEST,               CSS_COLOR( 0,   140, 160, 0.5 ) },
+            // Ratsnest: alpha-blended onto a white sheet a light cyan collapses into a near-white
+            // pastel -- the old 0,140,160 @ 0.5 measured 1.9:1, which is what made airwires
+            // unreadable in this theme -- so it is exactly the kind of layer the header rule sends
+            // here.  Same airwire hue band as the dark cyan (~188 deg), deepened instead of
+            // lightened: 4.6:1 on white at alpha 0.8.
+            { LAYER_RATSNEST,               CSS_COLOR( 0,   95,  110, 0.8 ) },
             { LAYER_BOARD_OUTLINE_AREA,     CSS_COLOR( 150, 150, 150, 0.25 ) },
             { NETNAMES_LAYER_ID_START,      CSS_COLOR( 30,  30,  25,  0.75 ) },
             { LAYER_PAD_NETNAMES,           CSS_COLOR( 30,  30,  25,  0.9 ) },

@@ -94,6 +94,20 @@ DIALOG_PLOT_SCHEMATIC::DIALOG_PLOT_SCHEMATIC( SCH_EDIT_FRAME* aEditFrame, wxWind
     for( COLOR_SETTINGS* settings : Pgm().GetSettingsManager().GetColorSettingsList() )
         m_colorTheme->Append( settings->GetName(), static_cast<void*>( settings ) );
 
+    // Default the plot theme to the light (print) palette: a dark canvas theme paints
+    // Reference/Value in white, which is invisible on the white page.  A saved dialog state
+    // or a job's explicit theme selection still overrides this.
+    COLOR_SETTINGS* printTheme = ::GetColorSettings( COLOR_SETTINGS::COLOR_BUILTIN_CLASSIC );
+
+    for( unsigned i = 0; i < m_colorTheme->GetCount(); ++i )
+    {
+        if( m_colorTheme->GetClientData( i ) == printTheme )
+        {
+            m_colorTheme->SetSelection( i );
+            break;
+        }
+    }
+
     m_variantChoiceCtrl->Append( m_editFrame->Schematic().GetVariantNamesForUI() );
     m_variantChoiceCtrl->Select( 0 );
 
@@ -284,7 +298,7 @@ COLOR_SETTINGS* DIALOG_PLOT_SCHEMATIC::getColorSettings()
     int selection = m_colorTheme->GetSelection();
 
     if( selection < 0 )
-        return ::GetColorSettings( COLOR_SETTINGS::COLOR_BUILTIN_DEFAULT );
+        return ::GetColorSettings( COLOR_SETTINGS::COLOR_BUILTIN_CLASSIC );
 
     return static_cast<COLOR_SETTINGS*>( m_colorTheme->GetClientData( selection ) );
 }

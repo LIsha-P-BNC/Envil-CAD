@@ -38,6 +38,7 @@
 #include <sch_painter.h>
 #include <schematic.h>
 #include <sch_screen.h>
+#include <settings/color_settings.h>
 #include <settings/settings_manager.h>
 
 // Note:
@@ -1067,6 +1068,19 @@ void SCH_PLOTTER::Plot( PLOT_FORMAT aPlotFormat, const SCH_PLOT_OPTS& aPlotOpts,
     wxString oldVariant = m_schematic->GetCurrentVariant();
     m_schematic->SetCurrentVariant( aPlotOpts.m_variant );
     m_colorSettings = ::GetColorSettings( aPlotOpts.m_theme );
+
+    // A dark canvas theme paints Reference/Value and pin names in white; on a plot that does
+    // not fill the page background (white paper) that text is invisible.  Swap to the built-in
+    // light palette — the same theme re-pointed for a white sheet — unless the user explicitly
+    // asked for the theme's background color, in which case the dark colors stay legible.
+    if( !aPlotOpts.m_blackAndWhite && !aPlotOpts.m_useBackgroundColor
+            && m_colorSettings->GetColor( LAYER_SCHEMATIC_BACKGROUND ).GetBrightness() < 0.5 )
+    {
+        m_colorSettings = ::GetColorSettings( COLOR_SETTINGS::COLOR_BUILTIN_CLASSIC );
+
+        if( aRenderSettings )
+            aRenderSettings->LoadColors( m_colorSettings );
+    }
 
     switch( aPlotFormat )
     {

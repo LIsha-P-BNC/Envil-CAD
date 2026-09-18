@@ -3395,11 +3395,18 @@ int SCH_EDITOR_CONTROL::EditSymbolFields( const TOOL_EVENT& aEvent )
     if( !dlg )
         return 0;
 
-    // Needed at least on Windows. Raise() is not enough
-    dlg->Show( true );
+    // Single-window shell: open the table as a tab in the shell's editor notebook, like
+    // the document views, instead of a floating dialog.
+    KIFACE_TAB_HOST* tabHost = m_frame->Kiway().GetTabHost();
 
-    // Bring it to the top if already open.  Dual monitor users need this.
-    dlg->Raise();
+    if( !tabHost || !tabHost->DockWindowAsTab( dlg, _( "Symbol Fields Table" ) ) )
+    {
+        // Needed at least on Windows. Raise() is not enough
+        dlg->Show( true );
+
+        // Bring it to the top if already open.  Dual monitor users need this.
+        dlg->Raise();
+    }
 
     dlg->ShowEditTab();
 
@@ -3457,11 +3464,18 @@ int SCH_EDITOR_CONTROL::GenerateBOM( const TOOL_EVENT& aEvent )
     if( !dlg )
         return 0;
 
-    // Needed at least on Windows. Raise() is not enough
-    dlg->Show( true );
+    // Single-window shell: open the BOM view as a tab in the shell's editor notebook,
+    // like the document views, instead of a floating dialog.
+    KIFACE_TAB_HOST* tabHost = m_frame->Kiway().GetTabHost();
 
-    // Bring it to the top if already open.  Dual monitor users need this.
-    dlg->Raise();
+    if( !tabHost || !tabHost->DockWindowAsTab( dlg, _( "Bill of Materials" ) ) )
+    {
+        // Needed at least on Windows. Raise() is not enough
+        dlg->Show( true );
+
+        // Bring it to the top if already open.  Dual monitor users need this.
+        dlg->Raise();
+    }
 
     dlg->ShowExportTab();
 

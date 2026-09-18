@@ -276,6 +276,21 @@ namespace KIPLATFORM
          * @param aDark selects the dark Explorer theme (true) or the light one (false)
          */
         void SetDarkExplorerTheme( wxWindow* aWindow, bool aDark );
+
+        /**
+         * Paint a top-level window's native caption (title bar) dark or light.
+         *
+         * wx sets the immersive-dark caption ONCE at window creation from its process-wide
+         * dark-mode state, which Anvil forces on for the life of the process (see
+         * KIPLATFORM::APP::SetLiveDarkMode) — so every new dialog would wear a dark caption
+         * even while the light theme is active.  DIALOG_SHIM and EDA_BASE_FRAME call this
+         * after creation to re-stamp the caption with the ACTUAL app theme.  NOP on GTK and
+         * macOS.
+         *
+         * @param aWindow is the top-level window (dialog or frame) to re-stamp
+         * @param aDark selects a dark caption (true) or a light one (false)
+         */
+        void SetDarkTitlebar( wxWindow* aWindow, bool aDark );
     }
 }
 

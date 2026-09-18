@@ -78,6 +78,8 @@ public:
 
     void Flip( const VECTOR2I& aCentre, FLIP_DIRECTION aFlipDirection ) override;
 
+    void Mirror( const VECTOR2I& aCentre, FLIP_DIRECTION aFlipDirection ) override;
+
     wxString GetClass() const override
     {
         return wxT( "PCB_POINT" );

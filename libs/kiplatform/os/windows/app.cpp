@@ -22,8 +22,19 @@
 #include <kiplatform/anvil_theme.h>
 
 #include <wx/app.h>
+#include <wx/bitmap.h>
+#include <wx/brush.h>
+#include <wx/checkbox.h>
+#include <wx/dc.h>
+#include <wx/dcclient.h>
+#include <wx/event.h>
+#include <wx/spinbutt.h>
+#include <wx/graphics.h>
+#include <wx/image.h>
 #include <wx/log.h>
 #include <wx/pen.h>
+#include <wx/radiobut.h>
+#include <wx/renderer.h>
 #include <wx/string.h>
 #include <wx/window.h>
 #if wxCHECK_VERSION( 3, 3, 0 )
@@ -34,8 +45,13 @@
 #include <strsafe.h>
 #include <config.h>
 #include <versionhelpers.h>
+#include <algorithm>
+#include <cstdint>
+#include <cstring>
 #include <iostream>
 #include <cstdio>
+#include <memory>
+#include <unordered_map>
 
 #if defined( _MSC_VER )
 #include <werapi.h>     // issues on msys2
@@ -69,12 +85,52 @@ extern "C"
 // Anvil "Vibrant Purple & Indigo" frame theme.  Set by SetDarkModePurple() before EnableDarkMode().
 static bool g_anvilPurpleDark = false;
 
+// Anvil live theme flip: true while the LIGHT theme is active.  wxMSW's dark mode can only be
+// established once, before the first window exists (MSWEnableDarkMode() refuses to run after
+// that), so Anvil enables it unconditionally at start-up and then steers the OS-level per-app
+// mode at runtime — see SetLiveDarkMode() below.  While the light theme is on, the settings
+// object keeps answering wx's colour queries with the CLASSIC light system palette, so
+// everything wx paints through wxSystemSettings comes out identical to a never-dark-moded app.
+static bool g_anvilLiveLight = false;
+
 #if wxCHECK_VERSION( 3, 3, 0 )
+/// The classic (light) system colour for a wxSYS_COLOUR_* index, bypassing wx's dark-mode
+/// override.  ::GetSysColor() always reports the un-themed light palette, which is exactly what
+/// a light-started wx app would have used.
+static wxColour anvilClassicSysColour( wxSystemColour aIndex )
+{
+    // wx pseudo-colours that have no Win32 COLOR_* slot: map to their classic base.
+    switch( aIndex )
+    {
+    case wxSYS_COLOUR_LISTBOX:              aIndex = wxSYS_COLOUR_WINDOW; break;
+    case wxSYS_COLOUR_LISTBOXTEXT:          aIndex = wxSYS_COLOUR_WINDOWTEXT; break;
+    case wxSYS_COLOUR_LISTBOXHIGHLIGHT:     aIndex = wxSYS_COLOUR_HIGHLIGHT; break;
+    case wxSYS_COLOUR_LISTBOXHIGHLIGHTTEXT: aIndex = wxSYS_COLOUR_HIGHLIGHTTEXT; break;
+    default: break;
+    }
+
+    // The first block of wxSYS_COLOUR_* values mirrors the Win32 COLOR_* indices one-to-one.
+    int win32Index = static_cast<int>( aIndex );
+
+    if( win32Index < 0 || win32Index > COLOR_MENUBAR )
+        win32Index = COLOR_BTNFACE;
+
+    const DWORD rgb = ::GetSysColor( win32Index );
+
+    return wxColour( GetRValue( rgb ), GetGValue( rgb ), GetBValue( rgb ) );
+}
+
+
 class KICAD_DARK_MODE_SETTINGS : public wxDarkModeSettings
 {
 public:
     wxColour GetColour( wxSystemColour index ) override
     {
+        // Live light theme: wx is stuck in "dark mode enabled" for the life of the process, so
+        // it asks this object for every colour — answer with the classic light system palette.
+        if( g_anvilLiveLight )
+            return anvilClassicSysColour( index );
+
         if( g_anvilPurpleDark )
         {
             // Anvil chrome palette.  Three distinct surface levels + a visible border so adjacent
@@ -189,6 +245,18 @@ public:
 
     wxColour GetMenuColour( wxMenuColour which ) override
     {
+        // Live light theme: classic light menu colours (see GetColour above).
+        if( g_anvilLiveLight )
+        {
+            switch( which )
+            {
+            case wxMenuColour::StandardBg: return anvilClassicSysColour( wxSYS_COLOUR_MENU );
+            case wxMenuColour::StandardFg: return anvilClassicSysColour( wxSYS_COLOUR_MENUTEXT );
+            case wxMenuColour::HotBg:      return anvilClassicSysColour( wxSYS_COLOUR_MENUHILIGHT );
+            case wxMenuColour::DisabledFg: return anvilClassicSysColour( wxSYS_COLOUR_GRAYTEXT );
+            }
+        }
+
         if( g_anvilPurpleDark )
         {
             switch( which )
@@ -208,12 +276,278 @@ public:
 
     wxPen GetBorderPen() override
     {
+        // Live light theme: this MUST be a valid pen.  Not every wx consumer tolerates an
+        // invalid one: wxStaticBox falls back to native border drawing (statbox.cpp checks
+        // IsOk()), but wxSpinButton::OnPaint calls GetColour() on it unchecked, which raises
+        // a wx assert from INSIDE WM_PAINT — the modal assert dialog then repaints the same
+        // control and the recursion ends in wxTrap()/app death (every dialog with a
+        // wxSpinCtrl died this way in the light theme).  Spin buttons are painted natively
+        // by LiveThemeEventFilter() below, and the colour here matches the flat light-grey
+        // border Windows 10/11 natively gives group boxes, so statbox borders drawn with it
+        // look the same as the native fallback did.
+        if( g_anvilLiveLight )
+            return wxPen( wxColour( 220, 220, 220 ) );
+
         if( g_anvilPurpleDark )
             return wxPen( ANVIL::BORDER );   // visible group-box / static-box outline
 
         return wxDarkModeSettings::GetBorderPen();
     }
 };
+
+
+// ======================= Anvil green check-box / radio glyphs ==================================
+//
+// The check and radio glyphs Windows draws are baked into the OS visual style (blue-ish in the
+// light style, the user's accent colour in dark) and follow neither the ANVIL palette nor the
+// live theme toggle.  But every such glyph in the app is requested through ONE funnel,
+// wxRendererNative::Get():
+//
+//   - native wxCheckBox / wxRadioButton: wx's always-on dark mode stamps a foreground colour on
+//     them at creation (src/msw/control.cpp), which flips them to BS_OWNERDRAW, and the
+//     owner-draw path renders the glyph via DrawCheckBox() / DrawRadioBitmap();
+//   - wxGrid bool cells (GRID_CELL_CHECKBOX_RENDERER), wxCheckListBox rows, wxDataView toggles
+//     and wxPropertyGrid bool editors all call DrawCheckBox() directly.
+//
+// So replacing the process-wide renderer recolours every check & radio in the application:
+// Signal Emerald (ANVIL::ACCENT — identical in both themes) for the checked state, with the
+// well / edge colours taken from the live palette so the theme toggle just works.  Everything
+// else stays delegated to the real MSW renderer.
+
+enum class ANVIL_GLYPH
+{
+    CHECKBOX,   ///< box + tick (or bar for the indeterminate state)
+    RADIO,      ///< ring + dot
+    CHECKMARK   ///< bare tick, no box (wxRendererNative::DrawCheckMark)
+};
+
+
+static wxBitmap anvilGlyphBitmap( ANVIL_GLYPH aKind, int aW, int aH, int aFlags )
+{
+    const bool checked  = ( aFlags & wxCONTROL_CHECKED ) != 0;
+    const bool undet    = ( aFlags & wxCONTROL_UNDETERMINED ) != 0;
+    const bool disabled = ( aFlags & wxCONTROL_DISABLED ) != 0;
+    const bool hot      = ( aFlags & ( wxCONTROL_CURRENT | wxCONTROL_PRESSED ) ) != 0;
+
+    // The palette is a handful of constants per (mode, size, state), so cache the rendered
+    // bitmaps — grids repaint one glyph per row.  The mode bit keys the light/dark palette.
+    static std::unordered_map<uint32_t, wxBitmap> s_cache;
+
+    const uint32_t key = uint32_t( aW & 0xFFF ) | uint32_t( aH & 0xFFF ) << 12
+                         | uint32_t( checked ) << 24 | uint32_t( undet ) << 25
+                         | uint32_t( disabled ) << 26 | uint32_t( hot ) << 27
+                         | uint32_t( aKind ) << 28 | uint32_t( ANVIL::IsLight() ) << 30;
+
+    if( auto it = s_cache.find( key ); it != s_cache.end() )
+        return it->second;
+
+    // Colour roles.  The well (unchecked interior) is CONTENT so the glyph reads as a small
+    // content field on the panel it sits on, in both themes; the checked fill is the brand
+    // accent, lightened a step for hover/pressed and desaturated for disabled.
+    const wxColour well = ANVIL::CONTENT;
+    const wxColour tick = ANVIL::ON_ACCENT;
+    wxColour       fill = ANVIL::ACCENT;
+    wxColour       edge = ANVIL::CAPTION_TEXT;
+
+    if( disabled )
+    {
+        fill = ANVIL::DIM;
+        edge = ANVIL::BORDER;
+    }
+    else if( hot )
+    {
+        fill = fill.ChangeLightness( 115 );
+        edge = ANVIL::ACCENT;
+    }
+
+    wxImage img( aW, aH );
+    img.InitAlpha();
+    memset( img.GetAlpha(), 0, static_cast<size_t>( aW ) * aH );
+
+    {
+        std::unique_ptr<wxGraphicsContext> gc( wxGraphicsContext::Create( img ) );
+
+        if( !gc )
+            return wxNullBitmap;    // caller falls back to the native renderer
+
+        gc->SetAntialiasMode( wxANTIALIAS_DEFAULT );
+
+        const double s = std::min( aW, aH );        // glyphs are square, centred in the rect
+        const double x = ( aW - s ) / 2.0;
+        const double y = ( aH - s ) / 2.0;
+
+        const double lineW = std::max( 1.0, s / 13.0 );          // unchecked outline
+        const double tickW = std::max( 1.6, s * 0.15 );          // tick / bar stroke
+
+        auto strokeTick = [&]( double aInsetX, double aInsetY, double aSpan )
+        {
+            // aInsetX/aInsetY position the tick's bounding square, aSpan is its size.
+            const wxPoint2DDouble pts[3] = {
+                { aInsetX + 0.22 * aSpan, aInsetY + 0.54 * aSpan },
+                { aInsetX + 0.42 * aSpan, aInsetY + 0.73 * aSpan },
+                { aInsetX + 0.78 * aSpan, aInsetY + 0.31 * aSpan },
+            };
+
+            gc->StrokeLines( 3, pts );
+        };
+
+        switch( aKind )
+        {
+        case ANVIL_GLYPH::CHECKBOX:
+        {
+            const double rad = s * 0.18;    // corner radius, Win11-ish rounding
+
+            if( checked || undet )
+            {
+                gc->SetBrush( wxBrush( fill ) );
+                gc->SetPen( *wxTRANSPARENT_PEN );
+                gc->DrawRoundedRectangle( x + 0.5, y + 0.5, s - 1.0, s - 1.0, rad );
+
+                gc->SetPen( gc->CreatePen( wxGraphicsPenInfo( tick, tickW )
+                                                   .Cap( wxCAP_ROUND )
+                                                   .Join( wxJOIN_ROUND ) ) );
+
+                if( undet )
+                {
+                    const wxPoint2DDouble bar[2] = { { x + 0.28 * s, y + 0.50 * s },
+                                                     { x + 0.72 * s, y + 0.50 * s } };
+                    gc->StrokeLines( 2, bar );
+                }
+                else
+                {
+                    strokeTick( x, y, s );
+                }
+            }
+            else
+            {
+                gc->SetBrush( wxBrush( well ) );
+                gc->SetPen( gc->CreatePen( wxGraphicsPenInfo( edge, lineW ) ) );
+                gc->DrawRoundedRectangle( x + lineW / 2.0 + 0.5, y + lineW / 2.0 + 0.5,
+                                          s - lineW - 1.0, s - lineW - 1.0, rad );
+            }
+
+            break;
+        }
+
+        case ANVIL_GLYPH::RADIO:
+        {
+            const double cx = aW / 2.0;
+            const double cy = aH / 2.0;
+
+            if( checked )
+            {
+                // Emerald ring around a well-coloured gap, emerald centre dot.
+                const double ringW = std::max( 1.6, s * 0.14 );
+                const double r     = ( s - ringW ) / 2.0 - 0.5;
+
+                gc->SetBrush( wxBrush( well ) );
+                gc->SetPen( gc->CreatePen( wxGraphicsPenInfo( fill, ringW ) ) );
+                gc->DrawEllipse( cx - r, cy - r, 2.0 * r, 2.0 * r );
+
+                const double rd = r * 0.5;
+
+                gc->SetBrush( wxBrush( fill ) );
+                gc->SetPen( *wxTRANSPARENT_PEN );
+                gc->DrawEllipse( cx - rd, cy - rd, 2.0 * rd, 2.0 * rd );
+            }
+            else
+            {
+                const double r = ( s - lineW ) / 2.0 - 0.5;
+
+                gc->SetBrush( wxBrush( well ) );
+                gc->SetPen( gc->CreatePen( wxGraphicsPenInfo( edge, lineW ) ) );
+                gc->DrawEllipse( cx - r, cy - r, 2.0 * r, 2.0 * r );
+            }
+
+            break;
+        }
+
+        case ANVIL_GLYPH::CHECKMARK:
+        {
+            // A bare tick sits on the surrounding surface, so it is drawn in the accent
+            // itself — white would vanish on a light panel.
+            gc->SetPen( gc->CreatePen( wxGraphicsPenInfo( fill, tickW )
+                                               .Cap( wxCAP_ROUND )
+                                               .Join( wxJOIN_ROUND ) ) );
+            strokeTick( x, y, s );
+            break;
+        }
+        }
+    }
+
+    wxBitmap bmp( img );
+    s_cache.emplace( key, bmp );
+
+    return bmp;
+}
+
+
+class ANVIL_GLYPH_RENDERER : public wxDelegateRendererNative
+{
+public:
+    // Delegate everything not overridden here to the REAL platform renderer (the default
+    // wxDelegateRendererNative ctor would delegate to the generic one).
+    ANVIL_GLYPH_RENDERER() : wxDelegateRendererNative( wxRendererNative::GetDefault() ) {}
+
+    void DrawCheckBox( wxWindow* aWin, wxDC& aDC, const wxRect& aRect, int aFlags = 0 ) override
+    {
+        if( !drawGlyph( ANVIL_GLYPH::CHECKBOX, aDC, aRect, aFlags ) )
+            wxDelegateRendererNative::DrawCheckBox( aWin, aDC, aRect, aFlags );
+    }
+
+    void DrawCheckMark( wxWindow* aWin, wxDC& aDC, const wxRect& aRect, int aFlags = 0 ) override
+    {
+        if( !drawGlyph( ANVIL_GLYPH::CHECKMARK, aDC, aRect, aFlags ) )
+            wxDelegateRendererNative::DrawCheckMark( aWin, aDC, aRect, aFlags );
+    }
+
+    void DrawRadioBitmap( wxWindow* aWin, wxDC& aDC, const wxRect& aRect, int aFlags = 0 ) override
+    {
+        if( !drawGlyph( ANVIL_GLYPH::RADIO, aDC, aRect, aFlags ) )
+            wxDelegateRendererNative::DrawRadioBitmap( aWin, aDC, aRect, aFlags );
+    }
+
+private:
+    static bool drawGlyph( ANVIL_GLYPH aKind, wxDC& aDC, const wxRect& aRect, int aFlags )
+    {
+        if( aRect.width <= 0 || aRect.height <= 0 )
+            return true;    // nothing to draw, but nothing for the native renderer either
+
+        wxBitmap bmp = anvilGlyphBitmap( aKind, aRect.width, aRect.height, aFlags );
+
+        if( !bmp.IsOk() )
+            return false;
+
+        aDC.DrawBitmap( bmp, aRect.x, aRect.y, true );
+
+        return true;
+    }
+};
+
+
+// wx's always-on dark mode stamps a foreground colour on every wxCheckBox / wxRadioButton at
+// creation (src/msw/control.cpp: SetForegroundColour(wxSYS_COLOUR_LISTBOXTEXT)) — that is what
+// makes them owner-drawn.  The colour is derived ONCE, from the theme active at creation, so a
+// live flip would leave stale label text on controls that outlive it.  Re-derive it here, but
+// ONLY when the current colour is one of the known theme-stamped values — a colour a dialog
+// set on purpose (warning red etc.) is left alone.
+static void anvilRepinOwnerDrawnButtonText( wxWindow* aWin )
+{
+    if( wxDynamicCast( aWin, wxCheckBox ) || wxDynamicCast( aWin, wxRadioButton ) )
+    {
+        const wxColour cur = aWin->GetForegroundColour();
+
+        if( cur == ANVIL::BONE_For( ANVIL::MODE::DARK )
+            || cur == ANVIL::BONE_For( ANVIL::MODE::LIGHT )
+            || cur == anvilClassicSysColour( wxSYS_COLOUR_WINDOWTEXT ) )
+        {
+            aWin->SetForegroundColour( wxSystemSettings::GetColour( wxSYS_COLOUR_LISTBOXTEXT ) );
+        }
+    }
+
+    for( wxWindow* child : aWin->GetChildren() )
+        anvilRepinOwnerDrawnButtonText( child );
+}
 #endif
 
 
@@ -264,6 +598,19 @@ void KIPLATFORM::APP::EnableDarkMode( bool aForce )
 {
 #if wxCHECK_VERSION( 3, 3, 0 )
     wxTheApp->MSWEnableDarkMode( aForce ? wxApp::DarkMode_Always : wxApp::DarkMode_Auto, new KICAD_DARK_MODE_SETTINGS() );
+
+    // Emerald check-box / radio glyphs in both themes — see ANVIL_GLYPH_RENDERER above.
+    //
+    // Get() FIRST, and not for its return value: wxRendererNative::Set() does not mark the
+    // global renderer slot as initialised (src/common/rendcmn.cpp), so on the next Get() the
+    // slot still believes it has to create the platform renderer — and that lazy init RESETS
+    // the unique_ptr, deleting whatever Set() had just put there.  Setting without this call
+    // silently loses the renderer at the first repaint (symptom: stock blue glyphs).  One
+    // Get() runs the lazy init while the slot is still empty, after which Set() sticks.
+    wxRendererNative::Get();
+
+    // Set() hands back ownership of the renderer it replaced; nothing else refers to it.
+    delete wxRendererNative::Set( new ANVIL_GLYPH_RENDERER() );
 #endif
 }
 
@@ -271,6 +618,146 @@ void KIPLATFORM::APP::EnableDarkMode( bool aForce )
 void KIPLATFORM::APP::SetDarkModePurple( bool aOn )
 {
     g_anvilPurpleDark = aOn;
+}
+
+
+int KIPLATFORM::APP::LiveThemeEventFilter( wxEvent& aEvent )
+{
+#if wxCHECK_VERSION( 3, 3, 0 )
+    // wx's dark-mode machinery stays enabled for the life of the process (SetLiveDarkMode),
+    // so wxSpinButton::OnPaint ALWAYS takes its dark-mode branch: render the control natively
+    // into a bitmap, INVERT every pixel, and outline the buddy edge in the colour of
+    // wxMSWDarkMode::GetBorderPen().  With the LIGHT theme live, that inversion turns the
+    // natively light-rendered arrows dark — and historically GetBorderPen() also returned an
+    // invalid pen there, whose unchecked GetColour() asserted from INSIDE WM_PAINT and
+    // recursed (via the modal assert dialog repainting the same control) until wxTrap()
+    // brought the application down — every dialog holding a wxSpinCtrl (Export PNG job
+    // settings, plot dialogs, ...) died this way.
+    //
+    // wxApp::FilterEvent runs before any event handler, so intercepting the paint here keeps
+    // wx's dark OnPaint from ever running and paints the control natively instead.
+    if( g_anvilLiveLight && aEvent.GetEventType() == wxEVT_PAINT )
+    {
+        if( wxSpinButton* spin = wxDynamicCast( aEvent.GetEventObject(), wxSpinButton ) )
+        {
+            wxPaintDC dc( spin );   // proper BeginPaint/EndPaint bookkeeping
+
+            // WM_PRINTCLIENT makes the native up-down control draw itself into our DC with
+            // the (light) visual style that is active for it.
+            ::SendMessageW( static_cast<HWND>( spin->GetHWND() ), WM_PRINTCLIENT,
+                            reinterpret_cast<WPARAM>( dc.GetHDC() ), PRF_CLIENT );
+
+            return 1;   // fully handled; wx's dark-mode OnPaint must not run
+        }
+    }
+#else
+    ( void ) aEvent;
+#endif
+
+    return -1;          // not ours — continue normal event processing
+}
+
+
+void KIPLATFORM::APP::SetLiveDarkMode( bool aDark )
+{
+#if wxCHECK_VERSION( 3, 3, 0 )
+    g_anvilLiveLight = !aDark;
+
+    // The same undocumented uxtheme entry points wx itself loads to establish dark mode
+    // (ordinals 132-136, stable since Win10 1809).  wx refuses to change its mode once a
+    // window exists, so the runtime flip drives them directly: the per-app preferred mode
+    // decides how native menus, scrollbars and control themes render, app-wide.
+    enum ANVIL_APP_MODE
+    {
+        ANVIL_APP_MODE_DEFAULT     = 0,
+        ANVIL_APP_MODE_ALLOW_DARK  = 1,
+        ANVIL_APP_MODE_FORCE_DARK  = 2,
+        ANVIL_APP_MODE_FORCE_LIGHT = 3
+    };
+
+    typedef int( WINAPI* SET_PREFERRED_APP_MODE )( int );
+    typedef void( WINAPI* FLUSH_MENU_THEMES )();
+    typedef HRESULT( WINAPI* DWM_SET_WINDOW_ATTRIBUTE )( HWND, DWORD, LPCVOID, DWORD );
+
+    static SET_PREFERRED_APP_MODE   s_setPreferredAppMode = nullptr;
+    static FLUSH_MENU_THEMES        s_flushMenuThemes = nullptr;
+    static DWM_SET_WINDOW_ATTRIBUTE s_dwmSetWindowAttribute = nullptr;
+    static bool                     s_resolved = false;
+
+    if( !s_resolved )
+    {
+        s_resolved = true;
+
+        if( HMODULE uxtheme = ::LoadLibraryExW( L"uxtheme.dll", nullptr,
+                                                LOAD_LIBRARY_SEARCH_SYSTEM32 ) )
+        {
+            s_setPreferredAppMode = reinterpret_cast<SET_PREFERRED_APP_MODE>(
+                    ::GetProcAddress( uxtheme, MAKEINTRESOURCEA( 135 ) ) );
+            s_flushMenuThemes = reinterpret_cast<FLUSH_MENU_THEMES>(
+                    ::GetProcAddress( uxtheme, MAKEINTRESOURCEA( 136 ) ) );
+        }
+
+        if( HMODULE dwm = ::LoadLibraryExW( L"dwmapi.dll", nullptr,
+                                            LOAD_LIBRARY_SEARCH_SYSTEM32 ) )
+        {
+            s_dwmSetWindowAttribute = reinterpret_cast<DWM_SET_WINDOW_ATTRIBUTE>(
+                    ::GetProcAddress( dwm, "DwmSetWindowAttribute" ) );
+        }
+    }
+
+    if( s_setPreferredAppMode )
+        s_setPreferredAppMode( aDark ? ANVIL_APP_MODE_FORCE_DARK : ANVIL_APP_MODE_FORCE_LIGHT );
+
+    if( s_flushMenuThemes )
+        s_flushMenuThemes();
+
+    // Re-theme every window that already exists: the caption colour is per-window DWM state,
+    // and themed parts (scrollbars, native control frames) only re-resolve their visual style
+    // on WM_THEMECHANGED.
+    const BOOL darkCaption = aDark ? TRUE : FALSE;
+
+    for( wxWindow* wnd : wxTopLevelWindows )
+    {
+        // The label colour wx stamped on check-boxes / radio buttons at creation belongs to
+        // the theme that was active back then — re-derive it for the new one (glyphs follow
+        // the palette by themselves via ANVIL_GLYPH_RENDERER).
+        anvilRepinOwnerDrawnButtonText( wnd );
+
+        HWND hwnd = static_cast<HWND>( wnd->GetHandle() );
+
+        if( !hwnd )
+            continue;
+
+        if( s_dwmSetWindowAttribute )
+        {
+            s_dwmSetWindowAttribute( hwnd, 20 /* DWMWA_USE_IMMERSIVE_DARK_MODE */,
+                                     &darkCaption, sizeof( darkCaption ) );
+        }
+
+        ::SendMessageW( hwnd, WM_THEMECHANGED, 0, 0 );
+
+        ::EnumChildWindows( hwnd,
+                []( HWND aChild, LPARAM ) -> BOOL
+                {
+                    // Hidden branches — the pre-warmed editor frames docked as unshown tabs
+                    // carry hundreds of native controls each — re-resolve their theme
+                    // asynchronously: a POSTED message is processed before they can next
+                    // paint, and the synchronous sweep then only pays for what is on screen.
+                    if( ::IsWindowVisible( aChild ) )
+                        ::SendMessageW( aChild, WM_THEMECHANGED, 0, 0 );
+                    else
+                        ::PostMessageW( aChild, WM_THEMECHANGED, 0, 0 );
+
+                    return TRUE;
+                },
+                0 );
+
+        ::RedrawWindow( hwnd, nullptr, nullptr,
+                        RDW_FRAME | RDW_INVALIDATE | RDW_ERASE | RDW_ALLCHILDREN );
+    }
+#else
+    ( void ) aDark;
+#endif
 }
 
 

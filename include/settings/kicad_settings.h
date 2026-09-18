@@ -22,7 +22,13 @@
 #define _KICAD_SETTINGS_H
 
 #include <settings/app_settings.h>
-#define PCM_DEFAULT_REPOSITORY_URL "https://repository.anvilcad.com/repository.json"
+
+// Interim default: served from the upstream package repository until an
+// Anvil-hosted repository is stood up (repository.anvilcad.com does not
+// resolve yet, which left the Plugin and Content Manager unable to load
+// anything).  The display name shown in the UI stays Anvil-branded.
+#define PCM_DEFAULT_REPOSITORY_URL "https://repository.kicad.org/repository.json"
+#define PCM_DEFAULT_REPOSITORY_NAME "Anvil official repository"
 
 
 class KICOMMON_API KICAD_SETTINGS : public APP_SETTINGS_BASE

@@ -1191,13 +1191,34 @@ void SCH_EDIT_FRAME::KiwayMailIn( KIWAY_MAIL_EVENT& mail )
 
     case MAIL_SCH_NAVIGATE_TO_SHEET:
     {
-        wxString targetFile( payload );
+        // Compare via wxFileName: a screen's stored filename can carry UNIX separators or a
+        // project-relative spelling while the Project Explorer mails a native absolute path,
+        // and Windows paths are case-insensitive.  A raw string compare silently missed here,
+        // which left the previously displayed sheet (and its name in the tab / title bar) on
+        // screen -- the "clicked one sheet, editor shows the other one's name" bug.
+        wxString   targetFile( payload );
+        wxFileName targetFn( targetFile );
+
+        auto matchesTarget =
+                [&]( const SCH_SCREEN* aScreen )
+                {
+                    return aScreen && wxFileName( Prj().AbsolutePath( aScreen->GetFileName() ) )
+                                              .GetFullPath()
+                                              .IsSameAs( targetFn.GetFullPath(), false );
+                };
+
+        // Already displaying that file?  Don't re-navigate: changeSheet rebuilds the view,
+        // so switching to the sheet we are already on would pointlessly reset zoom/pan.
+        if( matchesTarget( GetCurrentSheet().LastScreen() ) )
+        {
+            payload = "success";
+            Raise();
+            return;
+        }
 
         for( SCH_SHEET_PATH& sheetPath : m_schematic->Hierarchy() )
         {
-            SCH_SCREEN* screen = sheetPath.LastScreen();
-
-            if( screen && screen->GetFileName() == targetFile )
+            if( matchesTarget( sheetPath.LastScreen() ) )
             {
                 m_toolManager->RunAction<SCH_SHEET_PATH*>( SCH_ACTIONS::changeSheet, &sheetPath );
                 payload = "success";

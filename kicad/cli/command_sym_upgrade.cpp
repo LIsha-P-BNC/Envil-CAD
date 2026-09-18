@@ -37,7 +37,7 @@ CLI::SYM_UPGRADE_COMMAND::SYM_UPGRADE_COMMAND() : COMMAND( "upgrade" )
     addCommonArgs( true, true, IO_TYPE::FILE_OR_DIRECTORY, IO_TYPE::FILE_OR_DIRECTORY );
 
     m_argParser.add_description( UTF8STDSTR( _( "Upgrades the symbol library to the current "
-                                                "kicad version format" ) ) );
+                                                "Anvil version format" ) ) );
 
     m_argParser.add_argument( ARG_FORCE )
             .help( UTF8STDSTR(

@@ -29,13 +29,22 @@
 
 #include <widgets/layer_box_selector.h>
 
+class GERBVIEW_FRAME;
 class LAYER_PRESENTATION;
 
 // class to display a layer list in GerbView.
 class GBR_LAYER_BOX_SELECTOR : public LAYER_BOX_SELECTOR
 {
 public:
-    GBR_LAYER_BOX_SELECTOR( wxWindow* parent, wxWindowID id, const wxPoint& pos = wxDefaultPosition,
+    /**
+     * @param aParent is the window this control is added to (normally the toolbar).
+     * @param aFrame is the GerbView frame whose layers are listed.  It is passed explicitly
+     *        rather than derived from the parent chain: the single-window shell re-parents
+     *        toolbars out of the editor frame and into itself, so the control's grandparent
+     *        is not reliably the GerbView frame.
+     */
+    GBR_LAYER_BOX_SELECTOR( wxWindow* aParent, GERBVIEW_FRAME* aFrame, wxWindowID id,
+                            const wxPoint& pos = wxDefaultPosition,
                             const wxSize& size = wxDefaultSize, int n = 0,
                             const wxString choices[] = nullptr );
 

@@ -296,7 +296,7 @@ void STARTWIZARD_PROVIDER_LIBRARIES::Finish()
                         wxLogTrace( traceLibraries,
                                     wxT( "Libraries migration: migrated chained table URI from '%s' to '%s'" ),
                                     row.URI(), stockPath );
-                        row.SetDescription( _( "KiCad Default Libraries" ) );
+                        row.SetDescription( _( "Anvil Default Libraries" ) );
                         row.SetURI( stockPath );
                     }
                 }
@@ -316,7 +316,7 @@ void STARTWIZARD_PROVIDER_LIBRARIES::Finish()
                 LIBRARY_TABLE_ROW chained = table.MakeRow();
                 chained.SetType( LIBRARY_TABLE_ROW::TABLE_TYPE_NAME );
                 chained.SetNickname( wxT( "KiCad" ) );
-                chained.SetDescription( _( "KiCad Default Libraries" ) );
+                chained.SetDescription( _( "Anvil Default Libraries" ) );
                 chained.SetURI( stockPath );
                 table.Rows().insert( table.Rows().begin(), chained );
             }

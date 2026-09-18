@@ -126,8 +126,8 @@ int JOBS_RUNNER::runSpecialExecute( const JOBSET_JOB* aJob, REPORTER* aReporter,
 }
 
 
-int JOBS_RUNNER::runSpecialCopyFiles( const JOB_SPECIAL_COPYFILES* aJob, PROJECT* aProject,
-                                      std::vector<wxString>& aPathsWritten )
+int JOBS_RUNNER::runSpecialCopyFiles( const JOB_SPECIAL_COPYFILES* aJob, REPORTER* aReporter,
+                                      PROJECT* aProject, std::vector<wxString>& aPathsWritten )
 {
     wxString source = ExpandEnvVarSubstitutions( aJob->m_source, aProject );
 
@@ -148,7 +148,12 @@ int JOBS_RUNNER::runSpecialCopyFiles( const JOB_SPECIAL_COPYFILES* aJob, PROJECT
                                              errors, aPathsWritten );
 
     if( !success )
+    {
+        if( aReporter && !errors.IsEmpty() )
+            aReporter->Report( errors, RPT_SEVERITY_ERROR );
+
         return CLI::EXIT_CODES::ERR_UNKNOWN;
+    }
 
     if( aJob->m_generateErrorOnNoCopy && aPathsWritten.empty() )
         return CLI::EXIT_CODES::ERR_UNKNOWN;
@@ -281,7 +286,7 @@ bool JOBS_RUNNER::RunJobsForDestination( JOBSET_DESTINATION* aDestination, bool 
                 JOB_SPECIAL_COPYFILES* copyJob = static_cast<JOB_SPECIAL_COPYFILES*>( job.m_job.get() );
                 std::vector<wxString>  pathsWritten;
 
-                result = runSpecialCopyFiles( copyJob, m_project, pathsWritten );
+                result = runSpecialCopyFiles( copyJob, &isolatedReporter, m_project, pathsWritten );
 
                 if( !copyJob->m_overwriteDest )
                 {

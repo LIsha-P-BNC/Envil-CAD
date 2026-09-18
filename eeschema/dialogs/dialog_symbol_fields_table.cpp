@@ -254,6 +254,7 @@ DIALOG_SYMBOL_FIELDS_TABLE::DIALOG_SYMBOL_FIELDS_TABLE( SCH_EDIT_FRAME* parent, 
         DIALOG_SYMBOL_FIELDS_TABLE_BASE( parent ),
         m_currentBomPreset( nullptr ),
         m_lastSelectedBomPreset( nullptr ),
+        m_bomFmtXlsx( false ),
         m_parent( parent ),
         m_viewControlsDataModel( nullptr ),
         m_dataModel( nullptr ),
@@ -414,6 +415,7 @@ DIALOG_SYMBOL_FIELDS_TABLE::DIALOG_SYMBOL_FIELDS_TABLE( SCH_EDIT_FRAME* parent, 
     m_grid->GetGridWindow()->Bind( wxEVT_MOTION, &DIALOG_SYMBOL_FIELDS_TABLE::OnGridMouseMove, this );
     m_cbBomPresets->Bind( wxEVT_CHOICE, &DIALOG_SYMBOL_FIELDS_TABLE::onBomPresetChanged, this );
     m_cbBomFmtPresets->Bind( wxEVT_CHOICE, &DIALOG_SYMBOL_FIELDS_TABLE::onBomFmtPresetChanged, this );
+    m_outputFileName->Bind( wxEVT_KILL_FOCUS, &DIALOG_SYMBOL_FIELDS_TABLE::onOutputFileNameKillFocus, this );
     m_viewControlsGrid->Bind( wxEVT_GRID_CELL_CHANGED, &DIALOG_SYMBOL_FIELDS_TABLE::OnViewControlsCellChanged, this );
 
     if( !m_job )
@@ -458,6 +460,7 @@ DIALOG_SYMBOL_FIELDS_TABLE::~DIALOG_SYMBOL_FIELDS_TABLE()
     m_grid->Unbind( wxEVT_GRID_COL_SORT, &DIALOG_SYMBOL_FIELDS_TABLE::OnColMove, this );
     m_cbBomPresets->Unbind( wxEVT_CHOICE, &DIALOG_SYMBOL_FIELDS_TABLE::onBomPresetChanged, this );
     m_cbBomFmtPresets->Unbind( wxEVT_CHOICE, &DIALOG_SYMBOL_FIELDS_TABLE::onBomFmtPresetChanged, this );
+    m_outputFileName->Unbind( wxEVT_KILL_FOCUS, &DIALOG_SYMBOL_FIELDS_TABLE::onOutputFileNameKillFocus, this );
     m_viewControlsGrid->Unbind( wxEVT_GRID_CELL_CHANGED, &DIALOG_SYMBOL_FIELDS_TABLE::OnViewControlsCellChanged, this );
 
     // Delete the GRID_TRICKS.
@@ -659,6 +662,14 @@ bool DIALOG_SYMBOL_FIELDS_TABLE::TransferDataToWindow()
         fmtPreset.refDelimiter = m_job->m_refDelimiter;
         fmtPreset.refRangeDelimiter = m_job->m_refRangeDelimiter;
         fmtPreset.stringDelimiter = m_job->m_stringDelimiter;
+        fmtPreset.xlsx = m_job->m_xlsx;
+
+        // Jobsets written before the xlsx flag existed only recorded the preset name (and the
+        // output extension), so fall back to those.
+        if( auto it = m_bomFmtPresets.find( fmtPreset.name ); it != m_bomFmtPresets.end() )
+            fmtPreset.xlsx = it->second.xlsx;
+        else if( wxFileName( m_job->GetConfiguredOutputPath() ).GetExt().Lower() == wxS( "xlsx" ) )
+            fmtPreset.xlsx = true;
     }
 
     ApplyBomFmtPreset( fmtPreset );
@@ -1535,6 +1546,10 @@ BOM_FMT_PRESET DIALOG_SYMBOL_FIELDS_TABLE::GetCurrentBomFmtSettings()
     current.keepTabs = m_checkKeepTabs->GetValue();
     current.keepLineBreaks = m_checkKeepLineBreaks->GetValue();
 
+    // The Excel format has no dedicated control of its own; the format preset selection (and
+    // the output file extension, which is kept in step with it) drives this flag.
+    current.xlsx = m_bomFmtXlsx;
+
     return current;
 }
 
@@ -1560,13 +1575,16 @@ void DIALOG_SYMBOL_FIELDS_TABLE::OnOutputFileBrowseClicked( wxCommandEvent& even
 
     // Calculate the export filename
     wxFileName fn( Prj().AbsolutePath( m_parent->Schematic().GetFileName() ) );
-    fn.SetExt( FILEEXT::CsvFileExtension );
+    fn.SetExt( m_bomFmtXlsx ? wxString( wxS( "xlsx" ) ) : FILEEXT::CsvFileExtension );
 
     wxString wildcard = FILEEXT::CsvFileWildcard()
                         + wxS( "|" ) + _( "Excel BOM files" ) + wxS( " (*.xlsx)|*.xlsx" );
 
     wxFileDialog saveDlg( this, _( "Bill of Materials Output File" ), path, fn.GetFullName(),
                           wildcard, wxFD_SAVE | wxFD_OVERWRITE_PROMPT );
+
+    // Preselect the filter matching the format preset the user already picked
+    saveDlg.SetFilterIndex( m_bomFmtXlsx ? 1 : 0 );
 
     KIPLATFORM::UI::AllowNetworkFileSystems( &saveDlg );
 
@@ -1579,6 +1597,10 @@ void DIALOG_SYMBOL_FIELDS_TABLE::OnOutputFileBrowseClicked( wxCommandEvent& even
     // If the Excel format was chosen make sure the extension follows suit
     if( saveDlg.GetFilterIndex() == 1 && file.GetExt().Lower() != wxS( "xlsx" ) )
         file.SetExt( wxS( "xlsx" ) );
+
+    // The chosen file name is the user's last word on the format
+    m_bomFmtXlsx = file.GetExt().Lower() == wxS( "xlsx" );
+
     wxString   defaultPath = fn.GetPathWithSep();
 
     if( IsOK( this, wxString::Format( _( "Do you want to use a path relative to\n'%s'?" ), defaultPath ) ) )
@@ -1591,6 +1613,31 @@ void DIALOG_SYMBOL_FIELDS_TABLE::OnOutputFileBrowseClicked( wxCommandEvent& even
     }
 
     m_outputFileName->SetValue( file.GetFullPath() );
+
+    // Reflect an .xlsx (or non-.xlsx) choice in the format preset selector
+    syncBomFmtPresetSelection();
+}
+
+
+void DIALOG_SYMBOL_FIELDS_TABLE::onOutputFileNameKillFocus( wxFocusEvent& aEvent )
+{
+    aEvent.Skip();
+
+    // A hand-typed .xlsx (or non-.xlsx) extension selects the format just as the preset
+    // dropdown does.  Only act on a real change so an untouched field can't clobber a
+    // format choice that the (still empty) file name simply can't express.
+    wxString ext = wxFileName( m_outputFileName->GetValue() ).GetExt().Lower();
+
+    if( ext.IsEmpty() )
+        return;
+
+    bool isXlsx = ext == wxS( "xlsx" );
+
+    if( isXlsx != m_bomFmtXlsx )
+    {
+        m_bomFmtXlsx = isXlsx;
+        syncBomFmtPresetSelection();
+    }
 }
 
 
@@ -1830,6 +1877,7 @@ void DIALOG_SYMBOL_FIELDS_TABLE::OnOk( wxCommandEvent& aEvent )
         m_job->m_refRangeDelimiter = fmtSettings.refRangeDelimiter;
         m_job->m_keepTabs = fmtSettings.keepTabs;
         m_job->m_keepLineBreaks = fmtSettings.keepLineBreaks;
+        m_job->m_xlsx = fmtSettings.xlsx;
 
         BOM_PRESET presetFields = m_dataModel->GetBomSettings();
         m_job->m_sortAsc = presetFields.sortAsc;
@@ -1898,8 +1946,10 @@ void DIALOG_SYMBOL_FIELDS_TABLE::OnClose( wxCloseEvent& aEvent )
 
     wxCommandEvent* evt = new wxCommandEvent( EDA_EVT_CLOSE_DIALOG_SYMBOL_FIELDS_TABLE, wxID_ANY );
 
-    if( wxWindow* parent = GetParent() )
-        wxQueueEvent( parent, evt );
+    // Queue to the owning schematic frame explicitly, NOT GetParent(): when this dialog is
+    // docked as a shell tab it has been reparented into the shell's host panel, and only
+    // the frame's handler destroys the dialog and clears its bookkeeping pointer.
+    wxQueueEvent( m_parent, evt );
 }
 
 
@@ -2450,7 +2500,8 @@ void DIALOG_SYMBOL_FIELDS_TABLE::syncBomFmtPresetSelection()
                                          && aPair.second.refDelimiter == current.refDelimiter
                                          && aPair.second.refRangeDelimiter == current.refRangeDelimiter
                                          && aPair.second.keepTabs == current.keepTabs
-                                         && aPair.second.keepLineBreaks == current.keepLineBreaks );
+                                         && aPair.second.keepLineBreaks == current.keepLineBreaks
+                                         && aPair.second.xlsx == current.xlsx );
                             } );
 
     if( it != m_bomFmtPresets.end() )
@@ -2636,6 +2687,29 @@ void DIALOG_SYMBOL_FIELDS_TABLE::onBomFmtPresetChanged( wxCommandEvent& aEvent )
 
     if( preset )
     {
+        // Adopt the format before touching anything that reads it back (the extension fix-up
+        // below and syncBomFmtPresetSelection() both do).
+        m_bomFmtXlsx = preset->xlsx;
+
+        // Keep the output file extension in step with the chosen format
+        wxString outPath = m_outputFileName->GetValue();
+
+        if( !outPath.IsEmpty() )
+        {
+            wxFileName fn( outPath );
+
+            if( preset->xlsx && fn.GetExt().Lower() != wxS( "xlsx" ) )
+            {
+                fn.SetExt( wxS( "xlsx" ) );
+                m_outputFileName->ChangeValue( fn.GetFullPath() );
+            }
+            else if( !preset->xlsx && fn.GetExt().Lower() == wxS( "xlsx" ) )
+            {
+                fn.SetExt( FILEEXT::CsvFileExtension );
+                m_outputFileName->ChangeValue( fn.GetFullPath() );
+            }
+        }
+
         doApplyBomFmtPreset( *preset );
         syncBomFmtPresetSelection();
         m_currentBomFmtPreset = preset;
@@ -2653,6 +2727,8 @@ void DIALOG_SYMBOL_FIELDS_TABLE::onBomFmtPresetChanged( wxCommandEvent& aEvent )
 
 void DIALOG_SYMBOL_FIELDS_TABLE::doApplyBomFmtPreset( const BOM_FMT_PRESET& aPreset )
 {
+    m_bomFmtXlsx = aPreset.xlsx;
+
     m_textFieldDelimiter->ChangeValue( aPreset.fieldDelimiter );
     m_textStringDelimiter->ChangeValue( aPreset.stringDelimiter );
     m_textRefDelimiter->ChangeValue( aPreset.refDelimiter );

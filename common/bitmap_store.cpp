@@ -35,6 +35,7 @@
 #include <paths.h>
 #include <pgm_base.h>
 #include <settings/common_settings.h>
+#include <widgets/ui_common.h>
 
 
 /// A question-mark icon shown when we can't find a given bitmap in the archive
@@ -403,7 +404,10 @@ void BITMAP_STORE::ThemeChanged()
         {
         case ICON_THEME::LIGHT: m_theme = BITMAP_INFO::THEME::LIGHT; break;
         case ICON_THEME::DARK:  m_theme = BITMAP_INFO::THEME::DARK; break;
-        case ICON_THEME::AUTO:  m_theme = KIPLATFORM::UI::IsDarkTheme() ? BITMAP_INFO::THEME::DARK : BITMAP_INFO::THEME::LIGHT; break;
+        // AUTO follows the APP theme, not the OS: dark icons belong on Anvil's dark chrome even
+        // when Windows itself is light (and this is what lets the live theme toggle re-pick the
+        // icon set — every editor calls ThemeChanged() during the flip).
+        case ICON_THEME::AUTO:  m_theme = KIUI::AnvilLightTheme() ? BITMAP_INFO::THEME::LIGHT : BITMAP_INFO::THEME::DARK; break;
         }
     }
     else

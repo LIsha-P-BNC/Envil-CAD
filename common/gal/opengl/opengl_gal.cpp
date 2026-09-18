@@ -747,6 +747,13 @@ void OPENGL_GAL::EndDrawing()
 {
     wxASSERT_MSG( m_isContextLocked, "What happened to the context lock?" );
 
+    // If the framebuffer was torn down while this frame was in flight (resize,
+    // antialiasing change or context-loss recovery between BeginDrawing() and
+    // now), the buffer handles below are stale and there is nothing valid to
+    // composite.  Drop the frame; the next repaint rebuilds the buffers.
+    if( !m_isFramebufferInitialized )
+        return;
+
     PROF_TIMER cntTotal( "gl-end-total" );
     PROF_TIMER cntEndCached( "gl-end-cached" );
     PROF_TIMER cntEndNoncached( "gl-end-noncached" );

@@ -266,6 +266,9 @@ unsigned int OPENGL_COMPOSITOR::CreateBuffer( VECTOR2I aDimensions )
 
 GLenum OPENGL_COMPOSITOR::GetBufferTexture( unsigned int aBufferHandle )
 {
+    if( !m_initialized )
+        return 0;
+
     wxCHECK( aBufferHandle > 0 && aBufferHandle <= usedBuffers(), 0 );
     return m_buffers[aBufferHandle - 1].textureTarget;
 }
@@ -273,7 +276,15 @@ GLenum OPENGL_COMPOSITOR::GetBufferTexture( unsigned int aBufferHandle )
 
 void OPENGL_COMPOSITOR::SetBuffer( unsigned int aBufferHandle )
 {
-    wxCHECK( m_initialized && aBufferHandle <= usedBuffers(), /* void */ );
+    // An uninitialized compositor is a legitimate transient state: a resize,
+    // an antialiasing mode change or a context-loss recovery tears the buffers
+    // down between frames, and a frame interrupted mid-flight may still reach
+    // this point.  The next BeginDrawing() rebuilds everything, so silently
+    // skip the request instead of asserting.
+    if( !m_initialized )
+        return;
+
+    wxCHECK( aBufferHandle <= usedBuffers(), /* void */ );
 
     // Either unbind the FBO for direct rendering, or bind the one with target textures
     bindFb( aBufferHandle == DIRECT_RENDERING ? DIRECT_RENDERING : m_mainFbo );
@@ -296,7 +307,9 @@ void OPENGL_COMPOSITOR::SetBuffer( unsigned int aBufferHandle )
 
 void OPENGL_COMPOSITOR::ClearBuffer( const COLOR4D& aColor )
 {
-    wxCHECK( m_initialized, /* void */ );
+    // See SetBuffer(): uninitialized is a legal transient state, not an error.
+    if( !m_initialized )
+        return;
 
     glClearColor( aColor.r, aColor.g, aColor.b, m_curFbo == DIRECT_RENDERING ? 1.0f : 0.0f );
     glClear( GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT | GL_STENCIL_BUFFER_BIT );
@@ -327,7 +340,11 @@ void OPENGL_COMPOSITOR::DrawBuffer( unsigned int aBufferHandle )
 
 void OPENGL_COMPOSITOR::DrawBuffer( unsigned int aSourceHandle, unsigned int aDestHandle )
 {
-    wxCHECK( m_initialized && aSourceHandle != 0 && aSourceHandle <= usedBuffers(), /* void */ );
+    // See SetBuffer(): uninitialized is a legal transient state, not an error.
+    if( !m_initialized )
+        return;
+
+    wxCHECK( aSourceHandle != 0 && aSourceHandle <= usedBuffers(), /* void */ );
     wxCHECK( aDestHandle <= usedBuffers(), /* void */ );
 
     // Switch to the destination buffer and blit the scene
@@ -603,7 +620,11 @@ void OPENGL_COMPOSITOR::DrawBufferDifference( unsigned int aSourceHandle, unsign
     wxLogTrace( traceGalXorMode, wxT( "DrawBufferDifference(): initialized=%d, usedBuffers=%u" ),
                 m_initialized, usedBuffers() );
 
-    wxCHECK( m_initialized && aSourceHandle != 0 && aSourceHandle <= usedBuffers(), /* void */ );
+    // See SetBuffer(): uninitialized is a legal transient state, not an error.
+    if( !m_initialized )
+        return;
+
+    wxCHECK( aSourceHandle != 0 && aSourceHandle <= usedBuffers(), /* void */ );
     wxCHECK( aDestHandle != 0 && aDestHandle <= usedBuffers(), /* void */ );
 
     // Initialize shader on first use

@@ -124,6 +124,7 @@
 #include <wx/sizer.h>
 #include <wx/menu.h>
 #include <wx/popupwin.h>
+#include <wx/eventfilter.h>                 // app-wide press watch that closes an open dropdown
 #include <wx/settings.h>
 #include <wx/grid.h>                        // in-shell CSV / BOM viewer tab
 #include <wx/textfile.h>                    // read CSV lines for the viewer tab
@@ -166,6 +167,58 @@
 // background normally, accent purple on hover, and an always-white label in both states.
 namespace
 {
+// ----------------------------------------------------------------------------
+// Menu-bar tracking: exactly one dropdown on screen at a time.
+//
+// The dropdowns are wxPopupTransientWindows, and closing them used to be left entirely to that
+// class, which watches only the most recently shown popup and takes no mouse capture.  Hovering
+// a submenu row pops a SECOND such window, and from then on nothing was watching the dropdown
+// underneath: it stayed on screen whatever the user clicked ("stuck"), and the next press on the
+// menu bar -- which now reached the button, nothing having swallowed it -- built another dropdown
+// beside the one already showing.  Whether a press closed a menu therefore depended on where the
+// pointer had been beforehand, which is the inconsistency users saw.
+//
+// So the menu bar tracks the open dropdown itself rather than leaving it to wx (see
+// MSWDismissUnfocusedPopup(), which is disabled for the same reason): one root popup is
+// registered here while it is up, any press outside it closes it (ANVIL_MENU_DISMISS_FILTER),
+// and the menu-bar buttons toggle / switch against this state instead of blindly popping a new
+// window.
+// ----------------------------------------------------------------------------
+class ANVIL_POPUP_MENU;
+
+ANVIL_POPUP_MENU* g_anvilOpenMenu      = nullptr;   ///< Root dropdown on screen, or nullptr.
+wxWindow*         g_anvilOpenMenuOwner = nullptr;   ///< Menu-bar button that opened it, if any.
+
+/// Is the dropdown currently on screen the one belonging to @p aButton?
+inline bool AnvilMenuIsOpenFor( const wxWindow* aButton )
+{
+    return g_anvilOpenMenu && aButton && g_anvilOpenMenuOwner == aButton;
+}
+
+/// Close the open dropdown and every submenu under it.  No-op when nothing is open.
+void AnvilCloseOpenMenu();
+
+/// Install / remove the app-wide press watch.  Only live while a dropdown is showing.
+void AnvilEnableMenuDismissFilter( bool aOn );
+
+/// Forget the owning button without touching the popup -- for use while that button is being
+/// destroyed (a menu rebuild throws the whole button row away, popup and all).
+inline void AnvilForgetMenuOwner( const wxWindow* aButton )
+{
+    if( g_anvilOpenMenuOwner == aButton )
+        g_anvilOpenMenuOwner = nullptr;
+}
+
+/// Marker base for the title-bar menu-bar buttons, so the dismiss filter can recognise one
+/// without knowing the (later-declared) button class: a press on a menu-bar button is the
+/// button's own business -- see ANVIL_MENU_DISMISS_FILTER::FilterEvent().
+class ANVIL_MENUBAR_BUTTON
+{
+public:
+    virtual ~ANVIL_MENUBAR_BUTTON() = default;
+};
+
+
 // Windows 11 renders native popup menus itself and ignores every colour lever (wxDarkModeSettings,
 // wxSYS_COLOUR_MENU, SetMenuInfo, per-item owner-draw) — you can tint the body but never the icon
 // gutter without losing the icons.  So we render the dropdown ourselves: a fully-purple popup with
@@ -245,13 +298,22 @@ public:
 
     ~ANVIL_POPUP_MENU() override
     {
+        // A menu rebuild destroys the button row, and with it any popup parented to a button,
+        // without going through dismissChain() -- so the registration has to be dropped here
+        // too or the menu bar keeps a dangling "a dropdown is open" state.
+        unregisterOpenMenu();
+
         if( m_activationSource )
             m_activationSource->Unbind( wxEVT_ACTIVATE, &ANVIL_POPUP_MENU::onFrameActivate, this );
     }
 
-    /// Pop the menu so its top-left sits at screen point @p aScreenPos.
-    void PopupAt( const wxPoint& aScreenPos )
+    /// Pop the menu so its top-left sits at screen point @p aScreenPos.  @p aOwnerButton is the
+    /// menu-bar button this dropdown belongs to (nullptr for the stand-alone popups), which is
+    /// what lets a second click on that button close the menu again.
+    void PopupAt( const wxPoint& aScreenPos, wxWindow* aOwnerButton = nullptr )
     {
+        m_ownerButton = aOwnerButton;
+
         // Keep the whole menu on the monitor.  The title-bar buttons that pop these menus sit
         // right against the window's right edge, so a menu anchored at the button's left corner
         // runs past the screen and its labels (e.g. the account email) get clipped.
@@ -291,20 +353,80 @@ public:
         m_openMousePos   = wxGetMousePosition();
         m_swallowFirstUp = true;
 
+        // A menu bar shows ONE dropdown: whatever was up loses the screen to this one, and from
+        // here on any press outside this popup closes it (the filter is only live while a menu
+        // is open, so it costs nothing the rest of the time).
+        if( !m_parentPopup )
+        {
+            if( g_anvilOpenMenu && g_anvilOpenMenu != this )
+                AnvilCloseOpenMenu();
+
+            g_anvilOpenMenu      = this;
+            g_anvilOpenMenuOwner = m_ownerButton;
+            AnvilEnableMenuDismissFilter( true );
+
+            if( m_ownerButton )
+                m_ownerButton->Refresh();   // button stays lit while its menu is showing
+        }
+
         Move( pos );
         Popup();
     }
 
     void OnDismiss() override
     {
-        // The framework calls this on the deepest (capturing) popup when the user clicks outside.
+        // The framework calls this on the deepest popup when the user clicks outside.
         // Hide + destroy the whole chain from the root down.
+        CloseChain();
+    }
+
+    /// wx's own "a click landed outside a popup" dismissal, deliberately disabled.
+    ///
+    /// Two things make it unusable for a menu bar.  It runs from inside the click's own
+    /// message handling, BEFORE the click is delivered to the window under the pointer -- so a
+    /// click on the menu-bar button whose menu is showing closed the dropdown here and the
+    /// button, seeing nothing open by the time its handler ran, popped the same menu straight
+    /// back up: the item appeared not to toggle.  And it only ever watches the most recently
+    /// shown popup, so hovering a submenu (a second popup) left the root dropdown watched by
+    /// nobody -- the "stuck" menu that no click would close.
+    ///
+    /// The menu bar closes its own dropdowns instead, one place per reason:
+    /// ANVIL_MENU_DISMISS_FILTER (a press anywhere else, or Escape), the frame's WM_NC*BUTTONDOWN
+    /// (a press on the caption strip), onFrameActivate() (the app went to the background) and
+    /// the buttons themselves (toggle / switch).
+#ifdef __WXMSW__
+    void MSWDismissUnfocusedPopup() override { }
+#endif
+
+    /// Close this dropdown and every popup above and below it in the chain.  This is the menu
+    /// bar's "put the screen back the way it was" -- the one entry point used by the dismiss
+    /// filter, by the buttons and by a chosen row alike.
+    void CloseChain()
+    {
         ANVIL_POPUP_MENU* root = this;
 
         while( root->m_parentPopup )
             root = root->m_parentPopup;
 
         root->dismissChain();
+    }
+
+    /// Does @p aWin belong to this dropdown or to one of the submenus open under it?  A press
+    /// there is the menu's own, not a click "outside" that should close it.
+    bool OwnsWindow( const wxWindow* aWin ) const
+    {
+        if( !aWin )
+            return false;
+
+        const wxWindow* top = wxGetTopLevelParent( const_cast<wxWindow*>( aWin ) );
+
+        for( const ANVIL_POPUP_MENU* p = this; p; p = p->m_child )
+        {
+            if( p == aWin || p == top )
+                return true;
+        }
+
+        return false;
     }
 
 private:
@@ -656,7 +778,7 @@ private:
         int id = m_rows[row].item->GetId();
         wxMenu* menu = m_menu;
 
-        DismissChain();
+        CloseChain();
         menu->SendEvent( id );    // fire the real command exactly as a native click would
     }
 
@@ -700,32 +822,44 @@ private:
             m_child = nullptr;
         }
 
+        unregisterOpenMenu();
+
         Dismiss();
         CallAfter( [this]() { Destroy(); } );
     }
 
-    /// Hide this popup and every ancestor (used when a leaf item is chosen).
-    void DismissChain()
+    /// Give up the "this is the open dropdown" registration, stand the press watch down and
+    /// repaint the menu-bar button that no longer has a menu under it.  Safe to call twice.
+    void unregisterOpenMenu()
     {
-        ANVIL_POPUP_MENU* root = this;
+        if( g_anvilOpenMenu != this )
+            return;
 
-        while( root->m_parentPopup )
-            root = root->m_parentPopup;
+        g_anvilOpenMenu = nullptr;
+        AnvilEnableMenuDismissFilter( false );
 
-        root->dismissChain();
+        if( g_anvilOpenMenuOwner )
+        {
+            g_anvilOpenMenuOwner->Refresh();   // drop the "menu showing" highlight
+            g_anvilOpenMenuOwner = nullptr;
+        }
     }
 
     /// The owning frame was (de)activated: on deactivation close the menu like a native one.
     void onFrameActivate( wxActivateEvent& aEvent )
     {
         if( !aEvent.GetActive() )
-            DismissChain();
+            CloseChain();
 
         aEvent.Skip();
     }
 
     wxMenu*           m_menu;
     wxWindow*         m_activationSource = nullptr;
+
+    /// Menu-bar button this dropdown hangs off, or nullptr for a stand-alone popup (the
+    /// account / open-editor / status-bar menus).  See PopupAt().
+    wxWindow*         m_ownerButton = nullptr;
     ANVIL_POPUP_MENU* m_parentPopup;
     ANVIL_POPUP_MENU* m_child = nullptr;
     int               m_childRow = -1;
@@ -749,7 +883,97 @@ private:
 };
 
 
-class TITLEBAR_MENU_BUTTON : public wxWindow
+// While a dropdown is showing, every press in the application is offered here first.  This is
+// what makes "click anywhere and the menu closes" deterministic: it does not depend on the
+// popup holding focus, the mouse capture or the activation state, all of which the submenu
+// popups move around behind wx's back.
+class ANVIL_MENU_DISMISS_FILTER : public wxEventFilter
+{
+public:
+    static ANVIL_MENU_DISMISS_FILTER& Get()
+    {
+        static ANVIL_MENU_DISMISS_FILTER filter;
+        return filter;
+    }
+
+    void Enable( bool aOn )
+    {
+        if( aOn == m_installed )
+            return;
+
+        if( aOn )
+            wxEvtHandler::AddFilter( this );
+        else
+            wxEvtHandler::RemoveFilter( this );
+
+        m_installed = aOn;
+    }
+
+    int FilterEvent( wxEvent& aEvent ) override
+    {
+        if( !g_anvilOpenMenu )
+            return Event_Skip;
+
+        const wxEventType type = aEvent.GetEventType();
+
+        // Escape closes the menu, as every native one does.
+        if( type == wxEVT_CHAR_HOOK )
+        {
+            if( static_cast<wxKeyEvent&>( aEvent ).GetKeyCode() != WXK_ESCAPE )
+                return Event_Skip;
+
+            AnvilCloseOpenMenu();
+            return Event_Processed;
+        }
+
+        if( type != wxEVT_LEFT_DOWN && type != wxEVT_RIGHT_DOWN && type != wxEVT_MIDDLE_DOWN
+                && type != wxEVT_LEFT_DCLICK && type != wxEVT_RIGHT_DCLICK
+                && type != wxEVT_AUX1_DOWN && type != wxEVT_AUX2_DOWN )
+        {
+            return Event_Skip;
+        }
+
+        wxWindow* win = wxDynamicCast( aEvent.GetEventObject(), wxWindow );
+
+        // Inside the dropdown itself (or a submenu open under it): the popup runs its own rows.
+        if( g_anvilOpenMenu->OwnsWindow( win ) )
+            return Event_Skip;
+
+        // On a menu-bar button: leave it to the button, which closes its own menu (a second
+        // click on the same item) or switches to another one.  Closing here instead would let
+        // the button's handler reopen, on this very press, the menu the press meant to close.
+        if( dynamic_cast<ANVIL_MENUBAR_BUTTON*>( win ) )
+            return Event_Skip;
+
+        AnvilCloseOpenMenu();
+
+        // Swallow the press the way a native menu does: the click that dismisses a menu belongs
+        // to the menu, not to the canvas, tree or toolbar that happens to sit underneath it.
+        return Event_Processed;
+    }
+
+private:
+    bool m_installed = false;
+};
+
+
+void AnvilCloseOpenMenu()
+{
+    if( g_anvilOpenMenu )
+        g_anvilOpenMenu->CloseChain();   // clears g_anvilOpenMenu on the way out
+}
+
+
+void AnvilEnableMenuDismissFilter( bool aOn )
+{
+    ANVIL_MENU_DISMISS_FILTER::Get().Enable( aOn );
+}
+
+
+// One entry of the title-bar menu bar.  Beyond painting itself, it owns the menu-bar behaviour:
+// a press opens its dropdown, closes it again if that dropdown is already the one showing, and
+// replaces any OTHER open dropdown -- never adds a second one.
+class TITLEBAR_MENU_BUTTON : public wxWindow, public ANVIL_MENUBAR_BUTTON
 {
 public:
     TITLEBAR_MENU_BUTTON( wxWindow* aParent, const wxString& aLabel, wxMenu* aMenu ) :
@@ -778,21 +1002,46 @@ public:
         SetMinSize( wxSize( ext.x + FromDIP( 16 ), FromDIP( 24 ) ) );
 
         Bind( wxEVT_PAINT, &TITLEBAR_MENU_BUTTON::onPaint, this );
+        // Hover only lights the button: the dropdown follows the CLICK, never the pointer.  A
+        // menu bar that also switched on hover would re-open on the way to the item you meant
+        // to click, and the click that followed would read as a second click on an already-open
+        // menu -- i.e. it would close it again.
         Bind( wxEVT_ENTER_WINDOW, [this]( wxMouseEvent& ) { m_hover = true;  Refresh(); } );
         Bind( wxEVT_LEAVE_WINDOW, [this]( wxMouseEvent& ) { m_hover = false; Refresh(); } );
         Bind( wxEVT_LEFT_DOWN,
               [this]( wxMouseEvent& )
               {
-                  if( m_menu )
-                  {
-                      // Custom fully-purple popup (native menus can't be themed on Win11).
-                      ANVIL_POPUP_MENU* popup = new ANVIL_POPUP_MENU( this, m_menu );
-                      popup->PopupAt( ClientToScreen( wxPoint( 0, GetSize().GetHeight() ) ) );
-                  }
+                  if( !m_menu )
+                      return;
+
+                  // Clicking the item whose menu is showing closes it: a menu-bar entry
+                  // toggles, it never stacks a second dropdown on the first.
+                  if( AnvilMenuIsOpenFor( this ) )
+                      AnvilCloseOpenMenu();
+                  else
+                      openMenu();
               } );
     }
 
+    ~TITLEBAR_MENU_BUTTON() override
+    {
+        // The popup is parented to this button, so it is about to be destroyed along with it;
+        // just drop the back-reference (closing it from here would run a dismiss on a window
+        // already being torn down).
+        AnvilForgetMenuOwner( this );
+    }
+
 private:
+    /// Show this button's dropdown, replacing whatever dropdown was open.
+    void openMenu()
+    {
+        AnvilCloseOpenMenu();   // one dropdown at a time
+
+        // Custom fully-purple popup (native menus can't be themed on Win11).
+        ANVIL_POPUP_MENU* popup = new ANVIL_POPUP_MENU( this, m_menu );
+        popup->PopupAt( ClientToScreen( wxPoint( 0, GetSize().GetHeight() ) ), this );
+    }
+
     void onPaint( wxPaintEvent& )
     {
         wxAutoBufferedPaintDC dc( this );
@@ -805,8 +1054,12 @@ private:
         const wxColour  normalBg = anvil ? ANVIL::CHROME_MENU : GetParent()->GetBackgroundColour();
         const wxColour& hoverBg  = ANVIL::BAR_HOVER;   // subtle hover, on-band (not a solid block)
 
+        // Lit while the pointer is over it AND for as long as its dropdown is showing, so the
+        // bar says which menu is open (the dropdown can outlive the pointer being here).
+        const bool lit = m_hover || AnvilMenuIsOpenFor( this );
+
         dc.SetPen( *wxTRANSPARENT_PEN );
-        dc.SetBrush( wxBrush( m_hover ? hoverBg : normalBg ) );
+        dc.SetBrush( wxBrush( lit ? hoverBg : normalBg ) );
         dc.DrawRectangle( GetClientRect() );
 
         dc.SetFont( GetFont() );
@@ -926,94 +1179,6 @@ private:
     bool     m_hover     = false;
     bool     m_active    = true;
     bool     m_indicator = false;
-};
-
-
-// Anvil: title-bar quick-access button drawing a real toolbar BITMAP icon (the same emerald
-// icon set as the editor toolbars) instead of a Segoe MDL2 font glyph — so the caption's
-// save/undo/redo match the toolbar icons below in type, colour and weight.
-//
-// App-wide icon target is 18px.  Anvil icon artwork carries ~2px of transparent padding, so the
-// bitmap CELL must be 2px larger than the desired visible glyph: 18 + 2 = 20 renders an 18px icon.
-static constexpr int ANVIL_TITLEBAR_ICON_PX   = 15;   // visible glyph size (what you see on screen)
-static constexpr int ANVIL_TITLEBAR_ICON_CELL = ANVIL_TITLEBAR_ICON_PX + 2;   // bitmap cell (= 17)
-class TITLEBAR_ICON_BUTTON : public wxWindow
-{
-public:
-    TITLEBAR_ICON_BUTTON( wxWindow* aParent, BITMAPS aBitmap, int aWidth,
-                          const wxColour& aHoverBg ) :
-            wxWindow( aParent, wxID_ANY ),
-            // 18px visible glyph = 20px bitmap cell (icon has ~2px built-in padding).
-            m_normal( KiBitmapBundleDef( aBitmap, ANVIL_TITLEBAR_ICON_CELL ) ),
-            m_disabled( KiDisabledBitmapBundleDef( aBitmap, ANVIL_TITLEBAR_ICON_CELL ) ),
-            m_hoverBg( &aHoverBg )
-    {
-        SetBackgroundStyle( wxBG_STYLE_PAINT );
-        SetMinSize( wxSize( aWidth, FromDIP( 24 ) ) );
-
-        Bind( wxEVT_PAINT, &TITLEBAR_ICON_BUTTON::onPaint, this );
-        Bind( wxEVT_ENTER_WINDOW, [this]( wxMouseEvent& ) { m_hover = true;  Refresh(); } );
-        Bind( wxEVT_LEAVE_WINDOW, [this]( wxMouseEvent& ) { m_hover = false; Refresh(); } );
-        Bind( wxEVT_LEFT_DOWN,
-              [this]( wxMouseEvent& )
-              {
-                  wxCommandEvent evt( wxEVT_BUTTON, GetId() );
-                  evt.SetEventObject( this );
-                  ProcessWindowEvent( evt );
-              } );
-    }
-
-    /// Same interface as TITLEBAR_GLYPH_BUTTON: bright icon while usable, dimmed otherwise.
-    void SetActiveGlyph( bool aActive )
-    {
-        if( m_active != aActive )
-        {
-            m_active = aActive;
-            Refresh();
-        }
-    }
-
-private:
-    void onPaint( wxPaintEvent& )
-    {
-        wxAutoBufferedPaintDC dc( this );
-        const wxSize sz = GetClientSize();
-
-        // Anvil mono chrome icons: the hover feedback is the glyph itself repainting Signal
-        // Emerald (no background block), matching the editor toolbars and the Project Files
-        // tree.  Flag off -> stock behaviour: full-height hover fill under the original icon.
-        const bool mono = ADVANCED_CFG::GetCfg().m_AnvilMonoIcons;
-
-        dc.SetPen( *wxTRANSPARENT_PEN );
-        dc.SetBrush( wxBrush( ( m_hover && !mono ) ? *m_hoverBg
-                                                   : GetParent()->GetBackgroundColour() ) );
-        dc.DrawRectangle( 0, 0, sz.x, sz.y );
-
-        // 18px visible glyph; the +2 cell compensates the icon's built-in padding, matching the
-        // editor toolbar (base 18 -> 18px) and the tree (18).
-        const int side = FromDIP( ANVIL_TITLEBAR_ICON_CELL );
-        wxBitmap  bmp = ( m_active ? m_normal : m_disabled ).GetBitmap( wxSize( side, side ) );
-
-        if( mono && bmp.IsOk() )
-        {
-            bmp = KIUI::RecolorFlat( bmp, !m_active ? ANVIL::INK_ICON_DIM
-                                          : m_hover ? ANVIL::INK_ICON_HOVER
-                                                    : ANVIL::INK_ICON_IDLE );
-        }
-
-        if( bmp.IsOk() )
-        {
-            dc.DrawBitmap( bmp, ( sz.x - bmp.GetWidth() ) / 2, ( sz.y - bmp.GetHeight() ) / 2,
-                           true );
-        }
-    }
-
-    wxBitmapBundle  m_normal;
-    wxBitmapBundle  m_disabled;
-    /// @see TITLEBAR_GLYPH_BUTTON::m_hoverBg -- a pointer so the fill follows a theme flip.
-    const wxColour* m_hoverBg;
-    bool           m_hover  = false;
-    bool           m_active = true;
 };
 
 
@@ -1295,21 +1460,7 @@ public:
         // further down rather than to this top row.
         m_menuSizer = new wxBoxSizer( wxHORIZONTAL );
 
-        // Altium-style quick access: Save / Undo / Redo acting on the active editor tab.
-        // Lives OUTSIDE m_menuSizer, which SetMenus() clears on every tab switch.  Buttons
-        // dim via RefreshQuickAccess() when there is nothing to save/undo/redo (or on the
-        // Project Manager view); clicks re-resolve the target frame, so a stale state can
-        // never dispatch to a dead editor.
         const wxColour& qaHover = ANVIL::HOVER;
-
-        // Real toolbar bitmap icons (the emerald set), not MDL2 font glyphs — so the
-        // quick-access buttons match the editor toolbar icons in type, colour and weight.
-        m_qaSave = new TITLEBAR_ICON_BUTTON( this, BITMAPS::save, FromDIP( 46 ), qaHover );
-        m_qaUndo = new TITLEBAR_ICON_BUTTON( this, BITMAPS::undo, FromDIP( 46 ), qaHover );
-        m_qaRedo = new TITLEBAR_ICON_BUTTON( this, BITMAPS::redo, FromDIP( 46 ), qaHover );
-        m_qaSave->SetToolTip( _( "Save (active editor)" ) );
-        m_qaUndo->SetToolTip( _( "Undo (active editor)" ) );
-        m_qaRedo->SetToolTip( _( "Redo (active editor)" ) );
 
         // Altium-style app mark: the Anvil logo anchors the far left of the title bar
         // (Altium/OrCAD and native Windows apps lead the caption with the app icon).
@@ -1320,21 +1471,8 @@ public:
         m_sizer->AddSpacer( FromDIP( 10 ) );
         m_sizer->Add( new TITLEBAR_APP_MARK( this, FromDIP( 30 ) ), 0, wxALIGN_CENTRE_VERTICAL );
 
-        m_sizer->AddSpacer( FromDIP( 8 ) );
-        m_sizer->Add( m_qaSave, 0, wxEXPAND );
-        m_sizer->Add( m_qaUndo, 0, wxEXPAND );
-        m_sizer->Add( m_qaRedo, 0, wxEXPAND );
-
-        m_qaSave->Bind( wxEVT_BUTTON, [this]( wxCommandEvent& ) { m_frame->RunQuickAccessAction( 0 ); } );
-        m_qaUndo->Bind( wxEVT_BUTTON, [this]( wxCommandEvent& ) { m_frame->RunQuickAccessAction( 1 ); } );
-        m_qaRedo->Bind( wxEVT_BUTTON, [this]( wxCommandEvent& ) { m_frame->RunQuickAccessAction( 2 ); } );
-
-        m_layoutBtns.push_back( m_qaSave );   // include in HitInteractive()
-        m_layoutBtns.push_back( m_qaUndo );
-        m_layoutBtns.push_back( m_qaRedo );
-
         // Altium-style document title: the active project / document name, centred between the
-        // quick-access buttons and the right-hand controls.  Filled on project load and tab
+        // app mark and the right-hand controls.  Filled on project load and tab
         // switch by KICAD_MANAGER_FRAME::RefreshShellDocumentTitle().
         m_sizer->AddStretchSpacer( 1 );
 
@@ -1603,19 +1741,6 @@ public:
             fn();
     }
 
-    /// Dim/brighten the quick-access buttons to match the active editor's real state.
-    void RefreshQuickAccess( bool aCanSave, bool aCanUndo, bool aCanRedo )
-    {
-        if( m_qaSave )
-            m_qaSave->SetActiveGlyph( aCanSave );
-
-        if( m_qaUndo )
-            m_qaUndo->SetActiveGlyph( aCanUndo );
-
-        if( m_qaRedo )
-            m_qaRedo->SetActiveGlyph( aCanRedo );
-    }
-
     /// Re-read the signed-in user so the account button's tooltip names them.  Called on
     /// every menu rebuild, which is also when sign-in / sign-out lands.
     void RefreshAccount()
@@ -1800,9 +1925,6 @@ private:
     TITLEBAR_GLYPH_BUTTON* m_max = nullptr;
     TITLEBAR_GLYPH_BUTTON* m_close = nullptr;
     bool                   m_maxGlyphShown = false;  // last state UpdateMaximizeGlyph() painted
-    TITLEBAR_ICON_BUTTON* m_qaSave = nullptr;    // Altium-style quick access (active editor);
-    TITLEBAR_ICON_BUTTON* m_qaUndo = nullptr;    // real toolbar bitmap icons, not MDL2 glyphs
-    TITLEBAR_ICON_BUTTON* m_qaRedo = nullptr;
     TITLEBAR_GLYPH_BUTTON* m_gear = nullptr;     // Preferences gear (additive to the menus)
     TITLEBAR_GLYPH_BUTTON* m_openEditor = nullptr; // "Open editor" dropdown (replaces the rail)
     TITLEBAR_GLYPH_BUTTON* m_account = nullptr;  // signed-in user dropdown (File > Account)
@@ -1926,6 +2048,10 @@ KICAD_MANAGER_FRAME::KICAD_MANAGER_FRAME( wxWindow* parent, const wxString& titl
                         return;
                     }
 
+                    // Nothing has "opened" this menu, so the check marks have to be brought up
+                    // to date by hand -- otherwise every panel toggle reads as off.
+                    target->RefreshMenuState( menu );
+
                     ANVIL_POPUP_MENU* popup = new ANVIL_POPUP_MENU( GetStatusBar(), menu );
 
                     // The popup destroys itself on dismiss; free the menu with it.
@@ -1944,24 +2070,6 @@ KICAD_MANAGER_FRAME::KICAD_MANAGER_FRAME( wxWindow* parent, const wxString& titl
                                              pos.y - popup->GetSize().y - FromDIP( 4 ) ) );
                 } );
     }
-
-    // Throttled quick-access state refresh (~3×/sec).  Idle does not fire while a docked
-    // editor owns a modal dialog — accepted: every click re-resolves frame + state fresh,
-    // so a stale dim-state can never mis-dispatch.  Do not "fix" this with a timer.
-    Bind( wxEVT_IDLE,
-          [this]( wxIdleEvent& aEvent )
-          {
-              static wxLongLong s_lastQuickAccessRefresh = 0;
-              wxLongLong        now = wxGetLocalTimeMillis();
-
-              if( now - s_lastQuickAccessRefresh > 300 )
-              {
-                  s_lastQuickAccessRefresh = now;
-                  RefreshQuickAccess();
-              }
-
-              aEvent.Skip();
-          } );
 
     // Give an icon
     wxIcon icon;
@@ -2100,13 +2208,15 @@ KICAD_MANAGER_FRAME::KICAD_MANAGER_FRAME( wxWindow* parent, const wxString& titl
         // destroy the reparented editor frame (that would dangle KIWAY's player
         // pointer); onEditorTabCloseRequest() reparents the frame back to a hidden
         // top-level so it survives and can be re-docked later — see DetachDockedEditor().
-        // wxAUI_NB_TAB_SPLIT: drag an editor tab to an edge to split the editor area into
-        // side-by-side groups (VS Code style); the Split-Editor title-bar button does the
-        // same on click.  Each page is a plain host panel, so splitting just re-homes that
-        // panel between tab groups and never disturbs the reparented editor inside it.
+        // No wxAUI_NB_TAB_SPLIT: with it, a click that slips a few pixels on a wide tab
+        // ("Symbol Browser") registers as a drag and silently splits the editor area into a
+        // second tab group.  Splitting is title-bar-button-only via ToggleSplitEditors(),
+        // which calls the flag-independent wxAuiNotebook::Split()/UnsplitAll(); TAB_MOVE
+        // keeps plain reordering.  Each page is a host panel, so splitting just re-homes
+        // that panel between tab groups and never disturbs the reparented editor inside it.
         m_editorTabs = new wxAuiNotebook( this, wxID_ANY, wxDefaultPosition,
                                           FromDIP( wxSize( 700, 590 ) ),
-                                          wxAUI_NB_TOP | wxAUI_NB_TAB_MOVE | wxAUI_NB_TAB_SPLIT
+                                          wxAUI_NB_TOP | wxAUI_NB_TAB_MOVE
                                                   | wxAUI_NB_CLOSE_ON_ALL_TABS
                                                   | wxAUI_NB_SCROLL_BUTTONS | wxNO_BORDER );
         m_editorTabs->SetArtProvider( new WX_AUI_TAB_ART() );
@@ -2686,26 +2796,46 @@ void KICAD_MANAGER_FRAME::PruneDeadEditorTabs()
         return;
 
     std::vector<std::pair<int, wxWindow*>> live;
+    std::vector<wxWindow*>                 orphanHosts;
     live.reserve( m_dockedEditors.size() );
 
     for( const std::pair<int, wxWindow*>& entry : m_dockedEditors )
     {
         // FindWindowById returns null once the player frame has been destroyed (the
         // same test KIWAY uses), so this never touches a freed frame.
-        if( wxWindow::FindWindowById( entry.first ) )
-        {
-            live.push_back( entry );
-        }
-        else
-        {
-            int idx = m_editorTabs->GetPageIndex( entry.second );
+        wxWindow* frame = wxWindow::FindWindowById( entry.first );
 
-            if( idx != wxNOT_FOUND )
-                m_editorTabs->DeletePage( idx );   // destroys the now-orphaned host page
+        // A frame that has already accepted a close is only *pending* deletion: wxFrame::Destroy()
+        // defers the delete to the next idle pass, so FindWindowById still resolves it for a while.
+        // Project close runs PlayersClose() and prunes in the same call stack, so without this test
+        // every just-closed editor still reads as live here and its tab is left behind for good
+        // (the later wxEVT_DESTROY drops the registry entry, so no later prune can ever match it).
+        if( EDA_BASE_FRAME* edaFrame = dynamic_cast<EDA_BASE_FRAME*>( frame ); edaFrame
+            && edaFrame->IsClosing() )
+        {
+            frame = nullptr;
         }
+
+        if( frame )
+            live.push_back( entry );
+        else
+            orphanHosts.push_back( entry.second );
     }
 
+    // Commit the new registry BEFORE touching the notebook.  Deleting a host page whose editor is
+    // merely pending deletion destroys that editor as a child, which re-enters
+    // onDockedEditorDestroyed() and erases from m_dockedEditors -- invalidating the iterator if we
+    // were still walking it.  With the registry already settled, that re-entry matches nothing and
+    // its deferred page delete is a no-op.
     m_dockedEditors = std::move( live );
+
+    for( wxWindow* host : orphanHosts )
+    {
+        int idx = m_editorTabs->GetPageIndex( host );
+
+        if( idx != wxNOT_FOUND )
+            m_editorTabs->DeletePage( idx );   // destroys the now-orphaned host page
+    }
 #endif
 }
 
@@ -2763,48 +2893,7 @@ void KICAD_MANAGER_FRAME::RunQuickAccessAction( int aWhich )
 
         if( TOOL_MANAGER* mgr = prefsTarget->GetToolManager() )
             mgr->RunAction( ACTIONS::openPreferences );
-
-        return;
     }
-
-    if( !target || !target->GetToolManager() )
-        return;
-
-    switch( aWhich )
-    {
-    case 0: target->GetToolManager()->RunAction( ACTIONS::save ); break;
-    case 1: target->GetToolManager()->RunAction( ACTIONS::undo ); break;
-    case 2: target->GetToolManager()->RunAction( ACTIONS::redo ); break;
-    default: break;
-    }
-
-    RefreshQuickAccess();
-#endif
-}
-
-
-void KICAD_MANAGER_FRAME::RefreshQuickAccess()
-{
-#ifdef __WXMSW__
-    if( !m_titleBar )
-        return;
-
-    EDA_BASE_FRAME* target = getActiveDockedEditorFrame();
-
-    bool canSave = false;
-    bool canUndo = false;
-    bool canRedo = false;
-
-    if( target )
-    {
-        // Library editors define IsContentModified() frame-wide; the titlebar Save maps to
-        // ACTIONS::save (current item) — accepted, documented behaviour.
-        canSave = target->IsContentModified();
-        canUndo = target->GetUndoCommandCount() > 0;
-        canRedo = target->GetRedoCommandCount() > 0;
-    }
-
-    m_titleBar->RefreshQuickAccess( canSave, canUndo, canRedo );
 #endif
 }
 
@@ -2913,11 +3002,64 @@ void KICAD_MANAGER_FRAME::RefreshAccountButton()
 
 void KICAD_MANAGER_FRAME::onEditorTabCloseRequest( wxAuiNotebookEvent& evt )
 {
-#ifdef __WXMSW__
     if( !m_editorTabs )
         return;
 
-    wxWindow* page = m_editorTabs->GetPage( evt.GetSelection() );
+    wxWindow* rawPage = m_editorTabs->GetPage( evt.GetSelection() );
+
+    // Job-set panels (and any other PANEL_NOTEBOOK_BASE page) are hosted directly as shell
+    // tabs with no frame behind them: run the same unsaved-changes flow the legacy notebook
+    // uses, then let the notebook destroy the page.
+    if( PANEL_NOTEBOOK_BASE* nbPanel = dynamic_cast<PANEL_NOTEBOOK_BASE*>( rawPage ) )
+    {
+        if( !nbPanel->GetClosable() || !nbPanel->GetCanClose() )
+        {
+            evt.Veto();
+        }
+        else
+        {
+            CallAfter(
+                    [this]()
+                    {
+                        SaveOpenJobSetsToLocalSettings();
+                    } );
+        }
+
+        return;
+    }
+
+#ifdef __WXMSW__
+    wxWindow* page = rawPage;
+
+    // Docked non-player windows (e.g. the BOM dialog): closing the tab means closing the
+    // window, and the window may refuse (unsaved-changes prompt).  Veto the notebook's
+    // default page destruction either way — on a successful Close() the window's destroy
+    // handler (onDockedWindowDestroyed) removes the tab cleanly.
+    for( std::vector<std::pair<int, wxWindow*>>::iterator it = m_dockedWindows.begin();
+         it != m_dockedWindows.end(); ++it )
+    {
+        if( it->second != page )
+            continue;
+
+        evt.Veto();
+
+        if( wxWindow* win = wxWindow::FindWindowById( it->first ) )
+        {
+            win->Close( false );
+        }
+        else
+        {
+            // Window already gone: drop the orphan page ourselves.
+            m_dockedWindows.erase( it );
+
+            int idx = m_editorTabs->GetPageIndex( page );
+
+            if( idx != wxNOT_FOUND )
+                m_editorTabs->DeletePage( idx );
+        }
+
+        return;
+    }
 
     // Find the docked editor whose host panel is the page being closed, detach its frame
     // (keeping it alive), and drop it from the registry.  The notebook then destroys the
@@ -3029,6 +3171,24 @@ void KICAD_MANAGER_FRAME::syncShellMenuToActiveTab( bool aForcePM )
 
 void KICAD_MANAGER_FRAME::onEditorTabChanged( wxAuiNotebookEvent& evt )
 {
+    // A background tab still queued for its post-flip theme re-apply (see ToggleAppTheme) is
+    // being raised: theme it NOW so it never paints in the previous theme, and drop it from
+    // the queue so the drain doesn't redo the work.
+    if( !m_themeReapplyQueue.empty() )
+    {
+        if( EDA_BASE_FRAME* active = getActiveDockedEditorFrame() )
+        {
+            auto it = std::find( m_themeReapplyQueue.begin(), m_themeReapplyQueue.end(),
+                                 active->GetId() );
+
+            if( it != m_themeReapplyQueue.end() )
+            {
+                m_themeReapplyQueue.erase( it );
+                active->ReapplyAnvilTheme();
+            }
+        }
+    }
+
     syncShellMenuToActiveTab();
     syncAiPanelToActiveTab();
     syncShellStatusBarToActiveTab();
@@ -3240,13 +3400,36 @@ void KICAD_MANAGER_FRAME::onDockedEditorDestroyed( wxWindowDestroyEvent& aEvent 
 
     const int dyingId = dying->GetId();
 
-    // Drop any stale docked-editor registry entry so later id lookups can't resolve to a dead frame.
+    // Drop any stale docked-editor registry entry so later id lookups can't resolve to a dead frame,
+    // and take the orphaned host page down with it.  This handler is the LAST place that still knows
+    // which tab belonged to this editor -- once the entry is gone, PruneDeadEditorTabs() has nothing
+    // left to match, so a page not deleted here stays in the notebook forever as an empty tab
+    // carrying the previous project's document name.
     for( std::vector<std::pair<int, wxWindow*>>::iterator it = m_dockedEditors.begin();
          it != m_dockedEditors.end(); ++it )
     {
         if( it->first == dyingId )
         {
+            wxWindow* host = it->second;
             m_dockedEditors.erase( it );
+
+            // We are inside the editor frame's destructor and it is still a child of the host page,
+            // so the page must outlive this call: defer its deletion to the next event-loop pass
+            // (same recipe as onDockedWindowDestroyed()).
+            CallAfter(
+                    [this, host]()
+                    {
+                        if( !m_editorTabs || IsBeingDeleted() )
+                            return;
+
+                        int idx = m_editorTabs->GetPageIndex( host );
+
+                        if( idx != wxNOT_FOUND )
+                            m_editorTabs->DeletePage( idx );
+
+                        HideTabsIfNeeded();
+                    } );
+
             break;
         }
     }
@@ -3538,6 +3721,29 @@ void KICAD_MANAGER_FRAME::applyAnvilShellTheme()
             nb->SetArtProvider( tabArt->Clone() );
         }
 
+        // The EMPTY run of the notebook (no tabs open — the whole centre area on the start
+        // screen) is painted by the notebook's INTERNAL wxAuiManager, whose stock dock art
+        // derives its background from the system palette at notebook CREATION — the one
+        // surface of the tab area the master-art re-clone above cannot reach, so it stayed
+        // on the previous theme across a live flip.  Re-derive it for the current theme,
+        // reproducing exactly what a fresh start computes: the dark panel grey, or the
+        // stock light aui grey (BTNFACE stepped down 8%).
+        if( wxAuiDockArt* innerArt = nb->GetAuiManager().GetArtProvider() )
+        {
+            const wxColour emptyBg = ANVIL::IsLight()
+                    ? wxSystemSettings::GetColour( wxSYS_COLOUR_BTNFACE ).ChangeLightness( 92 )
+                    : wxColour( ANVIL::CHROME_PANEL );
+
+            innerArt->SetColour( wxAUI_DOCKART_BACKGROUND_COLOUR, emptyBg );
+
+            // Same internal manager also draws a 1px border ring around the notebook (and
+            // sashes between split tab groups) with colours derived from the creation-time
+            // system palette — in the light theme that ring reads as a dark frame around the
+            // whole editor area.  Dissolve it into the panel tone (white in light).
+            innerArt->SetColour( wxAUI_DOCKART_BORDER_COLOUR, ANVIL::CHROME_PANEL );
+            innerArt->SetColour( wxAUI_DOCKART_SASH_COLOUR, ANVIL::CHROME_SASH );
+        }
+
         nb->SetBackgroundColour( bgPanel );
 
         // The strip a wxAuiNotebook draws its tabs on is a child wxAuiTabCtrl, not the notebook
@@ -3585,58 +3791,155 @@ void KICAD_MANAGER_FRAME::ToggleAppTheme()
 
     cfg->m_Appearance.app_theme = goLight ? APP_THEME::LIGHT : APP_THEME::DARK;
 
-    // Persist first: the restart below reads the theme back at start-up.
-    Pgm().GetSettingsManager().Save( cfg );
+    // LIVE flip — the app stays open and repaints in place.  The historical blocker (wx's MSW
+    // dark mode owns pop-up menus, scrollbars and native control interiors and can only be
+    // established at start-up) is gone: start-up now enables it unconditionally and
+    // SetLiveDarkMode() steers the OS-level per-app mode at runtime, re-theming every open
+    // window (see kiplatform/app.h).  Everything app-drawn is repainted by the walk below.
 
-    // A LIVE flip cannot be complete: wx's MSW dark mode (pop-up menus, scrollbars, native
-    // control interiors), the Explorer visual style latched by the project tree, and the GAL
-    // canvases' colour state are all establish-at-start-up only, so the old in-place walk
-    // always left stale surfaces (live-verified: a restart renders the new theme perfectly,
-    // the walk did not).  So the toggle now IS a restart: spawn a detached relauncher that
-    // waits for this process to exit, then close normally -- autosave and the usual shutdown
-    // path run, and the relauncher reopens the same project in the new theme.  The 30 s
-    // timeout means a cancelled close simply expires the relauncher instead of resurrecting
-    // the app minutes later.
-    wxString exe  = wxStandardPaths::Get().GetExecutablePath();
-    wxString proj = Prj().GetProjectFullName();
+    // One repaint, not a cascade.  The flip walks the title bar, every dock pane and every
+    // docked editor; without freezing, each of those repaints as it is touched and the switch
+    // reads as a slow ripple instead of an instant change.
+    Freeze();
 
-    // The relauncher is a script FILE: inline -Command quoting of two nested paths is fragile
-    // enough that one broken escape silently kills the relaunch, which reads as "the theme
-    // toggle just closes the app".  A file needs no escaping at all.
-    wxFileName scriptFn( wxFileName::GetTempDir(), wxS( "anvil_theme_restart.ps1" ) );
-    wxString   script;
+    // Flip the palette copies this module can reach (its own + kicommon's), then repaint.
+    KIUI::SyncAnvilTheme();
 
-    // Wait-Process does NOT stop the script when the timeout expires — it just returns.  The
-    // liveness check below is what actually implements "a cancelled close expires the
-    // relauncher": relaunching while this process is still alive would race the dying DDE
-    // single-instance service (the new instance forwards into a closing window and the user
-    // ends up with no app at all).
-    script << wxS( "Wait-Process -Id " ) << wxGetProcessId()
-           << wxS( " -Timeout 30 -ErrorAction SilentlyContinue\n" )
-           << wxS( "if( Get-Process -Id " ) << wxGetProcessId()
-           << wxS( " -ErrorAction SilentlyContinue ) { exit }\n" )
-           << wxS( "Start-Process -FilePath '" ) << exe << wxS( "'" );
+    // The native half: per-app dark mode, menu themes, captions, scrollbars — app-wide.
+    KIPLATFORM::APP::SetLiveDarkMode( !goLight );
 
-    // --new skips the single-instance handoff in the relaunched process: a stale/zombie
-    // instance holding the IPC service must not swallow the restart.  Only usable with an
-    // explicit project argument — a bare --new would also skip last-session restore.
-    if( !proj.IsEmpty() && wxFileName::FileExists( proj ) )
-        script << wxS( " -ArgumentList '--new', '\"" ) << proj << wxS( "\"'" );
+    applyAnvilShellTheme();
 
-    script << wxS( "\n" );
+    // The tree's hover band / selection / scrollbar are drawn by the native Explorer
+    // visual style picked when the control was CREATED, so a runtime flip leaves e.g. a
+    // dark hover row on the white light-theme tree.  Re-point the uxtheme to match.
+    // (Cheap — the icon REBUILD is the expensive part and is deferred below.)
+    if( m_projectTreePane && m_projectTreePane->m_TreeProject )
+        KIPLATFORM::UI::SetDarkExplorerTheme( m_projectTreePane->m_TreeProject, !goLight );
 
-    wxFile scriptFile;
+    if( m_titleBar )
+        m_titleBar->RefreshTheme();
 
-    if( scriptFile.Create( scriptFn.GetFullPath(), true ) && scriptFile.Write( script ) )
+    // The AI panel is an HTML page in a WebView, so it is themed by CSS rather than by the
+    // palette: hand it the same flip through the hook chat.html installs (see anvilSetTheme).
+    if( m_aiChatPanel )
     {
-        scriptFile.Close();
-        wxExecute( wxString::Format( wxS( "powershell.exe -NoProfile -ExecutionPolicy Bypass"
-                                          " -WindowStyle Hidden -File \"%s\"" ),
-                                     scriptFn.GetFullPath() ),
-                   wxEXEC_ASYNC );
+        m_aiChatPanel->RunScriptAsync(
+                wxString::Format( wxT( "window.anvilSetTheme && window.anvilSetTheme('%s');" ),
+                                  goLight ? wxT( "light" ) : wxT( "dark" ) ) );
+
+        // The host panel shows through as a 1px sliver beside the WebView; it is excluded from
+        // the recursive recolour walks (they must not touch the WebView), so re-tone it here.
+        m_aiChatPanel->SetBackgroundColour( ANVIL::CHROME_PANEL );
+        m_aiChatPanel->Refresh();
     }
 
-    Close( false );
+    // Every docked editor lives in its own _kiface DLL with its own copy of the palette globals,
+    // so the flip has to be dispatched through the virtual -- that is what makes it run inside
+    // that DLL.  Resolve by window id (not a stored pointer) so a torn-down editor reads as null.
+    //
+    // Only the ACTIVE tab is themed synchronously — it is what the user is looking at.  Every
+    // other open editor (background tabs, the prewarmed hidden ones) goes on a queue drained
+    // one editor per event-loop tick right after this handler returns: the per-editor
+    // menu/tool-bar rebuild and canvas colour reload are the bulk of the flip cost and grow
+    // linearly with open tabs (measured ~280 ms with one tab, ~850 ms with two), but none of
+    // that work is visible until the tab is raised, so paying it inside the click freeze only
+    // added latency.
+    EDA_BASE_FRAME* activeEditor = getActiveDockedEditorFrame();
+
+    if( activeEditor )
+        activeEditor->ReapplyAnvilTheme();
+
+    m_themeReapplyQueue.clear();
+
+    for( const std::pair<int, wxWindow*>& entry : m_dockedEditors )
+    {
+        wxWindow* w = wxWindow::FindWindowById( entry.first );
+
+        if( w && w != activeEditor )
+            m_themeReapplyQueue.push_back( entry.first );
+    }
+
+    // Editors that are NOT docked into the shell (a floating 3D viewer, a frame opened outside
+    // the tab area) are top-level siblings; give them the same virtual dispatch.  There is at
+    // most a window or two of these, so they stay synchronous.
+    for( wxWindow* tlw : wxTopLevelWindows )
+    {
+        if( tlw == this )
+            continue;
+
+        if( EDA_BASE_FRAME* frame = dynamic_cast<EDA_BASE_FRAME*>( tlw ) )
+            frame->ReapplyAnvilTheme();
+    }
+
+    // NOTE: no menu re-sync here any more — the editors' menu-bar rebuilds are DEFERRED under
+    // ANVIL_THEME_FLIP (see EDA_BASE_FRAME::CommonSettingsChanged), so at this point the title
+    // bar still holds valid menus; the deferred lambda below re-grabs them after the rebuild.
+
+    Layout();
+    Thaw();
+    Refresh();
+
+    // Paint NOW, synchronously.  The deferred work queued below (menu-bar rebuilds, tree
+    // icon rebuild, background tabs) is dispatched from the pending-events queue, which wx
+    // drains BEFORE the low-priority WM_PAINT — without this flush the user would keep
+    // looking at the OLD theme through all of it, and the deferral would buy nothing.
+    Update();
+
+    // Off the click path: persist the setting (disk IO), re-grab the title-bar menus, and
+    // start draining the background-tab queue, all on the next event-loop pass — the visible
+    // flip has already painted.  wxTheApp keeps this in the SAME FIFO queue as the active
+    // editor's deferred menu-bar rebuild (queued above, inside ReapplyAnvilTheme), so the
+    // re-sync below always runs after that rebuild and the title bar never keeps pointers
+    // into a freed menu bar.
+    wxTheApp->CallAfter(
+            [this]()
+            {
+                if( COMMON_SETTINGS* commonCfg = Pgm().GetCommonSettings() )
+                    Pgm().GetSettingsManager().Save( commonCfg );
+
+#ifdef __WXMSW__
+                if( ADVANCED_CFG::GetCfg().m_SingleWindowShell && UseUnifiedMenuBar() )
+                    syncShellMenuToActiveTab();
+#endif
+
+                // The Project Files icons are baked into a wxImageList, tinted for whichever
+                // theme was active when they were built — so unlike the toolbar / title-bar
+                // glyphs (recoloured at draw time) they must be rebuilt.  ~100 ms of bitmap
+                // work, so it runs here, one tick after the flip has painted.
+                if( m_projectTreePane && m_projectTreePane->m_TreeProject )
+                {
+                    m_projectTreePane->m_TreeProject->LoadIcons();
+                    m_projectTreePane->m_TreeProject->Refresh();
+                }
+
+                processThemeReapplyQueue();
+            } );
+}
+
+
+void KICAD_MANAGER_FRAME::processThemeReapplyQueue()
+{
+    // Drains ONE editor per event-loop pass, then reschedules itself; see ToggleAppTheme().
+    // A second toggle while draining simply rebuilds the queue — this loop only ever reads
+    // the current one, so an overlapping CallAfter chain drains it faster, not twice.
+    while( !m_themeReapplyQueue.empty() )
+    {
+        const int id = m_themeReapplyQueue.back();
+        m_themeReapplyQueue.pop_back();
+
+        EDA_BASE_FRAME* editor = dynamic_cast<EDA_BASE_FRAME*>( wxWindow::FindWindowById( id ) );
+
+        if( !editor )
+            continue;   // torn down since queueing; try the next entry
+
+        editor->ReapplyAnvilTheme();
+
+        if( !m_themeReapplyQueue.empty() )
+            CallAfter( [this]() { processThemeReapplyQueue(); } );
+
+        return;
+    }
 }
 
 
@@ -3914,7 +4217,18 @@ bool KICAD_MANAGER_FRAME::DockEditorAsTab( KIWAY_PLAYER* aPlayer, const wxString
             int idx = m_editorTabs->GetPageIndex( entry.second );
 
             if( idx != wxNOT_FOUND )
+            {
+                // The editor may have swapped documents since it was docked (e.g. a
+                // sibling board loaded into the same PCB editor) -- keep the label live.
+                if( !aTitle.IsEmpty() && m_editorTabs->GetPageText( idx ) != aTitle )
+                    m_editorTabs->SetPageText( idx, aTitle );
+
                 m_editorTabs->SetSelection( idx );
+
+                // A document swap inside the already-selected tab fires no tab-change
+                // event, so sync the title-bar document name here too.
+                RefreshShellDocumentTitle();
+            }
 
             return true;
         }
@@ -4050,6 +4364,194 @@ bool KICAD_MANAGER_FRAME::DockPlayerAsTab( KIWAY_PLAYER* aPlayer )
 }
 
 
+void KICAD_MANAGER_FRAME::UpdatePlayerTabTitle( KIWAY_PLAYER* aPlayer, const wxString& aTitle )
+{
+#ifdef __WXMSW__
+    if( !m_editorTabs || !aPlayer || aTitle.IsEmpty() )
+        return;
+
+    // Match by window id, never by pointer: the same id-based bookkeeping the rest of the
+    // docking code uses, so a frame that died without evicting its tab can never be
+    // dereferenced here.  This runs from KIWAY_PLAYER::SetTitle(), i.e. potentially while
+    // the frame is still being built -- an undocked player simply matches nothing.
+    for( const std::pair<int, wxWindow*>& entry : m_dockedEditors )
+    {
+        if( entry.first != aPlayer->GetId() )
+            continue;
+
+        int idx = m_editorTabs->GetPageIndex( entry.second );
+
+        if( idx != wxNOT_FOUND && m_editorTabs->GetPageText( idx ) != aTitle )
+            m_editorTabs->SetPageText( idx, aTitle );
+
+        return;
+    }
+#endif
+}
+
+
+bool KICAD_MANAGER_FRAME::DockWindowAsTab( wxWindow* aWindow, const wxString& aTitle )
+{
+#ifdef __WXMSW__
+    if( !m_editorTabs || !aWindow )
+        return false;
+
+    // Drop tabs whose window has been destroyed so we never leave an orphan tab or add
+    // a duplicate when the same view is re-opened (same scheme as PruneDeadEditorTabs).
+    std::vector<std::pair<int, wxWindow*>> live;
+    live.reserve( m_dockedWindows.size() );
+
+    for( const std::pair<int, wxWindow*>& entry : m_dockedWindows )
+    {
+        if( wxWindow::FindWindowById( entry.first ) )
+        {
+            live.push_back( entry );
+        }
+        else
+        {
+            int idx = m_editorTabs->GetPageIndex( entry.second );
+
+            if( idx != wxNOT_FOUND )
+                m_editorTabs->DeletePage( idx );
+        }
+    }
+
+    m_dockedWindows = std::move( live );
+
+    // Already docked?  Re-select its tab (and keep the label live).
+    for( const std::pair<int, wxWindow*>& entry : m_dockedWindows )
+    {
+        if( entry.first == aWindow->GetId() )
+        {
+            int idx = m_editorTabs->GetPageIndex( entry.second );
+
+            if( idx != wxNOT_FOUND )
+            {
+                if( !aTitle.IsEmpty() && m_editorTabs->GetPageText( idx ) != aTitle )
+                    m_editorTabs->SetPageText( idx, aTitle );
+
+                m_editorTabs->SetSelection( idx );
+            }
+
+            return true;
+        }
+    }
+
+    // Same re-hosting surgery as DockEditorAsTab(): hide + freeze so the window never
+    // flashes as a floating top-level, then reparent it into a plain panel page and turn
+    // it into a WS_CHILD with no decorations of its own.
+    aWindow->Hide();
+    aWindow->Freeze();
+
+    wxPanel*    host  = new wxPanel( m_editorTabs, wxID_ANY );
+    wxBoxSizer* sizer = new wxBoxSizer( wxVERTICAL );
+    host->SetSizer( sizer );
+
+    if( HWND child = static_cast<HWND>( aWindow->GetHandle() ) )
+    {
+        aWindow->Reparent( host );
+
+        // As with editor frames, wx does not reliably perform the native ::SetParent for
+        // a top-level window: force it, then strip the top-level decorations.
+        if( HWND hostHwnd = static_cast<HWND>( host->GetHandle() ) )
+            ::SetParent( child, hostHwnd );
+
+        LONG_PTR style = ::GetWindowLongPtr( child, GWL_STYLE );
+        style &= ~( WS_CAPTION | WS_THICKFRAME | WS_MINIMIZEBOX | WS_MAXIMIZEBOX
+                    | WS_SYSMENU | WS_POPUP | WS_OVERLAPPED | WS_DLGFRAME | WS_BORDER );
+        style |= WS_CHILD | WS_CLIPSIBLINGS | WS_CLIPCHILDREN;
+        ::SetWindowLongPtr( child, GWL_STYLE, style );
+
+        sizer->Add( aWindow, 1, wxEXPAND );
+
+        ::SetWindowPos( child, nullptr, 0, 0, 0, 0,
+                        SWP_FRAMECHANGED | SWP_NOMOVE | SWP_NOSIZE | SWP_NOZORDER | SWP_NOACTIVATE );
+    }
+    else
+    {
+        aWindow->Reparent( host );
+        sizer->Add( aWindow, 1, wxEXPAND );
+    }
+
+    wxString tabLabel = aTitle;
+
+    if( tabLabel.IsEmpty() )
+        tabLabel = aWindow->GetLabel();
+
+    if( tabLabel.IsEmpty() )
+        tabLabel = _( "Document" );
+
+    m_editorTabs->AddPage( host, tabLabel, true );
+    m_dockedWindows.emplace_back( aWindow->GetId(), host );
+
+    // Remove the tab when the window is destroyed by any path (dialog Cancel/OK, its
+    // owning editor closing it, project close, ...).
+    aWindow->Bind( wxEVT_DESTROY, &KICAD_MANAGER_FRAME::onDockedWindowDestroyed, this );
+
+    host->Layout();
+
+    // Size it to the page BEFORE showing (a reparented top-level is an unusual sizer item
+    // and does not always honour the sizer on first dock)...
+    aWindow->SetSize( host->GetClientSize() );
+
+    aWindow->Thaw();
+    aWindow->Show( true );
+
+    // ...and once more AFTER showing: DIALOG_SHIM::Show() restores a remembered floating
+    // size/position on first show, which must not win over the tab layout.
+    aWindow->SetSize( host->GetClientSize() );
+    aWindow->SetPosition( wxPoint( 0, 0 ) );
+
+    aWindow->SetFocus();
+
+    return true;
+#else
+    // Non-Windows: native reparenting recipe differs (GTK/Cocoa); float the window.
+    return false;
+#endif
+}
+
+
+void KICAD_MANAGER_FRAME::onDockedWindowDestroyed( wxWindowDestroyEvent& aEvent )
+{
+#ifdef __WXMSW__
+    wxWindow* win = aEvent.GetWindow();
+
+    aEvent.Skip();
+
+    if( !win )
+        return;
+
+    for( std::vector<std::pair<int, wxWindow*>>::iterator it = m_dockedWindows.begin();
+         it != m_dockedWindows.end(); ++it )
+    {
+        if( it->first != win->GetId() )
+            continue;
+
+        wxWindow* host = it->second;
+        m_dockedWindows.erase( it );
+
+        // This handler runs from inside the window's destructor while it is still a child
+        // of the host page, so the page itself must outlive this call: defer its deletion
+        // to the next event-loop pass.
+        CallAfter(
+                [this, host]()
+                {
+                    if( !m_editorTabs )
+                        return;
+
+                    int idx = m_editorTabs->GetPageIndex( host );
+
+                    if( idx != wxNOT_FOUND )
+                        m_editorTabs->DeletePage( idx );
+                } );
+
+        break;
+    }
+#endif
+}
+
+
 bool KICAD_MANAGER_FRAME::IsPlayerDocked( KIWAY_PLAYER* aPlayer )
 {
     if( !m_editorTabs || !aPlayer )
@@ -4098,6 +4600,26 @@ static wxFileName FindOwningProjectFile( const wxString& aDir )
 }
 
 
+/**
+ * Is @a aExt a document any Anvil window can display without owning its project?
+ *
+ * Gerber / drill / Gerber-job files and drawing sheets are shown by the Gerber Viewer and the
+ * Drawing Sheet Editor, neither of which loads a project.  Generated fabrication outputs in
+ * particular live in their own subfolder, so project-scoped routing rules must not apply.
+ */
+static bool isProjectIndependentDoc( const wxString& aExt )
+{
+    // The job-file test comes first: the Gerber extension test is a substring regex, so
+    // "gbrjob" also matches "gbr".
+    return aExt == FILEEXT::GerberJobFileExtension
+           || aExt == FILEEXT::DrillFileExtension
+           || aExt == FILEEXT::DrawingSheetFileExtension
+           || aExt.IsSameAs( wxT( "nc" ), false )
+           || aExt.IsSameAs( wxT( "xnc" ), false )
+           || FILEEXT::IsGerberFileExtension( aExt );
+}
+
+
 void KICAD_MANAGER_FRAME::OpenAnvilFile( const wxString& aPath )
 {
     // Opening a file focuses the one running window (VS Code / Cursor behaviour).
@@ -4132,7 +4654,23 @@ void KICAD_MANAGER_FRAME::OpenAnvilFile( const wxString& aPath )
         return;
     }
 
-    // 2) Schematic or board file.  Opening is Anvil-only: only a native anvil_sch / anvil_pcb
+    // 2) Fabrication output → Gerber Viewer, and a drawing sheet → its editor.  These are
+    //    project-independent documents (generated Gerbers normally sit in a *_fab subfolder
+    //    that owns no project file of its own), so they must be routed BEFORE the
+    //    owning-project resolution further down — otherwise a perfectly good Gerber was
+    //    rejected with "Don't know how to open ... in Anvil" and never reached the viewer.
+    if( isProjectIndependentDoc( ext ) )
+    {
+        const TOOL_ACTION& viewerAction = ext == FILEEXT::DrawingSheetFileExtension
+                                                  ? KICAD_MANAGER_ACTIONS::editDrawingSheet
+                                                  : KICAD_MANAGER_ACTIONS::viewGerbers;
+
+        wxString viewerFile = fn.GetFullPath();
+        GetToolManager()->RunAction<wxString*>( viewerAction, &viewerFile );
+        return;
+    }
+
+    // 3) Schematic or board file.  Opening is Anvil-only: only a native anvil_sch / anvil_pcb
     //    opens directly in the editor.  A foreign Anvil (or legacy) schematic/board is never
     //    opened natively — it reaches an editor only through the import flow — so route it to its
     //    owning project's import offer instead.  FILEEXT is the single source of the mapping.
@@ -4166,8 +4704,8 @@ void KICAD_MANAGER_FRAME::OpenAnvilFile( const wxString& aPath )
             }
 
             DisplayInfoMessage( this, wxString::Format(
-                    _( "'%s' is a Anvil file.\n\nAnvil opens Anvil designs through import: use "
-                       "File > Import > Anvil Project." ),
+                    _( "'%s' is a KiCad file.\n\nAnvil opens KiCad designs through import: use "
+                       "File > Import Non-Anvil Project > KiCad Project." ),
                     fn.GetFullName() ) );
             return;
         }
@@ -4238,7 +4776,12 @@ void KICAD_MANAGER_FRAME::HandleForwardedOpen( const wxString& aPath )
     // "same directory as the active project" == "belongs to the open project" (this also covers
     // sub-sheets whose basename differs from the project).  A fresh "--new" instance bypasses the
     // single-instance handoff and opens the file in its own window.
-    if( IsProjectActive() )
+    //
+    // Viewer documents are exempt: a Gerber/drill/job or drawing sheet swaps no project when
+    // opened, and generated Gerbers live in a *_fab subfolder — i.e. never the active project's
+    // own directory — so this rule would have spawned a second Anvil window for every one of
+    // them instead of showing it in the Gerber Viewer tab.
+    if( IsProjectActive() && !isProjectIndependentDoc( fn.GetExt() ) )
     {
         const wxString activeDir = wxFileName( GetProjectFileName() ).GetPath();
 
@@ -4618,14 +5161,20 @@ bool KICAD_MANAGER_FRAME::canCloseWindow( wxCloseEvent& aEvent )
     KICAD_SETTINGS* settings = kicadSettings();
     settings->m_OpenProjects = GetSettingsManager()->GetOpenProjects();
 
-    for( size_t i = 0; i < m_notebook->GetPageCount(); i++ )
+    for( wxAuiNotebook* book : { m_notebook, m_editorTabs } )
     {
-        wxWindow* page = m_notebook->GetPage( i );
+        if( !book )
+            continue;
 
-        if( PANEL_NOTEBOOK_BASE* panel = dynamic_cast<PANEL_NOTEBOOK_BASE*>( page ) )
+        for( size_t i = 0; i < book->GetPageCount(); i++ )
         {
-            if( !panel->GetCanClose() )
-                return false;
+            wxWindow* page = book->GetPage( i );
+
+            if( PANEL_NOTEBOOK_BASE* panel = dynamic_cast<PANEL_NOTEBOOK_BASE*>( page ) )
+            {
+                if( !panel->GetCanClose() )
+                    return false;
+            }
         }
     }
 
@@ -4696,13 +5245,21 @@ void KICAD_MANAGER_FRAME::SaveOpenJobSetsToLocalSettings( bool aIsExplicitUserSa
 
     cfg.m_OpenJobSets.clear();
 
-    for( size_t i = 0; i < m_notebook->GetPageCount(); i++ )
+    // Job-sets live in the center editor-tab area under the single-window shell, and in the
+    // legacy launcher notebook otherwise — scan both.
+    for( wxAuiNotebook* book : { m_notebook, m_editorTabs } )
     {
-        if( PANEL_JOBSET* jobset = dynamic_cast<PANEL_JOBSET*>( m_notebook->GetPage( i ) ) )
+        if( !book )
+            continue;
+
+        for( size_t i = 0; i < book->GetPageCount(); i++ )
         {
-            wxFileName jobsetFn( jobset->GetFilePath() );
-            jobsetFn.MakeRelativeTo( Prj().GetProjectPath() );
-            cfg.m_OpenJobSets.emplace_back( jobsetFn.GetFullPath() );
+            if( PANEL_JOBSET* jobset = dynamic_cast<PANEL_JOBSET*>( book->GetPage( i ) ) )
+            {
+                wxFileName jobsetFn( jobset->GetFilePath() );
+                jobsetFn.MakeRelativeTo( Prj().GetProjectPath() );
+                cfg.m_OpenJobSets.emplace_back( jobsetFn.GetFullPath() );
+            }
         }
     }
 
@@ -4790,14 +5347,30 @@ bool KICAD_MANAGER_FRAME::CloseProject( bool aSave )
     SetStatusText( "" );
 
     // Traverse pages in reverse order so deleting them doesn't mess up our iterator.
-    for( int i = (int) m_notebook->GetPageCount() - 1; i >= 0; i-- )
+    // Job-sets may sit in either notebook (center editor tabs under the shell, legacy
+    // launcher notebook otherwise); docked-editor host pages are plain wxPanels and are
+    // untouched by the PANEL_NOTEBOOK_BASE filter.
+    for( wxAuiNotebook* book : { m_notebook, m_editorTabs } )
     {
-        wxWindow* page = m_notebook->GetPage( i );
+        if( !book )
+            continue;
 
-        if( PANEL_NOTEBOOK_BASE* panel = dynamic_cast<PANEL_NOTEBOOK_BASE*>( page ) )
+        for( int i = (int) book->GetPageCount() - 1; i >= 0; i-- )
         {
-            if( panel->GetProjectTied() )
-                m_notebook->DeletePage( i );
+            wxWindow* page = book->GetPage( i );
+
+            if( PANEL_NOTEBOOK_BASE* panel = dynamic_cast<PANEL_NOTEBOOK_BASE*>( page ) )
+            {
+                if( panel->GetProjectTied() )
+                    book->DeletePage( i );
+            }
+            else if( page && page->GetName().Contains( wxFileName::GetPathSeparator() ) )
+            {
+                // Document tabs (OpenCsvTab) are plain panels tagged with the document's full
+                // path -- the only pages carrying a path as their wxWindow name.  They belong to
+                // the project being closed, so they must not survive into the next one.
+                book->DeletePage( i );
+            }
         }
     }
 
@@ -4810,14 +5383,26 @@ bool KICAD_MANAGER_FRAME::CloseProject( bool aSave )
 
 void KICAD_MANAGER_FRAME::OpenJobsFile( const wxFileName& aFileName, bool aCreate, bool aResaveProjectPreferences )
 {
-    for( size_t i = 0; i < m_notebook->GetPageCount(); i++ )
+    // Anvil single-window shell: job-sets are hosted as tabs in the CENTER editor-tab area.
+    // The legacy home (m_notebook) is the launcher icon rail in the modern layout — a
+    // 40-DIP-wide left pane — so a page added there is unreachable and revealing the rail
+    // resurrects the legacy launcher chrome.
+    wxAuiNotebook* host = m_editorTabs ? m_editorTabs : m_notebook;
+
+    for( wxAuiNotebook* book : { m_notebook, m_editorTabs } )
     {
-        if( PANEL_JOBSET* panel = dynamic_cast<PANEL_JOBSET*>( m_notebook->GetPage( i ) ) )
+        if( !book )
+            continue;
+
+        for( size_t i = 0; i < book->GetPageCount(); i++ )
         {
-            if( aFileName.GetFullPath() == panel->GetFilePath() )
+            if( PANEL_JOBSET* panel = dynamic_cast<PANEL_JOBSET*>( book->GetPage( i ) ) )
             {
-                m_notebook->SetSelection( i );
-                return;
+                if( aFileName.GetFullPath() == panel->GetFilePath() )
+                {
+                    book->SetSelection( i );
+                    return;
+                }
             }
         }
     }
@@ -4835,11 +5420,13 @@ void KICAD_MANAGER_FRAME::OpenJobsFile( const wxFileName& aFileName, bool aCreat
             jobsFile->SaveToFile( wxEmptyString, true );
         }
 
-        PANEL_JOBSET* jobPanel = new PANEL_JOBSET( m_notebook, this, std::move( jobsFile ) );
+        PANEL_JOBSET* jobPanel = new PANEL_JOBSET( host, this, std::move( jobsFile ) );
         jobPanel->SetProjectTied( true );
         jobPanel->SetClosable( true );
-        m_notebook->AddPage( jobPanel, aFileName.GetFullName(), true );
-        HideTabsIfNeeded();
+        host->AddPage( jobPanel, aFileName.GetFullName(), true );
+
+        if( host == m_notebook )
+            HideTabsIfNeeded();
 
         if( aResaveProjectPreferences )
             SaveOpenJobSetsToLocalSettings();
@@ -5541,6 +6128,40 @@ void KICAD_MANAGER_FRAME::onToolbarSizeChanged()
 }
 
 
+#ifdef __WXMSW__
+void KICAD_MANAGER_FRAME::SetMenuBar( wxMenuBar* aMenuBar )
+{
+    // Unified single-window shell: the menus are presented by the custom title bar —
+    // buildTitleBarMenuButtons() strips every menu out of the bar right after it is built —
+    // so the bar must never reach the native frame.  wxFrame::SetMenuBar → ::SetMenu() makes
+    // Windows render the OS menu band immediately, and with the caption removed
+    // (WM_NCCALCSIZE returns 0) that band lands ON TOP of the custom title bar; with the OS
+    // dark menu theme forced app-wide (see KIPLATFORM::APP::SetLiveDarkMode) it painted a
+    // black box beside the app mark for the duration of every menu rebuild — the "black
+    // square blink" on each theme toggle.  Storing the bar detached keeps GetMenuBar(),
+    // the title-bar strip and the caller's delete working while Windows never sees an HMENU.
+    if( m_titleBar && UseUnifiedMenuBar() )
+    {
+        if( wxMenuBar* oldBar = GetMenuBar() )
+        {
+            // A bar attached before the title bar existed (start-up order) must go through
+            // the real detach so the HWND drops its HMENU; a bar this override stored is
+            // not attached, and DetachMenuBar() would assert on it.
+            if( oldBar->IsAttached() )
+                DetachMenuBar();
+            else
+                m_frameMenuBar = nullptr;
+        }
+
+        m_frameMenuBar = aMenuBar;
+        return;
+    }
+
+    EDA_BASE_FRAME::SetMenuBar( aMenuBar );
+}
+#endif
+
+
 void KICAD_MANAGER_FRAME::buildTitleBarMenuButtons()
 {
 #ifdef __WXMSW__
@@ -5650,6 +6271,16 @@ WXLRESULT KICAD_MANAGER_FRAME::MSWWindowProc( WXUINT message, WXWPARAM wParam, W
         return HTCLIENT;
     }
 
+    case WM_NCLBUTTONDOWN:
+    case WM_NCRBUTTONDOWN:
+    case WM_NCMBUTTONDOWN:
+        // The caption strip is non-client (WM_NCHITTEST hands the title bar back as HTCAPTION),
+        // so a press there raises no wx mouse event and never reaches the dismiss filter.  Close
+        // an open dropdown here as well, or dragging the window by its title bar would leave the
+        // menu hanging over the moved window.
+        AnvilCloseOpenMenu();
+        break;
+
     case WM_GETMINMAXINFO:
     {
         // Constrain maximize to the monitor work area so the taskbar stays visible and
@@ -5746,8 +6377,8 @@ bool KICAD_MANAGER_FRAME::EditorsSplit()
 {
     // A split wxAuiNotebook grows one wxAuiTabCtrl per tab group, so "more than one tab ctrl"
     // is the state itself, not a flag we have to track alongside it.  Reading it back from the
-    // notebook also covers the splits the user makes by dragging a tab (wxAUI_NB_TAB_SPLIT),
-    // which never come through ToggleSplitEditors() at all.
+    // notebook also covers splits collapsing behind our back (closing the last tab of a group
+    // auto-unsplits without going through ToggleSplitEditors()).
     return m_editorTabs && m_editorTabs->GetAllTabCtrls().size() > 1;
 }
 

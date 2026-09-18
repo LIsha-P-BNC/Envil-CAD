@@ -2634,34 +2634,10 @@ int EDIT_TOOL::Rotate( const TOOL_EVENT& aEvent )
 }
 
 
-/**
- * Mirror a pad in the H/V axis passing through a point
- */
-static void mirrorPad( PAD& aPad, const VECTOR2I& aMirrorPoint, FLIP_DIRECTION aFlipDirection )
-{
-    // TODO(JE) padstacks
-    if( aPad.GetShape( PADSTACK::ALL_LAYERS ) == PAD_SHAPE::CUSTOM )
-        aPad.FlipPrimitives( aFlipDirection );
-
-    VECTOR2I tmpPt = aPad.GetPosition();
-    MIRROR( tmpPt, aMirrorPoint, aFlipDirection );
-    aPad.SetPosition( tmpPt );
-
-    tmpPt = aPad.GetOffset( PADSTACK::ALL_LAYERS );
-    MIRROR( tmpPt, VECTOR2I{ 0, 0 }, aFlipDirection );
-    aPad.SetOffset( PADSTACK::ALL_LAYERS, tmpPt );
-
-    VECTOR2I tmpz = aPad.GetDelta( PADSTACK::ALL_LAYERS );
-    MIRROR( tmpz, VECTOR2I{ 0, 0 }, aFlipDirection );
-    aPad.SetDelta( PADSTACK::ALL_LAYERS, tmpz );
-
-    aPad.SetOrientation( -aPad.GetOrientation() );
-}
-
-
 const std::vector<KICAD_T> EDIT_TOOL::MirrorableItems = {
-    PCB_SHAPE_T, PCB_FIELD_T, PCB_TEXT_T, PCB_TEXTBOX_T, PCB_ZONE_T,      PCB_PAD_T,
-    PCB_TRACE_T, PCB_ARC_T,   PCB_VIA_T,  PCB_GROUP_T,   PCB_GENERATOR_T, PCB_POINT_T,
+    PCB_SHAPE_T,  PCB_FIELD_T,     PCB_TEXT_T,  PCB_TEXTBOX_T, PCB_ZONE_T,
+    PCB_PAD_T,    PCB_TRACE_T,     PCB_ARC_T,   PCB_VIA_T,     PCB_GROUP_T,
+    PCB_GENERATOR_T, PCB_POINT_T,  PCB_FOOTPRINT_T,
 };
 
 
@@ -2731,7 +2707,11 @@ int EDIT_TOOL::Mirror( const TOOL_EVENT& aEvent )
             break;
 
         case PCB_PAD_T:
-            mirrorPad( *static_cast<PAD*>( item ), mirrorPoint, flipDirection );
+            static_cast<PAD*>( item )->Mirror( mirrorPoint, flipDirection );
+            break;
+
+        case PCB_FOOTPRINT_T:
+            static_cast<FOOTPRINT*>( item )->Mirror( mirrorPoint, flipDirection );
             break;
 
         case PCB_TRACE_T:

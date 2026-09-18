@@ -204,6 +204,45 @@ public:
      */
     void AppendFrom( const ACTION_MENU& aMenu );
 
+    /**
+     * Drop items spliced in by AppendFrom() that the owning frame then added again.
+     *
+     * The single-window shell composes one dropdown out of two frames (the project manager
+     * plus the active editor), and both sides legitimately offer the suite-wide commands:
+     * Cut/Copy/Paste, Refresh, Calculator Tools, Configure Paths, Manage ... Libraries,
+     * Preferences and Set Language.  Their ids never match (each module numbers its own
+     * TOOL_ACTIONs; see #FOREIGN_BASE_UI_ID), so the id dedupe in Add() cannot see them and
+     * every one of those entries showed up twice in the composed menu.
+     *
+     * Items are matched on the label the user reads, and the spliced (foreign) copy is the
+     * one dropped, so the entry that survives is the one dispatching into the frame whose
+     * menu bar this is.  Two commands that really do different things must therefore not
+     * share a label -- which is why the project manager says "Save Project As..." where an
+     * editor says "Save As...".
+     *
+     * @param aSplicedCount is the number of leading items that came from AppendFrom().
+     * @return the number of items removed.
+     */
+    int DropDuplicateSplicedItems( size_t aSplicedCount );
+
+    /**
+     * Drop commands that are the same operation spelled two different ways.
+     *
+     * A label match cannot catch these: the project manager calls it "PCB Editor" and the
+     * schematic editor calls it "Switch to PCB Editor", but both open (or raise) the same
+     * editor on the same project file, so a composed menu listed the command twice.  Only
+     * the pairs named in the table inside this function are touched, and only when both
+     * sides are actually on the menu -- a standalone editor keeps its own entry.
+     *
+     * @return the number of items removed.
+     */
+    int DropRedundantAliases();
+
+    /**
+     * Remove leading, trailing and repeated separators (dropping items leaves them behind).
+     */
+    void CollapseSeparators();
+
     void OnMenuEvent( wxMenuEvent& aEvent );
     void OnIdle( wxIdleEvent& event );
 

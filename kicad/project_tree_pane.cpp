@@ -23,11 +23,13 @@
  * 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA
  */
 
+#include <functional>
 #include <stack>
 #include <git/git_backend.h>
 
 #include <wx/regex.h>
 #include <wx/stdpaths.h>
+#include <wx/textfile.h>
 #include <wx/string.h>
 #include <wx/msgdlg.h>
 #include <wx/textdlg.h>
@@ -49,6 +51,7 @@
 #include <kiplatform/environment.h>
 #include <core/kicad_algo.h>
 #include <paths.h>
+#include <project/project_file.h>
 #include <project/project_local_settings.h>
 #include <scoped_set_reset.h>
 #include <string_utils.h>
@@ -138,6 +141,10 @@ static const wxChar* s_allowedExtensionsToList[] =
     wxT( "^.*\\.html$" ),
     wxT( "^.*\\.rpt$" ),           // Report files
     wxT( "^.*\\.csv$" ),           // Report files in comma separated format
+    wxT( "^.*\\.tsv$" ),           // BOM/report files in tab separated format
+    wxT( "^.*\\.xlsx$" ),          // BOM files in Excel spreadsheet format
+    wxT( "^.*\\.xls$" ),           // BOM files in legacy Excel format
+    wxT( "^.*\\.ods$" ),           // BOM files in OpenDocument spreadsheet format
     wxT( "^.*\\.pos$" ),           // Footprint position files
     wxT( "^.*\\.cmp$" ),           // CvPcb cmp/footprint link files
     wxT( "^.*\\.drl$" ),           // Excellon drill files
@@ -436,10 +443,279 @@ std::vector<wxString> getProjects( const wxDir& dir )
 
 
 
+/**
+ * Key a schematic path for hierarchy lookups.
+ *
+ * Sheet links are spelled relative to their parent schematic while the tree carries native
+ * absolute paths, and Windows paths are case-insensitive, so a raw string compare misses.
+ */
+static wxString sheetKey( const wxString& aPath )
+{
+    wxFileName fn( aPath );
+    fn.Normalize( wxPATH_NORM_ABSOLUTE | wxPATH_NORM_DOTS | wxPATH_NORM_CASE );
+
+    return fn.GetFullPath();
+}
+
+
+static bool isSchematicPath( const wxFileName& aFile )
+{
+    wxString ext = aFile.GetExt().Lower();
+
+    return ext == FILEEXT::AnvilSchematicFileExtension
+           || ext == FILEEXT::KiCadSchematicFileExtension
+           || ext == FILEEXT::LegacySchematicFileExtension;
+}
+
+
+/**
+ * Return the schematic files aSchFile references as hierarchical sheets, in file order.
+ *
+ * The project manager never loads a schematic, so -- as PROJECT_TREE_ITEM already does when it
+ * tests hierarchy membership -- the sheet links are read with a text scan of the file itself.
+ */
+static std::vector<wxString> getSubSheetFiles( const wxString& aSchFile )
+{
+    std::vector<wxString> sheets;
+    wxTextFile            file;
+
+    if( !wxFileExists( aSchFile ) || !file.Open( aSchFile ) )
+        return sheets;
+
+    const wxString     schDir = wxFileName( aSchFile ).GetPath();
+    wxRegEx            sheetFileRe( "\\(property\\s+\"Sheetfile\"\\s+\"([^\"]+)\"" );
+    std::set<wxString> seen;
+
+    for( size_t ii = 0; ii < file.GetLineCount(); ++ii )
+    {
+        if( !sheetFileRe.Matches( file[ii] ) )
+            continue;
+
+        wxFileName sheetFn( sheetFileRe.GetMatch( file[ii], 1 ) );
+
+        if( !sheetFn.IsAbsolute() )
+            sheetFn.MakeAbsolute( schDir );
+
+        // Dual-extension projects: a link recorded under one native spelling can live on disk
+        // under the other one.  Same fallback the schematic loader applies.
+        if( !sheetFn.FileExists() )
+        {
+            wxFileName altFn( sheetFn );
+
+            if( altFn.GetExt() == FILEEXT::KiCadSchematicFileExtension )
+                altFn.SetExt( FILEEXT::AnvilSchematicFileExtension );
+            else if( altFn.GetExt() == FILEEXT::AnvilSchematicFileExtension )
+                altFn.SetExt( FILEEXT::KiCadSchematicFileExtension );
+
+            if( altFn.FileExists() )
+                sheetFn = altFn;
+        }
+
+        if( !sheetFn.FileExists() )
+            continue;
+
+        if( seen.insert( sheetKey( sheetFn.GetFullPath() ) ).second )
+            sheets.push_back( sheetFn.GetFullPath() );
+    }
+
+    return sheets;
+}
+
+
+bool PROJECT_TREE_PANE::rebuildSheetHierarchy()
+{
+    std::map<wxString, std::vector<wxString>> children;
+    std::map<wxString, wxString>              subSheets;
+
+    // Roots: every top-level sheet the project registers, plus the project's own root
+    // schematic (projects written before multi-root support register none).
+    std::vector<wxString> roots;
+    wxString              projectDir = wxPathOnly( m_Parent->GetProjectFileName() );
+
+    if( !projectDir.IsEmpty() )
+    {
+        for( const TOP_LEVEL_SHEET_INFO& info : Prj().GetProjectFile().GetTopLevelSheets() )
+            roots.push_back( wxFileName( projectDir, info.filename ).GetFullPath() );
+    }
+
+    for( const wxString& name : { m_Parent->SchFileName(), m_Parent->SchLegacyFileName() } )
+    {
+        if( !name.IsEmpty() && wxFileExists( name ) )
+            roots.push_back( name );
+    }
+
+    std::function<void( const wxString& )> scan =
+            [&]( const wxString& aSchFile )
+            {
+                const wxString key = sheetKey( aSchFile );
+
+                // Doubles as the recursion guard: a sheet that references itself, directly or
+                // through a loop, is expanded exactly once.
+                if( children.count( key ) )
+                    return;
+
+                children[key];
+
+                for( const wxString& child : getSubSheetFiles( aSchFile ) )
+                {
+                    children[key].push_back( child );
+                    subSheets[sheetKey( child )] = child;
+                    scan( child );
+                }
+            };
+
+    for( const wxString& root : roots )
+        scan( root );
+
+    // A top-level sheet stays top-level even if some sheet links back to it.
+    for( const wxString& root : roots )
+        subSheets.erase( sheetKey( root ) );
+
+    if( children == m_sheetChildren && subSheets == m_subSheetFiles )
+        return false;
+
+    m_sheetChildren = std::move( children );
+    m_subSheetFiles = std::move( subSheets );
+
+    return true;
+}
+
+
+void PROJECT_TREE_PANE::addSheetChildren( const wxTreeItemId& aParent, const wxString& aSchFile )
+{
+    const wxString key = sheetKey( aSchFile );
+
+    // Guards the addItemToProjectTree() <-> addSheetChildren() recursion against sheet loops.
+    if( !m_sheetNestingStack.insert( key ).second )
+        return;
+
+    auto it = m_sheetChildren.find( key );
+
+    if( it != m_sheetChildren.end() && !it->second.empty() )
+    {
+        for( const wxString& child : it->second )
+            addItemToProjectTree( child, aParent, nullptr, false, true );
+
+        m_TreeProject->SortChildren( aParent );
+    }
+
+    m_sheetNestingStack.erase( key );
+}
+
+
+void PROJECT_TREE_PANE::expandSheetNodes( const wxTreeItemId& aParent )
+{
+    wxTreeItemIdValue cookie;
+    wxTreeItemId      kid = m_TreeProject->GetFirstChild( aParent, cookie );
+
+    while( kid.IsOk() )
+    {
+        PROJECT_TREE_ITEM* itemData = GetItemIdData( kid );
+
+        if( itemData
+                && ( itemData->GetType() == TREE_FILE_TYPE::SEXPR_SCHEMATIC
+                     || itemData->GetType() == TREE_FILE_TYPE::LEGACY_SCHEMATIC )
+                && m_TreeProject->ItemHasChildren( kid ) )
+        {
+            // MSW only accepts Expand() on an item that is already visible, so this has to
+            // run parent-first and after the ancestors have been expanded.
+            if( m_TreeProject->IsVisible( kid ) )
+                m_TreeProject->Expand( kid );
+
+            expandSheetNodes( kid );
+        }
+
+        kid = m_TreeProject->GetNextChild( aParent, cookie );
+    }
+}
+
+
+void PROJECT_TREE_PANE::refreshSheetNesting()
+{
+    if( !m_TreeProject || !m_root.IsOk() )
+        return;
+
+    std::map<wxString, wxString> wasSubSheet = m_subSheetFiles;
+
+    if( !rebuildSheetHierarchy() )
+        return;
+
+    // Collect the schematic items, without descending into the ones already nested: their
+    // children are rebuilt wholesale below.
+    std::vector<std::pair<wxTreeItemId, wxString>> schItems;
+
+    std::function<void( const wxTreeItemId& )> collect =
+            [&]( const wxTreeItemId& aId )
+            {
+                wxTreeItemIdValue cookie;
+                wxTreeItemId      kid = m_TreeProject->GetFirstChild( aId, cookie );
+
+                while( kid.IsOk() )
+                {
+                    PROJECT_TREE_ITEM* itemData = GetItemIdData( kid );
+
+                    if( itemData
+                            && ( itemData->GetType() == TREE_FILE_TYPE::SEXPR_SCHEMATIC
+                                 || itemData->GetType() == TREE_FILE_TYPE::LEGACY_SCHEMATIC ) )
+                    {
+                        schItems.emplace_back( kid, itemData->GetFileName() );
+                    }
+                    else
+                    {
+                        collect( kid );
+                    }
+
+                    kid = m_TreeProject->GetNextChild( aId, cookie );
+                }
+            };
+
+    collect( m_root );
+
+    // Any item deleted below takes its PROJECT_TREE_ITEM with it.
+    m_selectedItem = nullptr;
+
+    // A schematic that just became someone's sub-sheet leaves the listing; the rebuild of its
+    // parent's node re-adds it in the right place.
+    std::vector<std::pair<wxTreeItemId, wxString>> keptItems;
+
+    for( const auto& entry : schItems )
+    {
+        if( m_subSheetFiles.count( sheetKey( entry.second ) ) )
+            m_TreeProject->Delete( entry.first );
+        else
+            keptItems.push_back( entry );
+    }
+
+    for( const auto& entry : keptItems )
+    {
+        m_TreeProject->DeleteChildren( entry.first );
+        addSheetChildren( entry.first, entry.second );
+    }
+
+    expandSheetNodes( m_root );
+
+    // A schematic that stopped being a sub-sheet -- its parent dropped the sheet symbol --
+    // goes back into the directory listing it was hidden from.
+    for( const auto& [key, path] : wasSubSheet )
+    {
+        if( m_subSheetFiles.count( key ) || !wxFileExists( path ) )
+            continue;
+
+        wxTreeItemId dirItem = findSubdirTreeItem( wxFileName( path ).GetPath() );
+
+        if( dirItem.IsOk() )
+        {
+            addItemToProjectTree( path, dirItem, nullptr, false );
+            m_TreeProject->SortChildren( dirItem );
+        }
+    }
+}
+
+
 wxTreeItemId PROJECT_TREE_PANE::addItemToProjectTree( const wxString& aName,
                                                       const wxTreeItemId& aParent,
                                                       std::vector<wxString>* aProjectNames,
-                                                      bool aRecurse )
+                                                      bool aRecurse, bool aIsSubSheet )
 {
     TREE_FILE_TYPE type = TREE_FILE_TYPE::UNKNOWN;
     wxFileName     fn( aName );
@@ -514,8 +790,20 @@ wxTreeItemId PROJECT_TREE_PANE::addItemToProjectTree( const wxString& aName,
         return wxTreeItemId();
     }
 
-    if( !showAllSchematics && ( currfile.GetExt() == GetFileExt( TREE_FILE_TYPE::LEGACY_SCHEMATIC )
-                                || currfile.GetExt() == GetFileExt( TREE_FILE_TYPE::SEXPR_SCHEMATIC ) ) )
+    // A hierarchical sheet's file belongs under the schematic that instantiates it, and only
+    // there.  addSheetChildren() files it when the parent's node is built (aIsSubSheet); the
+    // directory listing itself must skip it, or the child shows up a second time beside its
+    // parent instead of inside it.
+    if( !aIsSubSheet
+            && ( type == TREE_FILE_TYPE::SEXPR_SCHEMATIC || type == TREE_FILE_TYPE::LEGACY_SCHEMATIC )
+            && m_subSheetFiles.count( sheetKey( aName ) ) )
+    {
+        return wxTreeItemId();
+    }
+
+    if( !showAllSchematics && !aIsSubSheet
+            && ( currfile.GetExt() == GetFileExt( TREE_FILE_TYPE::LEGACY_SCHEMATIC )
+                 || currfile.GetExt() == GetFileExt( TREE_FILE_TYPE::SEXPR_SCHEMATIC ) ) )
     {
         if( aProjectNames )
         {
@@ -618,6 +906,10 @@ wxTreeItemId PROJECT_TREE_PANE::addItemToProjectTree( const wxString& aName,
 
     if( fileName == projName || fileName.StartsWith( projName + "-" ) )
         data->SetRootFile( true );
+
+    // Hang this schematic's hierarchical sheets underneath it.
+    if( type == TREE_FILE_TYPE::SEXPR_SCHEMATIC || type == TREE_FILE_TYPE::LEGACY_SCHEMATIC )
+        addSheetChildren( newItemId, aName );
 
 #ifndef __WINDOWS__
     bool subdir_populated = false;
@@ -775,6 +1067,12 @@ void PROJECT_TREE_PANE::ReCreateTreePrj()
 
     m_TreeProject->SetItemData( m_root, data );
 
+    // Work out which schematics are sub-sheets before listing anything: addItemToProjectTree()
+    // consults the result to keep them out of the flat listing.
+    m_sheetChildren.clear();
+    m_subSheetFiles.clear();
+    rebuildSheetHierarchy();
+
     // Now adding all current files if available
     if( prjOpened )
     {
@@ -811,6 +1109,9 @@ void PROJECT_TREE_PANE::ReCreateTreePrj()
 
     // Sort filenames by alphabetic order
     m_TreeProject->SortChildren( m_root );
+
+    // Show the hierarchical sheets nested under their parent schematic straight away.
+    expandSheetNodes( m_root );
 
     CallAfter(
             [this] ()
@@ -1479,6 +1780,14 @@ void PROJECT_TREE_PANE::onFileSystemEvent( wxFileSystemWatcherEvent& event )
     if( !root_id.IsOk() )
         return;
 
+    // Saving a schematic can add or drop hierarchical sheets, which moves sheet files between
+    // the flat listing and their parent's node.  Re-file them before this event is applied, so
+    // the freshly written sheet is skipped below and appears under its parent instead.  This
+    // no-ops unless the hierarchy actually changed, so the editor's periodic saves of the same
+    // schematic don't churn the tree.
+    if( isSchematicPath( pathModified ) )
+        refreshSheetNesting();
+
     CallAfter( [this] ()
     {
         wxLogTrace( traceGit, wxS( "File system event detected, updating tree cache" ) );
@@ -1763,6 +2072,10 @@ void PROJECT_TREE_PANE::EmptyTreePrj()
     shutdownFileWatcher();
 
     m_TreeProject->DeleteAllItems();
+
+    m_sheetChildren.clear();
+    m_subSheetFiles.clear();
+    m_sheetNestingStack.clear();
 
     // Remove the git repository when the project is unloaded
     if( m_TreeProject->GetGitRepo() )

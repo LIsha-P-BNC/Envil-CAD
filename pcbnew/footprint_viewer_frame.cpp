@@ -791,7 +791,21 @@ void FOOTPRINT_VIEWER_FRAME::AddFootprintToPCB()
         viewControls->SetCrossHairCursorPosition( cursorPos, false );
         commit.Push( _( "Insert Footprint" ) );
 
-        pcbframe->Raise();
+        // Anvil Next single-window shell: the board editor is a WS_CHILD frame parked on a
+        // notebook tab, so Raise() cannot bring it forward -- the browser tab stays in front
+        // and the placement that follows runs on a canvas the user cannot see, looking exactly
+        // like the command did nothing (and leaving PlacingFootprint() latched true, so the
+        // next attempt errors with "Previous footprint placement still in progress").  Ask the
+        // shell to select the board's tab; DockPlayerAsTab() is idempotent and just re-selects.
+        if( KIFACE_TAB_HOST* tabHost = Kiway().GetTabHost() )
+            tabHost->DockPlayerAsTab( pcbframe );
+        else
+            pcbframe->Raise();
+
+        // Placement is mouse-driven: give the board canvas focus so the footprint follows the
+        // cursor (and Esc cancels) without the user having to click the canvas first.
+        pcbframe->GetCanvas()->SetFocus();
+
         toolMgr->PostAction( PCB_ACTIONS::placeFootprint, newFootprint );
 
         newFootprint->ClearFlags();
@@ -979,14 +993,18 @@ COLOR4D FOOTPRINT_VIEWER_FRAME::GetGridColor()
 void FOOTPRINT_VIEWER_FRAME::UpdateTitle()
 {
     wxString title;
-    LIBRARY_MANAGER& manager = Pgm().GetLibraryManager();
 
+    // This title doubles as the shell tab label, so it names the library and footprint the
+    // user selected in the lists -- not the library's full filesystem path, which is
+    // unreadable in a tab and far too long.  UpdateTitle() is called from every selection
+    // path (library click, footprint click, SelectAndViewFootprint), and the tab label
+    // follows the title, so the label tracks the selection live.
     if( !getCurNickname().IsEmpty() )
     {
-        if( std::optional<wxString> optUri = manager.GetFullURI( LIBRARY_TABLE_TYPE::FOOTPRINT, getCurNickname(), true ) )
-            title = getCurNickname() + wxT( " \u2014 " ) + *optUri;
-        else
-            title = _( "[no library selected]" );
+        title = getCurNickname();
+
+        if( !getCurFootprintName().IsEmpty() )
+            title += wxT( ":" ) + getCurFootprintName();
     }
     else
     {

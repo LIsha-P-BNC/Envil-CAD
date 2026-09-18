@@ -170,7 +170,7 @@ private:
 wxIMPLEMENT_DYNAMIC_CLASS(HtmlModule, wxModule);
 
 
-#ifdef NDEBUG
+#ifndef DEBUG
 // Define a custom assertion handler
 void CustomAssertHandler( const wxString& file,
                           int line,
@@ -200,7 +200,10 @@ struct APP_SINGLE_TOP : public wxApp
 
     bool OnInit() override
     {
-#ifdef NDEBUG
+        // Gate on DEBUG (only defined for Debug configs), not NDEBUG: production
+        // RelWithDebInfo builds define neither macro, and an NDEBUG gate left wx's default
+        // MODAL assert dialog active in shipped binaries (see kicad.cpp for the full story).
+#ifndef DEBUG
         // These checks generate extra assert noise
         wxSizerFlags::DisableConsistencyChecks();
         wxDISABLE_DEBUG_SUPPORT();
@@ -271,6 +274,13 @@ struct APP_SINGLE_TOP : public wxApp
 
     int FilterEvent( wxEvent& aEvent ) override
     {
+        // Live-theme paint guard (MSW): keeps wx's always-on dark-mode paint paths from
+        // running while the light theme is active — see KIPLATFORM::APP::LiveThemeEventFilter.
+        int result = KIPLATFORM::APP::LiveThemeEventFilter( aEvent );
+
+        if( result != Event_Skip )
+            return result;
+
         if( aEvent.GetEventType() == wxEVT_SHOW )
         {
             wxShowEvent& event = static_cast<wxShowEvent&>( aEvent );
@@ -409,19 +419,14 @@ bool PGM_SINGLE_TOP::OnPgmInit()
 
 
     // Same two-theme handshake as the shell (kicad.cpp): flip this module's + kicommon's ANVIL
-    // palette first, and only enable wx's MSW dark mode when we are NOT in the light theme.
+    // palette first, then establish wx's MSW dark mode unconditionally (it can only be enabled
+    // before the first window exists, and the live theme toggle needs it in place) and steer
+    // the OS-level per-app mode to the persisted theme — light renders exactly as if dark mode
+    // had never been enabled.
     KIUI::SyncAnvilTheme();
 
-    if( !ANVIL::IsLight() )
-    {
-        if( const COMMON_SETTINGS* cfg = Pgm().GetCommonSettings() )
-        {
-            if( cfg->m_Appearance.app_theme == APP_THEME::DARK )
-                KIPLATFORM::APP::EnableDarkMode( true );
-            else if( cfg->m_Appearance.app_theme == APP_THEME::AUTO )
-                KIPLATFORM::APP::EnableDarkMode( false );
-        }
-    }
+    KIPLATFORM::APP::EnableDarkMode( true );
+    KIPLATFORM::APP::SetLiveDarkMode( !ANVIL::IsLight() );
 
 #ifdef KICAD_IPC_API
     // Create the API server thread once the app event loop exists

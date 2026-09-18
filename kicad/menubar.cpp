@@ -88,7 +88,7 @@ void KICAD_MANAGER_FRAME::doReCreateMenuBar()
     }
 
     // Ensure the title is up to date after changing language
-    openRecentMenu->SetTitle( _( "Open Recent" ) );
+    openRecentMenu->SetTitle( _( "Open Recent Project" ) );
 
     fileMenu->Add( KICAD_MANAGER_ACTIONS::newProject );
 
@@ -125,7 +125,11 @@ void KICAD_MANAGER_FRAME::doReCreateMenuBar()
     RegisterUIUpdateHandler( restoreItem->GetId(), historyCond );
 
     fileMenu->AppendSeparator();
-    fileMenu->Add( ACTIONS::saveAs );
+    // Labelled for what it does -- KICAD_MANAGER_CONTROL::SaveProjectAs() copies the whole
+    // project -- and not "Save As...", which is what the footprint / symbol / drawing sheet
+    // editors call saving the one document they hold.  In the single-window shell both land
+    // in the same File menu, so the generic label read as a duplicate of the editor's entry.
+    fileMenu->Add( ACTIONS::saveAs, ACTION_MENU::NORMAL, _( "Save Project As..." ) );
 
     fileMenu->AppendSeparator();
 
@@ -189,7 +193,7 @@ void KICAD_MANAGER_FRAME::doReCreateMenuBar()
     ACTION_MENU* viewMenu = new ACTION_MENU( false, controlTool );
 
     ACTION_MENU* panelsMenu = new ACTION_MENU( false, controlTool );
-    panelsMenu->SetTitle( _( "Panels" ) );
+    panelsMenu->SetTitle( _( "Project Panels" ) );
     buildPanelsMenu( panelsMenu );
     viewMenu->Add( panelsMenu );
 
@@ -356,7 +360,7 @@ void KICAD_MANAGER_FRAME::buildFileMenu( ACTION_MENU* fileMenu )
     }
 
     // Ensure the title is up to date after changing language
-    openRecentMenu->SetTitle( _( "Open Recent" ) );
+    openRecentMenu->SetTitle( _( "Open Recent Project" ) );
 
     fileMenu->Add( KICAD_MANAGER_ACTIONS::newProject );
 
@@ -393,7 +397,11 @@ void KICAD_MANAGER_FRAME::buildFileMenu( ACTION_MENU* fileMenu )
     RegisterUIUpdateHandler( restoreItem->GetId(), historyCond );
 
     fileMenu->AppendSeparator();
-    fileMenu->Add( ACTIONS::saveAs );
+    // Labelled for what it does -- KICAD_MANAGER_CONTROL::SaveProjectAs() copies the whole
+    // project -- and not "Save As...", which is what the footprint / symbol / drawing sheet
+    // editors call saving the one document they hold.  In the single-window shell both land
+    // in the same File menu, so the generic label read as a duplicate of the editor's entry.
+    fileMenu->Add( ACTIONS::saveAs, ACTION_MENU::NORMAL, _( "Save Project As..." ) );
 
     fileMenu->AppendSeparator();
 
@@ -458,7 +466,7 @@ void KICAD_MANAGER_FRAME::buildViewMenu( ACTION_MENU* viewMenu )
     KICAD_MANAGER_CONTROL* controlTool = m_toolManager->GetTool<KICAD_MANAGER_CONTROL>();
 
     ACTION_MENU* panelsMenu = new ACTION_MENU( false, controlTool );
-    panelsMenu->SetTitle( _( "Panels" ) );
+    panelsMenu->SetTitle( _( "Project Panels" ) );
     buildPanelsMenu( panelsMenu );
     viewMenu->Add( panelsMenu );
 

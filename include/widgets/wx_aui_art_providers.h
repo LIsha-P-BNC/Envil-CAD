@@ -120,6 +120,14 @@ public:
                   int close_button_state, wxRect* out_tab_rect, wxRect* out_button_rect, int* x_extent ) override;
 
     /**
+     * The 1px ring wxAuiGenericTabArt draws around the whole notebook uses the base colour
+     * darkened 25% — a ~#A5A5A5 frame that reads as a harsh dark outline around the editor
+     * area in the light theme.  Paint it CHROME_PANEL instead (white in the light theme,
+     * panel grey in the dark one) so the notebook edge dissolves into the surfaces beside it.
+     */
+    void DrawBorder( wxDC& dc, wxWindow* wnd, const wxRect& rect ) override;
+
+    /**
      * Flat Soft-Oat tab strip with a hairline along the bottom, instead of the stock gradient.
      *
      * The tab strip is a HEADING row: it sits on the same line as the PROJECT FILES / APPEARANCE
@@ -129,5 +137,30 @@ public:
      * captions beside it and read as a dirty smudge rather than one aligned band.
      */
     void DrawBackground( wxDC& dc, wxWindow* wnd, const wxRect& rect ) override;
+
+#if wxCHECK_VERSION( 3, 3, 0 )
+    // The button-bitmap hooks below are wx 3.3 API; on 3.2 the tab buttons keep the
+    // stock system-derived colours.
+    /**
+     * The tab buttons (the per-tab close X, the scroll arrows, the window-list chevron) are
+     * BITMAPS that wxAuiTabArtBase renders once, in InitBitmaps(), from the colour this hook
+     * returns — and the stock generic implementation derives that colour from the SYSTEM
+     * palette.  Anvil flips its own theme without touching the Windows one, so in the dark
+     * theme the X stayed a near-black glyph on the dark tab: invisible.  Return the palette
+     * text tone instead (bone on dark chrome, ink on the light oat strip) so the glyphs carry
+     * the app theme in both modes.
+     */
+    wxColour GetButtonColour( wxAuiButtonId aButton, wxAuiPaneButtonState aState ) const override;
+
+    /**
+     * The button bitmaps are baked at construction, so a live theme flip has to re-bake them.
+     * SetColour() is what the shell calls on every notebook art provider when the theme
+     * changes (see KICAD_MANAGER_FRAME::applyAnvilTheme), which makes it the one hook that
+     * fires in both directions; re-run InitBitmaps() from the freshly-set palette there.
+     */
+    void SetColour( const wxColour& aColour ) override;
+
+    void UpdateColoursFromSystem() override;
+#endif
 };
 

@@ -1046,11 +1046,14 @@ void SYMBOL_VIEWER_FRAME::DisplayLibInfos()
 
     if( m_libList && !m_libList->IsEmpty() && !libName.IsEmpty() )
     {
-        SYMBOL_LIBRARY_ADAPTER* adapter = PROJECT_SCH::SymbolLibAdapter( &Prj() );
-        LIBRARY_TABLE_ROW* row = adapter->GetRow( libName ).value_or( nullptr );
+        // This title doubles as the shell tab label, so it shows the library nickname and
+        // the selected symbol exactly as the user picked them from the lists -- not the
+        // library's full filesystem path, which is unreadable in a tab and far too long.
+        wxString title = UnescapeString( libName );
+        wxString symbolName = m_currentSymbol.GetUniStringLibItemName();
 
-        wxString title = row ? LIBRARY_MANAGER::GetFullURI( row, true )
-                             : _( "[no library selected]" );
+        if( !symbolName.IsEmpty() )
+            title += wxT( ":" ) + UnescapeString( symbolName );
 
         title += wxT( " \u2014 " ) + _( "Symbol Library Browser" );
         SetTitle( title );

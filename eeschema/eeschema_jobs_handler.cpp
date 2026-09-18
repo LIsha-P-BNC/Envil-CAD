@@ -72,6 +72,7 @@
 #include <netlist_exporter_allegro.h>
 
 #include <fields_data_model.h>
+#include <bom_xlsx_writer.h>
 
 #include <dialogs/dialog_export_netlist.h>
 #include <dialogs/dialog_plot_schematic.h>
@@ -694,14 +695,15 @@ int EESCHEMA_JOBS_HANDLER::JobExportBom( JOB* aJob )
     // Load a preset if one is specified
     if( !aBomJob->m_bomPresetName.IsEmpty() )
     {
-        // Find the preset
-        const BOM_PRESET* schPreset = nullptr;
+        // Find the preset (copy it: BuiltInPresets() returns a temporary, so holding a
+        // pointer into it would dangle once the loop ends)
+        std::optional<BOM_PRESET> schPreset;
 
         for( const BOM_PRESET& p : BOM_PRESET::BuiltInPresets() )
         {
             if( p.name == aBomJob->m_bomPresetName )
             {
-                schPreset = &p;
+                schPreset = p;
                 break;
             }
         }
@@ -710,7 +712,7 @@ int EESCHEMA_JOBS_HANDLER::JobExportBom( JOB* aJob )
         {
             if( p.name == aBomJob->m_bomPresetName )
             {
-                schPreset = &p;
+                schPreset = p;
                 break;
             }
         }
@@ -872,13 +874,18 @@ int EESCHEMA_JOBS_HANDLER::JobExportBom( JOB* aJob )
         fmt.refRangeDelimiter = aBomJob->m_refRangeDelimiter;
         fmt.keepTabs = aBomJob->m_keepTabs;
         fmt.keepLineBreaks = aBomJob->m_keepLineBreaks;
+        fmt.xlsx = aBomJob->m_xlsx;
     }
 
     if( aBomJob->GetConfiguredOutputPath().IsEmpty() )
     {
         wxFileName fn = sch->GetFileName();
         fn.SetName( fn.GetName() );
-        fn.SetExt( FILEEXT::CsvFileExtension );
+
+        if( fmt.xlsx )
+            fn.SetExt( wxS( "xlsx" ) );
+        else
+            fn.SetExt( FILEEXT::CsvFileExtension );
 
         aBomJob->SetConfiguredOutputPath( fn.GetFullName() );
     }
@@ -924,6 +931,44 @@ int EESCHEMA_JOBS_HANDLER::JobExportBom( JOB* aJob )
         {
             m_reporter->Report( _( "Failed to create output directory\n" ), RPT_SEVERITY_ERROR );
             return CLI::EXIT_CODES::ERR_INVALID_OUTPUT_CONFLICT;
+        }
+
+        // A .xlsx output path (or the XLSX format preset) selects the native Excel writer
+        if( fmt.xlsx || wxFileName( outPath ).GetExt().Lower() == wxS( "xlsx" ) )
+        {
+            wxFileName outFn( outPath );
+
+            if( outFn.GetExt().Lower() != wxS( "xlsx" ) )
+            {
+                outFn.SetExt( wxS( "xlsx" ) );
+                outPath = outFn.GetFullPath();
+            }
+
+            wxFileName schFile( sch->GetFileName() );
+            wxFileName prjFile( sch->Project().GetProjectFullName() );
+
+            BOM_XLSX_WRITER::PROJECT_INFO info;
+            info.projectFullPath = prjFile.GetFullPath();
+            info.projectFilename = prjFile.GetFullName();
+            info.sourceFullPath = schFile.GetFullPath();
+            info.sourceFilename = schFile.GetFullName();
+            info.variantName = variantName;
+            info.title = wxString::Format( _( "Bill of Materials for %s" ), schFile.GetFullName() );
+
+            wxString errMsg;
+
+            if( !BOM_XLSX_WRITER::Write( outPath, &dataModel, fmt, info, &errMsg ) )
+            {
+                m_reporter->Report( errMsg + wxS( "\n" ), RPT_SEVERITY_ERROR );
+                return CLI::EXIT_CODES::ERR_UNKNOWN;
+            }
+
+            aJob->AddOutput( outPath );
+
+            m_reporter->Report( wxString::Format( _( "Wrote bill of materials to '%s'." ), outPath ),
+                                RPT_SEVERITY_ACTION );
+
+            continue;
         }
 
         wxFile f;

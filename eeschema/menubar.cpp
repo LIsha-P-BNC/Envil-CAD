@@ -182,7 +182,7 @@ void SCH_EDIT_FRAME::doReCreateMenuBar()
 
     // Show / Hide Panels submenu (content shared with the shell's Panels button).
     ACTION_MENU* showHidePanels = new ACTION_MENU( false, selTool );
-    showHidePanels->SetTitle( _( "Panels" ) );
+    showHidePanels->SetTitle( _( "Editor Panels" ) );
     buildPanelsMenu( showHidePanels );
 
     viewMenu->Add( showHidePanels );
@@ -565,7 +565,7 @@ void SCH_EDIT_FRAME::buildViewMenu( ACTION_MENU* viewMenu )
 
     // Show / Hide Panels submenu (content shared with the shell's Panels button).
     ACTION_MENU* showHidePanels = new ACTION_MENU( false, selTool );
-    showHidePanels->SetTitle( _( "Panels" ) );
+    showHidePanels->SetTitle( _( "Editor Panels" ) );
     buildPanelsMenu( showHidePanels );
 
     viewMenu->Add( showHidePanels );

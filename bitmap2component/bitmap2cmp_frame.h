@@ -62,7 +62,7 @@ public:
     void ExportPostScriptFormat();
 
     /**
-     * Generate a file suitable to be copied into a drawing sheet (.kicad_wks) file
+     * Generate a file suitable to be copied into a drawing sheet (.anvil_wks) file
      */
     void ExportDrawingSheetFormat();
 

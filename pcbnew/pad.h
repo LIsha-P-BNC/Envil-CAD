@@ -392,6 +392,11 @@ public:
     void Flip( const VECTOR2I& VECTOR2I, FLIP_DIRECTION aFlipDirection ) override;
 
     /**
+     * Mirror this pad about an axis through @a aCentre, without changing its board side.
+     */
+    void Mirror( const VECTOR2I& aCentre, FLIP_DIRECTION aFlipDirection ) override;
+
+    /**
      * Flip (mirror) the primitives left to right or top to bottom, around the anchor position
      * in custom pads.
      */

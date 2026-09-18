@@ -49,6 +49,21 @@
 #include <filesystem>
 #include <core/kicad_algo.h>
 
+#include <wx/log.h>
+#include <wx/utils.h>
+
+#ifdef _WIN32
+#ifndef WIN32_LEAN_AND_MEAN
+#define WIN32_LEAN_AND_MEAN
+#endif
+#ifndef NOMINMAX
+#define NOMINMAX
+#endif
+#include <windows.h>    // winerror.h codes for transient sharing violations
+#else
+#include <cerrno>
+#endif
+
 void QuoteString( wxString& string )
 {
     if( !string.StartsWith( wxT( "\"" ) ) )
@@ -498,6 +513,124 @@ bool RmDirRecursive( const wxString& aFileName, wxString* aErrors )
 }
 
 
+bool CopyFileWithRetry( const wxString& aSrcPath, const wxString& aDestPath, bool aOverwrite,
+                        wxString* aErrors )
+{
+    // Freshly generated outputs (job manager exports land in %TEMP% before being copied to
+    // the destination) are routinely held open for a moment by antivirus scanners, search
+    // indexers and cloud-sync clients, and the destination file from a previous run can be
+    // briefly locked by the same tools.  Such locks normally clear within milliseconds, so
+    // retry with backoff before declaring failure.
+    constexpr int MAX_RETRIES = 5;
+    constexpr int INITIAL_DELAY_MS = 50;
+
+    unsigned long errCode = 0;
+    int           delay = INITIAL_DELAY_MS;
+
+    for( int attempt = 0; attempt <= MAX_RETRIES; ++attempt )
+    {
+        if( attempt > 0 )
+        {
+            wxMilliSleep( delay );
+            delay *= 2;
+        }
+
+        {
+            // wxCopyFile() logs a system error itself on every failed attempt, which raises
+            // a modal dialog in the GUI; suppress it and report one actionable error at the
+            // end instead.
+            wxLogNull noLog;
+
+            if( wxCopyFile( aSrcPath, aDestPath, aOverwrite ) )
+                return true;
+        }
+
+        errCode = wxSysErrorCode();
+
+#ifdef _WIN32
+        // Only retry errors produced by (potentially transient) file locks; everything else
+        // (missing source, bad path, full disk, ...) is permanent.
+        if( errCode != ERROR_SHARING_VIOLATION && errCode != ERROR_LOCK_VIOLATION
+                && errCode != ERROR_USER_MAPPED_FILE && errCode != ERROR_ACCESS_DENIED )
+        {
+            break;
+        }
+#else
+        if( errCode != EBUSY && errCode != EAGAIN && errCode != ETXTBSY )
+            break;
+#endif
+    }
+
+    if( aErrors )
+    {
+        aErrors->Printf( _( "Could not copy '%s' to '%s': %s" ), aSrcPath, aDestPath,
+                         wxSysErrorMsgStr( errCode ) );
+    }
+
+    return false;
+}
+
+
+// Ensure aDestDir exists as a directory.  Successive runs of the same jobset can flip an
+// output between a file and a directory of the same name (a single-page export writes
+// out/<name>.png, a multi-layer export writes an out/<name>.png/ folder of per-layer files),
+// so a leftover file at the directory path is replaced when aReplaceConflictingFile allows
+// it — destination files are overwritten on copy, and a file blocking the directory is
+// overwritten the same way.
+static bool ensureDestDir( const wxString& aDestDir, bool aReplaceConflictingFile,
+                           wxString& aErrors )
+{
+    // Both wxRemoveFile() and wxFileName::Mkdir() log their own system error on failure,
+    // which raises a modal dialog in the GUI; report one collected error instead.
+    wxLogNull noLog;
+
+    if( !wxFileName::DirExists( aDestDir ) && wxFileName::FileExists( aDestDir ) )
+    {
+        if( !aReplaceConflictingFile || !wxRemoveFile( aDestDir ) )
+        {
+            aErrors += wxString::Format( _( "Could not create destination directory '%s': a "
+                                            "file with the same name is in the way" ),
+                                         aDestDir );
+            aErrors += wxT( "\n" );
+            return false;
+        }
+    }
+
+    if( !wxFileName::Mkdir( aDestDir, wxS_DIR_DEFAULT, wxPATH_MKDIR_FULL ) )
+    {
+        aErrors += wxString::Format( _( "Could not create destination directory '%s': %s" ),
+                                     aDestDir, wxSysErrorMsgStr( wxSysErrorCode() ) );
+        aErrors += wxT( "\n" );
+        return false;
+    }
+
+    return true;
+}
+
+
+// The mirror-image conflict of ensureDestDir(): a leftover *directory* occupying the path a
+// file must be copied to.  wxCopyFile() would fail on it with ERROR_ACCESS_DENIED, which
+// both misleads the user and triggers the full CopyFileWithRetry() backoff for a condition
+// that no retry can clear.
+static bool clearConflictingDir( const wxString& aDestPath, wxString& aErrors )
+{
+    if( wxFileName::DirExists( aDestPath ) )
+    {
+        wxString rmErrors;
+
+        if( !RmDirRecursive( aDestPath, &rmErrors ) )
+        {
+            aErrors += wxString::Format( _( "Could not replace directory '%s' with a file: %s" ),
+                                         aDestPath, rmErrors );
+            aErrors += wxT( "\n" );
+            return false;
+        }
+    }
+
+    return true;
+}
+
+
 bool CopyDirectory( const wxString& aSourceDir, const wxString& aDestDir,
                     const std::vector<wxString>& aPathsWithOverwriteDisallowed, wxString& aErrors )
 {
@@ -510,12 +643,14 @@ bool CopyDirectory( const wxString& aSourceDir, const wxString& aDestDir,
         return false;
     }
 
-    if( !wxFileName::Mkdir( aDestDir, wxS_DIR_DEFAULT, wxPATH_MKDIR_FULL ) )
-    {
-        aErrors += wxString::Format( _( "Could not create destination directory: %s" ), aDestDir );
-        aErrors += wxT( "\n" );
+    if( !ensureDestDir( aDestDir, true, aErrors ) )
         return false;
-    }
+
+    // Normalize away any trailing separator so paths built below don't end up with a
+    // doubled one (the jobset output path is typically stored with a trailing separator).
+    wxFileName destDirFn;
+    destDirFn.AssignDir( aDestDir );
+    wxString destDir = destDirFn.GetPath();
 
     wxString filename;
     bool     cont = dir.GetFirst( &filename );
@@ -523,7 +658,7 @@ bool CopyDirectory( const wxString& aSourceDir, const wxString& aDestDir,
     while( cont )
     {
         wxString sourcePath = dir.GetNameWithSep() + filename;
-        wxString destPath = aDestDir + wxFileName::GetPathSeparator() + filename;
+        wxString destPath = destDir + wxFileName::GetPathSeparator() + filename;
 
         if( wxFileName::DirExists( sourcePath ) )
         {
@@ -538,10 +673,19 @@ bool CopyDirectory( const wxString& aSourceDir, const wxString& aDestDir,
             {
                 // Presumably user does not want an error on a no-overwrite condition....
             }
-            else if( !wxCopyFile( sourcePath, destPath ) )
+            else
             {
-                aErrors += wxString::Format( _( "Could not copy file: %s to %s" ), sourcePath, destPath );
-                return false;
+                if( !clearConflictingDir( destPath, aErrors ) )
+                    return false;
+
+                wxString copyError;
+
+                if( !CopyFileWithRetry( sourcePath, destPath, true, &copyError ) )
+                {
+                    aErrors += copyError;
+                    aErrors += wxT( "\n" );
+                    return false;
+                }
             }
         }
 
@@ -564,13 +708,18 @@ bool CopyFilesOrDirectory( const wxString& aSourcePath, const wxString& aDestDir
     auto performCopy =
             [&]( const wxString& src, const wxString& dest ) -> bool
             {
-                if( wxCopyFile( src, dest, aAllowOverwrites ) )
+                if( aAllowOverwrites && !clearConflictingDir( dest, aErrors ) )
+                    return false;
+
+                wxString copyError;
+
+                if( CopyFileWithRetry( src, dest, aAllowOverwrites, &copyError ) )
                 {
                     aPathsWritten.push_back( dest );
                     return true;
                 }
 
-                aErrors += wxString::Format( _( "Could not copy file: %s to %s" ), src, dest );
+                aErrors += copyError;
                 aErrors += wxT( "\n" );
                 return false;
             };
@@ -636,13 +785,8 @@ bool CopyFilesOrDirectory( const wxString& aSourcePath, const wxString& aDestDir
     }
 
     // Create destination directory hierarchy
-    if( !wxFileName::Mkdir( baseDestDir, wxS_DIR_DEFAULT, wxPATH_MKDIR_FULL ) )
-    {
-        aErrors += wxString::Format( _( "Could not create destination directory: %s" ), baseDestDir );
-        aErrors += wxT( "\n" );
-
+    if( !ensureDestDir( baseDestDir, aAllowOverwrites, aErrors ) )
         return false;
-    }
 
     // Execute appropriate copy operation based on source type
     if( !isSourceDirectory )

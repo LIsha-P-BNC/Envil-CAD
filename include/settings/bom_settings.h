@@ -86,12 +86,14 @@ struct KICOMMON_API BOM_FMT_PRESET
     wxString refRangeDelimiter;
     bool     keepTabs = false;
     bool     keepLineBreaks = false;
+    bool     xlsx = false;    ///< Write a native .xlsx workbook instead of delimited text
 
     bool operator==( const BOM_FMT_PRESET& rhs ) const;
 
     static BOM_FMT_PRESET CSV();
     static BOM_FMT_PRESET TSV();
     static BOM_FMT_PRESET Semicolons();
+    static BOM_FMT_PRESET XLSX();
 
     static std::vector<BOM_FMT_PRESET> BuiltInPresets();
 };

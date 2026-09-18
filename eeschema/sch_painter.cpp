@@ -2303,7 +2303,10 @@ void SCH_PAINTER::draw( const SCH_TEXT* aText, int aLayer, bool aDimmed )
 
     if( !( aText->IsVisible() || aText->IsForceVisible() ) )
     {
-        if( m_schSettings.m_IsSymbolEditor || eeconfig()->m_Appearance.show_hidden_fields )
+        bool force_show = m_schematic ? eeconfig()->m_Appearance.show_hidden_fields
+                                      : m_schSettings.m_ShowHiddenFields;
+
+        if( force_show )
             color = getRenderColor( aText, LAYER_HIDDEN, drawingShadows );
         else
             return;

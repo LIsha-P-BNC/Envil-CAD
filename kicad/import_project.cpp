@@ -285,7 +285,7 @@ void KICAD_MANAGER_FRAME::importKiCadProjectFile( const wxString& aInputPath )
 
     if( !ConvertProjectToAnvil( src, prodlg.GetPath(), true, &anvilPro ) )
     {
-        DisplayErrorMessage( this, _( "No Anvil project files were found to convert." ) );
+        DisplayErrorMessage( this, _( "No KiCad project files were found to convert." ) );
         return;
     }
 
@@ -295,12 +295,12 @@ void KICAD_MANAGER_FRAME::importKiCadProjectFile( const wxString& aInputPath )
 
 bool KICAD_MANAGER_FRAME::OfferImportForeignProject( const wxFileName& aProjectFile )
 {
-    wxString msg = wxString::Format( _( "'%s' is a Anvil project.\n\n"
+    wxString msg = wxString::Format( _( "'%s' is a KiCad project.\n\n"
                                         "AnvilCAD uses its own project format.  Import and "
                                         "convert it to an AnvilCAD project?" ),
                                      aProjectFile.GetFullName() );
 
-    KIDIALOG dlg( this, msg, _( "Import Anvil Project" ),
+    KIDIALOG dlg( this, msg, _( "Import KiCad Project" ),
                   wxYES_NO | wxICON_QUESTION | wxCENTER );
     dlg.SetYesNoLabels( _( "Import && Convert" ), _( "Cancel" ) );
 
@@ -388,7 +388,7 @@ void KICAD_MANAGER_FRAME::ImportSymbolLibrary()
     wxString filter;
     filter << _( "All supported symbol libraries" )
            << wxT( "|*.kicad_sym;*.anvil_sym;*.lib;*.SchLib;*.IntLib" )
-           << wxT( "|" ) << _( "Anvil symbol libraries" ) << wxT( " (*.kicad_sym)|*.kicad_sym" )
+           << wxT( "|" ) << _( "KiCad symbol libraries" ) << wxT( " (*.kicad_sym)|*.kicad_sym" )
            << wxT( "|" ) << _( "Altium symbol libraries" )
            << wxT( " (*.SchLib;*.IntLib)|*.SchLib;*.IntLib" )
            << wxT( "|" ) << _( "Legacy symbol libraries" ) << wxT( " (*.lib)|*.lib" );
@@ -443,8 +443,8 @@ void KICAD_MANAGER_FRAME::ImportSymbolLibrary()
 
 void KICAD_MANAGER_FRAME::OnImportKiCadProject( wxCommandEvent& event )
 {
-    wxString     filter = _( "Anvil project files" ) + wxString( wxT( " (*.kicad_pro)|*.kicad_pro" ) );
-    wxFileDialog inputdlg( this, _( "Import Anvil Project" ), GetMruPath(), wxEmptyString,
+    wxString     filter = _( "KiCad project files" ) + wxString( wxT( " (*.kicad_pro)|*.kicad_pro" ) );
+    wxFileDialog inputdlg( this, _( "Import KiCad Project" ), GetMruPath(), wxEmptyString,
                            filter, wxFD_OPEN | wxFD_FILE_MUST_EXIST );
 
     KIPLATFORM::UI::AllowNetworkFileSystems( &inputdlg );
@@ -465,7 +465,7 @@ void KICAD_MANAGER_FRAME::OnImportProject( wxCommandEvent& event )
     filter << _( "All supported projects" )
            << wxT( "|*.kicad_pro;*.PrjPcb;*.SchDoc;*.PcbDoc;*.CSPcbDoc;*.CMPcbDoc;*.SWPcbDoc;"
                    "*.csa;*.cpa;*.sch;*.brd;*.json;*.zip;*.epro;*.asc;*.txt;*.prj;*.pcb" )
-           << wxT( "|" ) << _( "Anvil project files" ) << wxT( " (*.kicad_pro)|*.kicad_pro" )
+           << wxT( "|" ) << _( "KiCad project files" ) << wxT( " (*.kicad_pro)|*.kicad_pro" )
            << wxT( "|" ) << FILEEXT::AltiumProjectFilesWildcard()
            << wxT( "|" ) << FILEEXT::CadstarArchiveFilesWildcard()
            << wxT( "|" ) << FILEEXT::EagleFilesWildcard()
@@ -486,7 +486,7 @@ void KICAD_MANAGER_FRAME::OnImportProject( wxCommandEvent& event )
     wxString ext = wxFileName( path ).GetExt().Lower();
     int      idx = dlg.GetFilterIndex();
 
-    // Filter rows: 0=all, 1=Anvil, 2=Altium, 3=CADSTAR, 4=Eagle, 5=EasyEDA Std,
+    // Filter rows: 0=all, 1=KiCad, 2=Altium, 3=CADSTAR, 4=Eagle, 5=EasyEDA Std,
     // 6=EasyEDA Pro, 7=PADS, 8=gEDA.  For row 0, infer the format from the extension.
     if( idx == 0 )
     {

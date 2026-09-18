@@ -648,7 +648,10 @@ bool SCH_PROPERTIES_PANEL::handleSheetFilenameChange( SCH_EDIT_FRAME* aFrame, SC
                                                        SCH_COMMIT& aChanges,
                                                        const wxString& aNewFilename )
 {
-    wxString newFilename = EnsureFileExtension( aNewFilename, FILEEXT::KiCadSchematicFileExtension );
+    // Keep either native extension (dual-accept), default bare names to anvil_sch.  Forcing
+    // kicad_sch here made ChangeSheetFile() write the sheet under the foreign extension and
+    // the next project save re-write it as anvil_sch, leaving duplicate files on disk.
+    wxString newFilename = FILEEXT::EnsureNativeSchExtension( aNewFilename );
 
     if( newFilename.IsEmpty() || !IsFullFileNameValid( newFilename ) )
     {

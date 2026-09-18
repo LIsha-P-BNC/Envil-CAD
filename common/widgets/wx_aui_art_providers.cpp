@@ -74,6 +74,13 @@ WX_AUI_TAB_ART::WX_AUI_TAB_ART() :
     SetNormalFont( anvilChromeFont( m_normalFont ) );
     SetSelectedFont( anvilChromeFont( m_selectedFont ) );
     SetMeasuringFont( anvilChromeFont( m_measuringFont ) );
+
+#if wxCHECK_VERSION( 3, 3, 0 )
+    // wxAuiGenericTabArt's ctor already baked the button bitmaps -- but through ITS
+    // GetButtonColour(), since our override is not live yet during base construction.  Re-bake
+    // them now so the close X starts out in the Anvil palette (see GetButtonColour below).
+    InitBitmaps();
+#endif
 }
 
 
@@ -593,6 +600,62 @@ void WX_AUI_TAB_ART::DrawBackground( wxDC& dc, wxWindow* WXUNUSED( wnd ), const 
     dc.SetPen( wxPen( ANVIL::CHROME_LINE ) );
     dc.DrawLine( rect.x, rect.y + rect.height - 1, rect.x + rect.width, rect.y + rect.height - 1 );
 }
+
+
+void WX_AUI_TAB_ART::DrawBorder( wxDC& dc, wxWindow* wnd, const wxRect& rect )
+{
+    // See the header: theme-toned ring instead of the stock darkened-base one.  Same geometry
+    // as wxAuiGenericTabArt::DrawBorder (GetBorderWidth() concentric 1px rectangles), only the
+    // pen changes.
+    dc.SetPen( wxPen( ANVIL::CHROME_PANEL ) );
+    dc.SetBrush( *wxTRANSPARENT_BRUSH );
+
+    wxRect theRect( rect );
+
+    for( int i = 0, width = GetBorderWidth( wnd ); i < width; ++i )
+    {
+        dc.DrawRectangle( theRect );
+        theRect.Deflate( 1 );
+    }
+}
+
+
+#if wxCHECK_VERSION( 3, 3, 0 )
+wxColour WX_AUI_TAB_ART::GetButtonColour( wxAuiButtonId aButton, wxAuiPaneButtonState aState ) const
+{
+    // The tab-strip buttons are line-art glyphs drawn on the strip itself, so they belong to the
+    // ink tier of the current theme: bone on the dark chrome, near-black on the light oat strip.
+    // The stock generic art derives this from the SYSTEM palette, which never moves when Anvil
+    // flips its own theme -- that is why the close X was a black-on-dark-grey smudge in the dark
+    // theme.  Disabled buttons (the scroll arrows at the end of the run) drop to the muted
+    // caption tone, which is legible against both strips.
+    if( aState & wxAUI_BUTTON_STATE_DISABLED )
+        return ANVIL::CAPTION_TEXT;
+
+    return ANVIL::BONE;
+}
+
+
+void WX_AUI_TAB_ART::SetColour( const wxColour& aColour )
+{
+    wxAuiGenericTabArt::SetColour( aColour );
+
+    // A live theme flip reaches every tab art provider through SetColour() (see
+    // KICAD_MANAGER_FRAME's theme pass), and the button bitmaps are baked, not looked up per
+    // paint -- so re-bake them here or the X keeps the colour of the PREVIOUS theme.
+    InitBitmaps();
+}
+
+
+void WX_AUI_TAB_ART::UpdateColoursFromSystem()
+{
+    wxAuiGenericTabArt::UpdateColoursFromSystem();
+
+    // Same reason as SetColour(): the base just re-derived every colour (and bitmap) from the
+    // system palette, wiping the Anvil tones back out of the buttons.
+    InitBitmaps();
+}
+#endif  // wxCHECK_VERSION( 3, 3, 0 )
 
 
 void WX_AUI_TAB_ART::DrawTab( wxDC& dc, wxWindow* wnd, const wxAuiNotebookPage& page, const wxRect& in_rect,

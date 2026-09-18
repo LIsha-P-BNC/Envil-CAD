@@ -334,8 +334,6 @@ std::optional<TOOLBAR_CONFIGURATION> SCH_EDIT_TOOLBAR_SETTINGS::DefaultToolbarCo
         // TODO (ISM): Move this to individual actions for each script
         config.AppendControl( ACTION_TOOLBAR_CONTROLS::ipcScripting );
 
-        config.AppendControl( ACTION_TOOLBAR_CONTROLS::overrideLocks );
-
         break;
     }
 

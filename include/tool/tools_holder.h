@@ -153,6 +153,12 @@ public:
 #define TEXTVARS_CHANGED 0x0002
 #define HOTKEYS_CHANGED  0x0004
 
+/// Anvil: the call is a live light/dark THEME flip only — colours and icon tints changed, but
+/// no sizes, hotkeys, canvas backend or toolbar layout.  Receivers skip the from-scratch
+/// menu-bar/tool-bar rebuild (RefreshBitmaps re-tints icons in place) and the canvas backend
+/// re-resolve; profiling the flip showed those made up ~500 ms of a ~630 ms toggle.
+#define ANVIL_THEME_FLIP 0x8000
+
     /**
      * Notification event that some of the common (suite-wide) settings have changed.
      * Update hotkeys, preferences, etc.

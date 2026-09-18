@@ -528,9 +528,6 @@ std::optional<TOOLBAR_CONFIGURATION> PCB_EDIT_TOOLBAR_SETTINGS::DefaultToolbarCo
         config.AppendSeparator()
               .AppendControl( ACTION_TOOLBAR_CONTROLS::zoomSelect );
 
-        config.AppendSeparator()
-              .AppendControl( ACTION_TOOLBAR_CONTROLS::overrideLocks );
-
         break;
     }
 

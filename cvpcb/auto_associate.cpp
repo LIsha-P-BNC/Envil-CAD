@@ -31,6 +31,9 @@
 // 'FT232BL'		'QFP:LQFP-32_7x7mm_Pitch0.8mm'
 
 
+#include <algorithm>
+#include <vector>
+
 #include <kiface_base.h>
 #include <string_utils.h>
 #include <macros.h>
@@ -38,9 +41,12 @@
 #include <auto_associate.h>
 #include <cvpcb_association.h>
 #include <cvpcb_mainframe.h>
+#include <footprint_filter.h>
+#include <footprint_info.h>
 #include <listboxes.h>
 #include <project/project_file.h>
 #include <wx/msgdlg.h>
+#include <wx/tokenzr.h>
 
 #define QUOTE   '\''
 
@@ -167,6 +173,147 @@ int CVPCB_MAINFRAME::buildEquivalenceList( FOOTPRINT_EQUIVALENCE_LIST& aList,
 }
 
 
+// Package-hint tokens (e.g. "0603", "SOT-23", "TO-220") pulled from a component's value,
+// symbol name and fields.  Package designators essentially always contain a digit; requiring
+// one keeps ordinary words ("red", "power") from producing false footprint matches.
+static wxArrayString getPackageHints( COMPONENT* aComponent )
+{
+    wxString text = aComponent->GetValue() + wxS( " " ) + aComponent->GetName();
+
+    for( const auto& [fieldName, fieldValue] : aComponent->GetFields() )
+        text << wxS( " " ) << fieldValue;
+
+    wxArrayString     hints;
+    wxStringTokenizer tokenizer( text.Lower(), wxS( " \t\r\n,;()[]" ), wxTOKEN_STRTOK );
+
+    while( tokenizer.HasMoreTokens() )
+    {
+        wxString token = tokenizer.GetNextToken();
+
+        if( token.length() < 3 )
+            continue;
+
+        bool hasDigit = false;
+
+        for( wxUniChar c : token )
+            hasDigit |= wxIsdigit( c );
+
+        if( hasDigit && hints.Index( token ) == wxNOT_FOUND )
+            hints.Add( token );
+    }
+
+    return hints;
+}
+
+
+// Hint matches dominate the score; a reference-prefix match ("R" -> "R_0603...") only breaks
+// ties between candidates that hint-score equally.
+static int scoreCandidate( const wxString& aFootprintName, const wxArrayString& aHints,
+                           const wxString& aRefPrefix )
+{
+    wxString name  = aFootprintName.Lower();
+    int      score = 0;
+
+    for( const wxString& hint : aHints )
+    {
+        int pos = name.Find( hint );
+
+        // An earlier match ranks higher: imperial/metric dual-named packages carry the
+        // imperial size first ("R_0603_1608Metric"), so the hint "0603" must prefer that
+        // over "R_0201_0603Metric" where it matches the metric half.
+        if( pos != wxNOT_FOUND )
+            score += 10 * (int) hint.length() - std::min( pos, 9 );
+    }
+
+    if( !aRefPrefix.IsEmpty() && name.StartsWith( aRefPrefix.Lower() + wxS( "_" ) ) )
+        score += 1;
+
+    return score;
+}
+
+
+// Find the best footprint for aComponent among the loaded libraries using its footprint
+// filters, pin count and package hints.  Returns an empty string when no candidate stands
+// out — guessing blindly among hundreds of filter matches would be worse than not assigning.
+static wxString findBestFootprintMatch( FOOTPRINT_LIST& aList, COMPONENT* aComponent )
+{
+    const wxArrayString& filters = aComponent->GetFootprintFilters();
+    wxArrayString        hints = getPackageHints( aComponent );
+
+    wxString refPrefix;
+
+    for( wxUniChar c : aComponent->GetReference() )
+    {
+        if( wxIsdigit( c ) )
+            break;
+
+        refPrefix << c;
+    }
+
+    // Without footprint filters, package hints are the only trustworthy signal.
+    if( filters.IsEmpty() && hints.IsEmpty() )
+        return wxEmptyString;
+
+    auto collect = [&]( bool aUsePinCount ) -> std::vector<const FOOTPRINT_INFO*>
+    {
+        FOOTPRINT_FILTER filter( aList );
+
+        if( !filters.IsEmpty() )
+            filter.FilterByFootprintFilters( filters );
+
+        if( aUsePinCount && aComponent->GetPinCount() > 0 )
+            filter.FilterByPinCount( aComponent->GetPinCount() );
+
+        std::vector<const FOOTPRINT_INFO*> found;
+
+        for( FOOTPRINT_INFO& fp : filter )
+            found.push_back( &fp );
+
+        return found;
+    };
+
+    std::vector<const FOOTPRINT_INFO*> candidates = collect( true );
+
+    // The netlist pin count can disagree with the footprint pad count (hidden pins,
+    // thermal/mounting pads, multi-unit symbols); if it eliminated everything, retry on
+    // the filters alone.
+    if( candidates.empty() && !filters.IsEmpty() )
+        candidates = collect( false );
+
+    if( candidates.empty() )
+        return wxEmptyString;
+
+    auto libId = []( const FOOTPRINT_INFO* aInfo ) -> wxString
+    {
+        return aInfo->GetLibNickname() + wxS( ":" ) + aInfo->GetFootprintName();
+    };
+
+    if( candidates.size() == 1 )
+        return libId( candidates[0] );
+
+    const FOOTPRINT_INFO* best = nullptr;
+    int                   bestScore = 0;
+
+    for( const FOOTPRINT_INFO* candidate : candidates )
+    {
+        int score = scoreCandidate( candidate->GetFootprintName(), hints, refPrefix );
+
+        if( score > bestScore )
+        {
+            best = candidate;
+            bestScore = score;
+        }
+    }
+
+    // Only assign when at least one package hint matched (score >= one hint's weight);
+    // a bare reference-prefix point is not evidence of the right package.
+    if( best && bestScore >= 30 )
+        return libId( best );
+
+    return wxEmptyString;
+}
+
+
 void CVPCB_MAINFRAME::AutomaticFootprintMatching()
 {
     FOOTPRINT_EQUIVALENCE_LIST equivList;
@@ -192,6 +339,13 @@ void CVPCB_MAINFRAME::AutomaticFootprintMatching()
     error_msg.Empty();
 
     bool firstAssoc = true;
+    int  unassignedAtStart = 0;
+
+    for( unsigned ii = 0; ii < m_netlist.GetCount(); ii++ )
+    {
+        if( m_netlist.GetComponent( ii )->GetFPID().empty() )
+            unassignedAtStart++;
+    }
 
     for( int kk = 0;  kk < (int) m_netlist.GetCount();  kk++ )
     {
@@ -283,6 +437,21 @@ void CVPCB_MAINFRAME::AutomaticFootprintMatching()
             continue;
         }
 
+        // No equivalence matched (most projects have no .equ files at all).  Fall back to
+        // matching the symbol's footprint filters, pin count and package hints against the
+        // loaded footprint libraries.
+        if( m_FootprintsList )
+        {
+            wxString match = findBestFootprintMatch( *m_FootprintsList, component );
+
+            if( !match.IsEmpty() )
+            {
+                AssociateFootprint( CVPCB_ASSOCIATION( kk, match ), firstAssoc );
+                firstAssoc = false;
+                continue;
+            }
+        }
+
         // obviously the last chance: there's only one filter matching one footprint
         if( component->GetFootprintFilters().GetCount() == 1 )
         {
@@ -301,4 +470,39 @@ void CVPCB_MAINFRAME::AutomaticFootprintMatching()
 
     m_skipComponentSelect = false;
     m_symbolsListBox->Refresh();
+
+    // Report the outcome; a silent no-op looks like a broken tool.
+    int unassignedAtEnd = 0;
+
+    for( unsigned ii = 0; ii < m_netlist.GetCount(); ii++ )
+    {
+        if( m_netlist.GetComponent( ii )->GetFPID().empty() )
+            unassignedAtEnd++;
+    }
+
+    if( unassignedAtStart == 0 )
+    {
+        SetStatusText( _( "All symbols already have footprint associations." ), 0 );
+    }
+    else
+    {
+        msg.Printf( _( "Auto-assignment: %d footprint(s) assigned, %d symbol(s) left unassigned." ),
+                    unassignedAtStart - unassignedAtEnd,
+                    unassignedAtEnd );
+        SetStatusText( msg, 0 );
+
+        if( unassignedAtStart == unassignedAtEnd )
+        {
+            wxMessageBox( _( "No footprints could be assigned automatically.\n\n"
+                             "Automatic assignment matches each symbol's footprint filters, "
+                             "pin count and package hints (e.g. '0603', 'SOT-23' in the value "
+                             "or fields) against the loaded footprint libraries, as well as "
+                             "any configured footprint equivalence (.equ) files.\n\n"
+                             "Add a package hint to the symbol value or fields, set footprint "
+                             "filters in the symbol properties, or assign the ambiguous "
+                             "footprints manually." ),
+                          _( "Automatically Assign Footprints" ),
+                          wxOK | wxICON_INFORMATION, this );
+        }
+    }
 }

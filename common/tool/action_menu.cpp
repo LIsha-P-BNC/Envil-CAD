@@ -35,6 +35,7 @@
 #include <bitmaps.h>
 #include <eda_base_frame.h>
 #include <functional>
+#include <set>
 #include <id.h>
 #include <kiface_base.h>
 #include <tool/actions.h>
@@ -46,6 +47,106 @@
 #include <widgets/ui_common.h>
 
 using namespace std::placeholders;
+
+
+/// Trace mask for the duplicate-id reports below (set WXTRACE=KICAD_MENU_DUPES to see them).
+static const wxChar* const traceMenuDupes = wxS( "KICAD_MENU_DUPES" );
+
+
+/**
+ * Find an item carrying @a aId among @a aMenu own items.
+ *
+ * Only this one level is scanned, unlike wxMenu::FindItem(): an action legitimately appears both
+ * on a submenu and on the menu holding that submenu, and those two entries do not shadow each
+ * other.  Ids below zero are placeholders (wxID_ANY, wxID_SEPARATOR, wxID_NONE) for which wx
+ * generates a unique id per item, so they can never collide.
+ */
+static wxMenuItem* findItemAtThisLevel( const wxMenu& aMenu, int aId )
+{
+    if( aId < 0 )
+        return nullptr;
+
+    for( wxMenuItem* item : aMenu.GetMenuItems() )
+    {
+        if( item->GetId() == aId )
+            return item;
+    }
+
+    return nullptr;
+}
+
+
+/**
+ * Two items sharing an id on one menu are always a bug: MSW dispatches a menu command by id
+ * alone, so the second copy is unreachable and only duplicates the first one command.
+ *
+ * They arise on their own in the single-window shell, where buildCommonMenuBarFrom() splices the
+ * shell copy of a menu in front of the active editor build*Menu() hook: both sides then add the
+ * same wx standard id (wxID_EXIT from AddQuit(), wxID_CLOSE from AddClose()), the same id.h enum,
+ * or the same action carrying an explicit UI id, into one ACTION_MENU.
+ *
+ * This used to be a wxASSERT_MSG(), which pops a modal wxWidgets Debug Alert over the whole
+ * application in any build with assertions compiled in.  The Add() overloads now keep whichever
+ * item got there first and drop the later copy, so the condition cannot occur any more - in any
+ * menu, in any module.
+ */
+static wxMenuItem* reportDuplicate( wxMenuItem* aExisting, const wxString& aLabel, int aId )
+{
+    wxLogTrace( traceMenuDupes,
+                wxS( "Menu id %d ('%s') is already on this menu as '%s'; dropping the copy." ),
+                aId, aLabel, aExisting->GetItemLabelText() );
+
+    return aExisting;
+}
+
+
+/**
+ * The label a user actually reads for @a aItem, reduced to a comparable key: wx strips the
+ * mnemonic ampersands and the accelerator suffix for us, and the rest guards against the two
+ * frames spelling the same command with different padding or capitalisation.
+ */
+static wxString menuItemKey( const wxMenuItem* aItem )
+{
+    return aItem->GetItemLabelText().Strip( wxString::both ).Lower();
+}
+
+
+/**
+ * Recursive label fingerprint of a submenu, so "Set Language" spliced in from the shell is
+ * only ever matched against a submenu that lists the same entries.
+ */
+static wxString submenuKey( const wxMenu* aMenu )
+{
+    wxString key;
+
+    for( const wxMenuItem* item : aMenu->GetMenuItems() )
+    {
+        if( item->IsSeparator() )
+        {
+            key += wxS( "|-" );
+            continue;
+        }
+
+        key += wxS( "|" ) + menuItemKey( item );
+
+        if( item->GetSubMenu() )
+            key += wxS( "{" ) + submenuKey( item->GetSubMenu() ) + wxS( "}" );
+    }
+
+    return key;
+}
+
+
+/// Full comparison key for one menu item: its own label plus, for a submenu, its contents.
+static wxString menuEntryKey( const wxMenuItem* aItem )
+{
+    wxString key = menuItemKey( aItem );
+
+    if( aItem->GetSubMenu() )
+        key += wxS( "{" ) + submenuKey( aItem->GetSubMenu() ) + wxS( "}" );
+
+    return key;
+}
 
 
 ACTION_MENU::ACTION_MENU( bool isContextMenu, TOOL_INTERACTIVE* aTool ) :
@@ -151,7 +252,8 @@ void ACTION_MENU::DisplayTitle( bool aDisplay )
 
 wxMenuItem* ACTION_MENU::Add( const wxString& aLabel, int aId, BITMAPS aIcon )
 {
-    wxASSERT_MSG( FindItem( aId ) == nullptr, wxS( "Duplicate menu IDs!" ) );
+    if( wxMenuItem* existing = findItemAtThisLevel( *this, aId ) )
+        return reportDuplicate( existing, aLabel, aId );
 
     wxMenuItem* item = new wxMenuItem( this, aId, aLabel, wxEmptyString, wxITEM_NORMAL );
 
@@ -165,7 +267,8 @@ wxMenuItem* ACTION_MENU::Add( const wxString& aLabel, int aId, BITMAPS aIcon )
 wxMenuItem* ACTION_MENU::Add( const wxString& aLabel, const wxString& aTooltip, int aId,
                               BITMAPS aIcon, bool aIsCheckmarkEntry )
 {
-    wxASSERT_MSG( FindItem( aId ) == nullptr, wxS( "Duplicate menu IDs!" ) );
+    if( wxMenuItem* existing = findItemAtThisLevel( *this, aId ) )
+        return reportDuplicate( existing, aLabel, aId );
 
     wxMenuItem* item = new wxMenuItem( this, aId, aLabel, aTooltip, aIsCheckmarkEntry ? wxITEM_CHECK
                                                                                       : wxITEM_NORMAL );
@@ -181,18 +284,31 @@ wxMenuItem* ACTION_MENU::Add( const TOOL_ACTION& aAction, bool aIsCheckmarkEntry
                               const wxString& aOverrideLabel )
 {
     // ID numbers for tool actions are assigned above ACTION_BASE_UI_ID inside TOOL_EVENT
-    BITMAPS icon = aAction.GetIcon();
+    BITMAPS   icon = aAction.GetIcon();
+    const int id = aAction.GetUIId();
 
     // Allow the label to be overridden at point of use
     wxString menuLabel = aOverrideLabel.IsEmpty() ? aAction.GetMenuItem() : aOverrideLabel;
 
-    wxMenuItem* item = new wxMenuItem( this, aAction.GetUIId(), menuLabel, aAction.GetTooltip(),
+    if( wxMenuItem* existing = findItemAtThisLevel( *this, id ) )
+    {
+        // Only the duplicate *item* is dropped; the action mapping still moves to the action
+        // added last, exactly as it did when the second item was appended.  In a composed menu
+        // bar that is the live editor's action (the shell's copy of, say, ACTIONS::cut was
+        // spliced in first by AppendFrom()), and it is the one the item has to run.
+        m_toolActions[id] = &aAction;
+        m_actionTools[id] = m_tool;
+
+        return reportDuplicate( existing, menuLabel, id );
+    }
+
+    wxMenuItem* item = new wxMenuItem( this, id, menuLabel, aAction.GetTooltip(),
                                        aIsCheckmarkEntry ? wxITEM_CHECK : wxITEM_NORMAL );
     if( !!icon )
         KIUI::AddBitmapToMenuItem( item, KiBitmapBundle( icon, 18 ) );
 
-    m_toolActions[aAction.GetUIId()] = &aAction;
-    m_actionTools[aAction.GetUIId()] = m_tool;
+    m_toolActions[id] = &aAction;
+    m_actionTools[id] = m_tool;
 
     return Append( item );
 }
@@ -391,7 +507,9 @@ void ACTION_MENU::appendFrom( const ACTION_MENU& aMenu, bool aRemapIds )
 
         int id = mapId( item->GetId() );
 
-        if( id >= 0 && m_toolActions.count( id ) )
+        // Whatever this menu already carries under that id wins; a spliced-in copy must never
+        // put a second item on an id we hold (see findItemAtThisLevel()).
+        if( id >= 0 && ( m_toolActions.count( id ) || findItemAtThisLevel( *this, id ) ) )
             continue;
 
         appendCopy( item, id == item->GetId() ? wxID_NONE : id, aRemapIds );
@@ -408,6 +526,156 @@ void ACTION_MENU::appendFrom( const ACTION_MENU& aMenu, bool aRemapIds )
                                         ? aMenu.m_actionTools.at( srcId )
                                         : aMenu.m_tool;
         }
+    }
+}
+
+
+int ACTION_MENU::DropDuplicateSplicedItems( size_t aSplicedCount )
+{
+    if( aSplicedCount == 0 || aSplicedCount >= GetMenuItemCount() )
+        return 0;
+
+    // Everything from aSplicedCount on was put there by the frame this menu bar belongs to;
+    // those entries always win, so collect what they cover first.
+    std::set<wxString> ownKeys;
+
+    for( size_t i = aSplicedCount; i < GetMenuItemCount(); ++i )
+    {
+        wxMenuItem* item = FindItemByPosition( i );
+
+        if( !item->IsSeparator() )
+            ownKeys.insert( menuEntryKey( item ) );
+    }
+
+    int removed = 0;
+
+    // Backwards: Destroy() renumbers the positions after the one being removed.
+    for( int i = (int) aSplicedCount - 1; i >= 0; --i )
+    {
+        wxMenuItem* item = FindItemByPosition( i );
+
+        if( item->IsSeparator() || !ownKeys.count( menuEntryKey( item ) ) )
+            continue;
+
+        wxLogTrace( traceMenuDupes, wxS( "Dropping spliced duplicate of '%s' (id %d)." ),
+                    item->GetItemLabelText(), item->GetId() );
+
+        const int id = item->GetId();
+
+        // The item owns its submenu, so the copy is about to be deleted with it; the dtor
+        // would un-register it too, but m_submenus must not hold a dangling pointer even
+        // for the length of that call.
+        if( ACTION_MENU* submenu = dynamic_cast<ACTION_MENU*>( item->GetSubMenu() ) )
+            m_submenus.remove( submenu );
+
+        Destroy( item );
+
+        // Only the spliced copy carried this id (foreign ids live in their own window), so
+        // dropping its action mapping cannot orphan the entry that stays.
+        m_toolActions.erase( id );
+        m_actionTools.erase( id );
+
+        removed++;
+    }
+
+    return removed;
+}
+
+
+namespace
+{
+/**
+ * Commands that are one operation under two names, so a composed menu must show one of them:
+ * `redundant` is dropped whenever `keep` is on the same menu.
+ *
+ * The cross-editor "switch" actions and the project manager's editor launchers end up side by
+ * side in the shell's Project menu, and both route to Kiway().Player( <frame>, true ) on the
+ * project's own board / schematic.  The shell contributes all four launchers as one uniform
+ * set, so the editor's lone entry is the copy that goes.
+ */
+struct COMMAND_ALIAS
+{
+    const char* redundant;
+    const char* keep;
+};
+
+const COMMAND_ALIAS c_commandAliases[] = {
+    { "eeschema.EditorControl.showPcbNew", "kicad.Control.editPCB" },
+    { "pcbnew.EditorControl.showEeschema", "kicad.Control.editSchematic" },
+};
+} // namespace
+
+
+int ACTION_MENU::DropRedundantAliases()
+{
+    // An action is "on the menu" only when it still owns an item: Add() keeps the action
+    // mapping of a dropped same-id copy, so m_toolActions alone would report ghosts.
+    auto itemForAction =
+            [this]( const char* aActionName ) -> wxMenuItem*
+            {
+                for( const std::pair<const int, const TOOL_ACTION*>& entry : m_toolActions )
+                {
+                    if( !entry.second || entry.second->GetName() != aActionName )
+                        continue;
+
+                    if( wxMenuItem* item = findItemAtThisLevel( *this, entry.first ) )
+                        return item;
+                }
+
+                return nullptr;
+            };
+
+    int removed = 0;
+
+    for( const COMMAND_ALIAS& alias : c_commandAliases )
+    {
+        wxMenuItem* drop = itemForAction( alias.redundant );
+
+        if( !drop || !itemForAction( alias.keep ) )
+            continue;
+
+        wxLogTrace( traceMenuDupes, wxS( "Dropping '%s': same command as '%s' on this menu." ),
+                    drop->GetItemLabelText(), alias.keep );
+
+        const int id = drop->GetId();
+
+        Destroy( drop );
+        m_toolActions.erase( id );
+        m_actionTools.erase( id );
+
+        removed++;
+    }
+
+    return removed;
+}
+
+
+void ACTION_MENU::CollapseSeparators()
+{
+    bool previousWasSeparator = true;   // true so a leading separator is dropped as well
+
+    for( size_t i = 0; i < GetMenuItemCount(); )
+    {
+        wxMenuItem* item = FindItemByPosition( i );
+
+        if( item->IsSeparator() && previousWasSeparator )
+        {
+            Destroy( item );
+            continue;
+        }
+
+        previousWasSeparator = item->IsSeparator();
+        i++;
+    }
+
+    while( GetMenuItemCount() > 0 )
+    {
+        wxMenuItem* last = FindItemByPosition( GetMenuItemCount() - 1 );
+
+        if( !last->IsSeparator() )
+            break;
+
+        Destroy( last );
     }
 }
 

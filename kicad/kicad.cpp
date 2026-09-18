@@ -441,24 +441,19 @@ bool PGM_KICAD::OnPgmInit()
 
     KIUI::SyncAnvilTheme();
 
-    // NEMI Emerald LIGHT: leave wx's MSW dark mode alone.  wxMSW offers only DarkMode_Auto and
-    // DarkMode_Always (there is no DarkMode_Never) and dark mode is opt-in, so simply not
-    // enabling it is what gives genuinely light native controls, menus and scrollbars.  The
-    // Anvil chrome (title bar, menu band, tool-bars, panels) paints itself from the palette
-    // either way.
-    if( !ANVIL::IsLight() )
-    {
-        if( anvilPurpleFrame )
-            KIPLATFORM::APP::SetDarkModePurple( true );
+    // Establish wx's MSW dark-mode machinery UNCONDITIONALLY — even for the light theme.
+    // wx only allows enabling it before the first window exists and never allows turning it
+    // off, so this is the one moment the live light/dark toggle can be made possible at all.
+    // The settings object answers wx's colour queries from the ANVIL palette (dark) or the
+    // classic light system palette (light), and SetLiveDarkMode() steers the OS-level per-app
+    // mode to match the persisted theme: started light, native controls, menus and scrollbars
+    // render exactly as they did when dark mode was simply never enabled.  The toggle then
+    // flips both halves at runtime — no restart.
+    if( anvilPurpleFrame )
+        KIPLATFORM::APP::SetDarkModePurple( true );
 
-        if( const COMMON_SETTINGS* cfg = Pgm().GetCommonSettings() )
-        {
-            if( anvilPurpleFrame || cfg->m_Appearance.app_theme == APP_THEME::DARK )
-                KIPLATFORM::APP::EnableDarkMode( true );
-            else if( cfg->m_Appearance.app_theme == APP_THEME::AUTO )
-                KIPLATFORM::APP::EnableDarkMode( false );
-        }
-    }
+    KIPLATFORM::APP::EnableDarkMode( true );
+    KIPLATFORM::APP::SetLiveDarkMode( !ANVIL::IsLight() );
 
     // Add search paths to feed the PGM_KICAD::SysSearch() function,
     // currently limited in support to only look for project templates
@@ -883,7 +878,7 @@ void PGM_KICAD::Destroy()
 
 KIWAY  Kiway( KFCTL_CPP_PROJECT_SUITE );
 
-#ifdef NDEBUG
+#ifndef DEBUG
 // Define a custom assertion handler
 void CustomAssertHandler(const wxString& file,
                          int line,
@@ -911,7 +906,12 @@ struct APP_KICAD : public wxApp
 
     bool OnInit()           override
     {
-#ifdef NDEBUG
+        // Gate on DEBUG (only defined for Debug configs), not NDEBUG: the production
+        // RelWithDebInfo builds define NEITHER macro, and an NDEBUG gate left them running
+        // with wx's default assert handler — a MODAL assert dialog.  An assert raised from
+        // inside a paint handler then re-painted the asserting control from the dialog's own
+        // message loop, recursing until wxTrap() took the whole app down.
+#ifndef DEBUG
         // These checks generate extra assert noise
         wxSizerFlags::DisableConsistencyChecks();
         wxDISABLE_DEBUG_SUPPORT();
@@ -982,6 +982,13 @@ struct APP_KICAD : public wxApp
 
     int FilterEvent( wxEvent& aEvent ) override
     {
+        // Live-theme paint guard (MSW): keeps wx's always-on dark-mode paint paths from
+        // running while the light theme is active — see KIPLATFORM::APP::LiveThemeEventFilter.
+        int result = KIPLATFORM::APP::LiveThemeEventFilter( aEvent );
+
+        if( result != Event_Skip )
+            return result;
+
         if( aEvent.GetEventType() == wxEVT_SHOW )
         {
             wxShowEvent& event = static_cast<wxShowEvent&>( aEvent );

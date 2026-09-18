@@ -68,7 +68,7 @@ void PL_EDITOR_FRAME::doReCreateMenuBar()
     }
 
     // Ensure the title is up to date after changing language
-    openRecentMenu->SetTitle( _( "Open Recent" ) );
+    openRecentMenu->SetTitle( _( "Open Recent Drawing Sheet" ) );
     recentFiles.UpdateClearText( openRecentMenu, _( "Clear Recent Files" ) );
 
     //-- File menu -------------------------------------------------------
@@ -198,7 +198,7 @@ void PL_EDITOR_FRAME::buildFileMenu( ACTION_MENU* fileMenu )
     }
 
     // Ensure the title is up to date after changing language
-    openRecentMenu->SetTitle( _( "Open Recent" ) );
+    openRecentMenu->SetTitle( _( "Open Recent Drawing Sheet" ) );
     recentFiles.UpdateClearText( openRecentMenu, _( "Clear Recent Files" ) );
 
     fileMenu->Add( ACTIONS::doNew );

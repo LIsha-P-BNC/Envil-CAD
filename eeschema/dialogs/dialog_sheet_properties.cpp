@@ -279,8 +279,10 @@ bool DIALOG_SHEET_PROPERTIES::TransferDataFromWindow()
     }
 
     // Ensure the filename extension is OK.  (In normal use will be caught by grid validators,
-    // but unedited data from existing files can be bad.)
-    sheetFileName = EnsureFileExtension( sheetFileName, FILEEXT::AnvilSchematicFileExtension );
+    // but unedited data from existing files can be bad.)  Keep an explicit .kicad_sch name
+    // untouched (dual-accept: it may link an existing KiCad sheet) instead of appending
+    // .anvil_sch onto it; bare names get the native extension.
+    sheetFileName = FILEEXT::EnsureNativeSchExtension( sheetFileName );
 
     // Ensure sheetFileName is legal
     if( !IsFullFileNameValid( sheetFileName ) )

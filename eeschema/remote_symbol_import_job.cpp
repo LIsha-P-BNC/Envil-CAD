@@ -326,7 +326,7 @@ bool REMOTE_SYMBOL_IMPORT_JOB::Import( const REMOTE_PROVIDER_METADATA& aProvider
 
                     if( !plugin )
                     {
-                        aError = _( "Unable to access the KiCad symbol plugin." );
+                        aError = _( "Unable to access the Anvil symbol plugin." );
                         return false;
                     }
 

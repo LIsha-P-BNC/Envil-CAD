@@ -21,6 +21,7 @@
 #ifndef KIPLATFORM_APP_H_
 #define KIPLATFORM_APP_H_
 
+class wxEvent;
 class wxString;
 class wxWindow;
 
@@ -39,6 +40,19 @@ namespace KIPLATFORM
         void EnableDarkMode( bool aForce );
 
         /**
+         * Switch the OS-level per-app dark mode at RUNTIME, without restarting.
+         *
+         * wxMSW's own dark mode (MSWEnableDarkMode) can only be established before the first
+         * window exists and can never be turned off again, so Anvil enables it unconditionally
+         * at start-up and then steers the effective mode through here: the per-app preferred
+         * mode (the same uxtheme machinery wx uses) plus a WM_THEMECHANGED sweep over every
+         * open window, so native menus, scrollbars, captions and control themes follow the
+         * flip immediately.  Pair with ANVIL::SetMode()/KIUI::SyncAnvilTheme(), which repaint
+         * the app-drawn chrome.  No-op on non-Windows platforms.
+         */
+        void SetLiveDarkMode( bool aDark );
+
+        /**
          * Anvil "Vibrant Purple & Indigo" theme: when enabled, the MSW dark-mode palette
          * (window/panel backgrounds, text, highlight, the native menu bar and title bar) is
          * tinted dark purple instead of the default grey.  Must be called BEFORE EnableDarkMode()
@@ -46,6 +60,19 @@ namespace KIPLATFORM
          * window chrome — the drawing canvas is painted from the colour theme, not these colours.
          */
         void SetDarkModePurple( bool aOn );
+
+        /**
+         * App-wide event filter hook; call from wxApp::FilterEvent() BEFORE any other handling.
+         *
+         * On Windows this guards the live-light theme against wx's always-on dark-mode paint
+         * paths (see the implementation for the wxSpinButton story: its dark-mode OnPaint
+         * both inverts the natively light-rendered pixels and trips a wx assert from inside
+         * WM_PAINT, which recurses into an application crash).  No-op elsewhere.
+         *
+         * @return wxApp::FilterEvent semantics: -1 to continue normal processing, 0/1 when the
+         *         event was fully handled here.
+         */
+        int LiveThemeEventFilter( wxEvent& aEvent );
 
         /**
          * Tries to attach a console window with stdout, stderr and stdin.

@@ -314,6 +314,26 @@ void PCB_TABLE::Rotate( const VECTOR2I& aRotCentre, const EDA_ANGLE& aAngle )
 }
 
 
+void PCB_TABLE::Mirror( const VECTOR2I& aCentre, FLIP_DIRECTION aFlipDirection )
+{
+    if( m_cells.empty() )
+        return;
+
+    // JEY TODO: reversing the row/column order (as Flip() does) isn't supported for mirroring yet.
+    // Move the table to where a mirror would put it so it at least stays with the rest of the
+    // selection instead of being left behind.
+    BOX2I    bbox = GetBoundingBox();
+    VECTOR2I target = bbox.GetOrigin();
+
+    if( aFlipDirection == FLIP_DIRECTION::LEFT_RIGHT )
+        target.x = MIRRORVAL( bbox.GetRight(), aCentre.x );
+    else
+        target.y = MIRRORVAL( bbox.GetBottom(), aCentre.y );
+
+    Move( target - bbox.GetOrigin() );
+}
+
+
 void PCB_TABLE::Flip( const VECTOR2I& aCentre, FLIP_DIRECTION aFlipDirection )
 {
     BOX2I originalBBox = GetBoundingBox();

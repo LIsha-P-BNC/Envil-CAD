@@ -35,6 +35,7 @@
 #include <hierarchy_pane.h>
 #include <project/project_local_settings.h>
 #include <kiface_base.h>
+#include <wildcards_and_files_ext.h>
 #include <wx/object.h>
 #include <wx/generic/textdlgg.h>
 #include <wx/menu.h>
@@ -576,8 +577,7 @@ void HIERARCHY_PANE::onRightClick( wxTreeItemId aItem )
                 filename.Replace( " ", "_" );
                 filename = filename.Lower();
 
-                if( !filename.EndsWith( ".kicad_sch" ) )
-                    filename += ".kicad_sch";
+                filename = FILEEXT::EnsureNativeSchExtension( filename );
 
                 newScreen->SetFileName( filename );
 

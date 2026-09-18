@@ -276,6 +276,8 @@ public:
      */
     void Flip( const VECTOR2I& aCentre, FLIP_DIRECTION aFlipLeftRight ) override;
 
+    void Mirror( const VECTOR2I& aCentre, FLIP_DIRECTION aFlipDirection ) override;
+
     void StyleFromSettings( const BOARD_DESIGN_SETTINGS& settings, bool aCheckSide ) override;
 
     /**

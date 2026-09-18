@@ -68,8 +68,8 @@ DIALOG_GENDRILL_BASE::DIALOG_GENDRILL_BASE( wxWindow* parent, wxWindowID id, con
 
 	fgSizerExcellonOptions->Add( m_Check_Minimal, 0, wxRIGHT|wxLEFT, 5 );
 
-	m_Check_Merge_PTH_NPTH = new wxCheckBox( this, wxID_ANY, _("PTH and NPTH in single file"), wxDefaultPosition, wxDefaultSize, 0 );
-	m_Check_Merge_PTH_NPTH->SetToolTip( _("Not recommended.\nOnly use for board houses which ask for merged PTH and NPTH into a single file.") );
+	m_Check_Merge_PTH_NPTH = new wxCheckBox( this, wxID_ANY, _("Merge PTH and NPTH into a single file"), wxDefaultPosition, wxDefaultSize, 0 );
+	m_Check_Merge_PTH_NPTH->SetToolTip( _("Not recommended.\nWhen unchecked, separate PTH and NPTH drill files are generated.\nOnly use for board houses which ask for merged PTH and NPTH into a single file.") );
 
 	fgSizerExcellonOptions->Add( m_Check_Merge_PTH_NPTH, 0, wxLEFT, 5 );
 

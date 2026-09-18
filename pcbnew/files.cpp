@@ -574,6 +574,25 @@ bool PCB_EDIT_FRAME::OpenProjectFiles( const std::vector<wxString>& aFileSet, in
     wxFileName pro = fullFileName;
     pro.SetExt( FILEEXT::AnvilProjectFileExtension );
 
+    // Anvil keeps ONE project per directory, so a board living in the loaded project's
+    // directory belongs to THAT project.  Deriving the project name by swapping the
+    // extension breaks for any board carrying an infix -- the AI build's
+    // "board.attempt1.anvil_pcb" / "board.best.anvil_pcb" snapshots: it yields
+    // "board.attempt1.anvil_pro", which never exists, so the setProject block below
+    // unloaded the real project, CREATED that phantom project file on disk and switched
+    // the whole single-window app to it (the next same-editor open then silently
+    // failed).  Only a board from a directory the loaded project does not own may still
+    // re-derive and switch (classic standalone open).
+    {
+        wxFileName loadedPro( Prj().GetProjectFullName() );
+
+        if( loadedPro.IsOk() && !loadedPro.GetFullPath().IsEmpty()
+                && loadedPro.GetPath() == wx_filename.GetPath() )
+        {
+            pro = loadedPro;
+        }
+    }
+
     bool is_new = !wxFileName::IsFileReadable( fullFileName );
 
     wxString previousBoardFileName = GetBoard() ? GetBoard()->GetFileName() : wxString();
@@ -984,6 +1003,19 @@ bool PCB_EDIT_FRAME::OpenProjectFiles( const std::vector<wxString>& aFileSet, in
         if( !previousBoardFileName.IsEmpty() && ( aCtl & KICTL_NONKICAD_ONLY ) && !setProject )
         {
             fname = previousBoardFileName;
+        }
+        else if( !converted && wx_filename.GetExt() == FILEEXT::AnvilPcbFileExtension )
+        {
+            // A native board KEEPS ITS OWN NAME.  Re-labelling every load as
+            // "<project>.anvil_pcb" mislabelled any sibling board of the project
+            // (the AI build's "board.attempt1.anvil_pcb" snapshots): the buffer was
+            // renamed to the PROJECT board, so the title lied and real-file autosave
+            // would have silently overwritten the real project board with the
+            // snapshot's content.  For the project board itself this branch is
+            // identical to the rebirth below.
+            fname = wx_filename.GetFullPath();
+
+            fname.Replace( WIN_STRING_DIR_SEP, UNIX_STRING_DIR_SEP );
         }
         else
         {

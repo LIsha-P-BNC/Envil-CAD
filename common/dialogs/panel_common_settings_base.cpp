@@ -450,7 +450,7 @@ PANEL_COMMON_SETTINGS_BASE::PANEL_COMMON_SETTINGS_BASE( wxWindow* parent, wxWind
 	int m_choiceBackupLocationNChoices = sizeof( m_choiceBackupLocationChoices ) / sizeof( wxString );
 	m_choiceBackupLocation = new wxChoice( this, wxID_ANY, wxDefaultPosition, wxDefaultSize, m_choiceBackupLocationNChoices, m_choiceBackupLocationChoices, 0 );
 	m_choiceBackupLocation->SetSelection( 0 );
-	m_choiceBackupLocation->SetToolTip( _("Project: store backups and autosave files inside the project directory.\nUser: store them in your KiCad user data directory.") );
+	m_choiceBackupLocation->SetToolTip( _("Project: store backups and autosave files inside the project directory.\nUser: store them in your Anvil user data directory.") );
 
 	gbSizer3->Add( m_choiceBackupLocation, wxGBPosition( 2, 1 ), wxGBSpan( 1, 2 ), wxALIGN_CENTER_VERTICAL|wxRIGHT|wxLEFT|wxEXPAND, 3 );
 
