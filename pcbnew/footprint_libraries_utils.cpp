@@ -25,6 +25,7 @@
 #include <wx/ffile.h>
 #include <pgm_base.h>
 #include <kiface_base.h>
+#include <kiway.h>   // KIWAY::GetTabHost() -- complete type needed for the tab-raise below
 #include <confirm.h>
 #include <kidialog.h>
 #include <macros.h>
@@ -980,7 +981,20 @@ bool FOOTPRINT_EDIT_FRAME::SaveFootprintToBoard( bool aAddNew )
         newFootprint->ResetUuid();
         commit.Push( _( "Insert Footprint" ) );
 
-        pcbframe->Raise();
+        // Anvil Next single-window shell: the board editor is a WS_CHILD frame parked on a
+        // notebook tab, so Raise() cannot bring it forward -- the tab stays on the footprint
+        // editor and the interactive placement that follows runs on a canvas the user cannot
+        // see (looking exactly like the command did nothing).  Ask the shell to select the
+        // board's tab instead; DockPlayerAsTab() is idempotent and just re-selects it.
+        if( KIFACE_TAB_HOST* tabHost = Kiway().GetTabHost() )
+            tabHost->DockPlayerAsTab( pcbframe );
+        else
+            pcbframe->Raise();
+
+        // Placement is mouse-driven: give the board canvas focus so the footprint follows the
+        // cursor (and Esc cancels) without the user having to click the canvas first.
+        pcbframe->GetCanvas()->SetFocus();
+
         pcb_ToolManager->RunAction( PCB_ACTIONS::placeFootprint, newFootprint );
     }
 

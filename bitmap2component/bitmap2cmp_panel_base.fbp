@@ -1743,7 +1743,7 @@
                         <property name="gripper">0</property>
                         <property name="hidden">0</property>
                         <property name="id">wxID_ANY</property>
-                        <property name="label">Symbol (.kicad_sym file)</property>
+                        <property name="label">Symbol (.anvil_sym file)</property>
                         <property name="max_size"></property>
                         <property name="maximize_button">0</property>
                         <property name="maximum_size"></property>
@@ -1809,7 +1809,7 @@
                         <property name="gripper">0</property>
                         <property name="hidden">0</property>
                         <property name="id">wxID_ANY</property>
-                        <property name="label">Footprint (.kicad_mod file)</property>
+                        <property name="label">Footprint (.anvil_mod file)</property>
                         <property name="max_size"></property>
                         <property name="maximize_button">0</property>
                         <property name="maximum_size"></property>
@@ -2079,7 +2079,7 @@
                         <property name="gripper">0</property>
                         <property name="hidden">0</property>
                         <property name="id">wxID_ANY</property>
-                        <property name="label">Drawing Sheet (.kicad_wks file)</property>
+                        <property name="label">Drawing Sheet (.anvil_wks file)</property>
                         <property name="max_size"></property>
                         <property name="maximize_button">0</property>
                         <property name="maximum_size"></property>

@@ -3050,6 +3050,47 @@ void FOOTPRINT::Flip( const VECTOR2I& aCentre, FLIP_DIRECTION aFlipDirection )
 }
 
 
+void FOOTPRINT::Mirror( const VECTOR2I& aCentre, FLIP_DIRECTION aFlipDirection )
+{
+    // Mirroring is not flipping: the footprint stays on the same board side and only its geometry
+    // is reversed.  Use Flip() to send a footprint to the other side of the board.
+
+    VECTOR2I finalPos = m_pos;
+    MIRROR( finalPos, aCentre, aFlipDirection );
+    SetPosition( finalPos );
+
+    // A mirror reverses the sense of rotation, so keep m_orient in step.  Mirroring about the X
+    // axis negates the angle; mirroring about the Y axis gives 180 - angle.  (Same convention as
+    // Flip(), which mirrors about the X axis and then rotates 180 deg if needed.)
+    EDA_ANGLE newOrientation = aFlipDirection == FLIP_DIRECTION::TOP_BOTTOM ? -m_orient
+                                                                           : ANGLE_180 - m_orient;
+    newOrientation.Normalize180();
+
+    // The children hold absolute board coordinates, so mirror them directly about the footprint
+    // anchor.  m_orient is assigned rather than passed through SetOrientation() because that would
+    // rotate the children a second time.
+    for( PCB_FIELD* field : m_fields )
+        field->Mirror( m_pos, aFlipDirection );
+
+    for( PAD* pad : m_pads )
+        pad->Mirror( m_pos, aFlipDirection );
+
+    for( ZONE* zone : m_zones )
+        zone->Mirror( m_pos, aFlipDirection );
+
+    for( BOARD_ITEM* item : m_drawings )
+        item->Mirror( m_pos, aFlipDirection );
+
+    for( PCB_POINT* point : m_points )
+        point->Mirror( m_pos, aFlipDirection );
+
+    m_orient = newOrientation;
+
+    // The courtyard and geometry hulls are no longer valid; let them be rebuilt on demand.
+    InvalidateGeometryCaches();
+}
+
+
 void FOOTPRINT::SetPosition( const VECTOR2I& aPos )
 {
     VECTOR2I delta = aPos - m_pos;

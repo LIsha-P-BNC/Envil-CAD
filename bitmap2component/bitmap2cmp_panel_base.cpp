@@ -163,10 +163,10 @@ BITMAP2CMP_PANEL_BASE::BITMAP2CMP_PANEL_BASE( wxWindow* parent, wxWindowID id, c
 	fgSizer2->SetFlexibleDirection( wxBOTH );
 	fgSizer2->SetNonFlexibleGrowMode( wxFLEX_GROWMODE_SPECIFIED );
 
-	m_rbSymbol = new wxRadioButton( sbOutputFormat->GetStaticBox(), wxID_ANY, _("Symbol (.kicad_sym file)"), wxDefaultPosition, wxDefaultSize, 0 );
+	m_rbSymbol = new wxRadioButton( sbOutputFormat->GetStaticBox(), wxID_ANY, _("Symbol (.anvil_sym file)"), wxDefaultPosition, wxDefaultSize, 0 );
 	fgSizer2->Add( m_rbSymbol, 0, wxBOTTOM|wxRIGHT, 5 );
 
-	m_rbFootprint = new wxRadioButton( sbOutputFormat->GetStaticBox(), wxID_ANY, _("Footprint (.kicad_mod file)"), wxDefaultPosition, wxDefaultSize, 0 );
+	m_rbFootprint = new wxRadioButton( sbOutputFormat->GetStaticBox(), wxID_ANY, _("Footprint (.anvil_mod file)"), wxDefaultPosition, wxDefaultSize, 0 );
 	fgSizer2->Add( m_rbFootprint, 0, wxTOP|wxRIGHT, 5 );
 
 	wxBoxSizer* bSizer4;
@@ -188,7 +188,7 @@ BITMAP2CMP_PANEL_BASE::BITMAP2CMP_PANEL_BASE( wxWindow* parent, wxWindowID id, c
 	m_rbPostscript = new wxRadioButton( sbOutputFormat->GetStaticBox(), wxID_ANY, _("Postscript (.ps file)"), wxDefaultPosition, wxDefaultSize, 0 );
 	fgSizer2->Add( m_rbPostscript, 0, wxTOP|wxBOTTOM|wxRIGHT, 5 );
 
-	m_rbWorksheet = new wxRadioButton( sbOutputFormat->GetStaticBox(), wxID_ANY, _("Drawing Sheet (.kicad_wks file)"), wxDefaultPosition, wxDefaultSize, 0 );
+	m_rbWorksheet = new wxRadioButton( sbOutputFormat->GetStaticBox(), wxID_ANY, _("Drawing Sheet (.anvil_wks file)"), wxDefaultPosition, wxDefaultSize, 0 );
 	fgSizer2->Add( m_rbWorksheet, 0, wxTOP|wxRIGHT, 5 );
 
 

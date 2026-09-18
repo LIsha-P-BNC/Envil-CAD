@@ -292,7 +292,7 @@ void BITMAP2CMP_FRAME::doReCreateMenuBar()
     }
 
     // Ensure the title is up to date after changing language
-    openRecentMenu->SetTitle( _( "Open Recent" ) );
+    openRecentMenu->SetTitle( _( "Open Recent Image" ) );
     fileHistory.UpdateClearText( openRecentMenu, _( "Clear Recent Files" ) );
 
     wxMenuItem* item = fileMenu->Add( openRecentMenu->Clone() );
@@ -355,7 +355,7 @@ void BITMAP2CMP_FRAME::buildFileMenu( ACTION_MENU* fileMenu )
         fileHistory.AddFilesToMenu();
     }
 
-    openRecentMenu->SetTitle( _( "Open Recent" ) );
+    openRecentMenu->SetTitle( _( "Open Recent Image" ) );
     fileHistory.UpdateClearText( openRecentMenu, _( "Clear Recent Files" ) );
 
     wxMenuItem* item = fileMenu->Add( openRecentMenu->Clone() );

@@ -63,12 +63,12 @@ private:
 };
 
 
-GBR_LAYER_BOX_SELECTOR::GBR_LAYER_BOX_SELECTOR( wxWindow* parent, wxWindowID id, const wxPoint& pos,
+GBR_LAYER_BOX_SELECTOR::GBR_LAYER_BOX_SELECTOR( wxWindow* aParent, GERBVIEW_FRAME* aFrame,
+                                                wxWindowID id, const wxPoint& pos,
                                                 const wxSize& size, int n,
                                                 const wxString choices[] ) :
-        LAYER_BOX_SELECTOR( parent, id, pos, size, n, choices ),
-        m_layerPresentation( std::make_unique<GBR_LAYER_PRESENTATION>(
-                static_cast<GERBVIEW_FRAME&>( *parent->GetParent() ) ) )
+        LAYER_BOX_SELECTOR( aParent, id, pos, size, n, choices ),
+        m_layerPresentation( std::make_unique<GBR_LAYER_PRESENTATION>( *aFrame ) )
 {
     m_layerhotkeys = false;
 }

@@ -145,6 +145,13 @@ void PCB_POINT::Flip( const VECTOR2I& aCentre, FLIP_DIRECTION aFlipDirection )
 }
 
 
+void PCB_POINT::Mirror( const VECTOR2I& aCentre, FLIP_DIRECTION aFlipDirection )
+{
+    // A mirror keeps the point on its own layer; only the position moves.
+    MIRROR( m_pos, aCentre, aFlipDirection );
+}
+
+
 const BOX2I PCB_POINT::GetBoundingBox() const
 {
     BOX2I bbox = BOX2I::ByCenter( m_pos, VECTOR2I{ m_size, m_size } );

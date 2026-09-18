@@ -25,8 +25,10 @@
 #ifndef KICAD_MANAGER_CONTROL_H
 #define KICAD_MANAGER_CONTROL_H
 
+#include <frame_type.h>
 #include <tool/tool_interactive.h>
 #include <mutex>
+#include <vector>
 
 
 class KICAD_MANAGER_FRAME;
@@ -96,6 +98,20 @@ private:
     int openProject( const wxString& aDefaultDir, const wxString& aWildcard = wxEmptyString );
 
     wxFileName newProjectDirectory( wxString* aFileName = nullptr, bool isRepo = false );
+
+    /**
+     * Open one of the auxiliary tools (Gerber Viewer, Drawing Sheet Editor, ...) in-process
+     * and dock it as a tab of the single-window shell, loading @a aFiles into it.
+     *
+     * Loading happens after the frame is on screen so tools that auto-fit their view (GerbView)
+     * get a realized, correctly sized canvas.
+     *
+     * @param aFrameType is the KIWAY player to open.
+     * @param aFiles is the list of paths to hand to the tool; may be empty.
+     * @return false when no in-process KIFACE exists for @a aFrameType, meaning the caller must
+     *         fall back to launching the separate executable.
+     */
+    bool showInProcessTool( FRAME_T aFrameType, const std::vector<wxString>& aFiles );
 
 private:
     KICAD_MANAGER_FRAME* m_frame;           ///< Pointer to the currently used edit/draw frame.

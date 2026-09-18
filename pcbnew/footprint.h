@@ -584,6 +584,15 @@ public:
     void Flip( const VECTOR2I& aCentre, FLIP_DIRECTION aFlipDirection ) override;
 
     /**
+     * Mirror the footprint about an axis through @a aCentre, keeping it on the same board side.
+     *
+     * Unlike Flip(), which moves the footprint to the other side of the board, this reverses the
+     * footprint geometry in place: pads, graphics, zones and fields are all mirrored and the
+     * orientation is adjusted to match the new sense of rotation.
+     */
+    void Mirror( const VECTOR2I& aCentre, FLIP_DIRECTION aFlipDirection ) override;
+
+    /**
      * Move the reference point of the footprint.
      *
      * It looks like a move footprint:

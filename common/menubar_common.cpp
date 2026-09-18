@@ -378,6 +378,7 @@ void EDA_BASE_FRAME::buildCommonMenuBarFrom( EDA_BASE_FRAME* aSource,
             [&]( const wxString& aTitle, void ( EDA_BASE_FRAME::*aBuilder )( ACTION_MENU* ) )
             {
                 ACTION_MENU* menu = new ACTION_MENU( false, tool );
+                size_t       splicedCount = 0;
 
                 // Compose the shell's common commands with the active editor's commands only
                 // when they come from different frames.  With no editor open, the shell must
@@ -389,9 +390,30 @@ void EDA_BASE_FRAME::buildCommonMenuBarFrom( EDA_BASE_FRAME* aSource,
                     ( aCommonSource->*aBuilder )( commonMenu );
                     menu->AppendFrom( *commonMenu );
                     delete commonMenu;
+
+                    splicedCount = menu->GetMenuItemCount();
                 }
 
                 ( aSource->*aBuilder )( menu );
+
+                // Both frames offer the suite-wide commands (Cut/Copy/Paste, Refresh,
+                // Calculator Tools, Configure Paths, Manage ... Libraries, Preferences, Set
+                // Language), and their ids differ per module, so nothing upstream of here can
+                // tell the two copies apart -- the user just saw every one of them twice.
+                // Keep the active frame's copy, which is the one that dispatches to the
+                // editor the menu bar is showing.
+                if( splicedCount > 0 )
+                {
+                    menu->DropDuplicateSplicedItems( splicedCount );
+
+                    // ... and the pairs that mean the same thing under two different names
+                    // ("PCB Editor" / "Switch to PCB Editor"), which no label match can see.
+                    menu->DropRedundantAliases();
+                }
+
+                // Dropping items (and hooks that add nothing in this layout) leaves separators
+                // stranded at the top, the bottom, or two in a row.
+                menu->CollapseSeparators();
 
                 // A frame opts into a top-level menu simply by adding items in its hook; an empty
                 // menu means "this frame has no such menu" and is dropped.

@@ -414,7 +414,7 @@ PANEL_SYM_LIB_TABLE::PANEL_SYM_LIB_TABLE( DIALOG_EDIT_LIBRARY_TABLES* aParent, P
         if( type == SCH_IO_MGR::SCH_KICAD )
         {
             wxString folderEntry = SCH_IO_MGR::ShowType( SCH_IO_MGR::SCH_KICAD );
-            folderEntry << wxString::Format( wxS( " (%s)" ), _( "folder with .kicad_sym files" ) );
+            folderEntry << wxString::Format( wxS( " (%s)" ), _( "folder with .anvil_sym files" ) );
             browseMenu->Append( ID_PANEL_SYM_LIB_KICAD_FOLDER, folderEntry );
             browseMenu->Bind( wxEVT_COMMAND_MENU_SELECTED, &PANEL_SYM_LIB_TABLE::browseLibrariesHandler, this,
                               ID_PANEL_SYM_LIB_KICAD_FOLDER );
@@ -827,12 +827,12 @@ void PANEL_SYM_LIB_TABLE::onConvertLegacyLibraries( wxCommandEvent& event )
     {
         if( legacyRows.size() == 1 )
         {
-            msg.Printf( _( "Save '%s' as current Anvil format (*.kicad_sym) and replace legacy entry in table?" ),
+            msg.Printf( _( "Save '%s' as current Anvil format (*.anvil_sym) and replace legacy entry in table?" ),
                         cur_grid()->GetCellValue( legacyRows[0], COL_NICKNAME ) );
         }
         else
         {
-            msg.Printf( _( "Save %d libraries as current Anvil format (*.kicad_sym) and replace legacy entries "
+            msg.Printf( _( "Save %d libraries as current Anvil format (*.anvil_sym) and replace legacy entries "
                            "in table?" ),
                         (int) legacyRows.size() );
         }
@@ -854,7 +854,7 @@ void PANEL_SYM_LIB_TABLE::onConvertLegacyLibraries( wxCommandEvent& event )
         }
 
         wxFileName newLib( resolvedPath );
-        newLib.SetExt( "kicad_sym" );
+        newLib.SetExt( FILEEXT::AnvilSymbolLibFileExtension );
 
         if( newLib.Exists() )
         {

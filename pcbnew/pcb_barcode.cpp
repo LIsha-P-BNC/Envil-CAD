@@ -310,6 +310,18 @@ void PCB_BARCODE::Flip( const VECTOR2I& aCentre, FLIP_DIRECTION aFlipDirection )
 }
 
 
+void PCB_BARCODE::Mirror( const VECTOR2I& aCentre, FLIP_DIRECTION aFlipDirection )
+{
+    // As for Flip(), but the barcode stays on its own layer.
+    MIRROR( m_pos, aCentre, aFlipDirection );
+
+    if( aFlipDirection == FLIP_DIRECTION::TOP_BOTTOM )
+        m_angle += ANGLE_180;
+
+    AssembleBarcode();
+}
+
+
 void PCB_BARCODE::StyleFromSettings( const BOARD_DESIGN_SETTINGS& settings, bool aCheckSide )
 {
     SetTextSize( settings.GetTextSize( GetLayer() ).y );

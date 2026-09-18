@@ -35,6 +35,8 @@
 #include <anvil_auth/anvil_auth.h>
 #include <dialogs/dialog_anvil_login.h>
 #include <wx/utils.h>   // wxBusyCursor
+#include <wx/filefn.h>  // wxFileExists / wxDirExists
+#include <wx/filename.h>
 #include <kidialog.h>
 #include <project/project_file.h>
 #include <project/project_local_settings.h>
@@ -847,10 +849,93 @@ int KICAD_MANAGER_CONTROL::ToggleLocalHistory( const TOOL_EVENT& aEvent )
 }
 
 
+/**
+ * Split the parameter of an Execute() action into the list of paths to hand to an
+ * in-process tool frame.
+ *
+ * The parameter arrives in one of two shapes: a bare path (the Project Explorer passes
+ * the double-clicked file; a missing parameter is replaced by the project folder, used
+ * as an MRU hint), or a whole command line of the form `<tool.exe> "file1" "file2" `
+ * built by KICAD_MANAGER_FRAME's drag-and-drop handler for the separate-process launch.
+ * Only real, existing paths are returned - the leading executable token is dropped.
+ */
+static std::vector<wxString> paramToPathList( const wxString& aParam )
+{
+    std::vector<wxString> candidates;
+
+    if( aParam.IsEmpty() )
+        return candidates;
+
+    if( aParam.Contains( wxT( "\"" ) ) )
+    {
+        // Command-line shape: every quoted run is one path; the unquoted leading
+        // executable name falls outside the quotes and is skipped for free.
+        wxString token;
+        bool     inQuotes = false;
+
+        for( wxUniChar ch : aParam )
+        {
+            if( ch == '"' )
+            {
+                if( inQuotes && !token.IsEmpty() )
+                    candidates.emplace_back( token );
+
+                token.clear();
+                inQuotes = !inQuotes;
+            }
+            else if( inQuotes )
+            {
+                token += ch;
+            }
+        }
+    }
+    else
+    {
+        candidates.emplace_back( aParam );
+    }
+
+    std::vector<wxString> paths;
+
+    for( const wxString& candidate : candidates )
+    {
+        wxString path = candidate;
+        path.Trim( true ).Trim( false );
+
+        if( path.IsEmpty() )
+            continue;
+
+        // Never feed a program to a document viewer, whatever the quoting looked like.
+        if( wxFileName( path ).GetExt().IsSameAs( wxT( "exe" ), false ) )
+            continue;
+
+        if( wxFileExists( path ) || wxDirExists( path ) )
+            paths.emplace_back( path );
+    }
+
+    return paths;
+}
+
+
 int KICAD_MANAGER_CONTROL::ViewDroppedViewers( const TOOL_EVENT& aEvent )
 {
-    if( aEvent.Parameter<wxString*>() )
-        wxExecute( *aEvent.Parameter<wxString*>(), wxEXEC_ASYNC );
+    if( !aEvent.Parameter<wxString*>() )
+        return 0;
+
+    const wxString& command = *aEvent.Parameter<wxString*>();
+
+    // Anvil Next single-window shell: show the dropped Gerbers/drill files in the docked
+    // Gerber Viewer tab rather than spawning a second gerbview.exe window.  The parameter
+    // is the command line KICAD_MANAGER_FRAME built for that separate-process launch, so
+    // pull the file paths back out of it.
+    if( ADVANCED_CFG::GetCfg().m_SingleWindowShell )
+    {
+        std::vector<wxString> files = paramToPathList( command );
+
+        if( !files.empty() && showInProcessTool( FRAME_GERBER, files ) )
+            return 0;
+    }
+
+    wxExecute( command, wxEXEC_ASYNC );
 
     return 0;
 }
@@ -1124,6 +1209,68 @@ int KICAD_MANAGER_CONTROL::ShowPlayer( const TOOL_EVENT& aEvent )
 }
 
 
+bool KICAD_MANAGER_CONTROL::showInProcessTool( FRAME_T aFrameType,
+                                               const std::vector<wxString>& aFiles )
+{
+    if( m_inShowPlayer )
+        return true;    // a tool is already being opened; don't also spawn an .exe for it
+
+    REENTRANCY_GUARD guard( &m_inShowPlayer );
+
+    KIWAY_PLAYER* player = nullptr;
+
+    try
+    {
+        player = m_frame->Kiway().Player( aFrameType, true );
+    }
+    catch( const IO_ERROR& )
+    {
+        // No in-process KIFACE for this tool: tell the caller to use the legacy launch.
+        return false;
+    }
+
+    if( !player )
+        return false;
+
+    // Layer B: re-host the tool as a tab in the manager shell.  If docking is unavailable
+    // (non-Windows, or flag off mid-flight) fall back to a floating window so the tool
+    // still opens.
+    bool docked = m_frame->DockEditorAsTab( player, player->GetTitle() );
+
+    if( !docked )
+    {
+        if( !player->IsVisible() )
+        {
+            wxBusyCursor busy;
+            player->Show( true );
+        }
+
+        // Needed on Windows; harmless elsewhere.
+        if( player->IsIconized() )
+            player->Iconize( false );
+
+        player->Raise();
+
+        if( wxWindow::FindFocus() != player )
+            player->SetFocus();
+    }
+
+    // Load AFTER the frame is on screen: GerbView's auto-zoom (and the GAL view behind it)
+    // needs a realized, correctly sized canvas, otherwise the freshly loaded layers end up
+    // outside the visible area.
+    if( !aFiles.empty() )
+    {
+        wxBusyCursor busy;
+        player->OpenProjectFiles( aFiles );
+
+        if( docked )
+            m_frame->DockEditorAsTab( player, player->GetTitle() );  // pick up the new title
+    }
+
+    return true;
+}
+
+
 int KICAD_MANAGER_CONTROL::Execute( const TOOL_EVENT& aEvent )
 {
     // Anvil Next single-window shell (Layer A): when enabled, open the auxiliary
@@ -1149,49 +1296,20 @@ int KICAD_MANAGER_CONTROL::Execute( const TOOL_EVENT& aEvent )
 
         if( inProcFrame != FRAME_T( -1 ) )
         {
-            if( m_inShowPlayer )
-                return -1;
+            // The legacy launch below hands the action's parameter to the tool on its
+            // command line.  The in-process tool has no command line, so forward it here
+            // instead - without this the docked tab opened EMPTY (double-clicking a
+            // generated Gerber in the Project Explorer showed a blank Gerber Viewer, and
+            // its Open dialog didn't even start in the project folder).
+            wxString toolParam;
 
-            REENTRANCY_GUARD guard( &m_inShowPlayer );
+            if( aEvent.Parameter<wxString*>() )
+                toolParam = *aEvent.Parameter<wxString*>();
+            else if( inProcFrame == FRAME_GERBER && m_frame->IsProjectActive() )
+                toolParam = m_frame->Prj().GetProjectPath();
 
-            KIWAY_PLAYER* player = nullptr;
-
-            try
-            {
-                player = m_frame->Kiway().Player( inProcFrame, true );
-            }
-            catch( const IO_ERROR& )
-            {
-                // No in-process KIFACE for this tool — leave player null and fall
-                // through to the legacy separate-process launch below.
-                player = nullptr;
-            }
-
-            if( player )
-            {
-                // Layer B: re-host the tool as a tab in the manager shell.  If docking
-                // is unavailable (non-Windows, or flag off mid-flight) fall back to a
-                // floating window so the tool still opens.
-                if( m_frame->DockEditorAsTab( player, player->GetTitle() ) )
-                    return 0;
-
-                if( !player->IsVisible() )
-                {
-                    wxBusyCursor busy;
-                    player->Show( true );
-                }
-
-                // Needed on Windows; harmless elsewhere.
-                if( player->IsIconized() )
-                    player->Iconize( false );
-
-                player->Raise();
-
-                if( wxWindow::FindFocus() != player )
-                    player->SetFocus();
-
+            if( showInProcessTool( inProcFrame, paramToPathList( toolParam ) ) )
                 return 0;
-            }
 
             // No in-process module for this tool (e.g. the Image Converter /
             // bitmap2component is built only as a standalone .exe, so it has no

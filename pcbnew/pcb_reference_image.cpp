@@ -236,6 +236,13 @@ void PCB_REFERENCE_IMAGE::Flip( const VECTOR2I& aCentre, FLIP_DIRECTION aFlipDir
 }
 
 
+void PCB_REFERENCE_IMAGE::Mirror( const VECTOR2I& aCentre, FLIP_DIRECTION aFlipDirection )
+{
+    // As for Flip(), but the image stays on its own layer.
+    m_referenceImage.Flip( aCentre, aFlipDirection );
+}
+
+
 void PCB_REFERENCE_IMAGE::Rotate( const VECTOR2I& aCenter, const EDA_ANGLE& aAngle )
 {
     m_referenceImage.Rotate( aCenter, aAngle );

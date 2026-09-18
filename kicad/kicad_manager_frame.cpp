@@ -124,6 +124,7 @@
 #include <wx/sizer.h>
 #include <wx/menu.h>
 #include <wx/popupwin.h>
+#include <wx/eventfilter.h>                 // app-wide press watch that closes an open dropdown
 #include <wx/settings.h>
 #include <wx/grid.h>                        // in-shell CSV / BOM viewer tab
 #include <wx/textfile.h>                    // read CSV lines for the viewer tab
@@ -166,6 +167,58 @@
 // background normally, accent purple on hover, and an always-white label in both states.
 namespace
 {
+// ----------------------------------------------------------------------------
+// Menu-bar tracking: exactly one dropdown on screen at a time.
+//
+// The dropdowns are wxPopupTransientWindows, and closing them used to be left entirely to that
+// class, which watches only the most recently shown popup and takes no mouse capture.  Hovering
+// a submenu row pops a SECOND such window, and from then on nothing was watching the dropdown
+// underneath: it stayed on screen whatever the user clicked ("stuck"), and the next press on the
+// menu bar -- which now reached the button, nothing having swallowed it -- built another dropdown
+// beside the one already showing.  Whether a press closed a menu therefore depended on where the
+// pointer had been beforehand, which is the inconsistency users saw.
+//
+// So the menu bar tracks the open dropdown itself rather than leaving it to wx (see
+// MSWDismissUnfocusedPopup(), which is disabled for the same reason): one root popup is
+// registered here while it is up, any press outside it closes it (ANVIL_MENU_DISMISS_FILTER),
+// and the menu-bar buttons toggle / switch against this state instead of blindly popping a new
+// window.
+// ----------------------------------------------------------------------------
+class ANVIL_POPUP_MENU;
+
+ANVIL_POPUP_MENU* g_anvilOpenMenu      = nullptr;   ///< Root dropdown on screen, or nullptr.
+wxWindow*         g_anvilOpenMenuOwner = nullptr;   ///< Menu-bar button that opened it, if any.
+
+/// Is the dropdown currently on screen the one belonging to @p aButton?
+inline bool AnvilMenuIsOpenFor( const wxWindow* aButton )
+{
+    return g_anvilOpenMenu && aButton && g_anvilOpenMenuOwner == aButton;
+}
+
+/// Close the open dropdown and every submenu under it.  No-op when nothing is open.
+void AnvilCloseOpenMenu();
+
+/// Install / remove the app-wide press watch.  Only live while a dropdown is showing.
+void AnvilEnableMenuDismissFilter( bool aOn );
+
+/// Forget the owning button without touching the popup -- for use while that button is being
+/// destroyed (a menu rebuild throws the whole button row away, popup and all).
+inline void AnvilForgetMenuOwner( const wxWindow* aButton )
+{
+    if( g_anvilOpenMenuOwner == aButton )
+        g_anvilOpenMenuOwner = nullptr;
+}
+
+/// Marker base for the title-bar menu-bar buttons, so the dismiss filter can recognise one
+/// without knowing the (later-declared) button class: a press on a menu-bar button is the
+/// button's own business -- see ANVIL_MENU_DISMISS_FILTER::FilterEvent().
+class ANVIL_MENUBAR_BUTTON
+{
+public:
+    virtual ~ANVIL_MENUBAR_BUTTON() = default;
+};
+
+
 // Windows 11 renders native popup menus itself and ignores every colour lever (wxDarkModeSettings,
 // wxSYS_COLOUR_MENU, SetMenuInfo, per-item owner-draw) — you can tint the body but never the icon
 // gutter without losing the icons.  So we render the dropdown ourselves: a fully-purple popup with
@@ -245,13 +298,22 @@ public:
 
     ~ANVIL_POPUP_MENU() override
     {
+        // A menu rebuild destroys the button row, and with it any popup parented to a button,
+        // without going through dismissChain() -- so the registration has to be dropped here
+        // too or the menu bar keeps a dangling "a dropdown is open" state.
+        unregisterOpenMenu();
+
         if( m_activationSource )
             m_activationSource->Unbind( wxEVT_ACTIVATE, &ANVIL_POPUP_MENU::onFrameActivate, this );
     }
 
-    /// Pop the menu so its top-left sits at screen point @p aScreenPos.
-    void PopupAt( const wxPoint& aScreenPos )
+    /// Pop the menu so its top-left sits at screen point @p aScreenPos.  @p aOwnerButton is the
+    /// menu-bar button this dropdown belongs to (nullptr for the stand-alone popups), which is
+    /// what lets a second click on that button close the menu again.
+    void PopupAt( const wxPoint& aScreenPos, wxWindow* aOwnerButton = nullptr )
     {
+        m_ownerButton = aOwnerButton;
+
         // Keep the whole menu on the monitor.  The title-bar buttons that pop these menus sit
         // right against the window's right edge, so a menu anchored at the button's left corner
         // runs past the screen and its labels (e.g. the account email) get clipped.
@@ -291,20 +353,80 @@ public:
         m_openMousePos   = wxGetMousePosition();
         m_swallowFirstUp = true;
 
+        // A menu bar shows ONE dropdown: whatever was up loses the screen to this one, and from
+        // here on any press outside this popup closes it (the filter is only live while a menu
+        // is open, so it costs nothing the rest of the time).
+        if( !m_parentPopup )
+        {
+            if( g_anvilOpenMenu && g_anvilOpenMenu != this )
+                AnvilCloseOpenMenu();
+
+            g_anvilOpenMenu      = this;
+            g_anvilOpenMenuOwner = m_ownerButton;
+            AnvilEnableMenuDismissFilter( true );
+
+            if( m_ownerButton )
+                m_ownerButton->Refresh();   // button stays lit while its menu is showing
+        }
+
         Move( pos );
         Popup();
     }
 
     void OnDismiss() override
     {
-        // The framework calls this on the deepest (capturing) popup when the user clicks outside.
+        // The framework calls this on the deepest popup when the user clicks outside.
         // Hide + destroy the whole chain from the root down.
+        CloseChain();
+    }
+
+    /// wx's own "a click landed outside a popup" dismissal, deliberately disabled.
+    ///
+    /// Two things make it unusable for a menu bar.  It runs from inside the click's own
+    /// message handling, BEFORE the click is delivered to the window under the pointer -- so a
+    /// click on the menu-bar button whose menu is showing closed the dropdown here and the
+    /// button, seeing nothing open by the time its handler ran, popped the same menu straight
+    /// back up: the item appeared not to toggle.  And it only ever watches the most recently
+    /// shown popup, so hovering a submenu (a second popup) left the root dropdown watched by
+    /// nobody -- the "stuck" menu that no click would close.
+    ///
+    /// The menu bar closes its own dropdowns instead, one place per reason:
+    /// ANVIL_MENU_DISMISS_FILTER (a press anywhere else, or Escape), the frame's WM_NC*BUTTONDOWN
+    /// (a press on the caption strip), onFrameActivate() (the app went to the background) and
+    /// the buttons themselves (toggle / switch).
+#ifdef __WXMSW__
+    void MSWDismissUnfocusedPopup() override { }
+#endif
+
+    /// Close this dropdown and every popup above and below it in the chain.  This is the menu
+    /// bar's "put the screen back the way it was" -- the one entry point used by the dismiss
+    /// filter, by the buttons and by a chosen row alike.
+    void CloseChain()
+    {
         ANVIL_POPUP_MENU* root = this;
 
         while( root->m_parentPopup )
             root = root->m_parentPopup;
 
         root->dismissChain();
+    }
+
+    /// Does @p aWin belong to this dropdown or to one of the submenus open under it?  A press
+    /// there is the menu's own, not a click "outside" that should close it.
+    bool OwnsWindow( const wxWindow* aWin ) const
+    {
+        if( !aWin )
+            return false;
+
+        const wxWindow* top = wxGetTopLevelParent( const_cast<wxWindow*>( aWin ) );
+
+        for( const ANVIL_POPUP_MENU* p = this; p; p = p->m_child )
+        {
+            if( p == aWin || p == top )
+                return true;
+        }
+
+        return false;
     }
 
 private:
@@ -656,7 +778,7 @@ private:
         int id = m_rows[row].item->GetId();
         wxMenu* menu = m_menu;
 
-        DismissChain();
+        CloseChain();
         menu->SendEvent( id );    // fire the real command exactly as a native click would
     }
 
@@ -700,32 +822,44 @@ private:
             m_child = nullptr;
         }
 
+        unregisterOpenMenu();
+
         Dismiss();
         CallAfter( [this]() { Destroy(); } );
     }
 
-    /// Hide this popup and every ancestor (used when a leaf item is chosen).
-    void DismissChain()
+    /// Give up the "this is the open dropdown" registration, stand the press watch down and
+    /// repaint the menu-bar button that no longer has a menu under it.  Safe to call twice.
+    void unregisterOpenMenu()
     {
-        ANVIL_POPUP_MENU* root = this;
+        if( g_anvilOpenMenu != this )
+            return;
 
-        while( root->m_parentPopup )
-            root = root->m_parentPopup;
+        g_anvilOpenMenu = nullptr;
+        AnvilEnableMenuDismissFilter( false );
 
-        root->dismissChain();
+        if( g_anvilOpenMenuOwner )
+        {
+            g_anvilOpenMenuOwner->Refresh();   // drop the "menu showing" highlight
+            g_anvilOpenMenuOwner = nullptr;
+        }
     }
 
     /// The owning frame was (de)activated: on deactivation close the menu like a native one.
     void onFrameActivate( wxActivateEvent& aEvent )
     {
         if( !aEvent.GetActive() )
-            DismissChain();
+            CloseChain();
 
         aEvent.Skip();
     }
 
     wxMenu*           m_menu;
     wxWindow*         m_activationSource = nullptr;
+
+    /// Menu-bar button this dropdown hangs off, or nullptr for a stand-alone popup (the
+    /// account / open-editor / status-bar menus).  See PopupAt().
+    wxWindow*         m_ownerButton = nullptr;
     ANVIL_POPUP_MENU* m_parentPopup;
     ANVIL_POPUP_MENU* m_child = nullptr;
     int               m_childRow = -1;
@@ -749,7 +883,97 @@ private:
 };
 
 
-class TITLEBAR_MENU_BUTTON : public wxWindow
+// While a dropdown is showing, every press in the application is offered here first.  This is
+// what makes "click anywhere and the menu closes" deterministic: it does not depend on the
+// popup holding focus, the mouse capture or the activation state, all of which the submenu
+// popups move around behind wx's back.
+class ANVIL_MENU_DISMISS_FILTER : public wxEventFilter
+{
+public:
+    static ANVIL_MENU_DISMISS_FILTER& Get()
+    {
+        static ANVIL_MENU_DISMISS_FILTER filter;
+        return filter;
+    }
+
+    void Enable( bool aOn )
+    {
+        if( aOn == m_installed )
+            return;
+
+        if( aOn )
+            wxEvtHandler::AddFilter( this );
+        else
+            wxEvtHandler::RemoveFilter( this );
+
+        m_installed = aOn;
+    }
+
+    int FilterEvent( wxEvent& aEvent ) override
+    {
+        if( !g_anvilOpenMenu )
+            return Event_Skip;
+
+        const wxEventType type = aEvent.GetEventType();
+
+        // Escape closes the menu, as every native one does.
+        if( type == wxEVT_CHAR_HOOK )
+        {
+            if( static_cast<wxKeyEvent&>( aEvent ).GetKeyCode() != WXK_ESCAPE )
+                return Event_Skip;
+
+            AnvilCloseOpenMenu();
+            return Event_Processed;
+        }
+
+        if( type != wxEVT_LEFT_DOWN && type != wxEVT_RIGHT_DOWN && type != wxEVT_MIDDLE_DOWN
+                && type != wxEVT_LEFT_DCLICK && type != wxEVT_RIGHT_DCLICK
+                && type != wxEVT_AUX1_DOWN && type != wxEVT_AUX2_DOWN )
+        {
+            return Event_Skip;
+        }
+
+        wxWindow* win = wxDynamicCast( aEvent.GetEventObject(), wxWindow );
+
+        // Inside the dropdown itself (or a submenu open under it): the popup runs its own rows.
+        if( g_anvilOpenMenu->OwnsWindow( win ) )
+            return Event_Skip;
+
+        // On a menu-bar button: leave it to the button, which closes its own menu (a second
+        // click on the same item) or switches to another one.  Closing here instead would let
+        // the button's handler reopen, on this very press, the menu the press meant to close.
+        if( dynamic_cast<ANVIL_MENUBAR_BUTTON*>( win ) )
+            return Event_Skip;
+
+        AnvilCloseOpenMenu();
+
+        // Swallow the press the way a native menu does: the click that dismisses a menu belongs
+        // to the menu, not to the canvas, tree or toolbar that happens to sit underneath it.
+        return Event_Processed;
+    }
+
+private:
+    bool m_installed = false;
+};
+
+
+void AnvilCloseOpenMenu()
+{
+    if( g_anvilOpenMenu )
+        g_anvilOpenMenu->CloseChain();   // clears g_anvilOpenMenu on the way out
+}
+
+
+void AnvilEnableMenuDismissFilter( bool aOn )
+{
+    ANVIL_MENU_DISMISS_FILTER::Get().Enable( aOn );
+}
+
+
+// One entry of the title-bar menu bar.  Beyond painting itself, it owns the menu-bar behaviour:
+// a press opens its dropdown, closes it again if that dropdown is already the one showing, and
+// replaces any OTHER open dropdown -- never adds a second one.
+class TITLEBAR_MENU_BUTTON : public wxWindow, public ANVIL_MENUBAR_BUTTON
 {
 public:
     TITLEBAR_MENU_BUTTON( wxWindow* aParent, const wxString& aLabel, wxMenu* aMenu ) :
@@ -778,21 +1002,46 @@ public:
         SetMinSize( wxSize( ext.x + FromDIP( 16 ), FromDIP( 24 ) ) );
 
         Bind( wxEVT_PAINT, &TITLEBAR_MENU_BUTTON::onPaint, this );
+        // Hover only lights the button: the dropdown follows the CLICK, never the pointer.  A
+        // menu bar that also switched on hover would re-open on the way to the item you meant
+        // to click, and the click that followed would read as a second click on an already-open
+        // menu -- i.e. it would close it again.
         Bind( wxEVT_ENTER_WINDOW, [this]( wxMouseEvent& ) { m_hover = true;  Refresh(); } );
         Bind( wxEVT_LEAVE_WINDOW, [this]( wxMouseEvent& ) { m_hover = false; Refresh(); } );
         Bind( wxEVT_LEFT_DOWN,
               [this]( wxMouseEvent& )
               {
-                  if( m_menu )
-                  {
-                      // Custom fully-purple popup (native menus can't be themed on Win11).
-                      ANVIL_POPUP_MENU* popup = new ANVIL_POPUP_MENU( this, m_menu );
-                      popup->PopupAt( ClientToScreen( wxPoint( 0, GetSize().GetHeight() ) ) );
-                  }
+                  if( !m_menu )
+                      return;
+
+                  // Clicking the item whose menu is showing closes it: a menu-bar entry
+                  // toggles, it never stacks a second dropdown on the first.
+                  if( AnvilMenuIsOpenFor( this ) )
+                      AnvilCloseOpenMenu();
+                  else
+                      openMenu();
               } );
     }
 
+    ~TITLEBAR_MENU_BUTTON() override
+    {
+        // The popup is parented to this button, so it is about to be destroyed along with it;
+        // just drop the back-reference (closing it from here would run a dismiss on a window
+        // already being torn down).
+        AnvilForgetMenuOwner( this );
+    }
+
 private:
+    /// Show this button's dropdown, replacing whatever dropdown was open.
+    void openMenu()
+    {
+        AnvilCloseOpenMenu();   // one dropdown at a time
+
+        // Custom fully-purple popup (native menus can't be themed on Win11).
+        ANVIL_POPUP_MENU* popup = new ANVIL_POPUP_MENU( this, m_menu );
+        popup->PopupAt( ClientToScreen( wxPoint( 0, GetSize().GetHeight() ) ), this );
+    }
+
     void onPaint( wxPaintEvent& )
     {
         wxAutoBufferedPaintDC dc( this );
@@ -805,8 +1054,12 @@ private:
         const wxColour  normalBg = anvil ? ANVIL::CHROME_MENU : GetParent()->GetBackgroundColour();
         const wxColour& hoverBg  = ANVIL::BAR_HOVER;   // subtle hover, on-band (not a solid block)
 
+        // Lit while the pointer is over it AND for as long as its dropdown is showing, so the
+        // bar says which menu is open (the dropdown can outlive the pointer being here).
+        const bool lit = m_hover || AnvilMenuIsOpenFor( this );
+
         dc.SetPen( *wxTRANSPARENT_PEN );
-        dc.SetBrush( wxBrush( m_hover ? hoverBg : normalBg ) );
+        dc.SetBrush( wxBrush( lit ? hoverBg : normalBg ) );
         dc.DrawRectangle( GetClientRect() );
 
         dc.SetFont( GetFont() );
@@ -4347,6 +4600,26 @@ static wxFileName FindOwningProjectFile( const wxString& aDir )
 }
 
 
+/**
+ * Is @a aExt a document any Anvil window can display without owning its project?
+ *
+ * Gerber / drill / Gerber-job files and drawing sheets are shown by the Gerber Viewer and the
+ * Drawing Sheet Editor, neither of which loads a project.  Generated fabrication outputs in
+ * particular live in their own subfolder, so project-scoped routing rules must not apply.
+ */
+static bool isProjectIndependentDoc( const wxString& aExt )
+{
+    // The job-file test comes first: the Gerber extension test is a substring regex, so
+    // "gbrjob" also matches "gbr".
+    return aExt == FILEEXT::GerberJobFileExtension
+           || aExt == FILEEXT::DrillFileExtension
+           || aExt == FILEEXT::DrawingSheetFileExtension
+           || aExt.IsSameAs( wxT( "nc" ), false )
+           || aExt.IsSameAs( wxT( "xnc" ), false )
+           || FILEEXT::IsGerberFileExtension( aExt );
+}
+
+
 void KICAD_MANAGER_FRAME::OpenAnvilFile( const wxString& aPath )
 {
     // Opening a file focuses the one running window (VS Code / Cursor behaviour).
@@ -4381,7 +4654,23 @@ void KICAD_MANAGER_FRAME::OpenAnvilFile( const wxString& aPath )
         return;
     }
 
-    // 2) Schematic or board file.  Opening is Anvil-only: only a native anvil_sch / anvil_pcb
+    // 2) Fabrication output → Gerber Viewer, and a drawing sheet → its editor.  These are
+    //    project-independent documents (generated Gerbers normally sit in a *_fab subfolder
+    //    that owns no project file of its own), so they must be routed BEFORE the
+    //    owning-project resolution further down — otherwise a perfectly good Gerber was
+    //    rejected with "Don't know how to open ... in Anvil" and never reached the viewer.
+    if( isProjectIndependentDoc( ext ) )
+    {
+        const TOOL_ACTION& viewerAction = ext == FILEEXT::DrawingSheetFileExtension
+                                                  ? KICAD_MANAGER_ACTIONS::editDrawingSheet
+                                                  : KICAD_MANAGER_ACTIONS::viewGerbers;
+
+        wxString viewerFile = fn.GetFullPath();
+        GetToolManager()->RunAction<wxString*>( viewerAction, &viewerFile );
+        return;
+    }
+
+    // 3) Schematic or board file.  Opening is Anvil-only: only a native anvil_sch / anvil_pcb
     //    opens directly in the editor.  A foreign Anvil (or legacy) schematic/board is never
     //    opened natively — it reaches an editor only through the import flow — so route it to its
     //    owning project's import offer instead.  FILEEXT is the single source of the mapping.
@@ -4487,7 +4776,12 @@ void KICAD_MANAGER_FRAME::HandleForwardedOpen( const wxString& aPath )
     // "same directory as the active project" == "belongs to the open project" (this also covers
     // sub-sheets whose basename differs from the project).  A fresh "--new" instance bypasses the
     // single-instance handoff and opens the file in its own window.
-    if( IsProjectActive() )
+    //
+    // Viewer documents are exempt: a Gerber/drill/job or drawing sheet swaps no project when
+    // opened, and generated Gerbers live in a *_fab subfolder — i.e. never the active project's
+    // own directory — so this rule would have spawned a second Anvil window for every one of
+    // them instead of showing it in the Gerber Viewer tab.
+    if( IsProjectActive() && !isProjectIndependentDoc( fn.GetExt() ) )
     {
         const wxString activeDir = wxFileName( GetProjectFileName() ).GetPath();
 
@@ -5976,6 +6270,16 @@ WXLRESULT KICAD_MANAGER_FRAME::MSWWindowProc( WXUINT message, WXWPARAM wParam, W
 
         return HTCLIENT;
     }
+
+    case WM_NCLBUTTONDOWN:
+    case WM_NCRBUTTONDOWN:
+    case WM_NCMBUTTONDOWN:
+        // The caption strip is non-client (WM_NCHITTEST hands the title bar back as HTCAPTION),
+        // so a press there raises no wx mouse event and never reaches the dismiss filter.  Close
+        // an open dropdown here as well, or dragging the window by its title bar would leave the
+        // menu hanging over the moved window.
+        AnvilCloseOpenMenu();
+        break;
 
     case WM_GETMINMAXINFO:
     {

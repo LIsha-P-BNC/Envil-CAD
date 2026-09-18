@@ -158,7 +158,8 @@ void GERBVIEW_FRAME::configureToolbars()
             {
                 if( !m_SelLayerBox )
                 {
-                    m_SelLayerBox = new GBR_LAYER_BOX_SELECTOR( aToolbar, ID_TOOLBARH_GERBVIEW_SELECT_ACTIVE_LAYER,
+                    m_SelLayerBox = new GBR_LAYER_BOX_SELECTOR( aToolbar, this,
+                                                                ID_TOOLBARH_GERBVIEW_SELECT_ACTIVE_LAYER,
                                                                 wxDefaultPosition, wxDefaultSize, 0, nullptr );
                 }
 

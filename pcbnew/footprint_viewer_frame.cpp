@@ -791,7 +791,21 @@ void FOOTPRINT_VIEWER_FRAME::AddFootprintToPCB()
         viewControls->SetCrossHairCursorPosition( cursorPos, false );
         commit.Push( _( "Insert Footprint" ) );
 
-        pcbframe->Raise();
+        // Anvil Next single-window shell: the board editor is a WS_CHILD frame parked on a
+        // notebook tab, so Raise() cannot bring it forward -- the browser tab stays in front
+        // and the placement that follows runs on a canvas the user cannot see, looking exactly
+        // like the command did nothing (and leaving PlacingFootprint() latched true, so the
+        // next attempt errors with "Previous footprint placement still in progress").  Ask the
+        // shell to select the board's tab; DockPlayerAsTab() is idempotent and just re-selects.
+        if( KIFACE_TAB_HOST* tabHost = Kiway().GetTabHost() )
+            tabHost->DockPlayerAsTab( pcbframe );
+        else
+            pcbframe->Raise();
+
+        // Placement is mouse-driven: give the board canvas focus so the footprint follows the
+        // cursor (and Esc cancels) without the user having to click the canvas first.
+        pcbframe->GetCanvas()->SetFocus();
+
         toolMgr->PostAction( PCB_ACTIONS::placeFootprint, newFootprint );
 
         newFootprint->ClearFlags();

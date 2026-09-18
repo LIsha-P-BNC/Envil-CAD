@@ -1537,6 +1537,31 @@ void PAD::Flip( const VECTOR2I& aCentre, FLIP_DIRECTION aFlipDirection )
 }
 
 
+void PAD::Mirror( const VECTOR2I& aCentre, FLIP_DIRECTION aFlipDirection )
+{
+    // Unlike Flip(), this keeps the pad on the same board side; only its geometry is mirrored.
+
+    // TODO(JE) padstacks
+    if( GetShape( PADSTACK::ALL_LAYERS ) == PAD_SHAPE::CUSTOM )
+        FlipPrimitives( aFlipDirection );
+
+    VECTOR2I tmpPt = GetPosition();
+    MIRROR( tmpPt, aCentre, aFlipDirection );
+    SetPosition( tmpPt );
+
+    m_padStack.ForEachUniqueLayer(
+            [&]( PCB_LAYER_ID aLayer )
+            {
+                MIRROR( m_padStack.Offset( aLayer ), VECTOR2I{ 0, 0 }, aFlipDirection );
+                MIRROR( m_padStack.TrapezoidDeltaSize( aLayer ), VECTOR2I{ 0, 0 }, aFlipDirection );
+            } );
+
+    SetOrientation( -GetOrientation() );
+
+    SetDirty();
+}
+
+
 void PAD::FlipPrimitives( FLIP_DIRECTION aFlipDirection )
 {
     Padstack().ForEachUniqueLayer(
