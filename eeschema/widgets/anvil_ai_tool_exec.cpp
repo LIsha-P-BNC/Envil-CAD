@@ -195,7 +195,7 @@ static json execAddComponent( SCH_EDIT_FRAME* aFrame, const json& aInput )
 
     SCH_COMMIT commit( aFrame );
     commit.Added( symbol, aFrame->GetScreen() );
-    commit.Push( _( "Envil AI: add symbol" ) );
+    commit.Push( _( "Anvil AI: add symbol" ) );
 
     return ok( "Placed " + std::string( reference.utf8_str() ) + " ("
                + std::string( libIdStr.utf8_str() ) + ")." );
@@ -285,7 +285,7 @@ static json execAddWire( SCH_EDIT_FRAME* aFrame, const json& aInput )
         }
     }
 
-    commit.Push( _( "Envil AI: add wire" ) );
+    commit.Push( _( "Anvil AI: add wire" ) );
 
     std::string msg = "Added " + std::to_string( segCount ) + " wire segment(s)";
 
@@ -322,7 +322,7 @@ static json execAddLabel( SCH_EDIT_FRAME* aFrame, const json& aInput )
 
     SCH_COMMIT commit( aFrame );
     commit.Added( label, aFrame->GetScreen() );
-    commit.Push( _( "Envil AI: add label" ) );
+    commit.Push( _( "Anvil AI: add label" ) );
 
     return ok( "Added " + kind + " '" + std::string( name.utf8_str() ) + "'." );
 }
@@ -337,7 +337,7 @@ static json execAddJunction( SCH_EDIT_FRAME* aFrame, const json& aInput )
 
     SCH_COMMIT commit( aFrame );
     commit.Added( jct, aFrame->GetScreen() );
-    commit.Push( _( "Envil AI: add junction" ) );
+    commit.Push( _( "Anvil AI: add junction" ) );
 
     return ok( "Added junction." );
 }
@@ -352,7 +352,7 @@ static json execAddNoConnect( SCH_EDIT_FRAME* aFrame, const json& aInput )
 
     SCH_COMMIT commit( aFrame );
     commit.Added( nc, aFrame->GetScreen() );
-    commit.Push( _( "Envil AI: add no-connect" ) );
+    commit.Push( _( "Anvil AI: add no-connect" ) );
 
     return ok( "Added no-connect." );
 }
@@ -375,12 +375,463 @@ static json execEditValue( SCH_EDIT_FRAME* aFrame, const json& aInput )
     SCH_COMMIT commit( aFrame );
     commit.Modify( sym, screen );
     sym->SetValueFieldText( val );
-    commit.Push( _( "Envil AI: edit value" ) );
+    commit.Push( _( "Anvil AI: edit value" ) );
 
     aFrame->GetCanvas()->Refresh();
 
     return ok( "Set " + std::string( ref.utf8_str() ) + " value to '"
                + std::string( val.utf8_str() ) + "'." );
+}
+
+
+/**
+ * label_to_wire: replace a net-label connection with REAL drawn wires on the CURRENT sheet.
+ * Finds every local label named 'net', chains their anchor points with L-shaped wire runs,
+ * and (unless keep_labels) removes the labels -- the "I want to SEE the connection" request.
+ * The L-runs are naive (horizontal then vertical); they may cross other items, so the reply
+ * says to check visually and run ERC.
+ */
+static json execLabelToWire( SCH_EDIT_FRAME* aFrame, const json& aInput )
+{
+    wxString net = wxString::FromUTF8( aInput.value( "net", std::string() ) );
+
+    if( net.IsEmpty() )
+        return fail( "label_to_wire needs a 'net' (the label text)." );
+
+    SCH_SCREEN* screen = aFrame->GetScreen();
+
+    std::vector<SCH_LABEL_BASE*> labels;
+
+    for( SCH_ITEM* item : screen->Items().OfType( SCH_LABEL_T ) )
+    {
+        SCH_LABEL_BASE* lbl = static_cast<SCH_LABEL_BASE*>( item );
+
+        if( lbl->GetText().IsSameAs( net, false ) )
+            labels.push_back( lbl );
+    }
+
+    if( labels.size() < 2 )
+        return fail( "Need at least two '" + std::string( net.utf8_str() )
+                     + "' labels on THIS sheet to join with wires (found "
+                     + std::to_string( labels.size() ) + ")." );
+
+    // Chain the anchor points nearest-neighbour so the wire path is short.
+    std::vector<VECTOR2I> pts;
+
+    for( SCH_LABEL_BASE* lbl : labels )
+        pts.push_back( lbl->GetPosition() );
+
+    std::vector<VECTOR2I> chain;
+    std::vector<bool>     used( pts.size(), false );
+    size_t                cur = 0;
+    used[0] = true;
+    chain.push_back( pts[0] );
+
+    for( size_t n = 1; n < pts.size(); ++n )
+    {
+        long long bestD = -1;
+        size_t    best = 0;
+
+        for( size_t i = 0; i < pts.size(); ++i )
+        {
+            if( used[i] )
+                continue;
+
+            VECTOR2I  d = pts[i] - pts[cur];
+            long long dist = (long long) d.x * d.x + (long long) d.y * d.y;
+
+            if( bestD < 0 || dist < bestD )
+            {
+                bestD = dist;
+                best = i;
+            }
+        }
+
+        used[best] = true;
+        chain.push_back( pts[best] );
+        cur = best;
+    }
+
+    SCH_COMMIT commit( aFrame );
+    int        segs = 0;
+
+    for( size_t i = 0; i + 1 < chain.size(); ++i )
+    {
+        VECTOR2I a = chain[i], b = chain[i + 1];
+        VECTOR2I corner( b.x, a.y );   // horizontal first, then vertical
+
+        for( const auto& [s, e] : { std::pair<VECTOR2I, VECTOR2I>( a, corner ),
+                                    std::pair<VECTOR2I, VECTOR2I>( corner, b ) } )
+        {
+            if( s == e )
+                continue;
+
+            SCH_LINE* wire = new SCH_LINE( s, LAYER_WIRE );
+            wire->SetEndPoint( e );
+            aFrame->AddToScreen( wire, screen );
+            commit.Added( wire, screen );
+            ++segs;
+        }
+    }
+
+    bool keep = aInput.value( "keep_labels", false );
+
+    if( !keep )
+    {
+        for( SCH_LABEL_BASE* lbl : labels )
+        {
+            commit.Removed( lbl, screen );
+            aFrame->RemoveFromScreen( lbl, screen );
+        }
+    }
+
+    commit.Push( _( "Anvil AI: label to wire" ) );
+    aFrame->GetCanvas()->Refresh();
+
+    return ok( "Joined " + std::to_string( labels.size() ) + " '"
+               + std::string( net.utf8_str() ) + "' points with " + std::to_string( segs )
+               + " wire segment(s)"
+               + ( keep ? " (labels kept)" : " and removed the labels" )
+               + ". The runs are straight L-shapes -- check they cross nothing and run ERC." );
+}
+
+
+/**
+ * wire_to_label: the opposite -- remove the drawn wires of one net on the CURRENT sheet and
+ * put a net label at every symbol pin that was on it. The "too many wires, clean it up with
+ * labels" request. Connectivity is preserved by name; run ERC after.
+ */
+static json execWireToLabel( SCH_EDIT_FRAME* aFrame, const json& aInput )
+{
+    wxString net = wxString::FromUTF8( aInput.value( "net", std::string() ) );
+
+    if( net.IsEmpty() )
+        return fail( "wire_to_label needs a 'net'." );
+
+    aFrame->RecalculateConnections( nullptr, NO_CLEANUP );
+
+    SCH_SHEET_PATH path = aFrame->GetCurrentSheet();
+    SCH_SCREEN*    screen = aFrame->GetScreen();
+
+    auto onNet = [&]( SCH_ITEM* item )
+    {
+        SCH_CONNECTION* conn = item->Connection( &path );
+
+        if( !conn )
+            return false;
+
+        wxString full = conn->Name( true );
+        return full.IsSameAs( net, false ) || full.AfterLast( '/' ).IsSameAs( net, false );
+    };
+
+    std::vector<SCH_ITEM*> wires;
+
+    for( SCH_ITEM* item : screen->Items().OfType( SCH_LINE_T ) )
+    {
+        if( item->GetLayer() == LAYER_WIRE && onNet( item ) )
+            wires.push_back( item );
+    }
+
+    if( wires.empty() )
+        return fail( "No drawn wires of net '" + std::string( net.utf8_str() )
+                     + "' on THIS sheet." );
+
+    // Every symbol pin on the net gets a label BEFORE the wires go, so nothing floats.
+    std::vector<VECTOR2I> pinPts;
+
+    for( SCH_ITEM* item : screen->Items().OfType( SCH_SYMBOL_T ) )
+    {
+        SCH_SYMBOL* sym = static_cast<SCH_SYMBOL*>( item );
+
+        for( SCH_PIN* pin : sym->GetPins( &path ) )
+        {
+            SCH_CONNECTION* conn = pin->Connection( &path );
+
+            if( conn && ( conn->Name( true ).IsSameAs( net, false )
+                          || conn->Name( true ).AfterLast( '/' ).IsSameAs( net, false ) ) )
+            {
+                pinPts.push_back( pin->GetPosition() );
+            }
+        }
+    }
+
+    if( pinPts.size() < 2 )
+        return fail( "Net '" + std::string( net.utf8_str() ) + "' touches fewer than two "
+                     "pins on this sheet -- labels would not reconnect it; aborted, "
+                     "nothing changed." );
+
+    SCH_COMMIT commit( aFrame );
+
+    for( const VECTOR2I& p : pinPts )
+    {
+        SCH_LABEL* lbl = new SCH_LABEL( p, net );
+        aFrame->AddToScreen( lbl, screen );
+        commit.Added( lbl, screen );
+    }
+
+    for( SCH_ITEM* w : wires )
+    {
+        commit.Removed( w, screen );
+        aFrame->RemoveFromScreen( w, screen );
+    }
+
+    // Junctions of the removed wires would be orphans; drop the ones that sat on the net.
+    std::vector<SCH_ITEM*> orphanJcts;
+
+    for( SCH_ITEM* item : screen->Items().OfType( SCH_JUNCTION_T ) )
+    {
+        if( onNet( item ) )
+            orphanJcts.push_back( item );
+    }
+
+    for( SCH_ITEM* j : orphanJcts )
+    {
+        commit.Removed( j, screen );
+        aFrame->RemoveFromScreen( j, screen );
+    }
+
+    commit.Push( _( "Anvil AI: wire to label" ) );
+    aFrame->GetCanvas()->Refresh();
+
+    return ok( "Replaced " + std::to_string( wires.size() ) + " wire segment(s) of '"
+               + std::string( net.utf8_str() ) + "' with " + std::to_string( pinPts.size() )
+               + " pin label(s). Run ERC to confirm the net is still whole." );
+}
+
+
+/**
+ * query_net: the connectivity answer behind "what is connected here?". Give a 'net' name to
+ * list every symbol pin on that net (across all sheets), or a 'reference' to list each of
+ * that symbol's pins with the net it lands on. Read-only.
+ */
+static json execQueryNet( SCH_EDIT_FRAME* aFrame, const json& aInput )
+{
+    wxString netName = wxString::FromUTF8( aInput.value( "net", std::string() ) );
+    wxString ref     = wxString::FromUTF8( aInput.value( "reference", std::string() ) );
+
+    if( netName.IsEmpty() && ref.IsEmpty() )
+        return fail( "query_net needs a 'net' name or a 'reference'." );
+
+    // Make sure connectivity is current before reading it.
+    aFrame->RecalculateConnections( nullptr, NO_CLEANUP );
+
+    json hits = json::array();
+
+    for( const auto& [path, screen] : allSheets( aFrame ) )
+    {
+        for( SCH_ITEM* item : screen->Items().OfType( SCH_SYMBOL_T ) )
+        {
+            SCH_SYMBOL* sym = static_cast<SCH_SYMBOL*>( item );
+            wxString    symRef = sym->GetRef( &path, false );
+
+            if( !ref.IsEmpty() && !symRef.IsSameAs( ref, false ) )
+                continue;
+
+            for( SCH_PIN* pin : sym->GetPins( &path ) )
+            {
+                SCH_CONNECTION* conn = pin->Connection( &path );
+                wxString        full = conn ? conn->Name( true ) : wxString();
+                wxString        local = full.AfterLast( '/' );
+
+                if( !netName.IsEmpty() && !full.IsSameAs( netName, false )
+                    && !local.IsSameAs( netName, false ) )
+                {
+                    continue;
+                }
+
+                hits.push_back( { { "reference", std::string( symRef.utf8_str() ) },
+                                  { "pin", std::string( pin->GetNumber().utf8_str() ) },
+                                  { "pin_name", std::string( pin->GetShownName().utf8_str() ) },
+                                  { "net", std::string( full.utf8_str() ) },
+                                  { "sheet", std::string( path.PathHumanReadable().utf8_str() ) },
+                                  { "x_mils", iuToMils( pin->GetPosition().x ) },
+                                  { "y_mils", iuToMils( pin->GetPosition().y ) } } );
+            }
+        }
+    }
+
+    if( hits.empty() )
+    {
+        return fail( netName.IsEmpty()
+                             ? "No symbol with reference " + std::string( ref.utf8_str() ) + "."
+                             : "Nothing found on a net named "
+                                       + std::string( netName.utf8_str() ) + "." );
+    }
+
+    return { { "ok", true }, { "connections", hits },
+             { "message", std::to_string( hits.size() ) + " pin(s) found." } };
+}
+
+
+/**
+ * replace_part: swap a placed symbol for a different library symbol (e.g. BC547 -> a MOSFET),
+ * keeping its position, orientation, reference and connected wires. The wires stay where they
+ * are, so if the new symbol's pin geometry differs the response says to verify connections --
+ * still far better than the old delete + add + rewire dance.
+ */
+static json execReplacePart( SCH_EDIT_FRAME* aFrame, const json& aInput )
+{
+    wxString ref      = wxString::FromUTF8( aInput.value( "reference", std::string() ) );
+    wxString libIdStr = wxString::FromUTF8( aInput.value( "lib_id", std::string() ) );
+    wxString value    = wxString::FromUTF8( aInput.value( "value", std::string() ) );
+
+    if( ref.IsEmpty() || libIdStr.IsEmpty() )
+        return fail( "replace_part needs a 'reference' and the new 'lib_id' "
+                     "(plus an optional new 'value')." );
+
+    LIB_ID libId;
+
+    if( libId.Parse( std::string( libIdStr.utf8_str() ) ) >= 0 )
+        return fail( "Invalid lib_id '" + std::string( libIdStr.utf8_str() ) + "'." );
+
+    LIB_SYMBOL* libSymbol = aFrame->GetLibSymbol( libId, false, false );
+
+    if( !libSymbol )
+        return fail( "Symbol not found in libraries: " + std::string( libIdStr.utf8_str() ) );
+
+    SCH_SCREEN* screen = nullptr;
+    SCH_SYMBOL* sym = findSymbol( aFrame, ref, &screen );
+
+    if( !sym )
+        return fail( "No symbol with reference " + std::string( ref.utf8_str() ) + "." );
+
+    const int oldPins = (int) sym->GetLibSymbolRef()->GetPinCount();
+
+    SCH_COMMIT commit( aFrame );
+    commit.Modify( sym, screen );
+
+    sym->SetLibSymbol( new LIB_SYMBOL( *libSymbol ) );
+    sym->SetLibId( libId );
+
+    if( !value.IsEmpty() )
+        sym->SetValueFieldText( value );
+
+    commit.Push( _( "Anvil AI: replace symbol" ) );
+    aFrame->GetCanvas()->Refresh();
+
+    const int newPins = (int) sym->GetLibSymbolRef()->GetPinCount();
+
+    std::string note = "Replaced " + std::string( ref.utf8_str() ) + " with "
+                       + std::string( libIdStr.utf8_str() ) + ".";
+
+    if( oldPins != newPins )
+    {
+        note += " Pin count changed (" + std::to_string( oldPins ) + " -> "
+                + std::to_string( newPins ) + ") -- verify every connection and run ERC.";
+    }
+    else
+    {
+        note += " Wires were left in place -- verify pin alignment (run ERC).";
+    }
+
+    return ok( note );
+}
+
+
+/**
+ * rotate_component: set a symbol's orientation absolutely -- angle_deg 0/90/180/270 plus an
+ * optional mirror 'x'/'y'. Absolute (not relative) so the model can state the intended final
+ * orientation without first querying the current one.
+ */
+static json execRotateComponent( SCH_EDIT_FRAME* aFrame, const json& aInput )
+{
+    wxString ref = wxString::FromUTF8( aInput.value( "reference", std::string() ) );
+
+    if( ref.IsEmpty() )
+        return fail( "rotate_component needs a 'reference'." );
+
+    int angle = aInput.value( "angle_deg", 0 );
+
+    int orient;
+
+    switch( ( ( angle % 360 ) + 360 ) % 360 )
+    {
+    case 0:   orient = SYM_ORIENT_0;   break;
+    case 90:  orient = SYM_ORIENT_90;  break;
+    case 180: orient = SYM_ORIENT_180; break;
+    case 270: orient = SYM_ORIENT_270; break;
+    default:
+        return fail( "angle_deg must be 0, 90, 180 or 270." );
+    }
+
+    std::string mirror = aInput.value( "mirror", std::string() );
+
+    if( mirror != "" && mirror != "x" && mirror != "y" )
+        return fail( "mirror must be 'x', 'y' or omitted." );
+
+    SCH_SCREEN* screen = nullptr;
+    SCH_SYMBOL* sym = findSymbol( aFrame, ref, &screen );
+
+    if( !sym )
+        return fail( "No symbol with reference " + std::string( ref.utf8_str() ) + "." );
+
+    SCH_COMMIT commit( aFrame );
+    commit.Modify( sym, screen );
+
+    sym->SetOrientation( orient );
+
+    if( mirror == "x" )
+        sym->SetOrientation( SYM_MIRROR_X );
+    else if( mirror == "y" )
+        sym->SetOrientation( SYM_MIRROR_Y );
+
+    commit.Push( _( "Anvil AI: rotate symbol" ) );
+    aFrame->GetCanvas()->Refresh();
+
+    return ok( "Set " + std::string( ref.utf8_str() ) + " to " + std::to_string( angle )
+               + " degrees" + ( mirror.empty() ? "" : " mirrored " + mirror ) + "." );
+}
+
+
+/**
+ * set_property: set ANY field of a symbol -- Footprint, MPN, Tolerance, DNP note, or a new
+ * user field. edit_value covers only the Value field; BOM-quality data needs the rest.
+ * A field created here defaults to hidden so the sheet is not cluttered.
+ */
+static json execSetProperty( SCH_EDIT_FRAME* aFrame, const json& aInput )
+{
+    wxString ref  = wxString::FromUTF8( aInput.value( "reference", std::string() ) );
+    wxString name = wxString::FromUTF8( aInput.value( "name", std::string() ) );
+    wxString val  = wxString::FromUTF8( aInput.value( "value", std::string() ) );
+
+    if( ref.IsEmpty() || name.IsEmpty() )
+        return fail( "set_property needs a 'reference' and a field 'name' (plus 'value')." );
+
+    if( name.IsSameAs( wxS( "Reference" ), false ) )
+        return fail( "Use annotate to change references, not set_property." );
+
+    SCH_SCREEN* screen = nullptr;
+    SCH_SYMBOL* sym = findSymbol( aFrame, ref, &screen );
+
+    if( !sym )
+        return fail( "No symbol with reference " + std::string( ref.utf8_str() ) + "." );
+
+    SCH_COMMIT commit( aFrame );
+    commit.Modify( sym, screen );
+
+    SCH_FIELD* field = sym->FindFieldCaseInsensitive( name );
+    bool       created = false;
+
+    if( !field )
+    {
+        SCH_FIELD newField( sym, FIELD_T::USER, name );
+        newField.SetPosition( sym->GetPosition() );
+        newField.SetVisible( false );
+        field = sym->AddField( newField );
+        created = true;
+    }
+
+    field->SetText( val );
+
+    if( aInput.contains( "visible" ) )
+        field->SetVisible( aInput["visible"].get<bool>() );
+
+    commit.Push( _( "Anvil AI: set property" ) );
+    aFrame->GetCanvas()->Refresh();
+
+    return ok( ( created ? "Created field '" : "Set field '" )
+               + std::string( name.utf8_str() ) + "' of " + std::string( ref.utf8_str() )
+               + " to '" + std::string( val.utf8_str() ) + "'." );
 }
 
 
@@ -402,7 +853,7 @@ static json execMoveComponent( SCH_EDIT_FRAME* aFrame, const json& aInput )
     SCH_COMMIT commit( aFrame );
     commit.Modify( sym, screen );
     sym->SetPosition( pos );
-    commit.Push( _( "Envil AI: move symbol" ) );
+    commit.Push( _( "Anvil AI: move symbol" ) );
 
     aFrame->GetCanvas()->Refresh();
 
@@ -426,7 +877,7 @@ static json execDeleteComponent( SCH_EDIT_FRAME* aFrame, const json& aInput )
     SCH_COMMIT commit( aFrame );
     commit.Removed( sym, screen );
     aFrame->RemoveFromScreen( sym, screen );
-    commit.Push( _( "Envil AI: delete symbol" ) );
+    commit.Push( _( "Anvil AI: delete symbol" ) );
 
     return ok( "Deleted " + std::string( ref.utf8_str() ) + "." );
 }
@@ -493,7 +944,7 @@ static json execDeleteAt( SCH_EDIT_FRAME* aFrame, const json& aInput )
         aFrame->RemoveFromScreen( it, aFrame->GetScreen() );
     }
 
-    commit.Push( _( "Envil AI: delete items" ) );
+    commit.Push( _( "Anvil AI: delete items" ) );
     aFrame->GetCanvas()->Refresh();
 
     return ok( "Deleted " + std::to_string( toDelete.size() ) + " item(s)." );
@@ -756,7 +1207,7 @@ static json execAnnotate( SCH_EDIT_FRAME* aFrame, const json& aInput )
                              true /*regroupUnits*/, false /*repairTimestamps*/, reporter,
                              SYMBOL_FILTER_NON_POWER );
 
-    commit.Push( _( "Envil AI: annotate" ) );
+    commit.Push( _( "Anvil AI: annotate" ) );
     aFrame->GetCanvas()->Refresh();
 
     return ok( "Annotated the schematic." );
@@ -958,6 +1409,18 @@ std::string AnvilExecAiTool( SCH_EDIT_FRAME* aFrame, const std::string& aRequest
                 result = execAddNoConnect( aFrame, input );
             else if( tool == "edit_value" )
                 result = execEditValue( aFrame, input );
+            else if( tool == "label_to_wire" )
+                result = execLabelToWire( aFrame, input );
+            else if( tool == "wire_to_label" )
+                result = execWireToLabel( aFrame, input );
+            else if( tool == "query_net" )
+                result = execQueryNet( aFrame, input );
+            else if( tool == "replace_part" )
+                result = execReplacePart( aFrame, input );
+            else if( tool == "rotate_component" )
+                result = execRotateComponent( aFrame, input );
+            else if( tool == "set_property" )
+                result = execSetProperty( aFrame, input );
             else if( tool == "move_component" )
                 result = execMoveComponent( aFrame, input );
             else if( tool == "delete_component" )
