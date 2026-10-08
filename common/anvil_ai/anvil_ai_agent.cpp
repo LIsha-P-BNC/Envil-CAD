@@ -46,17 +46,25 @@ using json = nlohmann::json;
 
 // One MCP server (the SKiDL server) carries every tool, so one server-level rule allows
 // them all — generation and live editing alike. No per-tool list to fall out of date.
-static const char* ANVIL_ALLOWED_TOOLS = "mcp__anvil-cad";
+// WebFetch/WebSearch are also allowed so the model can pull a component datasheet
+// (pin tables for symbol creation) on ANY machine — without them every new part
+// requires the user to hand-attach the PDF. File/shell tools stay banned below.
+static const char* ANVIL_ALLOWED_TOOLS = "mcp__anvil-cad WebFetch WebSearch";
 
 // Seed for the user-editable system prompt (<settings>/anvil_ai_prompt.txt). Kept short:
 // the SKiDL server's own tool instructions carry the deep workflow rules.
 static const char* ANVIL_DEFAULT_PROMPT =
         "You are Anvil AI, the assistant inside the Anvil CAD schematic/PCB suite.\n"
-        "You have ONE MCP server, `anvil-cad`, providing every tool you need:\n"
+        "You have ONE MCP server, `anvil-cad`, providing every design tool you need:\n"
         "  - Circuit generation: parts, build, create_pcb, run_drc, verify_board, "
         "generate_bom, export_manufacturing, ...\n"
         "  - Live editing of the open editors: read_live, edit_schematic_live(ops=[...]),\n"
         "    edit_board_live(ops=[...]), check_live.\n"
+        "You also have WebSearch and WebFetch. When a requested part is not in the "
+        "libraries, FETCH its manufacturer datasheet yourself (search for it, then read "
+        "the pin configuration section) and build the symbol from the real pin table -- "
+        "do not ask the user to attach the PDF unless the fetch fails, and never invent "
+        "pin assignments.\n"
         "\n"
         "Workflow for a NEW circuit request: search parts -> build -> create_pcb (if asked) "
         "-> open in the app -> verify with check_live or run_drc. Always report real file "
@@ -1369,18 +1377,21 @@ void ANVIL_AI_AGENT::runTurn( wxString aUserText )
 
     // Fixed flags + our own paths/session id only — no user text on the command line.
     //
-    // --allowedTools mcp__anvil-cad auto-approves our MCP tools (no permission prompt).
+    // --allowedTools auto-approves our MCP tools plus WebFetch/WebSearch (datasheet
+    //   lookup for symbol creation) with no permission prompt. Quoted: it has spaces.
     // --disallowedTools removes the CLI's own file/shell tools so the model CANNOT write
     //   files or run Python/commands itself: it is forced through the anvil-cad MCP tools,
     //   which do that work internally. This keeps raw "grant write / run python" permission
     //   prompts out of the chat entirely (they were leaking to the user before).
+    //   Web tools are deliberately NOT in this ban: without them, creating any part the
+    //   libraries lack dead-ends on "attach the datasheet" on every installed machine.
     wxString cmd;
     cmd << wxS( "\"" ) << claudeExe << wxS( "\"" )
         << wxS( " -p --output-format stream-json --verbose" )
         << wxS( " --mcp-config \"" ) << mcpCfg << wxS( "\"" )
         << wxS( " --append-system-prompt-file \"" ) << sysPrompt << wxS( "\"" )
-        << wxS( " --allowedTools " ) << wxString::FromUTF8( ANVIL_ALLOWED_TOOLS )
-        << wxS( " --disallowedTools \"Bash Write Edit MultiEdit NotebookEdit WebFetch WebSearch\"" );
+        << wxS( " --allowedTools \"" ) << wxString::FromUTF8( ANVIL_ALLOWED_TOOLS ) << wxS( "\"" )
+        << wxS( " --disallowedTools \"Bash Write Edit MultiEdit NotebookEdit\"" );
 
     // The CLI can only read inside its working directory by default, which blocks the saved
     // chat attachments (<settings>/anvil_attachments) and the generated project files. Grant

@@ -310,7 +310,7 @@ if( EXISTS "${ANVIL_FREEROUTING_SRC}/freerouting.jar" )
                  COMPONENT binary )
     endif()
 else()
-    message( STATUS
+    message( WARNING
         "FreeRouting jar not found at ${ANVIL_FREEROUTING_SRC}; the in-app autoroute "
         "will fall back to FREEROUTING_JAR or the AI bundle. Set ANVIL_FREEROUTING_SRC "
         "to bundle it with the app." )
