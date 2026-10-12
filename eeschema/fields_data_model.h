@@ -414,10 +414,32 @@ public:
 
     /**
      * True if aFieldName is a recognized alias for the Manufacturer / Manufacturer Part
-     * Number BOM columns (name matching is normalized: case and space/._-# insensitive).
+     * Number / unit-price BOM columns (name matching is normalized: case and space/._-#
+     * insensitive).
      */
     static bool isManufacturerFieldName( const wxString& aFieldName );
     static bool isMpnFieldName( const wxString& aFieldName );
+    static bool isUnitPriceFieldName( const wxString& aFieldName );
+
+    /**
+     * Display/export overlay for fetched distributor prices, keyed by normalized MPN
+     * (BOM_PRICE_SERVICE::NormalizeMpn).  Consulted by GetValue() only when a price-named
+     * cell resolves empty; it never enters m_dataStore, so ApplyData() can't persist it and
+     * a user's own Price field always wins.
+     */
+    void SetPriceOverlay( std::map<wxString, wxString> aPrices )
+    {
+        m_priceOverlay = std::move( aPrices );
+    }
+
+    void ClearPriceOverlay() { m_priceOverlay.clear(); }
+
+    /// The first column recognized as an MPN alias, or -1.
+    int GetMpnColumn() const;
+
+    /// Distinct non-empty MPNs over the current (grouped, filtered) rows with the largest
+    /// per-line quantity seen for each — the fetch list for BOM pricing.
+    std::vector<std::pair<wxString, int>> GetDistinctMpnsWithQty();
 
 private:
     static bool cmp( const DATA_MODEL_ROW& lhGroup, const DATA_MODEL_ROW& rhGroup,
@@ -507,6 +529,9 @@ protected:
 
     /// Active per-column filters: canonical field name -> allowed displayed values
     std::map<wxString, std::set<wxString>> m_colFilters;
+
+    /// Fetched distributor prices: normalized MPN -> INR unit price string (see SetPriceOverlay)
+    std::map<wxString, wxString> m_priceOverlay;
 
     /// The grouped rows before column filters were applied (for AutoFilter value lists)
     std::vector<DATA_MODEL_ROW> m_unfilteredRows;

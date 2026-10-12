@@ -244,6 +244,16 @@ public:
         int                        variant_sash_pos;
     };
 
+    /// Keyless distributor price lookups for the BOM "Price (INR)" column (dialog + CLI).
+    struct BOM_PRICING_SETTINGS
+    {
+        bool     enable;
+        int      cache_ttl_hours;
+        int      fetch_timeout_secs;
+        int      total_budget_secs;
+        wxString sources;           ///< comma-separated source ids, e.g. "lcsc,findchips"
+    };
+
     struct PANEL_LIB_VIEW
     {
         int lib_list_width;
@@ -334,6 +344,7 @@ public:
     APPEARANCE                m_Appearance;
     AUI_PANELS                m_AuiPanels;
     REMOTE_PROVIDER_SETTINGS  m_RemoteSymbol;
+    BOM_PRICING_SETTINGS      m_BomPricing;
 
     DRAWING                   m_Drawing;
     INPUT                     m_Input;

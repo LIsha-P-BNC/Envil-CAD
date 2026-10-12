@@ -376,6 +376,13 @@ set( EESCHEMA_SRCS
     annotate.cpp
     autoplace_fields.cpp
     bom_plugins.cpp
+    bom_pricing/bom_price_service.cpp
+    bom_pricing/currency_converter.cpp
+    bom_pricing/element14_price_source.cpp
+    bom_pricing/findchips_price_source.cpp
+    bom_pricing/lcsc_price_source.cpp
+    bom_pricing/price_cache.cpp
+    bom_pricing/price_source.cpp
     bom_xlsx_writer.cpp
     bus-wire-junction.cpp
     connection_graph.cpp

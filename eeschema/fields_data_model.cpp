@@ -29,6 +29,7 @@
 #include <sch_screen.h>
 #include "string_utils.h"
 
+#include "bom_pricing/bom_price_service.h"
 #include "fields_data_model.h"
 
 
@@ -468,6 +469,18 @@ bool FIELDS_EDITOR_GRID_DATA_MODEL::isMpnFieldName( const wxString& aFieldName )
                                               wxS( "manufacturerpart" ), wxS( "mfrpart" ),
                                               wxS( "mfrpartno" ), wxS( "mfrno" ),
                                               wxS( "manufacturerpartno" ), wxS( "mfgpartno" ) };
+
+    return names.count( normalizeFieldName( aFieldName ) ) > 0;
+}
+
+
+bool FIELDS_EDITOR_GRID_DATA_MODEL::isUnitPriceFieldName( const wxString& aFieldName )
+{
+    // normalizeFieldName strips spaces but keeps parentheses, so "Price (INR)" -> "price(inr)"
+    static const std::set<wxString> names = { wxS( "price" ), wxS( "unitprice" ),
+                                              wxS( "cost" ), wxS( "unitcost" ),
+                                              wxS( "priceinr" ), wxS( "unitpriceinr" ),
+                                              wxS( "price(inr)" ), wxS( "unitprice(inr)" ) };
 
     return names.count( normalizeFieldName( aFieldName ) ) > 0;
 }
@@ -1123,7 +1136,72 @@ wxString FIELDS_EDITOR_GRID_DATA_MODEL::GetValue( const DATA_MODEL_ROW& group, i
     else if( ColIsItemNumber( aCol ) && group.m_Flag != CHILD_ITEM )
         fieldValue = wxString::Format( wxT( "%d" ), group.m_ItemNumber );
 
+    // Overlay fetched distributor pricing onto empty price-column cells.  Display/export
+    // only: the overlay never enters m_dataStore, so ApplyData() can't write it back to the
+    // schematic, and a user's own Price value (non-empty cell) always wins.
+    if( fieldValue.IsEmpty() && !m_priceOverlay.empty()
+            && isUnitPriceFieldName( m_cols[aCol].m_fieldName ) )
+    {
+        int mpnCol = GetMpnColumn();
+
+        if( mpnCol >= 0 && mpnCol != aCol )
+        {
+            wxString mpn = GetValue( group, mpnCol, refDelimiter, refRangeDelimiter,
+                                     resolveVars, false );
+
+            auto it = m_priceOverlay.find( BOM_PRICING::BOM_PRICE_SERVICE::NormalizeMpn( mpn ) );
+
+            if( it != m_priceOverlay.end() )
+                fieldValue = it->second;
+        }
+    }
+
     return fieldValue;
+}
+
+
+int FIELDS_EDITOR_GRID_DATA_MODEL::GetMpnColumn() const
+{
+    for( size_t col = 0; col < m_cols.size(); ++col )
+    {
+        if( isMpnFieldName( m_cols[col].m_fieldName ) )
+            return (int) col;
+    }
+
+    return -1;
+}
+
+
+std::vector<std::pair<wxString, int>> FIELDS_EDITOR_GRID_DATA_MODEL::GetDistinctMpnsWithQty()
+{
+    std::vector<std::pair<wxString, int>> result;
+    int                                   mpnCol = GetMpnColumn();
+
+    if( mpnCol < 0 )
+        return result;
+
+    std::map<wxString, int> wanted;
+
+    for( const DATA_MODEL_ROW& row : m_rows )
+    {
+        // Children repeat their group's parts; the group row already carries the full qty.
+        if( row.m_Flag == CHILD_ITEM )
+            continue;
+
+        wxString mpn = GetValue( row, mpnCol );
+
+        if( mpn.IsEmpty() || mpn == INDETERMINATE_STATE )
+            continue;
+
+        wxString key = BOM_PRICING::BOM_PRICE_SERVICE::NormalizeMpn( mpn );
+        int&     qty = wanted[key];
+        qty = std::max( qty, (int) row.m_Refs.size() );
+    }
+
+    for( const auto& [mpn, qty] : wanted )
+        result.emplace_back( mpn, qty );
+
+    return result;
 }
 
 
