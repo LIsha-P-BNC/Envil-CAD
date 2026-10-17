@@ -4199,6 +4199,41 @@ bool KICAD_MANAGER_FRAME::OpenCsvTab( const wxString& aPath )
 }
 
 
+/**
+ * Build the short label an editor tab carries, from the editor frame's full window title.
+ *
+ * Editor frames title themselves "[*]<document>[ [sheet path]][ [Read Only]] — <Editor Name>"
+ * (SCH_EDIT_FRAME::updateTitle() and its counterparts in the other KIFACEs).  A tab only needs
+ * the document itself: the shell title bar already carries the project plus the active document,
+ * and the editor's identity is obvious from the tab's own toolbars.  So drop the
+ * " — <Editor Name>" suffix and any bracketed annotation, keeping the leading "*"
+ * content-modified marker.
+ */
+static wxString shortEditorTabLabel( const wxString& aTitle )
+{
+    wxString label = aTitle;
+
+    // " — <Editor Name>" suffix.  Matched on the last separator so an em-dash inside a
+    // file name still leaves the editor name as the part that gets dropped.
+    size_t sep = label.rfind( wxT( " — " ) );
+
+    if( sep != wxString::npos && sep > 0 )
+        label.Truncate( sep );
+
+    // Bracketed annotations: the schematic's sheet path, "[Read Only]", "[Unsaved]",
+    // "[from schematic]", ...  A title that is *only* brackets ("[no schematic loaded]") has no
+    // document name to show, so nothing is stripped there and the fallback below returns it whole.
+    size_t bracket = label.find( wxT( " [" ) );
+
+    if( bracket != wxString::npos )
+        label.Truncate( bracket );
+
+    label.Trim( true ).Trim( false );
+
+    return label.IsEmpty() ? aTitle : label;
+}
+
+
 bool KICAD_MANAGER_FRAME::DockEditorAsTab( KIWAY_PLAYER* aPlayer, const wxString& aTitle )
 {
 #ifdef __WXMSW__
@@ -4220,8 +4255,10 @@ bool KICAD_MANAGER_FRAME::DockEditorAsTab( KIWAY_PLAYER* aPlayer, const wxString
             {
                 // The editor may have swapped documents since it was docked (e.g. a
                 // sibling board loaded into the same PCB editor) -- keep the label live.
-                if( !aTitle.IsEmpty() && m_editorTabs->GetPageText( idx ) != aTitle )
-                    m_editorTabs->SetPageText( idx, aTitle );
+                wxString label = shortEditorTabLabel( aTitle );
+
+                if( !label.IsEmpty() && m_editorTabs->GetPageText( idx ) != label )
+                    m_editorTabs->SetPageText( idx, label );
 
                 m_editorTabs->SetSelection( idx );
 
@@ -4295,10 +4332,10 @@ bool KICAD_MANAGER_FRAME::DockEditorAsTab( KIWAY_PLAYER* aPlayer, const wxString
                   && ADVANCED_CFG::GetCfg().m_UnifiedStatusBar );
 
     // Guard against a blank tab when a freshly created frame has no title yet.
-    wxString tabLabel = aTitle;
+    wxString tabLabel = shortEditorTabLabel( aTitle );
 
     if( tabLabel.IsEmpty() )
-        tabLabel = aPlayer->GetTitle();
+        tabLabel = shortEditorTabLabel( aPlayer->GetTitle() );
 
     if( tabLabel.IsEmpty() )
         tabLabel = _( "Editor" );
@@ -4379,10 +4416,11 @@ void KICAD_MANAGER_FRAME::UpdatePlayerTabTitle( KIWAY_PLAYER* aPlayer, const wxS
         if( entry.first != aPlayer->GetId() )
             continue;
 
-        int idx = m_editorTabs->GetPageIndex( entry.second );
+        int      idx   = m_editorTabs->GetPageIndex( entry.second );
+        wxString label = shortEditorTabLabel( aTitle );
 
-        if( idx != wxNOT_FOUND && m_editorTabs->GetPageText( idx ) != aTitle )
-            m_editorTabs->SetPageText( idx, aTitle );
+        if( idx != wxNOT_FOUND && m_editorTabs->GetPageText( idx ) != label )
+            m_editorTabs->SetPageText( idx, label );
 
         return;
     }
@@ -4427,8 +4465,10 @@ bool KICAD_MANAGER_FRAME::DockWindowAsTab( wxWindow* aWindow, const wxString& aT
 
             if( idx != wxNOT_FOUND )
             {
-                if( !aTitle.IsEmpty() && m_editorTabs->GetPageText( idx ) != aTitle )
-                    m_editorTabs->SetPageText( idx, aTitle );
+                wxString label = shortEditorTabLabel( aTitle );
+
+                if( !label.IsEmpty() && m_editorTabs->GetPageText( idx ) != label )
+                    m_editorTabs->SetPageText( idx, label );
 
                 m_editorTabs->SetSelection( idx );
             }
@@ -4473,10 +4513,10 @@ bool KICAD_MANAGER_FRAME::DockWindowAsTab( wxWindow* aWindow, const wxString& aT
         sizer->Add( aWindow, 1, wxEXPAND );
     }
 
-    wxString tabLabel = aTitle;
+    wxString tabLabel = shortEditorTabLabel( aTitle );
 
     if( tabLabel.IsEmpty() )
-        tabLabel = aWindow->GetLabel();
+        tabLabel = shortEditorTabLabel( aWindow->GetLabel() );
 
     if( tabLabel.IsEmpty() )
         tabLabel = _( "Document" );
