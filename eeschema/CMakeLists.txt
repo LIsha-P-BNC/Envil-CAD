@@ -208,6 +208,7 @@ set( EESCHEMA_DLGS
     dialogs/panel_simulator_preferences.cpp
     dialogs/panel_simulator_preferences_base.cpp
     dialogs/panel_sch_data_sources.cpp
+    dialogs/panel_sch_passive_parts.cpp
     dialogs/panel_sym_color_settings.cpp
     dialogs/panel_sym_color_settings_base.cpp
     dialogs/panel_sym_display_options.cpp
@@ -383,6 +384,8 @@ set( EESCHEMA_SRCS
     bom_pricing/lcsc_price_source.cpp
     bom_pricing/price_cache.cpp
     bom_pricing/price_source.cpp
+    passive_parts/passive_part_table.cpp
+    passive_parts/passive_table_store.cpp
     bom_xlsx_writer.cpp
     bus-wire-junction.cpp
     connection_graph.cpp

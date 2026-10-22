@@ -254,6 +254,13 @@ public:
         wxString sources;           ///< comma-separated source ids, e.g. "lcsc,findchips"
     };
 
+    /// Customer-imported passive parts lists driving BOM auto-fill (dialog + CLI).
+    struct PASSIVE_PARTS_SETTINGS
+    {
+        bool     enable;
+        wxString default_tolerance;  ///< tolerance class assumed when a symbol has none
+    };
+
     struct PANEL_LIB_VIEW
     {
         int lib_list_width;
@@ -345,6 +352,7 @@ public:
     AUI_PANELS                m_AuiPanels;
     REMOTE_PROVIDER_SETTINGS  m_RemoteSymbol;
     BOM_PRICING_SETTINGS      m_BomPricing;
+    PASSIVE_PARTS_SETTINGS    m_PassiveParts;
 
     DRAWING                   m_Drawing;
     INPUT                     m_Input;

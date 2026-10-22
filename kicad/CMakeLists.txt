@@ -32,6 +32,7 @@ set( KICAD_SRCS
     dialogs/panel_kicad_launcher.cpp
     dialogs/panel_jobset_base.cpp
     dialogs/panel_jobset.cpp
+    anvil_skill_sync.cpp
     files-io.cpp
     jobs_runner.cpp
     import_proj.cpp

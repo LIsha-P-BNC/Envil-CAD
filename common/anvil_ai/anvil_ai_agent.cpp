@@ -10,6 +10,7 @@
 #include <wx/base64.h>
 #include <wx/buffer.h>
 #include <wx/dir.h>
+#include <wx/datetime.h>
 #include <wx/file.h>
 #include <wx/translation.h>
 #include <wx/ffile.h>
@@ -38,6 +39,7 @@
 #pragma comment( lib, "ws2_32.lib" )
 #endif
 
+#include <algorithm>
 #include <mutex>
 #include <vector>
 
@@ -631,6 +633,87 @@ static wxString sessionStateFile()
 }
 
 
+// ---------------------------------------------------------------------------------------
+// Shared team design skills (<settings>/anvil_ai_skills/)
+//
+// skills.json          company-wide skill file: pulled from S3 at app start (shell) and
+//                      refreshed by the Python `skill` tool after every push; read here
+//                      each turn into the system prompt.
+// user_messages.log    every outgoing user message, one line each. The Python tool only
+//                      accepts a skill whose `quote` appears verbatim in this log, which
+//                      is what structurally stops the model from saving its OWN ideas as
+//                      the user's.
+// ---------------------------------------------------------------------------------------
+
+static wxString skillsDir()
+{
+    wxFileName dir( SETTINGS_MANAGER::GetUserSettingsPath(), wxEmptyString );
+    dir.AppendDir( wxS( "anvil_ai_skills" ) );
+
+    wxLogNull noLog;
+
+    if( !dir.DirExists() )
+        dir.Mkdir( wxS_DIR_DEFAULT, wxPATH_MKDIR_FULL );
+
+    return dir.GetPath();
+}
+
+
+static void appendUserMessageLog( const wxString& aText )
+{
+    // One line per message so the Python quote check can treat the file as a flat
+    // corpus of the user's own words. Newlines inside a message become spaces; the
+    // quote matcher normalises whitespace on both sides anyway.
+    wxString line = aText;
+    line.Replace( wxS( "\r" ), wxS( "" ) );
+    line.Replace( wxS( "\n" ), wxS( " " ) );
+
+    if( line.IsEmpty() )
+        return;
+
+    wxLogNull  noLog;                       // log trouble must never block a turn
+    wxFileName fn( skillsDir(), wxS( "user_messages.log" ) );
+
+    // Rotate: past 256 KB keep the newest 128 KB, so quote validation keeps working
+    // across long conversations without unbounded growth.
+    if( fn.FileExists() && fn.GetSize() > 256 * 1024 )
+    {
+        wxFFile  in( fn.GetFullPath(), wxS( "rb" ) );
+        wxString all;
+
+        if( in.IsOpened() && in.ReadAll( &all, wxConvUTF8 ) )
+        {
+            in.Close();
+
+            size_t keepFrom = all.length() > 128 * 1024 ? all.length() - 128 * 1024 : 0;
+            size_t nl = all.find( wxS( "\n" ), keepFrom );
+
+            if( nl != wxString::npos )
+                keepFrom = nl + 1;
+
+            wxString tmpPath = fn.GetFullPath() + wxS( ".tmp" );
+            wxFFile  tmp( tmpPath, wxS( "wb" ) );
+
+            if( tmp.IsOpened() )
+            {
+                tmp.Write( all.Mid( keepFrom ), wxConvUTF8 );
+                tmp.Close();
+                wxRenameFile( tmpPath, fn.GetFullPath(), true );
+            }
+        }
+    }
+
+    wxFFile f( fn.GetFullPath(), wxS( "ab" ) );
+
+    if( f.IsOpened() )
+    {
+        wxString entry = wxDateTime::Now().ToUTC().Format( wxS( "%Y-%m-%dT%H:%M:%SZ" ) )
+                         + wxS( "\t" ) + line + wxS( "\n" );
+        f.Write( entry, wxConvUTF8 );
+    }
+}
+
+
 void ANVIL_AI_AGENT::saveSessionState()
 {
     // Called from both the UI thread (SetDocumentContext, reset) and the turn worker
@@ -978,6 +1061,11 @@ void ANVIL_AI_AGENT::onBridgeMessage( const wxString& aJson )
 
         wxString text = wxString::FromUTF8( msg.value( "text", std::string() ) );
 
+        // The user's OWN words (before the attachment-path suffix below is appended) feed
+        // the team-skill evidence log: the Python `skill` tool only accepts a skill whose
+        // quote appears in this log, so the model cannot store its own ideas as the user's.
+        appendUserMessageLog( text );
+
         // Attachments (image / PDF / text): save each new one to disk and REMEMBER its path
         // for the whole conversation. A follow-up turn (e.g. clicking a button) carries no
         // attachment of its own, so without this the model would forget an earlier PDF /
@@ -1182,6 +1270,14 @@ wxString ANVIL_AI_AGENT::writeMcpConfig( wxString* aWhatIsMissing )
     // it must never leak that setup instruction into the app's own chat.
     cfg["mcpServers"]["anvil-cad"]["env"]["ANVIL_IN_APP_CHAT"] = "1";
 
+    // Shared team-skill store: where the Python `skill` tool finds the local cache,
+    // the user-message evidence log and its outbox, and who to record as author.
+    // User-stable values only — this file is shared between app instances.
+    cfg["mcpServers"]["anvil-cad"]["env"]["ANVIL_SKILLS_DIR"] =
+            std::string( skillsDir().utf8_str() );
+    cfg["mcpServers"]["anvil-cad"]["env"]["ANVIL_USER_EMAIL"] =
+            std::string( ANVIL_AUTH::GetEmail().utf8_str() );
+
     wxFileName fn( SETTINGS_MANAGER::GetUserSettingsPath(), wxS( "anvil_mcp.json" ) );
     wxFFile    f( fn.GetFullPath(), wxS( "wb" ) );
 
@@ -1198,6 +1294,155 @@ wxString ANVIL_AI_AGENT::writeMcpConfig( wxString* aWhatIsMissing )
     f.Close();
 
     return fn.GetFullPath();
+}
+
+
+wxString ANVIL_AI_AGENT::buildSkillPromptBlock() const
+{
+    // Shared team skills, pulled from S3 into <settings>/anvil_ai_skills/skills.json at
+    // app start and after every push. Emitted even when the file is missing/corrupt so
+    // the maintenance instructions (how to SAVE a skill) work from conversation one.
+    struct ENTRY
+    {
+        wxString text;
+        wxString category;
+        wxString status;
+        wxString updated;
+        int      evidence;
+    };
+
+    std::vector<ENTRY> entries;
+
+    {
+        wxLogNull  noLog;
+        wxFileName fn( skillsDir(), wxS( "skills.json" ) );
+        wxFFile    f( fn.GetFullPath(), wxS( "rb" ) );
+        wxString   raw;
+
+        if( f.IsOpened() && f.ReadAll( &raw, wxConvUTF8 ) )
+        {
+            try
+            {
+                json doc = json::parse( std::string( raw.utf8_str() ) );
+
+                for( const json& s : doc.value( "skills", json::array() ) )
+                {
+                    if( !s.is_object() || s.value( "deleted", false ) )
+                        continue;
+
+                    if( s.value( "status", std::string() ) == "archived" )
+                        continue;
+
+                    ENTRY e;
+                    e.text = wxString::FromUTF8( s.value( "text", std::string() ) );
+                    e.category = wxString::FromUTF8( s.value( "category", std::string() ) );
+                    e.status = wxString::FromUTF8( s.value( "status", std::string( "candidate" ) ) );
+                    e.updated = wxString::FromUTF8( s.value( "updated_at", std::string() ) );
+                    e.evidence = s.value( "evidence_count", 1 );
+
+                    if( !e.text.IsEmpty() )
+                        entries.push_back( e );
+                }
+            }
+            catch( const std::exception& )
+            {
+                entries.clear();        // corrupt cache reads as "no skills yet"
+            }
+        }
+    }
+
+    // Strongest first: confirmed before candidate, then most-restated, then newest.
+    std::sort( entries.begin(), entries.end(),
+               []( const ENTRY& a, const ENTRY& b )
+               {
+                   bool ca = a.status == wxS( "confirmed" );
+                   bool cb = b.status == wxS( "confirmed" );
+
+                   if( ca != cb )
+                       return ca;
+
+                   if( a.evidence != b.evidence )
+                       return a.evidence > b.evidence;
+
+                   return a.updated > b.updated;
+               } );
+
+    wxString block = wxS( "\n\n--- TEAM DESIGN SKILLS (learned from users, shared "
+                          "company-wide) ---\n"
+                          "These are design practices users stated in past conversations. "
+                          "They are SUGGESTIONS TO OFFER, never decisions to apply silently; "
+                          "anything the user says in THIS conversation always overrides "
+                          "them.\n" );
+
+    if( entries.empty() )
+    {
+        block << wxS( "(No stored team skills yet.)\n" );
+    }
+    else
+    {
+        // Hard budget so an ever-growing team file can never bloat the prompt.
+        const size_t maxSkills = 25;
+        const size_t maxChars = 2500;
+        size_t       used = 0;
+        size_t       listed = 0;
+
+        for( const ENTRY& e : entries )
+        {
+            if( listed >= maxSkills )
+                break;
+
+            wxString line;
+            line << wxS( " - [" ) << e.status;
+
+            if( e.evidence > 1 )
+                line << wxString::Format( wxS( ", x%d" ), e.evidence );
+
+            line << wxS( "] (" ) << e.category << wxS( ") " ) << e.text << wxS( "\n" );
+
+            if( used + line.length() > maxChars )
+                break;
+
+            block << line;
+            used += line.length();
+            listed++;
+        }
+    }
+
+    block << wxS( "\nUsing these skills on THIS project — CONSULT BEFORE APPLYING. A stored "
+                  "skill may come from another user, another product line, or an older "
+                  "constraint, so for anything that shapes the design, ASK first and design "
+                  "from the user's answer:\n"
+                  " - Part/component choice (a stored regulator, MCU, driver, etc.): offer "
+                  "it as the team default PLUS alternatives, via choice buttons — e.g. "
+                  "'::button:: Use the team-preferred LM2596 for the buck stage' / "
+                  "'::button:: Suggest other buck converter parts for this design'.\n"
+                  " - Topology/architecture (switching vs linear, layer count, supply "
+                  "rails): state the stored preference and ask before committing it.\n"
+                  " - Package size (e.g. 0402): confirm it suits THIS project's assembly "
+                  "(hand-soldered vs machine) before using it.\n"
+                  " - Routing/clearance values (trace widths, spacing): propose them in the "
+                  "design plan or the PCB questionnaire, never silently apply.\n"
+                  " - A skill that CONFLICTS with the user's words in this conversation or "
+                  "with the existing project state: the user and the project win; ask only "
+                  "if intent is unclear.\n"
+                  " - Only purely cosmetic, non-electrical habits (naming, BOM/doc style) "
+                  "may be applied without asking.\n"
+                  "When you register a design plan (build mode='plan'), NAME every team "
+                  "skill the plan relies on, so the user approves them together with the "
+                  "plan.\n" );
+
+    block << wxS( "\nMaintaining this memory: when the USER states a lasting design "
+                  "preference, technique, part choice, placement or routing rule — or "
+                  "corrects you in a way that should hold for future designs — call "
+                  "skill(action='save', text=<one-line skill>, quote=<the user's own "
+                  "verbatim words>, category=...). Save ONLY what the user themself said — "
+                  "never your own suggestions or inferences, never one-off project-specific "
+                  "values. If a statement contradicts a listed skill, pass supersedes=<its "
+                  "id from skill(action='list')>. If asked what the team memory knows, call "
+                  "skill(action='list') and show it; to forget one on request, "
+                  "skill(action='delete', skill_id=...).\n" );
+
+    return block;
 }
 
 
@@ -1273,6 +1518,11 @@ wxString ANVIL_AI_AGENT::writeSystemPromptFile()
                      "earlier conversation for the real subject; if still unclear, ask the "
                      "user which design they mean — never guess." );
     }
+
+    // Shared team skills ride along UNCONDITIONALLY (even with no project open): they are
+    // user-stated design knowledge, not project state, and the maintenance instructions
+    // must be present from the very first message so new skills can be saved.
+    full << buildSkillPromptBlock();
 
     // This is appended even when the user has an older, already-seeded prompt file.  It
     // prevents an old prompt (or a model's generic MCP recovery advice) from making the

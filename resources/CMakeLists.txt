@@ -214,6 +214,13 @@ install( DIRECTORY ${PROJECT_SOURCE_DIR}/resources/ai_chat
          COMPONENT resources
          )
 
+# Install the example passive parts list (importable template for BOM auto-fill;
+# customer-imported lists live in the user settings dir, never here)
+install( DIRECTORY ${PROJECT_SOURCE_DIR}/resources/passives
+         DESTINATION ${KICAD_DATA}
+         COMPONENT resources
+         )
+
 # Install NEMI brand fonts (Space Grotesk / IBM Plex Mono), registered as app-private
 # fonts at startup by PGM_BASE::InitPgm() so the app-wide UI faces (AnvilUiFontFace /
 # AnvilMonoFontFace) work without requiring the fonts to be installed system-wide.

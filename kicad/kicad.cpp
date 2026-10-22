@@ -54,6 +54,8 @@
 #include <anvil_auth/anvil_auth.h>
 #include <dialogs/anvil_startup_cover.h>
 #include <dialogs/dialog_anvil_login.h>
+
+#include "anvil_skill_sync.h"
 #include <richio.h>
 #include <settings/settings_manager.h>
 #include <settings/kicad_settings.h>
@@ -530,6 +532,12 @@ bool PGM_KICAD::OnPgmInit()
             return false;
         }
     }
+
+    // Every launch refreshes the shared TEAM DESIGN SKILLS cache from S3 in the background
+    // (fire-and-forget; offline keeps the previous copy), so the AI chat opens with the
+    // team's latest accumulated design knowledge.  Kicked off right after the sign-in gate:
+    // the pull itself is anonymous, but a signed-in user is about to need the result.
+    ANVIL_SKILL_SYNC::PullAsync();
 
     // ShowModal() has already hidden the gate, so the cover has to go up before the gate comes
     // down or the desktop shows through in between.  Show() sizes it to the display and paints

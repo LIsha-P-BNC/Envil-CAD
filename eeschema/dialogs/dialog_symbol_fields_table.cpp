@@ -63,6 +63,7 @@
 #include <jobs/job_export_sch_bom.h>
 #include <thread_pool.h>
 #include "bom_pricing/bom_price_service.h"
+#include "passive_parts/passive_table_store.h"
 
 wxDEFINE_EVENT( EDA_EVT_CLOSE_DIALOG_SYMBOL_FIELDS_TABLE, wxCommandEvent );
 
@@ -957,6 +958,22 @@ void DIALOG_SYMBOL_FIELDS_TABLE::LoadFieldNames()
 
     if( !havePrice )
         AddField( wxS( "Price" ), _( "Price (INR)" ), true, false );
+
+    // Columns requested by imported passive parts lists ("Show in BOM" ticks), so their
+    // auto-filled values are visible even when no symbol carries the field
+    for( const wxString& passiveField : PASSIVE_PARTS::PASSIVE_TABLE_STORE::Get().ShownBomFields() )
+    {
+        bool havePassiveField = false;
+
+        for( int row = 0; row < m_viewControlsDataModel->GetNumberRows(); row++ )
+        {
+            havePassiveField |= FIELDS_EDITOR_GRID_DATA_MODEL::FieldNamesMatch(
+                    m_viewControlsDataModel->GetCanonicalFieldName( row ), passiveField );
+        }
+
+        if( !havePassiveField )
+            AddField( passiveField, passiveField, true, false );
+    }
 }
 
 

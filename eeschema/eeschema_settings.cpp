@@ -380,6 +380,12 @@ EESCHEMA_SETTINGS::EESCHEMA_SETTINGS() :
     m_params.emplace_back( new PARAM<wxString>( "bom_pricing.sources",
             &m_BomPricing.sources, wxS( "lcsc,findchips" ) ) );
 
+    m_params.emplace_back( new PARAM<bool>( "passive_parts.enable",
+            &m_PassiveParts.enable, true ) );
+
+    m_params.emplace_back( new PARAM<wxString>( "passive_parts.default_tolerance",
+            &m_PassiveParts.default_tolerance, wxS( "5%" ) ) );
+
     m_params.emplace_back( new PARAM<int>( "drawing.default_bus_thickness",
             &m_Drawing.default_bus_thickness, DEFAULT_BUS_WIDTH_MILS ) );
 

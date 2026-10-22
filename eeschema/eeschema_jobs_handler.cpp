@@ -41,6 +41,7 @@
 #include <memory>
 #include <connection_graph.h>
 #include "bom_pricing/bom_price_service.h"
+#include "passive_parts/passive_table_store.h"
 #include "eeschema_helpers.h"
 #include <filename_resolver.h>
 #include <kiway.h>
@@ -699,6 +700,22 @@ int EESCHEMA_JOBS_HANDLER::JobExportBom( JOB* aJob )
 
     if( !havePrice )
         dataModel.AddColumn( wxS( "Price" ), _( "Price (INR)" ), false, currentVariant );
+
+    // Columns requested by imported passive parts lists ("Show in BOM" ticks), so their
+    // auto-filled values reach the export even when no symbol carries the field
+    for( const wxString& passiveField : PASSIVE_PARTS::PASSIVE_TABLE_STORE::Get().ShownBomFields() )
+    {
+        bool havePassiveField = false;
+
+        for( const BOM_FIELD& modelField : dataModel.GetFieldsOrdered() )
+        {
+            havePassiveField |=
+                    FIELDS_EDITOR_GRID_DATA_MODEL::FieldNamesMatch( modelField.name, passiveField );
+        }
+
+        if( !havePassiveField )
+            dataModel.AddColumn( passiveField, passiveField, false, currentVariant );
+    }
 
     BOM_PRESET preset;
 

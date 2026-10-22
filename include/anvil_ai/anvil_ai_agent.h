@@ -102,6 +102,12 @@ private:
     /// sheet files) or a single sheet carrying block sections alike -- it reports what is
     /// actually on disk, never assumes one layout.
     wxString buildProjectAnalysis() const;
+    /// The "TEAM DESIGN SKILLS" system-prompt block: shared, user-stated design skills
+    /// read from <settings>/anvil_ai_skills/skills.json (pulled from S3 at app start,
+    /// refreshed by the Python `skill` tool), capped so it can never bloat the prompt,
+    /// plus the standing instructions for saving new skills. Never empty — the save
+    /// instructions must be present from the very first conversation.
+    wxString buildSkillPromptBlock() const;
 
     /// Persist the resumable conversation (session id + attachment paths + owning project +
     /// whether a turn is in flight) to <settings>/anvil_ai_session.json, and load it back on

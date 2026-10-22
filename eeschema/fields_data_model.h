@@ -422,6 +422,13 @@ public:
     static bool isUnitPriceFieldName( const wxString& aFieldName );
 
     /**
+     * Normalized field-name equivalence (case and space/._-# insensitive), additionally
+     * treating all Manufacturer aliases as one name and all MPN aliases as one name.
+     * Used to match imported parts-list field names against BOM columns.
+     */
+    static bool FieldNamesMatch( const wxString& aLhs, const wxString& aRhs );
+
+    /**
      * Display/export overlay for fetched distributor prices, keyed by normalized MPN
      * (BOM_PRICE_SERVICE::NormalizeMpn).  Consulted by GetValue() only when a price-named
      * cell resolves empty; it never enters m_dataStore, so ApplyData() can't persist it and
@@ -496,6 +503,16 @@ private:
     wxString deriveManufacturer( const SCH_REFERENCE& aRef, const wxString& aVariantName );
     wxString deriveMpn( const SCH_REFERENCE& aRef, const wxString& aVariantName );
 
+    /**
+     * Passive parts list fill: the value an imported company parts list supplies for
+     * aFieldName on this symbol, or aCurrent unchanged.  Fills only cells that resolve
+     * empty (plus Description cells still equal to the library symbol's own description).
+     * Display/export only -- the result never enters m_dataStore, so ApplyData() can
+     * never persist it and a user's own field always wins.
+     */
+    wxString passiveFieldValue( const SCH_REFERENCE& aRef, const KIID_PATH& aSymbolKey,
+                                const wxString& aFieldName, const wxString& aCurrent );
+
     void Sort();
 
     void updateDataStoreSymbolField( const SCH_REFERENCE& aSymbolRef, const wxString& aFieldName,
@@ -532,6 +549,10 @@ protected:
 
     /// Fetched distributor prices: normalized MPN -> INR unit price string (see SetPriceOverlay)
     std::map<wxString, wxString> m_priceOverlay;
+
+    /// Resolved imported-parts-list fields per symbol (values copied out of the store so
+    /// nothing dangles across a store reload).  An empty map records a known miss.
+    std::map<KIID_PATH, std::map<wxString, wxString>> m_passiveMatch;
 
     /// The grouped rows before column filters were applied (for AutoFilter value lists)
     std::vector<DATA_MODEL_ROW> m_unfilteredRows;
