@@ -52,6 +52,15 @@ inline constexpr char LOGOUT_PATH[]     = "https://bnc-ai.com/api/designing-user
 /// POST — returns the latest released application version for an os_type.
 inline constexpr char LATEST_PATH[]     = "https://bnc-ai.com/api/software/latest";
 
+/// POST — exchanges a short-lived handoff token minted by another NEMI product (TVA) for a
+/// normal session, so a user who is already signed in there is not asked for an OTP again.
+/// The response is the SAME shape as verify-otp, with one addition: it must carry the
+/// account's email, because the caller has no other way to learn it (the OTP flow knows the
+/// email because the user typed it).  Without an email the session cannot log itself out —
+/// LOGOUT_PATH is addressed by email — so a response without one is refused.
+inline constexpr char SSO_EXCHANGE_PATH[] =
+        "https://bnc-ai.com/api/designing-users/public/sso-exchange";
+
 // ---- headers ---------------------------------------------------------------------------
 
 /// Deployment api-key header; its value comes from ANVIL_AUTH_CONFIG, never from code.
@@ -67,6 +76,10 @@ inline constexpr char HDR_AUTHORIZATION[] = "Authorization";
 
 inline constexpr char F_EMAIL[]      = "email";
 inline constexpr char F_PROJECT_ID[] = "project_id";
+
+/// The handoff token sent to SSO_EXCHANGE_PATH.  It is a credential with a lifetime of
+/// about two minutes, so it is treated exactly like the OTP: never logged, never persisted.
+inline constexpr char F_HANDOFF_TOKEN[] = "handoff_token";
 inline constexpr char F_OTP[]        = "otp";
 inline constexpr char F_OS_TYPE[]    = "os_type";
 inline constexpr char F_VERSION[]    = "version";
@@ -100,6 +113,10 @@ inline constexpr char F_DESCRIPTION[]      = "description";
  */
 inline constexpr const char* TOKEN_FIELDS[]  = { "access_token", "token", "session_token" };
 inline constexpr const char* EXPIRY_FIELDS[] = { "expires_in", "expires_at", "expiry" };
+
+/// Where the account's email is looked for in an sso-exchange response.  Only that flow
+/// needs it; the OTP flow already has the email the user typed.
+inline constexpr const char* EMAIL_FIELDS[] = { "email" };
 
 /// Wrapper objects some backends nest their payload under; searched after the top level.
 inline constexpr const char* WRAPPER_FIELDS[] = { "data", "result" };

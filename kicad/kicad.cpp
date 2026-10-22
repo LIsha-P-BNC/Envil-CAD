@@ -521,6 +521,18 @@ bool PGM_KICAD::OnPgmInit()
     std::unique_ptr<DIALOG_ANVIL_LOGIN> loginDlg;
     STARTUP_COVER_GUARD                 coverGuard( App() );
 
+    // Opened from TVA? Then signing in already happened there, and arrives here
+    // as a token on the command line. Taken before the gate, so somebody who
+    // just pressed a button is not asked for an emailed code as well. A link
+    // that was offered and refused is reported: dropping silently to the gate
+    // would leave them with no idea why the link did nothing.
+    {
+        wxString handoffError;
+
+        if( ANVIL_AUTH::TrySignInFromCommandLine( handoffError ) == ANVIL_AUTH::HANDOFF::FAILED )
+            wxMessageBox( handoffError, _( "Sign-in link" ), wxOK | wxICON_WARNING );
+    }
+
     if( !ANVIL_AUTH::IsLoggedIn() )
     {
         loginDlg = std::make_unique<DIALOG_ANVIL_LOGIN>( nullptr );
