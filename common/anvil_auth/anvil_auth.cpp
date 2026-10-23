@@ -490,7 +490,7 @@ ANVIL_AUTH::HANDOFF ANVIL_AUTH::TrySignInFromCommandLine( wxString& aError )
     if( !wxTheApp )
         return HANDOFF::NONE;
 
-    const wxString urlPrefix  = wxS( "sso?token=" );
+    const wxString urlMarker  = wxS( "token=" );
     const wxString flagPrefix = wxS( "--handoff-token=" );
 
     wxString token;
@@ -504,13 +504,24 @@ ANVIL_AUTH::HANDOFF ANVIL_AUTH::TrySignInFromCommandLine( wxString& aError )
             // Given by hand, so it is already the token itself.
             token = arg.Mid( flagPrefix.length() );
         }
-        else if( arg.Contains( wxS( "://" ) ) && arg.Contains( urlPrefix ) )
+        else if( arg.Contains( wxS( "://" ) ) && arg.Contains( urlMarker ) )
         {
-            // A protocol URL from the operating system. Take everything after
-            // the marker and stop at a further parameter, so a link that grows
-            // one later does not start feeding it into the token. The browser
-            // percent-encoded the value; undo that.
-            wxString tail = arg.AfterFirst( '=' );
+            // A protocol URL from the operating system.
+            //
+            // Matched on "token=" alone, NOT on a particular path: the browser
+            // may rewrite the URL before Windows ever sees it. Chrome turns
+            // anvilcad://sso?token=... into anvilcad://sso/?token=..., which the
+            // earlier literal "sso?token=" no longer matched -- so the link fell
+            // through to the file handler and the user was told
+            // "File ...sso?token=... does not exist", or on a cold start was shown
+            // the ordinary sign-in screen with no explanation at all. Seen
+            // against a real build on 2026-10-23.
+            //
+            // Read from the marker rather than from the first '=' so a link that
+            // grows another parameter IN FRONT of the token still works, and stop
+            // at the next one. The browser percent-encoded the value; undo that.
+            const int markerAt = arg.Find( urlMarker );
+            wxString  tail     = arg.Mid( markerAt + urlMarker.length() );
             token = wxURI::Unescape( tail.BeforeFirst( '&' ) );
         }
     }
