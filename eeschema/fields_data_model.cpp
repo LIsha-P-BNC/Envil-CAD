@@ -489,6 +489,17 @@ bool FIELDS_EDITOR_GRID_DATA_MODEL::isUnitPriceFieldName( const wxString& aField
 }
 
 
+bool FIELDS_EDITOR_GRID_DATA_MODEL::isPriceSourceFieldName( const wxString& aFieldName )
+{
+    // Deliberately narrow: generic names like "Supplier" or "Distributor" are left alone so
+    // a user's own vendor columns never pick up the fetched-price overlay.
+    static const std::set<wxString> names = { wxS( "pricesource" ), wxS( "pricesite" ),
+                                              wxS( "pricewebsite" ), wxS( "pricefrom" ) };
+
+    return names.count( normalizeFieldName( aFieldName ) ) > 0;
+}
+
+
 bool FIELDS_EDITOR_GRID_DATA_MODEL::FieldNamesMatch( const wxString& aLhs, const wxString& aRhs )
 {
     if( normalizeFieldName( aLhs ) == normalizeFieldName( aRhs ) )
@@ -1246,20 +1257,26 @@ wxString FIELDS_EDITOR_GRID_DATA_MODEL::GetValue( const DATA_MODEL_ROW& group, i
     // Overlay fetched distributor pricing onto empty price-column cells.  Display/export
     // only: the overlay never enters m_dataStore, so ApplyData() can't write it back to the
     // schematic, and a user's own Price value (non-empty cell) always wins.
-    if( fieldValue.IsEmpty() && !m_priceOverlay.empty()
-            && isUnitPriceFieldName( m_cols[aCol].m_fieldName ) )
+    if( fieldValue.IsEmpty() && !m_priceOverlay.empty() )
     {
-        int mpnCol = GetMpnColumn();
+        bool isPrice = isUnitPriceFieldName( m_cols[aCol].m_fieldName );
+        bool isSource = !isPrice && isPriceSourceFieldName( m_cols[aCol].m_fieldName );
 
-        if( mpnCol >= 0 && mpnCol != aCol )
+        if( isPrice || isSource )
         {
-            wxString mpn = GetValue( group, mpnCol, refDelimiter, refRangeDelimiter,
-                                     resolveVars, false );
+            int mpnCol = GetMpnColumn();
 
-            auto it = m_priceOverlay.find( BOM_PRICING::BOM_PRICE_SERVICE::NormalizeMpn( mpn ) );
+            if( mpnCol >= 0 && mpnCol != aCol )
+            {
+                wxString mpn = GetValue( group, mpnCol, refDelimiter, refRangeDelimiter,
+                                         resolveVars, false );
 
-            if( it != m_priceOverlay.end() )
-                fieldValue = it->second;
+                auto it = m_priceOverlay.find(
+                        BOM_PRICING::BOM_PRICE_SERVICE::NormalizeMpn( mpn ) );
+
+                if( it != m_priceOverlay.end() )
+                    fieldValue = isPrice ? it->second.priceInr : it->second.source;
+            }
         }
     }
 

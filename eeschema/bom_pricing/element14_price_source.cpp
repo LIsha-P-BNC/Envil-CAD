@@ -24,6 +24,8 @@
 
 #include <wx/string.h>
 
+#include <algorithm>
+
 namespace BOM_PRICING
 {
 
@@ -236,6 +238,119 @@ std::string findProductLink( const std::string& aHtml )
 
 
 std::vector<PRICE_QUOTE> ELEMENT14_PRICE_SOURCE::FetchQuotes( const wxString& aMpn, int aQty )
+{
+    if( !m_apiKey.IsEmpty() )
+        return fetchViaApi( aMpn, aQty );
+
+    return fetchViaScrape( aMpn, aQty );
+}
+
+
+std::vector<PRICE_QUOTE> ELEMENT14_PRICE_SOURCE::fetchViaApi( const wxString& aMpn, int aQty )
+{
+    std::vector<PRICE_QUOTE> quotes;
+
+    try
+    {
+        HTTP_GET_REQUEST req;
+        req.url = wxString::Format( wxString::FromUTF8( E14_API_URL_FMT ),
+                                    wxString::FromUTF8( UrlEscape( aMpn ) ),
+                                    wxString::FromUTF8( UrlEscape( m_apiKey ) ) ).ToStdString();
+        req.headers = { { "Accept", "application/json" } };
+        req.timeoutSecs = PER_REQUEST_TIMEOUT_SECS;
+
+        HTTP_GET_RESPONSE rsp;
+
+        if( !m_http( req, rsp ) || rsp.status != 200 )
+            return {};
+
+        nlohmann::json js = nlohmann::json::parse( rsp.body, nullptr, /* throw */ false );
+
+        if( js.is_discarded() || !js.is_object() )
+            return {};
+
+        // The wrapper key names the search type (manufacturerPartNumberSearchReturn, ...);
+        // just find whichever top-level object carries the products array.
+        const nlohmann::json* products = nullptr;
+
+        for( const auto& [key, value] : js.items() )
+        {
+            if( value.is_object() && value.contains( "products" )
+                && value["products"].is_array() )
+            {
+                products = &value["products"];
+                break;
+            }
+        }
+
+        if( !products )
+            return {};
+
+        wxString wantedMpn = aMpn;
+        wantedMpn.Trim( true ).Trim( false );
+
+        for( const nlohmann::json& product : *products )
+        {
+            if( !product.is_object() )
+                continue;
+
+            // Exact-MPN filter: a close-but-different part priced confidently is worse than
+            // no price at all.  Multiple exact matches (cut tape vs reel packs) all go in;
+            // the service keeps the cheapest.
+            wxString productMpn = wxString::FromUTF8(
+                    product.value( "translatedManufacturerPartNumber", std::string() ) );
+
+            if( productMpn.Trim( true ).Trim( false ).CmpNoCase( wantedMpn ) != 0 )
+                continue;
+
+            auto pricesIt = product.find( "prices" );
+
+            if( pricesIt == product.end() || !pricesIt->is_array() )
+                continue;
+
+            PRICE_QUOTE quote;
+            quote.sourceName = Name();
+            quote.currency = wxString::FromUTF8( E14_API_CURRENCY );
+
+            for( const nlohmann::json& tier : *pricesIt )
+            {
+                if( !tier.is_object() )
+                    continue;
+
+                int    from = tier.value( "from", 1 );
+                double cost = tier.value( "cost", 0.0 );
+
+                if( cost > 0.0 )
+                    quote.breaks.push_back( { std::max( from, 1 ), cost } );
+            }
+
+            if( quote.breaks.empty() )
+                continue;
+
+            quote.found = true;
+            quote.price = PriceAtQty( quote.breaks, aQty );
+
+            std::string sku = product.value( "sku", std::string() );
+
+            if( !sku.empty() )
+            {
+                quote.productUrl = wxString::FromUTF8( std::string( E14_IN_BASE_URL )
+                                                       + "/search?st=" + sku );
+            }
+
+            quotes.push_back( std::move( quote ) );
+        }
+    }
+    catch( ... )
+    {
+        return {};
+    }
+
+    return quotes;
+}
+
+
+std::vector<PRICE_QUOTE> ELEMENT14_PRICE_SOURCE::fetchViaScrape( const wxString& aMpn, int aQty )
 {
     PRICE_QUOTE quote;
     quote.sourceName = Name();

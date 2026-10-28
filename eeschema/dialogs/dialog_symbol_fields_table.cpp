@@ -959,6 +959,19 @@ void DIALOG_SYMBOL_FIELDS_TABLE::LoadFieldNames()
     if( !havePrice )
         AddField( wxS( "Price" ), _( "Price (INR)" ), true, false );
 
+    // And a Price Source column right beside it, showing which site the fetched price
+    // came from.
+    bool havePriceSource = false;
+
+    for( int row = 0; row < m_viewControlsDataModel->GetNumberRows(); row++ )
+    {
+        havePriceSource |= FIELDS_EDITOR_GRID_DATA_MODEL::isPriceSourceFieldName(
+                m_viewControlsDataModel->GetCanonicalFieldName( row ) );
+    }
+
+    if( !havePriceSource )
+        AddField( wxS( "Price Source" ), _( "Price Source" ), true, false );
+
     // Columns requested by imported passive parts lists ("Show in BOM" ticks), so their
     // auto-filled values are visible even when no symbol carries the field
     for( const wxString& passiveField : PASSIVE_PARTS::PASSIVE_TABLE_STORE::Get().ShownBomFields() )
@@ -1808,6 +1821,7 @@ void DIALOG_SYMBOL_FIELDS_TABLE::fetchPrices( bool aForceRefresh )
     options.fetchTimeoutSecs = cfg->m_BomPricing.fetch_timeout_secs;
     options.totalBudgetSecs = cfg->m_BomPricing.total_budget_secs;
     options.sources = cfg->m_BomPricing.sources;
+    options.element14ApiKey = cfg->m_BomPricing.element14_api_key;
     options.forceRefresh = aForceRefresh;
 
     // One fetch at a time: the button is the re-entry point, so it doubles as the busy flag
@@ -1817,7 +1831,7 @@ void DIALOG_SYMBOL_FIELDS_TABLE::fetchPrices( bool aForceRefresh )
     GetKiCadThreadPool().detach_task(
             [gate = m_async, parts = std::move( parts ), options]()
             {
-                std::map<wxString, wxString> prices;
+                std::map<wxString, BOM_PRICING::BOM_PRICE_SERVICE::PRICE_RESULT> prices;
 
                 // Nothing may escape a pool task; a failed lookup just leaves cells empty.
                 try

@@ -26,6 +26,8 @@
 #include <wx/grid.h>
 #include <widgets/wx_grid.h>
 
+#include "bom_pricing/bom_price_service.h"
+
 
 struct BOM_FIELD;
 struct BOM_PRESET;
@@ -420,6 +422,7 @@ public:
     static bool isManufacturerFieldName( const wxString& aFieldName );
     static bool isMpnFieldName( const wxString& aFieldName );
     static bool isUnitPriceFieldName( const wxString& aFieldName );
+    static bool isPriceSourceFieldName( const wxString& aFieldName );
 
     /**
      * Normalized field-name equivalence (case and space/._-# insensitive), additionally
@@ -429,12 +432,13 @@ public:
     static bool FieldNamesMatch( const wxString& aLhs, const wxString& aRhs );
 
     /**
-     * Display/export overlay for fetched distributor prices, keyed by normalized MPN
-     * (BOM_PRICE_SERVICE::NormalizeMpn).  Consulted by GetValue() only when a price-named
-     * cell resolves empty; it never enters m_dataStore, so ApplyData() can't persist it and
-     * a user's own Price field always wins.
+     * Display/export overlay for fetched distributor prices (and the site each winning
+     * offer came from), keyed by normalized MPN (BOM_PRICE_SERVICE::NormalizeMpn).
+     * Consulted by GetValue() only when a price- or price-source-named cell resolves
+     * empty; it never enters m_dataStore, so ApplyData() can't persist it and a user's
+     * own Price / Price Source field always wins.
      */
-    void SetPriceOverlay( std::map<wxString, wxString> aPrices )
+    void SetPriceOverlay( std::map<wxString, BOM_PRICING::BOM_PRICE_SERVICE::PRICE_RESULT> aPrices )
     {
         m_priceOverlay = std::move( aPrices );
     }
@@ -547,8 +551,9 @@ protected:
     /// Active per-column filters: canonical field name -> allowed displayed values
     std::map<wxString, std::set<wxString>> m_colFilters;
 
-    /// Fetched distributor prices: normalized MPN -> INR unit price string (see SetPriceOverlay)
-    std::map<wxString, wxString> m_priceOverlay;
+    /// Fetched distributor prices: normalized MPN -> INR unit price + source site
+    /// (see SetPriceOverlay)
+    std::map<wxString, BOM_PRICING::BOM_PRICE_SERVICE::PRICE_RESULT> m_priceOverlay;
 
     /// Resolved imported-parts-list fields per symbol (values copied out of the store so
     /// nothing dangles across a store reload).  An empty map records a known miss.

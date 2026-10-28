@@ -701,6 +701,15 @@ int EESCHEMA_JOBS_HANDLER::JobExportBom( JOB* aJob )
     if( !havePrice )
         dataModel.AddColumn( wxS( "Price" ), _( "Price (INR)" ), false, currentVariant );
 
+    // And a Price Source column beside it, showing which site the fetched price came from
+    bool havePriceSource = false;
+
+    for( const BOM_FIELD& modelField : dataModel.GetFieldsOrdered() )
+        havePriceSource |= FIELDS_EDITOR_GRID_DATA_MODEL::isPriceSourceFieldName( modelField.name );
+
+    if( !havePriceSource )
+        dataModel.AddColumn( wxS( "Price Source" ), _( "Price Source" ), false, currentVariant );
+
     // Columns requested by imported passive parts lists ("Show in BOM" ticks), so their
     // auto-filled values reach the export even when no symbol carries the field
     for( const wxString& passiveField : PASSIVE_PARTS::PASSIVE_TABLE_STORE::Get().ShownBomFields() )
@@ -947,7 +956,8 @@ int EESCHEMA_JOBS_HANDLER::JobExportBom( JOB* aJob )
         for( const BOM_FIELD& shownField : dataModel.GetFieldsOrdered() )
         {
             if( shownField.show
-                && FIELDS_EDITOR_GRID_DATA_MODEL::isUnitPriceFieldName( shownField.name ) )
+                && ( FIELDS_EDITOR_GRID_DATA_MODEL::isUnitPriceFieldName( shownField.name )
+                     || FIELDS_EDITOR_GRID_DATA_MODEL::isPriceSourceFieldName( shownField.name ) ) )
             {
                 wantsPricing = true;
                 break;
@@ -966,6 +976,7 @@ int EESCHEMA_JOBS_HANDLER::JobExportBom( JOB* aJob )
                 options.fetchTimeoutSecs = eeCfg->m_BomPricing.fetch_timeout_secs;
                 options.totalBudgetSecs = eeCfg->m_BomPricing.total_budget_secs;
                 options.sources = eeCfg->m_BomPricing.sources;
+                options.element14ApiKey = eeCfg->m_BomPricing.element14_api_key;
             }
 
             std::vector<BOM_PRICING::BOM_PRICE_SERVICE::PART_REQUEST> parts;
@@ -976,7 +987,9 @@ int EESCHEMA_JOBS_HANDLER::JobExportBom( JOB* aJob )
             if( !parts.empty() )
             {
                 BOM_PRICING::BOM_PRICE_SERVICE service;
-                std::map<wxString, wxString>   prices = service.GetPrices( parts, options );
+
+                std::map<wxString, BOM_PRICING::BOM_PRICE_SERVICE::PRICE_RESULT> prices =
+                        service.GetPrices( parts, options );
 
                 if( prices.size() < parts.size() )
                 {

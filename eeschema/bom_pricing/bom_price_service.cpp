@@ -48,10 +48,19 @@ wxString formatInr( double aPrice )
 }
 
 
-std::vector<std::unique_ptr<PRICE_SOURCE>> makeSources( const wxString& aSourceIds )
+std::vector<std::unique_ptr<PRICE_SOURCE>> makeSources( const BOM_PRICE_SERVICE::OPTIONS& aOptions )
 {
     std::vector<std::unique_ptr<PRICE_SOURCE>> sources;
-    wxStringTokenizer tokenizer( aSourceIds.Lower(), wxS( ", " ), wxTOKEN_STRTOK );
+    bool haveElement14 = false;
+
+    // Option-A default: an empty user setting falls back to the compiled-in company key,
+    // so every install prices via element14 out of the box.
+    wxString e14Key = aOptions.element14ApiKey;
+
+    if( e14Key.IsEmpty() )
+        e14Key = wxString::FromUTF8( E14_DEFAULT_API_KEY );
+
+    wxStringTokenizer tokenizer( aOptions.sources.Lower(), wxS( ", " ), wxTOKEN_STRTOK );
 
     while( tokenizer.HasMoreTokens() )
     {
@@ -62,9 +71,24 @@ std::vector<std::unique_ptr<PRICE_SOURCE>> makeSources( const wxString& aSourceI
         else if( id == wxS( "findchips" ) )
             sources.push_back( std::make_unique<FINDCHIPS_PRICE_SOURCE>() );
         else if( id == wxS( "element14_in" ) || id == wxS( "element14" ) )
+        {
             sources.push_back( std::make_unique<ELEMENT14_PRICE_SOURCE>() );
+            haveElement14 = true;
+        }
 
         // Unknown ids are ignored: a stale settings string must not break pricing.
+    }
+
+    // An available API key enables the element14 source even when the persisted sources
+    // string predates it (changing the PARAM default never reaches machines that already
+    // ran a build — the old string wins silently).
+    if( !haveElement14 && !e14Key.IsEmpty() )
+        sources.push_back( std::make_unique<ELEMENT14_PRICE_SOURCE>() );
+
+    for( const auto& source : sources )
+    {
+        if( auto* e14 = dynamic_cast<ELEMENT14_PRICE_SOURCE*>( source.get() ) )
+            e14->SetApiKey( e14Key );
     }
 
     return sources;
@@ -81,11 +105,11 @@ wxString BOM_PRICE_SERVICE::NormalizeMpn( const wxString& aMpn )
 }
 
 
-std::map<wxString, wxString> BOM_PRICE_SERVICE::GetPrices( const std::vector<PART_REQUEST>& aParts,
-                                                           const OPTIONS& aOptions,
-                                                           const std::function<bool()>& aCancelled )
+std::map<wxString, BOM_PRICE_SERVICE::PRICE_RESULT>
+BOM_PRICE_SERVICE::GetPrices( const std::vector<PART_REQUEST>& aParts, const OPTIONS& aOptions,
+                              const std::function<bool()>& aCancelled )
 {
-    std::map<wxString, wxString> result;
+    std::map<wxString, PRICE_RESULT> result;
 
     try
     {
@@ -108,7 +132,7 @@ std::map<wxString, wxString> BOM_PRICE_SERVICE::GetPrices( const std::vector<PAR
             return result;
 
         PRICE_CACHE cache;
-        auto        sources = makeSources( aOptions.sources );
+        auto        sources = makeSources( aOptions );
         auto        deadline = std::chrono::steady_clock::now()
                                + std::chrono::seconds( std::max( aOptions.totalBudgetSecs, 1 ) );
 
@@ -150,7 +174,7 @@ std::map<wxString, wxString> BOM_PRICE_SERVICE::GetPrices( const std::vector<PAR
                     }
 
                     if( price > 0.0 )
-                        result[mpn] = formatInr( price );
+                        result[mpn] = { formatInr( price ), cached->source };
                 }
 
                 continue;
@@ -220,7 +244,7 @@ std::map<wxString, wxString> BOM_PRICE_SERVICE::GetPrices( const std::vector<PAR
             cache.Put( mpn, best );
 
             if( !best.notFound )
-                result[mpn] = formatInr( best.priceInr );
+                result[mpn] = { formatInr( best.priceInr ), best.source };
         }
 
         cache.Flush();

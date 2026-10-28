@@ -23,6 +23,7 @@
  * 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA
  */
 
+#include <activity_logger.h>
 #include <macros.h>
 #include <pgm_base.h>
 #include <settings/settings_manager.h>
@@ -210,6 +211,18 @@ void BOARD_COMMIT::Push( const wxString& aMessage, int aCommitFlags )
 
     if( Empty() )
         return;
+
+    wxString projectDir, projectName;
+
+    if( frame && !frame->Prj().IsNullProject() )
+    {
+        projectDir = frame->Prj().GetProjectPath();
+        projectName = frame->Prj().GetProjectName();
+    }
+
+    ACTIVITY_LOGGER::Get().LogCommit( projectDir, projectName,
+                                      m_isFootprintEditor ? wxS( "footprint" ) : wxS( "pcb" ),
+                                      aMessage, IsAPIOrigin(), DescribeChanges( frame ) );
 
     undoList.SetDescription( aMessage );
 

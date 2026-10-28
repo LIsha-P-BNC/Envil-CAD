@@ -47,6 +47,24 @@ constexpr const char* FINDCHIPS_SEARCH_URL_FMT = "https://www.findchips.com/sear
 constexpr const char* E14_IN_SEARCH_URL_FMT = "https://in.element14.com/search?st=%s";
 constexpr const char* E14_IN_BASE_URL       = "https://in.element14.com";
 
+// element14 Product Search API (partner.element14.com): official, keyed, no bot wall.
+// The India store returns INR price breaks directly.  %s = url-escaped MPN, then API key.
+// (The "%%3A" is a literal url-escaped ':' — wxString::Format collapses it to "%3A".)
+constexpr const char* E14_API_URL_FMT =
+        "https://api.element14.com/catalog/products?term=manuPartNum%%3A%s"
+        "&storeInfo.id=in.element14.com"
+        "&resultsSettings.offset=0&resultsSettings.numberOfResults=5"
+        "&resultsSettings.responseGroup=medium"
+        "&callInfo.responseDataFormat=JSON&callInfo.apiKey=%s";
+constexpr const char* E14_API_CURRENCY = "INR";   // the in.element14.com store currency
+
+// Company default element14 API key, used when the user's bom_pricing.element14_api_key
+// setting is empty so every install gets element14 pricing out of the box.  A user's own
+// key in settings always wins.  NOTE: ships inside _eeschema.dll (extractable) and shares
+// one daily API quota across all installs — acceptable for internal distribution; move to
+// a company pricing proxy if Anvil ships externally or the quota starts saturating.
+constexpr const char* E14_DEFAULT_API_KEY = "fx4dbabww472qw9s8kjrzk77";
+
 // Keyless USD->INR rate sources, tried in order; the constant is the last resort so a BOM is
 // never priced at zero just because the FX endpoints are down.  Update when touched.
 constexpr const char* FX_PRIMARY_URL    = "https://open.er-api.com/v6/latest/USD";

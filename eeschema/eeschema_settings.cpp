@@ -380,6 +380,9 @@ EESCHEMA_SETTINGS::EESCHEMA_SETTINGS() :
     m_params.emplace_back( new PARAM<wxString>( "bom_pricing.sources",
             &m_BomPricing.sources, wxS( "lcsc,findchips" ) ) );
 
+    m_params.emplace_back( new PARAM<wxString>( "bom_pricing.element14_api_key",
+            &m_BomPricing.element14_api_key, wxEmptyString ) );
+
     m_params.emplace_back( new PARAM<bool>( "passive_parts.enable",
             &m_PassiveParts.enable, true ) );
 

@@ -58,6 +58,18 @@
 using json = nlohmann::json;
 
 
+namespace
+{
+/// Every commit in this file is an AI tool edit: tag it at construction so the project's
+/// activity log records it as origin:"api" instead of a hand edit.
+class AI_BOARD_COMMIT : public BOARD_COMMIT
+{
+public:
+    AI_BOARD_COMMIT( EDA_DRAW_FRAME* aFrame ) : BOARD_COMMIT( aFrame ) { SetAPIOrigin( true ); }
+};
+} // namespace
+
+
 /// DRC_TOOL::RunTests dereferences its reporter unconditionally, so a headless run needs a real
 /// (but silent) one rather than nullptr.
 class ENVIL_SILENT_REPORTER : public PROGRESS_REPORTER_BASE
@@ -456,7 +468,7 @@ static json execAddFootprint( PCB_EDIT_FRAME* aFrame, const json& aInput )
 
     fp->SetPosition( pcbMilsPt( aInput.value( "x_mils", 0 ), aInput.value( "y_mils", 0 ) ) );
 
-    BOARD_COMMIT commit( aFrame );
+    AI_BOARD_COMMIT commit( aFrame );
     commit.Add( fp );
     commit.Push( _( "Envil AI: add footprint" ) );
     aFrame->GetCanvas()->Refresh();
@@ -477,7 +489,7 @@ static json execMoveFootprint( PCB_EDIT_FRAME* aFrame, const json& aInput )
     if( !fp )
         return fail( "No footprint with reference " + u8( ref ) + " on this board." );
 
-    BOARD_COMMIT commit( aFrame );
+    AI_BOARD_COMMIT commit( aFrame );
     commit.Modify( fp );
 
     if( aInput.contains( "x_mils" ) && aInput.contains( "y_mils" ) )
@@ -544,7 +556,7 @@ static json execAddTrack( PCB_EDIT_FRAME* aFrame, const json& aInput )
         netCode = net->GetNetCode();
     }
 
-    BOARD_COMMIT commit( aFrame );
+    AI_BOARD_COMMIT commit( aFrame );
     int          segCount = 0;
 
     for( size_t i = 0; i + 1 < pts.size(); ++i )
@@ -603,7 +615,7 @@ static json execAddVia( PCB_EDIT_FRAME* aFrame, const json& aInput )
     via->SetLayerPair( F_Cu, B_Cu );
     via->SetNetCode( netCode );
 
-    BOARD_COMMIT commit( aFrame );
+    AI_BOARD_COMMIT commit( aFrame );
     commit.Add( via );
     commit.Push( _( "Envil AI: add via" ) );
     aFrame->GetCanvas()->Refresh();
@@ -784,7 +796,7 @@ static json execDeleteTrackAt( PCB_EDIT_FRAME* aFrame, const json& aInput )
     if( found.hits.empty() )
         return found.error;
 
-    BOARD_COMMIT commit( aFrame );
+    AI_BOARD_COMMIT commit( aFrame );
 
     for( PCB_TRACK* t : found.hits )
         commit.Remove( t );
@@ -818,7 +830,7 @@ static json execSetTrackWidth( PCB_EDIT_FRAME* aFrame, const json& aInput )
     if( found.hits.empty() )
         return found.error;
 
-    BOARD_COMMIT commit( aFrame );
+    AI_BOARD_COMMIT commit( aFrame );
 
     for( PCB_TRACK* t : found.hits )
     {
@@ -959,7 +971,7 @@ std::string EnvilCaptureBoardFootprints( PCB_EDIT_FRAME* aFrame )
         // ---- 4. give the nickname-less footprints one, so the board resolves them ----
         if( !untagged.empty() )
         {
-            BOARD_COMMIT commit( aFrame );
+            AI_BOARD_COMMIT commit( aFrame );
 
             for( FOOTPRINT* fp : untagged )
             {

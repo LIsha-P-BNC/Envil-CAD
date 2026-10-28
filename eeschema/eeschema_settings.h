@@ -244,7 +244,7 @@ public:
         int                        variant_sash_pos;
     };
 
-    /// Keyless distributor price lookups for the BOM "Price (INR)" column (dialog + CLI).
+    /// Distributor price lookups for the BOM "Price (INR)" column (dialog + CLI).
     struct BOM_PRICING_SETTINGS
     {
         bool     enable;
@@ -252,6 +252,12 @@ public:
         int      fetch_timeout_secs;
         int      total_budget_secs;
         wxString sources;           ///< comma-separated source ids, e.g. "lcsc,findchips"
+
+        /// element14 Product Search API key (partner.element14.com).  Empty = keyless
+        /// scrape fallback only; non-empty switches the element14 source to the official
+        /// API and enables it even when absent from `sources` (which is persisted, so a
+        /// changed default would never reach existing installs).
+        wxString element14_api_key;
     };
 
     /// Customer-imported passive parts lists driving BOM auto-fill (dialog + CLI).

@@ -36,6 +36,7 @@
 
 class EDA_GROUP;
 class BASE_SCREEN;
+class UNITS_PROVIDER;
 
 ///< Types of changes
 enum CHANGE_TYPE {
@@ -144,6 +145,20 @@ public:
 
     EDA_ITEM* GetFirst() const { return m_entries.empty() ? nullptr : m_entries[0].m_item; }
 
+    /// Mark this commit as originating from the IPC API (AI / external tools) rather than
+    /// direct user interaction.  Used by the activity log to distinguish edit origins.
+    void SetAPIOrigin( bool aFromAPI ) { m_fromAPI = aFromAPI; }
+    bool IsAPIOrigin() const { return m_fromAPI; }
+
+    /**
+     * Describe the staged changes for the activity log, one string per staged item
+     * ("modify: Footprint R5 (uuid)").  Must be called before clear().
+     *
+     * @param aUnitsProvider used for rich item descriptions; may be null (e.g. in QA tests),
+     *                       in which case the item's friendly type name is used instead.
+     */
+    std::vector<wxString> DescribeChanges( UNITS_PROVIDER* aUnitsProvider = nullptr ) const;
+
 protected:
     struct COMMIT_LINE
     {
@@ -183,5 +198,6 @@ protected:
     std::set<std::pair<EDA_ITEM*, BASE_SCREEN*>> m_changedItems;
     std::set<std::pair<EDA_ITEM*, BASE_SCREEN*>> m_deletedItems;
     std::vector<COMMIT_LINE>                     m_entries;
+    bool                                         m_fromAPI = false;
 };
 

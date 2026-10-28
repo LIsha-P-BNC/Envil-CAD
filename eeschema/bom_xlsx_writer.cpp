@@ -244,8 +244,13 @@ bool BOM_XLSX_WRITER::Write( const wxString& aOutPath, FIELDS_EDITOR_GRID_DATA_M
             qtyPos = pos;
         else if( lowerLabel.Contains( wxS( "subtotal" ) ) )
             subtotalPos = pos;
-        else if( lowerLabel.Contains( wxS( "price" ) ) )
+        else if( lowerLabel.Contains( wxS( "price" ) )
+                 && !lowerLabel.Contains( wxS( "source" ) ) )
+        {
+            // "Price Source" is a text column (the site a fetched price came from); only a
+            // real price column may drive the money format and the subtotal formula.
             unitPricePos = pos;
+        }
 
         cols.push_back( { modelCol, field.label, (int) field.label.length() } );
     }

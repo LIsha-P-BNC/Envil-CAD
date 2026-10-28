@@ -26,15 +26,26 @@ namespace BOM_PRICING
 {
 
 /**
- * Keyless lookup against element14 India's server-rendered product pages (INR prices,
- * extracted from the pages' JSON-LD Product markup).  A bot challenge (403/JS wall) simply
- * yields found=false.
+ * element14 India lookup (INR prices).
+ *
+ * With an API key set, uses the official Product Search API (api.element14.com) — reliable
+ * JSON with full quantity-break ladders, no bot wall.  Without a key, falls back to scraping
+ * the server-rendered product pages' JSON-LD markup, where a bot challenge (403/JS wall)
+ * simply yields found=false.
  */
 class ELEMENT14_PRICE_SOURCE : public PRICE_SOURCE
 {
 public:
     wxString Name() const override { return wxS( "element14 IN" ); }
     std::vector<PRICE_QUOTE> FetchQuotes( const wxString& aMpn, int aQty ) override;
+
+    void SetApiKey( const wxString& aKey ) { m_apiKey = aKey; }
+
+private:
+    std::vector<PRICE_QUOTE> fetchViaApi( const wxString& aMpn, int aQty );
+    std::vector<PRICE_QUOTE> fetchViaScrape( const wxString& aMpn, int aQty );
+
+    wxString m_apiKey;
 };
 
 } // namespace BOM_PRICING

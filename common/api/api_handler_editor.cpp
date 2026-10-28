@@ -74,7 +74,9 @@ HANDLER_RESULT<BeginCommitResponse> API_HANDLER_EDITOR::handleBeginCommit(
     BeginCommitResponse response;
 
     KIID id;
-    m_commits[aCtx.ClientName] = std::make_pair( id, createCommit() );
+    std::unique_ptr<COMMIT> commit = createCommit();
+    commit->SetAPIOrigin( true );
+    m_commits[aCtx.ClientName] = std::make_pair( id, std::move( commit ) );
     response.mutable_id()->set_value( id.AsStdString() );
 
     m_activeClients.insert( aCtx.ClientName );
@@ -154,7 +156,9 @@ COMMIT* API_HANDLER_EDITOR::getCurrentCommit( const std::string& aClientName )
     if( !m_commits.count( aClientName ) )
     {
         KIID id;
-        m_commits[aClientName] = std::make_pair( id, createCommit() );
+        std::unique_ptr<COMMIT> commit = createCommit();
+        commit->SetAPIOrigin( true );
+        m_commits[aClientName] = std::make_pair( id, std::move( commit ) );
     }
 
     return m_commits.at( aClientName ).second.get();

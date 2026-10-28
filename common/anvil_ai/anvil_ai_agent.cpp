@@ -566,6 +566,137 @@ wxString ANVIL_AI_AGENT::buildProjectAnalysis() const
 }
 
 
+wxString ANVIL_AI_AGENT::buildActivityLogBlock() const
+{
+    if( m_projectPath.IsEmpty() )
+        return wxEmptyString;
+
+    wxFileName proj( m_projectPath );
+    wxString   dir = proj.GetPath();
+
+    if( dir.IsEmpty() || !wxDirExists( dir ) )
+        return wxEmptyString;
+
+    // The log is named <project>-activity.log, but the agent only reliably knows the
+    // project DIRECTORY (several SetDocumentContext call sites pass no file names), and a
+    // folder can hold sibling projects. Enumerate and take the most recently modified log:
+    // any edit in the open project bumps its mtime, so the newest one is the active one.
+    wxArrayString logs;
+
+    {
+        wxLogNull noPopups;
+        wxDir::GetAllFiles( dir, &logs, wxS( "*-activity.log" ), wxDIR_FILES );
+    }
+
+    wxString   logPath;
+    wxDateTime newest;
+
+    for( const wxString& candidate : logs )
+    {
+        wxDateTime mtime = wxFileName( candidate ).GetModificationTime();
+
+        if( !mtime.IsValid() )
+            continue;
+
+        if( logPath.IsEmpty() || mtime.IsLaterThan( newest ) )
+        {
+            logPath = candidate;
+            newest = mtime;
+        }
+    }
+
+    if( logPath.IsEmpty() )
+        return wxEmptyString;
+
+    // Tail-read: the log grows without bound, but the model only needs the recent past.
+    constexpr wxFileOffset TAIL_BYTES = 32 * 1024;
+
+    wxString text;
+    {
+        wxLogNull noPopups;
+        wxFFile   f;
+
+        if( !f.Open( logPath, wxS( "rb" ) ) )
+            return wxEmptyString;
+
+        wxFileOffset len = f.Length();
+
+        if( len <= 0 )
+            return wxEmptyString;
+
+        size_t want = static_cast<size_t>( std::min( len, TAIL_BYTES ) );
+
+        if( len > static_cast<wxFileOffset>( want ) )
+            f.Seek( len - static_cast<wxFileOffset>( want ) );
+
+        std::vector<char> buf( want );
+        size_t            got = f.Read( buf.data(), want );
+
+        if( got == 0 || got == static_cast<size_t>( wxInvalidOffset ) )
+            return wxEmptyString;
+
+        // If the tail starts mid-line (and possibly mid-UTF-8-sequence), drop the partial
+        // first line before converting.
+        size_t start = 0;
+
+        if( len > static_cast<wxFileOffset>( want ) )
+        {
+            while( start < got && buf[start] != '\n' )
+                start++;
+
+            if( start < got )
+                start++;
+        }
+
+        text = wxString::FromUTF8( buf.data() + start, got - start );
+    }
+
+    wxArrayString entries;
+
+    for( wxString rest = text; !rest.IsEmpty(); )
+    {
+        wxString line = rest.BeforeFirst( '\n' );
+        rest = rest.AfterFirst( '\n' );
+
+        line.Trim().Trim( false );
+
+        if( !line.IsEmpty() )
+            entries.Add( line );
+    }
+
+    if( entries.IsEmpty() )
+        return wxEmptyString;
+
+    // Cap both the entry count and the per-entry length (a zone fill can touch hundreds of
+    // items) so this block can never bloat the prompt.
+    constexpr size_t MAX_ENTRIES = 15;
+    constexpr size_t MAX_ENTRY_CHARS = 600;
+
+    size_t first = entries.GetCount() > MAX_ENTRIES ? entries.GetCount() - MAX_ENTRIES : 0;
+
+    wxString block;
+    block << wxS( "\n\n--- RECENT DESIGN ACTIVITY (edit log of the open project) ---\n"
+                  "Latest committed edits in this project, oldest first, one JSON entry per "
+                  "edit. \"origin\":\"manual\" means a PERSON made that edit by hand in the "
+                  "canvas (not you); \"origin\":\"api\" means it was made through your tools. "
+                  "The design may therefore differ from what you last generated: treat manual "
+                  "entries as the user's own changes to respect and keep, and call read_live "
+                  "for the exact current state before editing." );
+
+    for( size_t ii = first; ii < entries.GetCount(); ++ii )
+    {
+        wxString entry = entries[ii];
+
+        if( entry.length() > MAX_ENTRY_CHARS )
+            entry = entry.Left( MAX_ENTRY_CHARS ) + wxS( "...(truncated)" );
+
+        block << wxS( "\n" ) << entry;
+    }
+
+    return block;
+}
+
+
 wxArrayString ANVIL_AI_AGENT::saveAttachments( const nlohmann::json& aAtts )
 {
     // Each attachment arrives as a data: URL ("data:<mime>;base64,<payload>") plus a name.
@@ -1502,6 +1633,11 @@ wxString ANVIL_AI_AGENT::writeSystemPromptFile()
                          "holding block sections — do not assume; for exact parts, nets and "
                          "block layout call read_live before editing.)" );
         }
+
+        // The tail of the project's edit log rides along so the model knows what changed
+        // since it last touched the design — above all edits a person made BY HAND in the
+        // canvas, which it otherwise has no way to see.
+        full << buildActivityLogBlock();
 
         full << wxS( "\n\nHow to use this: decide from the user's words whether the request "
                      "EXTENDS this open design or is a genuinely NEW one.\n"

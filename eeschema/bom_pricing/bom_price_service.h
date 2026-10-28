@@ -54,21 +54,34 @@ public:
         int      totalBudgetSecs = 60;
         wxString sources = wxS( "lcsc,findchips" );   // comma-separated source ids
 
+        /// element14 Product Search API key.  Non-empty switches the element14 source to
+        /// the official API and enables it even when absent from `sources` (the sources
+        /// string is persisted per-machine, so existing installs would otherwise never
+        /// pick the new source up).
+        wxString element14ApiKey;
+
         /// Fetch live even when a fresh cached entry exists (the dialog's Refresh Prices
         /// button).  Results still land in the cache, so the CLI/AI path sees them too.
         bool     forceRefresh = false;
     };
 
+    struct PRICE_RESULT
+    {
+        /// Unit price in INR as a plain locale-independent "123.45" string (no currency
+        /// symbol, so exports stay numeric and sortable).
+        wxString priceInr;
+
+        /// The site the winning (lowest) offer came from, e.g. "LCSC", "DigiKey (Findchips)".
+        wxString source;
+    };
+
     /// The cache/overlay key form: trimmed, uppercased MPN.
     static wxString NormalizeMpn( const wxString& aMpn );
 
-    /**
-     * @return normalized MPN -> unit price in INR as a plain locale-independent "123.45"
-     *         string (no currency symbol, so exports stay numeric and sortable).
-     */
-    std::map<wxString, wxString> GetPrices( const std::vector<PART_REQUEST>& aParts,
-                                            const OPTIONS& aOptions,
-                                            const std::function<bool()>& aCancelled = {} );
+    /// @return normalized MPN -> lowest INR unit price and the site it came from.
+    std::map<wxString, PRICE_RESULT> GetPrices( const std::vector<PART_REQUEST>& aParts,
+                                                const OPTIONS& aOptions,
+                                                const std::function<bool()>& aCancelled = {} );
 };
 
 } // namespace BOM_PRICING
