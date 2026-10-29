@@ -251,6 +251,7 @@ set( KICOMMON_SRCS
     design_block_io.cpp
     design_block_library_adapter.cpp
 
+    activity_logger.cpp
     advanced_config.cpp
     app_monitor.cpp
     asset_archive.cpp

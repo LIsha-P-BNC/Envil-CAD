@@ -3,8 +3,8 @@
  *
  * Mirrors the schematic tool set so the agent works the same way on both documents:
  * read (get_board), check (run_drc), and edit (move_footprint / add_track / add_via /
- * delete_track_at). Positions are in mils, matching the schematic tools, so the model never has
- * to switch conventions mid-design.
+ * delete_track_at / set_track_width). Positions are in mils, matching the schematic tools, so
+ * the model never has to switch conventions mid-design.
  */
 
 #include "anvil_pcb_tool_exec.h"
@@ -40,6 +40,7 @@
 #include <pcb_io/pcb_io_mgr.h>
 #include <io/io_mgr.h>
 #include <base_units.h>
+#include <geometry/seg.h>
 #include <ki_exception.h>
 #include <lib_id.h>
 #include <layer_ids.h>
@@ -60,6 +61,18 @@
 #include <wildcards_and_files_ext.h>
 
 using json = nlohmann::json;
+
+
+namespace
+{
+/// Every commit in this file is an AI tool edit: tag it at construction so the project's
+/// activity log records it as origin:"api" instead of a hand edit.
+class AI_BOARD_COMMIT : public BOARD_COMMIT
+{
+public:
+    AI_BOARD_COMMIT( EDA_DRAW_FRAME* aFrame ) : BOARD_COMMIT( aFrame ) { SetAPIOrigin( true ); }
+};
+} // namespace
 
 
 /// DRC_TOOL::RunTests dereferences its reporter unconditionally, so a headless run needs a real
@@ -227,19 +240,57 @@ static json execGetBoard( PCB_EDIT_FRAME* aFrame, const json& aInput )
             ++trackCount;
     }
 
-    return { { "ok", true },
-             { "board_file", u8( board->GetFileName() ) },
-             { "footprint_count", (int) footprints.size() },
-             { "track_count", trackCount },
-             { "via_count", viaCount },
-             { "copper_layers", layers },
-             { "nets", nets },
-             { "text_variables", textVars },
-             { "board_extents", extents },
-             { "footprints", footprints },
-             { "message", "Read " + std::to_string( footprints.size() ) + " footprint(s), "
-                                  + std::to_string( trackCount ) + " track(s), "
-                                  + std::to_string( viaCount ) + " via(s)." } };
+    json res = { { "ok", true },
+                 { "board_file", u8( board->GetFileName() ) },
+                 { "footprint_count", (int) footprints.size() },
+                 { "track_count", trackCount },
+                 { "via_count", viaCount },
+                 { "copper_layers", layers },
+                 { "nets", nets },
+                 { "text_variables", textVars },
+                 { "board_extents", extents },
+                 { "footprints", footprints },
+                 { "message", "Read " + std::to_string( footprints.size() ) + " footprint(s), "
+                                      + std::to_string( trackCount ) + " track(s), "
+                                      + std::to_string( viaCount ) + " via(s)." } };
+
+    // Per-item routing dump, so delete_track_at / set_track_width edits can be verified by
+    // reading the board back. Off by default: a routed board has thousands of segments.
+    if( aInput.value( "include_tracks", false ) )
+    {
+        json tracks = json::array();
+
+        for( PCB_TRACK* t : board->Tracks() )
+        {
+            json tj;
+            tj["net"] = u8( t->GetNetname() );
+
+            if( t->Type() == PCB_VIA_T )
+            {
+                PCB_VIA* via = static_cast<PCB_VIA*>( t );
+                tj["type"] = "via";
+                tj["x_mils"] = pcbIuToMils( via->GetPosition().x );
+                tj["y_mils"] = pcbIuToMils( via->GetPosition().y );
+                tj["diameter_mils"] = pcbIuToMils( via->GetWidth( via->GetLayer() ) );
+            }
+            else
+            {
+                tj["type"] = t->Type() == PCB_ARC_T ? "arc" : "track";
+                tj["layer"] = u8( board->GetLayerName( t->GetLayer() ) );
+                tj["width_mils"] = pcbIuToMils( t->GetWidth() );
+                tj["start_x_mils"] = pcbIuToMils( t->GetStart().x );
+                tj["start_y_mils"] = pcbIuToMils( t->GetStart().y );
+                tj["end_x_mils"] = pcbIuToMils( t->GetEnd().x );
+                tj["end_y_mils"] = pcbIuToMils( t->GetEnd().y );
+            }
+
+            tracks.push_back( tj );
+        }
+
+        res["tracks"] = tracks;
+    }
+
+    return res;
 }
 
 
@@ -428,7 +479,7 @@ static json execAddFootprint( PCB_EDIT_FRAME* aFrame, const json& aInput )
 
     fp->SetPosition( pcbMilsPt( aInput.value( "x_mils", 0 ), aInput.value( "y_mils", 0 ) ) );
 
-    BOARD_COMMIT commit( aFrame );
+    AI_BOARD_COMMIT commit( aFrame );
     commit.Add( fp );
     commit.Push( _( "Anvil AI: add footprint" ) );
     aFrame->GetCanvas()->Refresh();
@@ -449,7 +500,7 @@ static json execMoveFootprint( PCB_EDIT_FRAME* aFrame, const json& aInput )
     if( !fp )
         return fail( "No footprint with reference " + u8( ref ) + " on this board." );
 
-    BOARD_COMMIT commit( aFrame );
+    AI_BOARD_COMMIT commit( aFrame );
     commit.Modify( fp );
 
     if( aInput.contains( "x_mils" ) && aInput.contains( "y_mils" ) )
@@ -1111,7 +1162,7 @@ static json execAddTrack( PCB_EDIT_FRAME* aFrame, const json& aInput )
         netCode = net->GetNetCode();
     }
 
-    BOARD_COMMIT commit( aFrame );
+    AI_BOARD_COMMIT commit( aFrame );
     int          segCount = 0;
 
     for( size_t i = 0; i + 1 < pts.size(); ++i )
@@ -1170,7 +1221,7 @@ static json execAddVia( PCB_EDIT_FRAME* aFrame, const json& aInput )
     via->SetLayerPair( F_Cu, B_Cu );
     via->SetNetCode( netCode );
 
-    BOARD_COMMIT commit( aFrame );
+    AI_BOARD_COMMIT commit( aFrame );
     commit.Add( via );
     commit.Push( _( "Anvil AI: add via" ) );
     aFrame->GetCanvas()->Refresh();
@@ -1230,40 +1281,174 @@ static json execCaptureFootprints( PCB_EDIT_FRAME* aFrame )
 }
 
 
-/// delete_track_at: remove the tracks/vias that end near a point -- the board's delete_at.
-static json execDeleteTrackAt( PCB_EDIT_FRAME* aFrame, const json& aInput )
+/// Hit-test shared by delete_track_at / set_track_width: every track/arc/via whose COPPER
+/// passes within (radius + width/2) of the point. HitTest() does the real point-to-segment
+/// distance, so a point anywhere along a track finds it, not just one near an endpoint (the
+/// old endpoints-only test missed any segment longer than twice the radius). The optional
+/// 'layer' filter matches case-insensitively; omitted = every layer. Always searches the
+/// frame's LIVE board, so tracks added a moment ago are found.
+struct TRACK_HIT_RESULT
 {
-    BOARD*          board = aFrame->GetBoard();
-    VECTOR2I        pt = pcbMilsPt( aInput.value( "x_mils", 0 ), aInput.value( "y_mils", 0 ) );
-    const int       tol = pcbMilsToIU( aInput.value( "radius_mils", 20 ) );
-    const long long tol2 = (long long) tol * tol;
+    std::vector<PCB_TRACK*> hits;
+    json                    error;   // meaningful iff hits is empty
+};
 
-    auto atPt = [&]( const VECTOR2I& p )
+static TRACK_HIT_RESULT findTracksNear( BOARD* aBoard, const json& aInput, bool aIncludeVias )
+{
+    TRACK_HIT_RESULT res;
+
+    const VECTOR2I pt = pcbMilsPt( aInput.value( "x_mils", 0 ), aInput.value( "y_mils", 0 ) );
+    const int      tol = pcbMilsToIU( aInput.value( "radius_mils", 20 ) );
+
+    const wxString     layerName = wxString::FromUTF8( aInput.value( "layer", std::string() ) );
+    const PCB_LAYER_ID layer = layerFromName( aBoard, layerName, UNDEFINED_LAYER );
+
+    if( !layerName.IsEmpty() && layer == UNDEFINED_LAYER )
     {
-        long long dx = p.x - pt.x, dy = p.y - pt.y;
-        return dx * dx + dy * dy <= tol2;
-    };
-
-    std::vector<PCB_TRACK*> toDelete;
-
-    for( PCB_TRACK* t : board->Tracks() )
-    {
-        if( atPt( t->GetStart() ) || atPt( t->GetEnd() ) )
-            toDelete.push_back( t );
+        res.error = fail( "Unknown layer '" + u8( layerName ) + "'." );
+        return res;
     }
 
-    if( toDelete.empty() )
-        return fail( "No track or via found at that point." );
+    PCB_TRACK* nearest = nullptr;
+    int        nearestDist = 0;
 
-    BOARD_COMMIT commit( aFrame );
+    for( PCB_TRACK* t : aBoard->Tracks() )
+    {
+        if( !aIncludeVias && t->Type() == PCB_VIA_T )
+            continue;
 
-    for( PCB_TRACK* t : toDelete )
+        if( layer != UNDEFINED_LAYER && !t->IsOnLayer( layer ) )
+            continue;
+
+        if( t->HitTest( pt, tol ) )
+        {
+            res.hits.push_back( t );
+            continue;
+        }
+
+        if( !res.hits.empty() )
+            continue;   // something already hit; near-misses no longer matter
+
+        // Distance from the point to the item's copper edge, for the error message.
+        int dist;
+
+        switch( t->Type() )
+        {
+        case PCB_VIA_T:
+            dist = (int) ( pt - t->GetPosition() ).EuclideanNorm()
+                   - static_cast<PCB_VIA*>( t )->GetWidth( t->GetLayer() ) / 2;
+            break;
+
+        case PCB_ARC_T:
+        {
+            PCB_ARC* arc = static_cast<PCB_ARC*>( t );
+            dist = (int) std::min( { ( pt - arc->GetStart() ).EuclideanNorm(),
+                                     ( pt - arc->GetMid() ).EuclideanNorm(),
+                                     ( pt - arc->GetEnd() ).EuclideanNorm() } )
+                   - t->GetWidth() / 2;
+            break;
+        }
+
+        default:
+            dist = SEG( t->GetStart(), t->GetEnd() ).Distance( pt ) - t->GetWidth() / 2;
+            break;
+        }
+
+        dist = std::max( dist, 0 );
+
+        if( !nearest || dist < nearestDist )
+        {
+            nearest = t;
+            nearestDist = dist;
+        }
+    }
+
+    if( res.hits.empty() )
+    {
+        std::string what = aIncludeVias ? "track or via" : "track";
+        std::string scope = layer != UNDEFINED_LAYER
+                                    ? "on " + u8( aBoard->GetLayerName( layer ) )
+                                    : "on any layer";
+
+        std::string msg = "No " + what + " within " + std::to_string( pcbIuToMils( tol ) )
+                          + " mils of (" + std::to_string( aInput.value( "x_mils", 0 ) ) + ", "
+                          + std::to_string( aInput.value( "y_mils", 0 ) ) + ") " + scope + ".";
+
+        if( nearest )
+        {
+            msg += " Nearest is a "
+                   + std::string( nearest->Type() == PCB_VIA_T ? "via" : "track" ) + " on "
+                   + u8( nearest->GetLayerName() ) + ", "
+                   + std::to_string( pcbIuToMils( nearestDist ) ) + " mils away.";
+        }
+        else
+        {
+            msg += " The board has no such item " + scope + ".";
+        }
+
+        res.error = fail( msg );
+    }
+
+    return res;
+}
+
+
+/// delete_track_at: remove the tracks/vias whose copper passes under a point -- the board's
+/// delete_at. A point anywhere along a segment hits it, not just one near an endpoint.
+static json execDeleteTrackAt( PCB_EDIT_FRAME* aFrame, const json& aInput )
+{
+    TRACK_HIT_RESULT found = findTracksNear( aFrame->GetBoard(), aInput, true );
+
+    if( found.hits.empty() )
+        return found.error;
+
+    AI_BOARD_COMMIT commit( aFrame );
+
+    for( PCB_TRACK* t : found.hits )
         commit.Remove( t );
 
     commit.Push( _( "Anvil AI: delete track" ) );
     aFrame->GetCanvas()->Refresh();
 
-    return ok( "Deleted " + std::to_string( toDelete.size() ) + " track/via item(s)." );
+    return ok( "Deleted " + std::to_string( found.hits.size() ) + " track/via item(s)." );
+}
+
+
+/// set_track_width: change the width of the track segment(s) under a point -- the only way to
+/// edit an existing track through the bridge. Vias are left alone (their size is a padstack
+/// property; delete and re-add one instead).
+static json execSetTrackWidth( PCB_EDIT_FRAME* aFrame, const json& aInput )
+{
+    if( !aInput.contains( "width_mils" ) )
+    {
+        return fail( "set_track_width needs 'width_mils' plus the x_mils/y_mils of a point "
+                     "on the track." );
+    }
+
+    const int widthMils = aInput["width_mils"].get<int>();
+    const int width = pcbMilsToIU( widthMils );
+
+    if( width <= 0 )
+        return fail( "'width_mils' must be a positive track width." );
+
+    TRACK_HIT_RESULT found = findTracksNear( aFrame->GetBoard(), aInput, false );
+
+    if( found.hits.empty() )
+        return found.error;
+
+    AI_BOARD_COMMIT commit( aFrame );
+
+    for( PCB_TRACK* t : found.hits )
+    {
+        commit.Modify( t );
+        t->SetWidth( width );
+    }
+
+    commit.Push( _( "Envil AI: set track width" ) );
+    aFrame->GetCanvas()->Refresh();
+
+    return ok( "Set " + std::to_string( found.hits.size() ) + " track segment(s) to "
+               + std::to_string( widthMils ) + " mils wide." );
 }
 
 
@@ -1392,7 +1577,7 @@ std::string EnvilCaptureBoardFootprints( PCB_EDIT_FRAME* aFrame )
         // ---- 4. give the nickname-less footprints one, so the board resolves them ----
         if( !untagged.empty() )
         {
-            BOARD_COMMIT commit( aFrame );
+            AI_BOARD_COMMIT commit( aFrame );
 
             for( FOOTPRINT* fp : untagged )
             {
@@ -1476,6 +1661,8 @@ std::string AnvilExecPcbTool( PCB_EDIT_FRAME* aFrame, const std::string& aReques
                 result = execDeleteFootprint( aFrame, input );
             else if( tool == "delete_track_at" )
                 result = execDeleteTrackAt( aFrame, input );
+            else if( tool == "set_track_width" )
+                result = execSetTrackWidth( aFrame, input );
             else if( tool == "set_text_variable" )
                 result = execSetTextVariable( aFrame, input );
             else if( tool == "capture_footprints" )

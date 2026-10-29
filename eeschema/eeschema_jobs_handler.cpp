@@ -40,6 +40,8 @@
 #include <wx/file.h>
 #include <memory>
 #include <connection_graph.h>
+#include "bom_pricing/bom_price_service.h"
+#include "passive_parts/passive_table_store.h"
 #include "eeschema_helpers.h"
 #include <filename_resolver.h>
 #include <kiway.h>
@@ -690,6 +692,40 @@ int EESCHEMA_JOBS_HANDLER::JobExportBom( JOB* aJob )
     if( !haveMpn )
         dataModel.AddColumn( wxS( "MPN" ), wxS( "MPN" ), false, currentVariant );
 
+    // Likewise a Price column, filled from distributor lookups keyed on the MPN
+    bool havePrice = false;
+
+    for( const BOM_FIELD& modelField : dataModel.GetFieldsOrdered() )
+        havePrice |= FIELDS_EDITOR_GRID_DATA_MODEL::isUnitPriceFieldName( modelField.name );
+
+    if( !havePrice )
+        dataModel.AddColumn( wxS( "Price" ), _( "Price (INR)" ), false, currentVariant );
+
+    // And a Price Source column beside it, showing which site the fetched price came from
+    bool havePriceSource = false;
+
+    for( const BOM_FIELD& modelField : dataModel.GetFieldsOrdered() )
+        havePriceSource |= FIELDS_EDITOR_GRID_DATA_MODEL::isPriceSourceFieldName( modelField.name );
+
+    if( !havePriceSource )
+        dataModel.AddColumn( wxS( "Price Source" ), _( "Price Source" ), false, currentVariant );
+
+    // Columns requested by imported passive parts lists ("Show in BOM" ticks), so their
+    // auto-filled values reach the export even when no symbol carries the field
+    for( const wxString& passiveField : PASSIVE_PARTS::PASSIVE_TABLE_STORE::Get().ShownBomFields() )
+    {
+        bool havePassiveField = false;
+
+        for( const BOM_FIELD& modelField : dataModel.GetFieldsOrdered() )
+        {
+            havePassiveField |=
+                    FIELDS_EDITOR_GRID_DATA_MODEL::FieldNamesMatch( modelField.name, passiveField );
+        }
+
+        if( !havePassiveField )
+            dataModel.AddColumn( passiveField, passiveField, false, currentVariant );
+    }
+
     BOM_PRESET preset;
 
     // Load a preset if one is specified
@@ -911,6 +947,62 @@ int EESCHEMA_JOBS_HANDLER::JobExportBom( JOB* aJob )
         dataModel.SetVariantNames( singleVariant );
         dataModel.SetCurrentVariant( variantName );
         dataModel.ApplyBomPreset( preset, variantName );
+
+        // Resolve distributor prices for the Price column (cache-first, shared with the BOM
+        // dialog so both produce identical numbers) — but only when the applied preset
+        // actually shows a price column: a BOM without one costs zero network traffic.
+        bool wantsPricing = false;
+
+        for( const BOM_FIELD& shownField : dataModel.GetFieldsOrdered() )
+        {
+            if( shownField.show
+                && ( FIELDS_EDITOR_GRID_DATA_MODEL::isUnitPriceFieldName( shownField.name )
+                     || FIELDS_EDITOR_GRID_DATA_MODEL::isPriceSourceFieldName( shownField.name ) ) )
+            {
+                wantsPricing = true;
+                break;
+            }
+        }
+
+        EESCHEMA_SETTINGS* eeCfg = GetAppSettings<EESCHEMA_SETTINGS>( "eeschema" );
+
+        if( wantsPricing && ( !eeCfg || eeCfg->m_BomPricing.enable ) )
+        {
+            BOM_PRICING::BOM_PRICE_SERVICE::OPTIONS options;
+
+            if( eeCfg )
+            {
+                options.cacheTtlHours = eeCfg->m_BomPricing.cache_ttl_hours;
+                options.fetchTimeoutSecs = eeCfg->m_BomPricing.fetch_timeout_secs;
+                options.totalBudgetSecs = eeCfg->m_BomPricing.total_budget_secs;
+                options.sources = eeCfg->m_BomPricing.sources;
+                options.element14ApiKey = eeCfg->m_BomPricing.element14_api_key;
+            }
+
+            std::vector<BOM_PRICING::BOM_PRICE_SERVICE::PART_REQUEST> parts;
+
+            for( const auto& [mpn, qty] : dataModel.GetDistinctMpnsWithQty() )
+                parts.push_back( { mpn, qty } );
+
+            if( !parts.empty() )
+            {
+                BOM_PRICING::BOM_PRICE_SERVICE service;
+
+                std::map<wxString, BOM_PRICING::BOM_PRICE_SERVICE::PRICE_RESULT> prices =
+                        service.GetPrices( parts, options );
+
+                if( prices.size() < parts.size() )
+                {
+                    m_reporter->Report( wxString::Format( _( "Distributor pricing resolved for "
+                                                             "%zu of %zu parts; unresolved "
+                                                             "Price cells are left empty.\n" ),
+                                                          prices.size(), parts.size() ),
+                                        RPT_SEVERITY_WARNING );
+                }
+
+                dataModel.SetPriceOverlay( std::move( prices ) );
+            }
+        }
 
         wxString outPath;
 

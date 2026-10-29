@@ -31,6 +31,7 @@
 #include <sch_screen.h>
 #include <schematic.h>
 
+#include <activity_logger.h>
 #include <view/view.h>
 #include <sch_commit.h>
 #include <connection_graph.h>
@@ -476,6 +477,19 @@ void SCH_COMMIT::Push( const wxString& aMessage, int aCommitFlags )
 {
     if( Empty() )
         return;
+
+    SCH_BASE_FRAME* logFrame = dynamic_cast<SCH_BASE_FRAME*>( m_toolMgr->GetToolHolder() );
+    wxString        projectDir, projectName;
+
+    if( logFrame && !logFrame->Prj().IsNullProject() )
+    {
+        projectDir = logFrame->Prj().GetProjectPath();
+        projectName = logFrame->Prj().GetProjectName();
+    }
+
+    ACTIVITY_LOGGER::Get().LogCommit( projectDir, projectName,
+                                      m_isLibEditor ? wxS( "symbol" ) : wxS( "schematic" ),
+                                      aMessage, IsAPIOrigin(), DescribeChanges( logFrame ) );
 
     if( m_isLibEditor )
         pushLibEdit( aMessage, aCommitFlags );

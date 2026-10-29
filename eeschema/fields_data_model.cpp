@@ -29,6 +29,10 @@
 #include <sch_screen.h>
 #include "string_utils.h"
 
+#include "bom_pricing/bom_price_service.h"
+#include "passive_parts/passive_table_store.h"
+#include <eeschema_settings.h>
+#include <settings/settings_manager.h>
 #include "fields_data_model.h"
 
 
@@ -473,6 +477,44 @@ bool FIELDS_EDITOR_GRID_DATA_MODEL::isMpnFieldName( const wxString& aFieldName )
 }
 
 
+bool FIELDS_EDITOR_GRID_DATA_MODEL::isUnitPriceFieldName( const wxString& aFieldName )
+{
+    // normalizeFieldName strips spaces but keeps parentheses, so "Price (INR)" -> "price(inr)"
+    static const std::set<wxString> names = { wxS( "price" ), wxS( "unitprice" ),
+                                              wxS( "cost" ), wxS( "unitcost" ),
+                                              wxS( "priceinr" ), wxS( "unitpriceinr" ),
+                                              wxS( "price(inr)" ), wxS( "unitprice(inr)" ) };
+
+    return names.count( normalizeFieldName( aFieldName ) ) > 0;
+}
+
+
+bool FIELDS_EDITOR_GRID_DATA_MODEL::isPriceSourceFieldName( const wxString& aFieldName )
+{
+    // Deliberately narrow: generic names like "Supplier" or "Distributor" are left alone so
+    // a user's own vendor columns never pick up the fetched-price overlay.
+    static const std::set<wxString> names = { wxS( "pricesource" ), wxS( "pricesite" ),
+                                              wxS( "pricewebsite" ), wxS( "pricefrom" ) };
+
+    return names.count( normalizeFieldName( aFieldName ) ) > 0;
+}
+
+
+bool FIELDS_EDITOR_GRID_DATA_MODEL::FieldNamesMatch( const wxString& aLhs, const wxString& aRhs )
+{
+    if( normalizeFieldName( aLhs ) == normalizeFieldName( aRhs ) )
+        return true;
+
+    if( isManufacturerFieldName( aLhs ) && isManufacturerFieldName( aRhs ) )
+        return true;
+
+    if( isMpnFieldName( aLhs ) && isMpnFieldName( aRhs ) )
+        return true;
+
+    return false;
+}
+
+
 /// Get a non-empty alias field value from the symbol, trying aAliases in order.
 static wxString aliasFieldValue( const SCH_SYMBOL* aSymbol, const SCH_SHEET_PATH& aSheetPath,
                                  const wxString& aVariantName,
@@ -703,6 +745,89 @@ wxString FIELDS_EDITOR_GRID_DATA_MODEL::deriveMpn( const SCH_REFERENCE& aRef,
     }
 
     return wxEmptyString;
+}
+
+
+wxString FIELDS_EDITOR_GRID_DATA_MODEL::passiveFieldValue( const SCH_REFERENCE& aRef,
+                                                            const KIID_PATH& aSymbolKey,
+                                                            const wxString& aFieldName,
+                                                            const wxString& aCurrent )
+{
+    // Generated fields and the identity columns are never fill targets
+    if( IsGeneratedField( aFieldName ) || aFieldName.CmpNoCase( wxS( "Reference" ) ) == 0
+            || aFieldName.CmpNoCase( wxS( "Value" ) ) == 0
+            || aFieldName.CmpNoCase( wxS( "Footprint" ) ) == 0 )
+    {
+        return aCurrent;
+    }
+
+    const SCH_SYMBOL* symbol = aRef.GetSymbol();
+
+    if( !symbol )
+        return aCurrent;
+
+    // Only cells the user left empty are candidates.  Description is special: the
+    // instance field inherits the library symbol's generic text ("Resistor") on
+    // placement, so a cell still equal to it counts as not customized.
+    if( !aCurrent.IsEmpty() )
+    {
+        bool isDescription = aFieldName.CmpNoCase( wxS( "Description" ) ) == 0;
+
+        if( !isDescription || aCurrent != symbol->GetDescription() )
+            return aCurrent;
+    }
+
+    EESCHEMA_SETTINGS* cfg = GetAppSettings<EESCHEMA_SETTINGS>( "eeschema" );
+
+    if( !cfg || !cfg->m_PassiveParts.enable )
+        return aCurrent;
+
+    auto cached = m_passiveMatch.find( aSymbolKey );
+
+    if( cached == m_passiveMatch.end() )
+    {
+        std::map<wxString, wxString> resolved;
+
+        PASSIVE_PARTS::PASSIVE_TABLE_STORE& store = PASSIVE_PARTS::PASSIVE_TABLE_STORE::Get();
+
+        if( store.HasEnabledTables() )
+        {
+            wxString footprint = aRef.GetFootprint();
+
+            PASSIVE_PARTS::PASSIVE_TYPE type = PASSIVE_PARTS::TypeFromFootprint( footprint );
+
+            if( type == PASSIVE_PARTS::PASSIVE_TYPE::UNKNOWN )
+                type = PASSIVE_PARTS::TypeFromRefdesPrefix( symbol->GetPrefix() );
+
+            wxString package = PASSIVE_PARTS::PackageFromFootprint( footprint );
+            int64_t  value = 0;
+
+            if( type != PASSIVE_PARTS::PASSIVE_TYPE::UNKNOWN && !package.IsEmpty()
+                    && PASSIVE_PARTS::NormalizePassiveValue( aRef.GetValue(), type, &value ) )
+            {
+                wxString symbolTolerance =
+                        aliasFieldValue( symbol, aRef.GetSheetPath(), m_currentVariant,
+                                         { wxS( "Tolerance" ), wxS( "Tol" ) } );
+
+                if( const PASSIVE_PARTS::PASSIVE_RECORD* record =
+                            store.Find( type, package, value, symbolTolerance,
+                                        cfg->m_PassiveParts.default_tolerance ) )
+                {
+                    resolved = record->fields;
+                }
+            }
+        }
+
+        cached = m_passiveMatch.emplace( aSymbolKey, std::move( resolved ) ).first;
+    }
+
+    for( const auto& [name, fieldValue] : cached->second )
+    {
+        if( !fieldValue.IsEmpty() && FieldNamesMatch( name, aFieldName ) )
+            return fieldValue;
+    }
+
+    return aCurrent;
 }
 
 
@@ -1043,6 +1168,12 @@ wxString FIELDS_EDITOR_GRID_DATA_MODEL::GetValue( const DATA_MODEL_ROW& group, i
 
             wxString refFieldValue = m_dataStore[symbolKey][m_cols[aCol].m_fieldName];
 
+            // Imported passive parts lists may supply values for cells the symbol leaves
+            // empty.  Display/export only: the value never enters m_dataStore, so
+            // ApplyData() can't write it back to the schematic.
+            refFieldValue =
+                    passiveFieldValue( ref, symbolKey, m_cols[aCol].m_fieldName, refFieldValue );
+
             if( resolveVars )
             {
                 if( IsGeneratedField( m_cols[aCol].m_fieldName ) )
@@ -1123,7 +1254,78 @@ wxString FIELDS_EDITOR_GRID_DATA_MODEL::GetValue( const DATA_MODEL_ROW& group, i
     else if( ColIsItemNumber( aCol ) && group.m_Flag != CHILD_ITEM )
         fieldValue = wxString::Format( wxT( "%d" ), group.m_ItemNumber );
 
+    // Overlay fetched distributor pricing onto empty price-column cells.  Display/export
+    // only: the overlay never enters m_dataStore, so ApplyData() can't write it back to the
+    // schematic, and a user's own Price value (non-empty cell) always wins.
+    if( fieldValue.IsEmpty() && !m_priceOverlay.empty() )
+    {
+        bool isPrice = isUnitPriceFieldName( m_cols[aCol].m_fieldName );
+        bool isSource = !isPrice && isPriceSourceFieldName( m_cols[aCol].m_fieldName );
+
+        if( isPrice || isSource )
+        {
+            int mpnCol = GetMpnColumn();
+
+            if( mpnCol >= 0 && mpnCol != aCol )
+            {
+                wxString mpn = GetValue( group, mpnCol, refDelimiter, refRangeDelimiter,
+                                         resolveVars, false );
+
+                auto it = m_priceOverlay.find(
+                        BOM_PRICING::BOM_PRICE_SERVICE::NormalizeMpn( mpn ) );
+
+                if( it != m_priceOverlay.end() )
+                    fieldValue = isPrice ? it->second.priceInr : it->second.source;
+            }
+        }
+    }
+
     return fieldValue;
+}
+
+
+int FIELDS_EDITOR_GRID_DATA_MODEL::GetMpnColumn() const
+{
+    for( size_t col = 0; col < m_cols.size(); ++col )
+    {
+        if( isMpnFieldName( m_cols[col].m_fieldName ) )
+            return (int) col;
+    }
+
+    return -1;
+}
+
+
+std::vector<std::pair<wxString, int>> FIELDS_EDITOR_GRID_DATA_MODEL::GetDistinctMpnsWithQty()
+{
+    std::vector<std::pair<wxString, int>> result;
+    int                                   mpnCol = GetMpnColumn();
+
+    if( mpnCol < 0 )
+        return result;
+
+    std::map<wxString, int> wanted;
+
+    for( const DATA_MODEL_ROW& row : m_rows )
+    {
+        // Children repeat their group's parts; the group row already carries the full qty.
+        if( row.m_Flag == CHILD_ITEM )
+            continue;
+
+        wxString mpn = GetValue( row, mpnCol );
+
+        if( mpn.IsEmpty() || mpn == INDETERMINATE_STATE )
+            continue;
+
+        wxString key = BOM_PRICING::BOM_PRICE_SERVICE::NormalizeMpn( mpn );
+        int&     qty = wanted[key];
+        qty = std::max( qty, (int) row.m_Refs.size() );
+    }
+
+    for( const auto& [mpn, qty] : wanted )
+        result.emplace_back( mpn, qty );
+
+    return result;
 }
 
 
@@ -2122,6 +2324,8 @@ void FIELDS_EDITOR_GRID_DATA_MODEL::AddReferences( const SCH_REFERENCE_LIST& aRe
 {
     bool refListChanged = false;
 
+    m_passiveMatch.clear();
+
     for( const SCH_REFERENCE& ref : aRefs )
     {
         if( !m_symbolsList.Contains( ref ) )
@@ -2192,6 +2396,8 @@ void FIELDS_EDITOR_GRID_DATA_MODEL::UpdateReferences( const SCH_REFERENCE_LIST& 
                                                       const wxString& aVariantName )
 {
     bool refListChanged = false;
+
+    m_passiveMatch.clear();
 
     for( const SCH_REFERENCE& ref : aRefs )
     {

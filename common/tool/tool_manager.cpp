@@ -50,6 +50,7 @@
 #include <tool/action_manager.h>
 
 #include <class_draw_panel_gal.h>
+#include <commit.h>
 
 /// Struct describing the current execution state of a TOOL
 struct TOOL_MANAGER::TOOL_STATE
@@ -337,6 +338,10 @@ bool TOOL_MANAGER::doRunAction( const TOOL_ACTION& aAction, bool aNow, const ki:
 {
     if( m_shuttingDown )
         return true;
+
+    // Let the activity log distinguish API-driven edits from interactive ones
+    if( aCommit && aFromAPI )
+        aCommit->SetAPIOrigin( true );
 
     bool       retVal = false;
     TOOL_EVENT event = aAction.MakeEvent();

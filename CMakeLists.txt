@@ -148,9 +148,11 @@ cmake_dependent_option( KICAD_BUILD_NIGHTLY_FLATPAK
     OFF "UNIX_NOT_APPLE"
     OFF )
 
+# Default ON: without this the DPI-unaware basic.manifest is embedded and Windows
+# bitmap-stretches the entire UI on high-DPI displays (blurry text and icons).
 cmake_dependent_option( KICAD_WIN32_DPI_AWARE
     "Turn on DPI awareness for Windows builds only"
-    OFF "WIN32"
+    ON "WIN32"
     OFF )
 
 cmake_dependent_option( KICAD_WIN32_VERIFY_CODESIGN

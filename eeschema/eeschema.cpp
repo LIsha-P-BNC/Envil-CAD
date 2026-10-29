@@ -65,6 +65,7 @@
 #include <panel_template_fieldnames.h>
 #include <panel_eeschema_color_settings.h>
 #include <panel_sch_data_sources.h>
+#include <panel_sch_passive_parts.h>
 #include <panel_sym_color_settings.h>
 #include <panel_eeschema_editing_options.h>
 #include <panel_eeschema_annotation_options.h>
@@ -371,6 +372,9 @@ static struct IFACE : public KIFACE_BASE, public UNITS_PROVIDER
 
         case PANEL_SCH_FIELD_NAME_TEMPLATES:
             return new PANEL_TEMPLATE_FIELDNAMES( aParent, nullptr );
+
+        case PANEL_SCH_PASSIVE_PARTS:
+            return new class PANEL_SCH_PASSIVE_PARTS( aParent );
 
         case PANEL_SCH_DATA_SOURCES:
         {

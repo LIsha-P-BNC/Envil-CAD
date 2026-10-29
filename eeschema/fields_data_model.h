@@ -26,6 +26,8 @@
 #include <wx/grid.h>
 #include <widgets/wx_grid.h>
 
+#include "bom_pricing/bom_price_service.h"
+
 
 struct BOM_FIELD;
 struct BOM_PRESET;
@@ -414,10 +416,41 @@ public:
 
     /**
      * True if aFieldName is a recognized alias for the Manufacturer / Manufacturer Part
-     * Number BOM columns (name matching is normalized: case and space/._-# insensitive).
+     * Number / unit-price BOM columns (name matching is normalized: case and space/._-#
+     * insensitive).
      */
     static bool isManufacturerFieldName( const wxString& aFieldName );
     static bool isMpnFieldName( const wxString& aFieldName );
+    static bool isUnitPriceFieldName( const wxString& aFieldName );
+    static bool isPriceSourceFieldName( const wxString& aFieldName );
+
+    /**
+     * Normalized field-name equivalence (case and space/._-# insensitive), additionally
+     * treating all Manufacturer aliases as one name and all MPN aliases as one name.
+     * Used to match imported parts-list field names against BOM columns.
+     */
+    static bool FieldNamesMatch( const wxString& aLhs, const wxString& aRhs );
+
+    /**
+     * Display/export overlay for fetched distributor prices (and the site each winning
+     * offer came from), keyed by normalized MPN (BOM_PRICE_SERVICE::NormalizeMpn).
+     * Consulted by GetValue() only when a price- or price-source-named cell resolves
+     * empty; it never enters m_dataStore, so ApplyData() can't persist it and a user's
+     * own Price / Price Source field always wins.
+     */
+    void SetPriceOverlay( std::map<wxString, BOM_PRICING::BOM_PRICE_SERVICE::PRICE_RESULT> aPrices )
+    {
+        m_priceOverlay = std::move( aPrices );
+    }
+
+    void ClearPriceOverlay() { m_priceOverlay.clear(); }
+
+    /// The first column recognized as an MPN alias, or -1.
+    int GetMpnColumn() const;
+
+    /// Distinct non-empty MPNs over the current (grouped, filtered) rows with the largest
+    /// per-line quantity seen for each — the fetch list for BOM pricing.
+    std::vector<std::pair<wxString, int>> GetDistinctMpnsWithQty();
 
 private:
     static bool cmp( const DATA_MODEL_ROW& lhGroup, const DATA_MODEL_ROW& rhGroup,
@@ -474,6 +507,16 @@ private:
     wxString deriveManufacturer( const SCH_REFERENCE& aRef, const wxString& aVariantName );
     wxString deriveMpn( const SCH_REFERENCE& aRef, const wxString& aVariantName );
 
+    /**
+     * Passive parts list fill: the value an imported company parts list supplies for
+     * aFieldName on this symbol, or aCurrent unchanged.  Fills only cells that resolve
+     * empty (plus Description cells still equal to the library symbol's own description).
+     * Display/export only -- the result never enters m_dataStore, so ApplyData() can
+     * never persist it and a user's own field always wins.
+     */
+    wxString passiveFieldValue( const SCH_REFERENCE& aRef, const KIID_PATH& aSymbolKey,
+                                const wxString& aFieldName, const wxString& aCurrent );
+
     void Sort();
 
     void updateDataStoreSymbolField( const SCH_REFERENCE& aSymbolRef, const wxString& aFieldName,
@@ -507,6 +550,14 @@ protected:
 
     /// Active per-column filters: canonical field name -> allowed displayed values
     std::map<wxString, std::set<wxString>> m_colFilters;
+
+    /// Fetched distributor prices: normalized MPN -> INR unit price + source site
+    /// (see SetPriceOverlay)
+    std::map<wxString, BOM_PRICING::BOM_PRICE_SERVICE::PRICE_RESULT> m_priceOverlay;
+
+    /// Resolved imported-parts-list fields per symbol (values copied out of the store so
+    /// nothing dangles across a store reload).  An empty map records a known miss.
+    std::map<KIID_PATH, std::map<wxString, wxString>> m_passiveMatch;
 
     /// The grouped rows before column filters were applied (for AutoFilter value lists)
     std::vector<DATA_MODEL_ROW> m_unfilteredRows;

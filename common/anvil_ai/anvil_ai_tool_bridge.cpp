@@ -59,7 +59,8 @@ bool AnvilIsBoardTool( const std::string& aToolName )
 {
     static const std::set<std::string> boardTools = {
         "get_board", "run_drc", "add_footprint", "move_footprint", "add_track", "add_via",
-        "delete_track_at", "set_text_variable", "capture_footprints", "autoroute"
+        "delete_track_at", "set_track_width", "set_text_variable", "capture_footprints",
+        "autoroute"
     };
 
     return boardTools.count( aToolName ) > 0;

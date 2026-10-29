@@ -53,6 +53,18 @@
 using json = nlohmann::json;
 
 
+namespace
+{
+/// Every commit in this file is an AI tool edit: tag it at construction so the project's
+/// activity log records it as origin:"api" instead of a hand edit.
+class AI_SCH_COMMIT : public SCH_COMMIT
+{
+public:
+    AI_SCH_COMMIT( EDA_DRAW_FRAME* aFrame ) : SCH_COMMIT( aFrame ) { SetAPIOrigin( true ); }
+};
+} // namespace
+
+
 /// mils -> internal units
 static inline VECTOR2I milsPt( int aX, int aY )
 {
@@ -193,7 +205,7 @@ static json execAddComponent( SCH_EDIT_FRAME* aFrame, const json& aInput )
 
     aFrame->AddToScreen( symbol, aFrame->GetScreen() );
 
-    SCH_COMMIT commit( aFrame );
+    AI_SCH_COMMIT commit( aFrame );
     commit.Added( symbol, aFrame->GetScreen() );
     commit.Push( _( "Anvil AI: add symbol" ) );
 
@@ -227,7 +239,7 @@ static json execAddWire( SCH_EDIT_FRAME* aFrame, const json& aInput )
     }
 
     SCH_SCREEN*            screen = aFrame->GetScreen();
-    SCH_COMMIT             commit( aFrame );
+    AI_SCH_COMMIT             commit( aFrame );
     std::deque<EDA_ITEM*>  newWires;
     int                    segCount = 0;
 
@@ -320,7 +332,7 @@ static json execAddLabel( SCH_EDIT_FRAME* aFrame, const json& aInput )
 
     aFrame->AddToScreen( label, aFrame->GetScreen() );
 
-    SCH_COMMIT commit( aFrame );
+    AI_SCH_COMMIT commit( aFrame );
     commit.Added( label, aFrame->GetScreen() );
     commit.Push( _( "Anvil AI: add label" ) );
 
@@ -335,7 +347,7 @@ static json execAddJunction( SCH_EDIT_FRAME* aFrame, const json& aInput )
 
     aFrame->AddToScreen( jct, aFrame->GetScreen() );
 
-    SCH_COMMIT commit( aFrame );
+    AI_SCH_COMMIT commit( aFrame );
     commit.Added( jct, aFrame->GetScreen() );
     commit.Push( _( "Anvil AI: add junction" ) );
 
@@ -350,7 +362,7 @@ static json execAddNoConnect( SCH_EDIT_FRAME* aFrame, const json& aInput )
 
     aFrame->AddToScreen( nc, aFrame->GetScreen() );
 
-    SCH_COMMIT commit( aFrame );
+    AI_SCH_COMMIT commit( aFrame );
     commit.Added( nc, aFrame->GetScreen() );
     commit.Push( _( "Anvil AI: add no-connect" ) );
 
@@ -372,7 +384,7 @@ static json execEditValue( SCH_EDIT_FRAME* aFrame, const json& aInput )
     if( !sym )
         return fail( "No symbol with reference " + std::string( ref.utf8_str() ) + "." );
 
-    SCH_COMMIT commit( aFrame );
+    AI_SCH_COMMIT commit( aFrame );
     commit.Modify( sym, screen );
     sym->SetValueFieldText( val );
     commit.Push( _( "Anvil AI: edit value" ) );
@@ -850,7 +862,7 @@ static json execMoveComponent( SCH_EDIT_FRAME* aFrame, const json& aInput )
 
     VECTOR2I pos = milsPt( aInput.value( "x_mils", 0 ), aInput.value( "y_mils", 0 ) );
 
-    SCH_COMMIT commit( aFrame );
+    AI_SCH_COMMIT commit( aFrame );
     commit.Modify( sym, screen );
     sym->SetPosition( pos );
     commit.Push( _( "Anvil AI: move symbol" ) );
@@ -874,7 +886,7 @@ static json execDeleteComponent( SCH_EDIT_FRAME* aFrame, const json& aInput )
     if( !sym )
         return fail( "No symbol with reference " + std::string( ref.utf8_str() ) + "." );
 
-    SCH_COMMIT commit( aFrame );
+    AI_SCH_COMMIT commit( aFrame );
     commit.Removed( sym, screen );
     aFrame->RemoveFromScreen( sym, screen );
     commit.Push( _( "Anvil AI: delete symbol" ) );
@@ -936,7 +948,7 @@ static json execDeleteAt( SCH_EDIT_FRAME* aFrame, const json& aInput )
     if( toDelete.empty() )
         return fail( "No wire/label/junction/no-connect found at that point." );
 
-    SCH_COMMIT commit( aFrame );
+    AI_SCH_COMMIT commit( aFrame );
 
     for( SCH_ITEM* it : toDelete )
     {
@@ -978,7 +990,7 @@ static json execSnapToGrid( SCH_EDIT_FRAME* aFrame, const json& aInput )
         return KiROUND( (double) v / grid ) * grid;
     };
 
-    SCH_COMMIT commit( aFrame );
+    AI_SCH_COMMIT commit( aFrame );
     int        movedSymbols = 0;
     int        movedWireEnds = 0;
 
@@ -1199,7 +1211,7 @@ static json execGetSchematic( SCH_EDIT_FRAME* aFrame, const json& aInput )
  */
 static json execAnnotate( SCH_EDIT_FRAME* aFrame, const json& aInput )
 {
-    SCH_COMMIT commit( aFrame );
+    AI_SCH_COMMIT commit( aFrame );
     NULL_REPORTER reporter;
 
     aFrame->AnnotateSymbols( &commit, ANNOTATE_ALL, SORT_BY_X_POSITION, INCREMENTAL_BY_REF,

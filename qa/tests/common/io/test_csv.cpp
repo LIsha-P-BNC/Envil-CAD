@@ -157,4 +157,29 @@ BOOST_AUTO_TEST_CASE( BasicDecode )
 }
 
 
+BOOST_AUTO_TEST_CASE( Utf8RoundTrip )
+{
+    // "10k<ohm>", "<plusmn>5%", "-55<deg>C ~ 155<deg>C" as explicit UTF-8 bytes: non-ASCII
+    // content must survive AutoDecodeCSV (it used to be mangled by a locale conversion).
+    const wxString ohms   = wxString::FromUTF8( "10k\xCE\xA9" );
+    const wxString tol    = wxString::FromUTF8( "\xC2\xB1" "5%" );
+    const wxString opTemp = wxString::FromUTF8( "-55\xC2\xB0" "C ~ 155\xC2\xB0" "C" );
+
+    const std::vector<std::vector<wxString>> rows = {
+        { "Value", "Tolerance", "Operating Temperature" },
+        { ohms, tol, opTemp },
+    };
+
+    wxStringOutputStream os;
+    CSV_WRITER           writer( os );
+    writer.WriteLines( rows );
+
+    std::vector<std::vector<wxString>> readRows;
+
+    bool result = AutoDecodeCSV( os.GetString(), readRows );
+    BOOST_CHECK( result );
+    BOOST_CHECK_PREDICATE( TableDataEqual, ( rows )( readRows ) );
+}
+
+
 BOOST_AUTO_TEST_SUITE_END()

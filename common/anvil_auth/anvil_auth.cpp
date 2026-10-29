@@ -32,8 +32,10 @@
 #include <cstdlib>
 #include <optional>
 
+#include <wx/app.h>
 #include <wx/datetime.h>
 #include <wx/translation.h>
+#include <wx/uri.h>
 
 /*
  * SECURITY NOTES
@@ -388,6 +390,168 @@ bool ANVIL_AUTH::VerifyOtp( const wxString& aEmail, const wxString& aOtp, wxStri
     }
 
     return true;
+}
+
+
+bool ANVIL_AUTH::SignInWithHandoffToken( const wxString& aHandoffToken, wxString& aError )
+{
+    if( aHandoffToken.IsEmpty() )
+    {
+        aError = _( "No sign-in token was supplied." );
+        return false;
+    }
+
+    nlohmann::json body = { { ANVIL_API::F_HANDOFF_TOKEN,
+                              std::string( aHandoffToken.utf8_str() ) },
+                            { ANVIL_API::F_PROJECT_ID,
+                              std::string( ANVIL_AUTH_CONFIG::ProjectId().utf8_str() ) } };
+
+    std::string response;
+
+    if( !postJson( ANVIL_API::SSO_EXCHANGE_PATH, body, response, aError ) )
+        return false;
+
+    // The response is verify-otp's shape plus the account email, so the parsing below
+    // deliberately mirrors VerifyOtp().  The duplication is on purpose for now: folding the
+    // two into one helper means editing the live OTP path, and that should not ride along in
+    // the same change that introduces an untested one.  Fold them once this flow has been
+    // exercised against the real endpoint.
+    std::string token;
+    std::string email;
+    long long   expiresAt = 0;
+    SESSION     session;
+
+    try
+    {
+        nlohmann::json js = nlohmann::json::parse( response );
+
+        token = findField( js, ANVIL_API::TOKEN_FIELDS );
+        email = findField( js, ANVIL_API::EMAIL_FIELDS );
+
+        if( std::string expiry = findField( js, ANVIL_API::EXPIRY_FIELDS ); !expiry.empty() )
+        {
+            long long value = std::atoll( expiry.c_str() );
+            long long now = (long long) wxDateTime::Now().GetTicks();
+
+            // Same heuristic as VerifyOtp: a small number is a relative "expires_in", a
+            // large one an absolute epoch "expires_at".
+            if( value > 0 )
+                expiresAt = ( value < 1000000000LL ) ? now + value : value;
+        }
+
+        readProfile( js, session );
+    }
+    catch( ... )
+    {
+        // fall through with an empty token
+    }
+
+    if( token.empty() )
+    {
+        aError = _( "Sign-in succeeded but the server response carried no session token. "
+                    "Please contact support." );
+        return false;
+    }
+
+    // Without an email there is nothing to address a later logout with — LOGOUT_PATH is
+    // keyed by email — so refuse rather than store a session that can only be ended by
+    // clearing the credential store by hand.
+    if( email.empty() )
+    {
+        aError = _( "Sign-in succeeded but the server response carried no account email. "
+                    "Please contact support." );
+        return false;
+    }
+
+    if( expiresAt == 0 )
+    {
+        expiresAt = (long long) wxDateTime::Now().GetTicks()
+                    + (long long) ANVIL_AUTH_CONFIG::SessionDays() * 24 * 3600;
+    }
+
+    session.email      = wxString::FromUTF8( email );
+    session.token      = wxString::FromUTF8( token );
+    session.expires_at = expiresAt;
+
+    if( !storeSession( session ) )
+    {
+        aError = _( "Could not store the session in the system credential store." );
+        return false;
+    }
+
+    return true;
+}
+
+
+ANVIL_AUTH::HANDOFF ANVIL_AUTH::TrySignInFromCommandLine( wxString& aError )
+{
+    aError.Clear();
+
+    if( !wxTheApp )
+        return HANDOFF::NONE;
+
+    const wxString urlMarker  = wxS( "token=" );
+    const wxString flagPrefix = wxS( "--handoff-token=" );
+
+    wxString token;
+
+    for( int i = 1; i < wxTheApp->argc && token.IsEmpty(); ++i )
+    {
+        const wxString arg = wxTheApp->argv[i];
+
+        if( arg.StartsWith( flagPrefix ) )
+        {
+            // Given by hand, so it is already the token itself.
+            token = arg.Mid( flagPrefix.length() );
+        }
+        else if( arg.Contains( wxS( "://" ) ) && arg.Contains( urlMarker ) )
+        {
+            // A protocol URL from the operating system.
+            //
+            // Matched on "token=" alone, NOT on a particular path: the browser
+            // may rewrite the URL before Windows ever sees it. Chrome turns
+            // anvilcad://sso?token=... into anvilcad://sso/?token=..., which the
+            // earlier literal "sso?token=" no longer matched -- so the link fell
+            // through to the file handler and the user was told
+            // "File ...sso?token=... does not exist", or on a cold start was shown
+            // the ordinary sign-in screen with no explanation at all. Seen
+            // against a real build on 2026-10-23.
+            //
+            // Read from the marker rather than from the first '=' so a link that
+            // grows another parameter IN FRONT of the token still works, and stop
+            // at the next one. The browser percent-encoded the value; undo that.
+            const int markerAt = arg.Find( urlMarker );
+            wxString  tail     = arg.Mid( markerAt + urlMarker.length() );
+            token = wxURI::Unescape( tail.BeforeFirst( '&' ) );
+        }
+    }
+
+    // Trailing separators arrive surprisingly often — a shell that keeps a
+    // quote, a link pasted with a slash on the end.
+    token.Trim( true ).Trim( false );
+
+    while( token.EndsWith( wxS( "/" ) ) || token.EndsWith( wxS( "\"" ) ) )
+        token.RemoveLast();
+
+    if( token.IsEmpty() )
+        return HANDOFF::NONE;
+
+    // Somebody arrived from a sign-in link. From here a failure is worth
+    // reporting: silently showing the sign-in gate would look like the link
+    // did nothing.
+    //
+    // A handoff beats a stored session on purpose. The link names who is
+    // opening the app, and that may not be whoever used this machine last —
+    // leaving the old session in place would sign the wrong person in.
+    if( !SignInWithHandoffToken( token, aError ) )
+    {
+        if( aError.IsEmpty() )
+            aError = _( "This sign-in link could not be used." );
+
+        return HANDOFF::FAILED;
+    }
+
+    return HANDOFF::SIGNED_IN;
 }
 
 

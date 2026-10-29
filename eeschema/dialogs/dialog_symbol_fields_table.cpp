@@ -61,6 +61,9 @@
 #include <eda_list_dialog.h>
 #include <project_sch.h>
 #include <jobs/job_export_sch_bom.h>
+#include <thread_pool.h>
+#include "bom_pricing/bom_price_service.h"
+#include "passive_parts/passive_table_store.h"
 
 wxDEFINE_EVENT( EDA_EVT_CLOSE_DIALOG_SYMBOL_FIELDS_TABLE, wxCommandEvent );
 
@@ -259,8 +262,11 @@ DIALOG_SYMBOL_FIELDS_TABLE::DIALOG_SYMBOL_FIELDS_TABLE( SCH_EDIT_FRAME* parent, 
         m_viewControlsDataModel( nullptr ),
         m_dataModel( nullptr ),
         m_schSettings( parent->Schematic().Settings() ),
-        m_job( aJob )
+        m_job( aJob ),
+        m_async( std::make_shared<ASYNC_GATE>() )
 {
+    m_async->handler = this;
+
     // Get all symbols from the list of schematic sheets
     m_parent->Schematic().Hierarchy().GetSymbols( m_symbolsList, SYMBOL_FILTER_NON_POWER );
 
@@ -280,6 +286,32 @@ DIALOG_SYMBOL_FIELDS_TABLE::DIALOG_SYMBOL_FIELDS_TABLE( SCH_EDIT_FRAME* parent, 
 
     m_bRefresh->SetBitmap( KiBitmapBundle( BITMAPS::small_refresh ) );
     m_bMenu->SetBitmap( KiBitmapBundle( BITMAPS::config ) );
+
+    // Live price refresh: same lookup as on open, but bypassing the 24h price cache
+    m_bRefreshPrices = new STD_BITMAP_BUTTON( m_panelEdit, wxID_ANY, wxNullBitmap,
+                                              wxDefaultPosition, wxDefaultSize, wxBU_AUTODRAW );
+    m_bRefreshPrices->SetBitmap( KiBitmapBundle( BITMAPS::reload ) );
+    m_bRefreshPrices->SetToolTip( _( "Refresh prices: fetch the latest distributor quotes now, "
+                                     "ignoring cached values" ) );
+
+    if( wxSizer* controls = m_bRefresh->GetContainingSizer() )
+    {
+        for( size_t ii = 0; ii < controls->GetItemCount(); ++ii )
+        {
+            if( controls->GetItem( ii )->GetWindow() == m_bRefresh )
+            {
+                controls->Insert( ii, m_bRefreshPrices, 0,
+                                  wxALIGN_CENTER_VERTICAL | wxLEFT | wxRIGHT, 5 );
+                break;
+            }
+        }
+    }
+
+    m_bRefreshPrices->Bind( wxEVT_BUTTON,
+                            [this]( wxCommandEvent& )
+                            {
+                                fetchPrices( true );
+                            } );
     m_bRefreshPreview->SetBitmap( KiBitmapBundle( BITMAPS::small_refresh ) );
     m_browseButton->SetBitmap( KiBitmapBundle( BITMAPS::small_folder ) );
 
@@ -435,6 +467,15 @@ DIALOG_SYMBOL_FIELDS_TABLE::DIALOG_SYMBOL_FIELDS_TABLE( SCH_EDIT_FRAME* parent, 
 
 DIALOG_SYMBOL_FIELDS_TABLE::~DIALOG_SYMBOL_FIELDS_TABLE()
 {
+    // Close the gate on any price fetch still in flight.  Taking the mutex only serialises us
+    // against a worker in the act of posting its result — never against the network calls —
+    // so closing this dialog is instant even mid-fetch.
+    {
+        std::lock_guard<std::mutex> lock( m_async->mutex );
+        m_async->alive = false;
+        m_async->handler = nullptr;
+    }
+
     savePresetsToSchematic();
     m_schSettings.m_BomExportFileName = m_outputFileName->GetValue();
 
@@ -745,6 +786,9 @@ bool DIALOG_SYMBOL_FIELDS_TABLE::TransferDataToWindow()
     // user's current selection.
     EnableSelectionEvents();
 
+    // Fill the Price column in the background; cells stay empty until results land.
+    fetchPrices();
+
     return true;
 }
 
@@ -901,6 +945,48 @@ void DIALOG_SYMBOL_FIELDS_TABLE::LoadFieldNames()
 
     if( !haveMpn )
         AddField( wxS( "MPN" ), _( "MPN" ), true, false );
+
+    // Likewise a Price column, filled from distributor lookups keyed on the MPN.  The "(INR)"
+    // in the label also triggers the XLSX writer's money formatting and subtotal formula.
+    bool havePrice = false;
+
+    for( int row = 0; row < m_viewControlsDataModel->GetNumberRows(); row++ )
+    {
+        havePrice |= FIELDS_EDITOR_GRID_DATA_MODEL::isUnitPriceFieldName(
+                m_viewControlsDataModel->GetCanonicalFieldName( row ) );
+    }
+
+    if( !havePrice )
+        AddField( wxS( "Price" ), _( "Price (INR)" ), true, false );
+
+    // And a Price Source column right beside it, showing which site the fetched price
+    // came from.
+    bool havePriceSource = false;
+
+    for( int row = 0; row < m_viewControlsDataModel->GetNumberRows(); row++ )
+    {
+        havePriceSource |= FIELDS_EDITOR_GRID_DATA_MODEL::isPriceSourceFieldName(
+                m_viewControlsDataModel->GetCanonicalFieldName( row ) );
+    }
+
+    if( !havePriceSource )
+        AddField( wxS( "Price Source" ), _( "Price Source" ), true, false );
+
+    // Columns requested by imported passive parts lists ("Show in BOM" ticks), so their
+    // auto-filled values are visible even when no symbol carries the field
+    for( const wxString& passiveField : PASSIVE_PARTS::PASSIVE_TABLE_STORE::Get().ShownBomFields() )
+    {
+        bool havePassiveField = false;
+
+        for( int row = 0; row < m_viewControlsDataModel->GetNumberRows(); row++ )
+        {
+            havePassiveField |= FIELDS_EDITOR_GRID_DATA_MODEL::FieldNamesMatch(
+                    m_viewControlsDataModel->GetCanonicalFieldName( row ), passiveField );
+        }
+
+        if( !havePassiveField )
+            AddField( passiveField, passiveField, true, false );
+    }
 }
 
 
@@ -1705,6 +1791,85 @@ void DIALOG_SYMBOL_FIELDS_TABLE::OnColumnFiltersChanged()
         for( int i = 0; i < m_grid->GetNumberCols(); ++i )
             header->UpdateColumn( i );
     }
+}
+
+
+void DIALOG_SYMBOL_FIELDS_TABLE::fetchPrices( bool aForceRefresh )
+{
+    EESCHEMA_SETTINGS* cfg = m_parent->eeconfig();
+
+    if( !cfg || !cfg->m_BomPricing.enable || !m_dataModel )
+    {
+        if( m_bRefreshPrices )
+            m_bRefreshPrices->Hide();
+
+        return;
+    }
+
+    // Snapshot everything on the main thread: the data model is not thread-safe, so the pool
+    // task may only touch its own copies (and the service, which is self-contained).
+    std::vector<BOM_PRICING::BOM_PRICE_SERVICE::PART_REQUEST> parts;
+
+    for( const auto& [mpn, qty] : m_dataModel->GetDistinctMpnsWithQty() )
+        parts.push_back( { mpn, qty } );
+
+    if( parts.empty() )
+        return;
+
+    BOM_PRICING::BOM_PRICE_SERVICE::OPTIONS options;
+    options.cacheTtlHours = cfg->m_BomPricing.cache_ttl_hours;
+    options.fetchTimeoutSecs = cfg->m_BomPricing.fetch_timeout_secs;
+    options.totalBudgetSecs = cfg->m_BomPricing.total_budget_secs;
+    options.sources = cfg->m_BomPricing.sources;
+    options.element14ApiKey = cfg->m_BomPricing.element14_api_key;
+    options.forceRefresh = aForceRefresh;
+
+    // One fetch at a time: the button is the re-entry point, so it doubles as the busy flag
+    if( m_bRefreshPrices )
+        m_bRefreshPrices->Disable();
+
+    GetKiCadThreadPool().detach_task(
+            [gate = m_async, parts = std::move( parts ), options]()
+            {
+                std::map<wxString, BOM_PRICING::BOM_PRICE_SERVICE::PRICE_RESULT> prices;
+
+                // Nothing may escape a pool task; a failed lookup just leaves cells empty.
+                try
+                {
+                    BOM_PRICING::BOM_PRICE_SERVICE service;
+
+                    prices = service.GetPrices( parts, options,
+                            [gate]()
+                            {
+                                std::lock_guard<std::mutex> lock( gate->mutex );
+                                return !gate->alive;
+                            } );
+                }
+                catch( ... )
+                {
+                }
+
+                std::lock_guard<std::mutex> lock( gate->mutex );
+
+                if( gate->alive && gate->handler )
+                {
+                    DIALOG_SYMBOL_FIELDS_TABLE* self =
+                            static_cast<DIALOG_SYMBOL_FIELDS_TABLE*>( gate->handler );
+
+                    gate->handler->CallAfter(
+                            [self, prices = std::move( prices )]()
+                            {
+                                if( self->m_bRefreshPrices )
+                                    self->m_bRefreshPrices->Enable();
+
+                                if( !prices.empty() )
+                                {
+                                    self->m_dataModel->SetPriceOverlay( prices );
+                                    self->OnColumnFiltersChanged();
+                                }
+                            } );
+                }
+            } );
 }
 
 

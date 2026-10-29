@@ -365,6 +365,30 @@ EESCHEMA_SETTINGS::EESCHEMA_SETTINGS() :
     m_params.emplace_back( new PARAM_LIST<REMOTE_PROVIDER_ENTRY>( "remote_symbols.providers",
             &m_RemoteSymbol.providers, {} ) );
 
+    m_params.emplace_back( new PARAM<bool>( "bom_pricing.enable",
+            &m_BomPricing.enable, true ) );
+
+    m_params.emplace_back( new PARAM<int>( "bom_pricing.cache_ttl_hours",
+            &m_BomPricing.cache_ttl_hours, 24 ) );
+
+    m_params.emplace_back( new PARAM<int>( "bom_pricing.fetch_timeout_secs",
+            &m_BomPricing.fetch_timeout_secs, 5 ) );
+
+    m_params.emplace_back( new PARAM<int>( "bom_pricing.total_budget_secs",
+            &m_BomPricing.total_budget_secs, 60 ) );
+
+    m_params.emplace_back( new PARAM<wxString>( "bom_pricing.sources",
+            &m_BomPricing.sources, wxS( "lcsc,findchips" ) ) );
+
+    m_params.emplace_back( new PARAM<wxString>( "bom_pricing.element14_api_key",
+            &m_BomPricing.element14_api_key, wxEmptyString ) );
+
+    m_params.emplace_back( new PARAM<bool>( "passive_parts.enable",
+            &m_PassiveParts.enable, true ) );
+
+    m_params.emplace_back( new PARAM<wxString>( "passive_parts.default_tolerance",
+            &m_PassiveParts.default_tolerance, wxS( "5%" ) ) );
+
     m_params.emplace_back( new PARAM<int>( "drawing.default_bus_thickness",
             &m_Drawing.default_bus_thickness, DEFAULT_BUS_WIDTH_MILS ) );
 

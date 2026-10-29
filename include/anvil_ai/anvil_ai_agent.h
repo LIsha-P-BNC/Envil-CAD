@@ -103,6 +103,19 @@ private:
     /// actually on disk, never assumes one layout.
     wxString buildProjectAnalysis() const;
 
+    /// The "RECENT DESIGN ACTIVITY" system-prompt block: the tail of the open project's
+    /// per-project activity log (<project>-activity.log, appended on every COMMIT::Push),
+    /// so the model sees edits made outside this chat — above all "origin":"manual"
+    /// entries, i.e. the user's own hand edits in the canvas. Entry count and length are
+    /// capped so the block can never bloat the prompt; empty when no project or no log.
+    wxString buildActivityLogBlock() const;
+    /// The "TEAM DESIGN SKILLS" system-prompt block: shared, user-stated design skills
+    /// read from <settings>/anvil_ai_skills/skills.json (pulled from S3 at app start,
+    /// refreshed by the Python `skill` tool), capped so it can never bloat the prompt,
+    /// plus the standing instructions for saving new skills. Never empty — the save
+    /// instructions must be present from the very first conversation.
+    wxString buildSkillPromptBlock() const;
+
     /// Persist the resumable conversation (session id + attachment paths + owning project +
     /// whether a turn is in flight) to <settings>/anvil_ai_session.json, and load it back on
     /// construction. This is what lets a project switch, a new window spawned mid-build, or

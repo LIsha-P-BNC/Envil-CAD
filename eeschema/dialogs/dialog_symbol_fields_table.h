@@ -24,6 +24,8 @@
 
 #pragma once
 
+#include <memory>
+#include <mutex>
 #include <set>
 
 #include <dialog_symbol_fields_table_base.h>
@@ -170,6 +172,19 @@ private:
 
     wxString getSelectedVariant() const;
 
+    /// Kick off the background distributor-price lookup for the current rows' MPNs; results
+    /// land in the data model's price overlay and repaint the grid.  aForceRefresh bypasses
+    /// the price cache (the Refresh Prices button).
+    void fetchPrices( bool aForceRefresh = false );
+
+    /// Shared between the dialog and its in-flight pool tasks; see fetchPrices().
+    struct ASYNC_GATE
+    {
+        std::mutex    mutex;
+        bool          alive = true;
+        wxEvtHandler* handler = nullptr;
+    };
+
 private:
     std::map<wxString, BOM_PRESET>     m_bomPresets;
     BOM_PRESET*                        m_currentBomPreset;
@@ -199,6 +214,9 @@ private:
     SCHEMATIC_SETTINGS&                m_schSettings;
 
     JOB_EXPORT_SCH_BOM* m_job;
+
+    std::shared_ptr<ASYNC_GATE> m_async;
+    STD_BITMAP_BUTTON*          m_bRefreshPrices = nullptr;
 
     bool m_aborted = false;
 

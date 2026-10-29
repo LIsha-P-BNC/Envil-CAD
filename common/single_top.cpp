@@ -42,6 +42,7 @@
 #include <wx/stdpaths.h>
 #include <wx/snglinst.h>
 #include <wx/html/htmlwin.h>
+#include <wx/msgdlg.h>
 
 #include <kiway.h>
 #include <build_version.h>
@@ -442,6 +443,16 @@ bool PGM_SINGLE_TOP::OnPgmInit()
     const bool                          exitOnDelete = App().GetExitOnFrameDelete();
 
     App().SetExitOnFrameDelete( false );
+
+    // Same handoff as the launcher: a standalone editor can be opened straight
+    // from a sign-in link too, so it has to understand one or the link would
+    // work for kicad.exe and nowhere else.
+    {
+        wxString handoffError;
+
+        if( ANVIL_AUTH::TrySignInFromCommandLine( handoffError ) == ANVIL_AUTH::HANDOFF::FAILED )
+            wxMessageBox( handoffError, _( "Sign-in link" ), wxOK | wxICON_WARNING );
+    }
 
     if( !ANVIL_AUTH::IsLoggedIn() )
     {

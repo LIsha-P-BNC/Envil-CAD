@@ -32,6 +32,7 @@ set( KICAD_SRCS
     dialogs/panel_kicad_launcher.cpp
     dialogs/panel_jobset_base.cpp
     dialogs/panel_jobset.cpp
+    anvil_skill_sync.cpp
     files-io.cpp
     jobs_runner.cpp
     import_proj.cpp
@@ -310,7 +311,7 @@ if( EXISTS "${ANVIL_FREEROUTING_SRC}/freerouting.jar" )
                  COMPONENT binary )
     endif()
 else()
-    message( STATUS
+    message( WARNING
         "FreeRouting jar not found at ${ANVIL_FREEROUTING_SRC}; the in-app autoroute "
         "will fall back to FREEROUTING_JAR or the AI bundle. Set ANVIL_FREEROUTING_SRC "
         "to bundle it with the app." )

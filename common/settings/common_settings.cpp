@@ -45,7 +45,7 @@
 const wxRegEx versionedEnvVarRegex( wxS( "KICAD[0-9]+_[A-Z0-9_]+(_DIR)?" ) );
 
 ///! Update the schema version whenever a migration is required
-const int commonSchemaVersion = 6;
+const int commonSchemaVersion = 7;
 
 COMMON_SETTINGS::~COMMON_SETTINGS() = default;
 
@@ -326,11 +326,12 @@ COMMON_SETTINGS::COMMON_SETTINGS() :
     m_params.emplace_back( new PARAM<int>( "graphics.canvas_type",
             &m_Graphics.canvas_type, EDA_DRAW_PANEL_GAL::GAL_TYPE_OPENGL ) );
 
-    // Default antialiasing OFF: our target machines run integrated GPUs (Intel UHD), where
-    // mode 2 makes the whole canvas (zoom/pan/draw) visibly lag.  Preferences > Graphics
-    // still lets users with real GPUs turn it back up.
+    // Default antialiasing FAST (SMAA): mode 2 (2x supersampling) makes the canvas visibly
+    // lag on our target machines' integrated GPUs (Intel UHD), but mode 1 renders at native
+    // resolution with a cheap post-process pass, so it smooths edges (including outline-font
+    // text) without the supersampling cost.  Preferences > Graphics still exposes all modes.
     m_params.emplace_back( new PARAM<int>( "graphics.antialiasing_mode",
-            &m_Graphics.aa_mode, 0, 0, 2 ) );
+            &m_Graphics.aa_mode, 1, 0, 2 ) );
 
     m_params.emplace_back( new PARAM<bool>( "system.local_history_enabled",
             &m_System.local_history_enabled, true ) );
@@ -508,6 +509,7 @@ COMMON_SETTINGS::COMMON_SETTINGS() :
     registerMigration( 3, 4, std::bind( &COMMON_SETTINGS::migrateSchema3to4, this ) );
     registerMigration( 4, 5, std::bind( &COMMON_SETTINGS::migrateSchema4to5, this ) );
     registerMigration( 5, 6, std::bind( &COMMON_SETTINGS::migrateSchema5to6, this ) );
+    registerMigration( 6, 7, std::bind( &COMMON_SETTINGS::migrateSchema6to7, this ) );
 }
 
 
@@ -745,6 +747,30 @@ bool COMMON_SETTINGS::migrateSchema5to6()
     {
         wxLogTrace( traceSettings,
                     wxT( "COMMON_SETTINGS::Migrate 5->6: failed to set auto_backup.format" ) );
+    }
+
+    return true;
+}
+
+
+bool COMMON_SETTINGS::migrateSchema6to7()
+{
+    // Schema 7 raises the default canvas antialiasing from 0 (none) to 1 (fast/SMAA).
+    // Pre-schema-7 installs shipped with 0 as the compiled-in default, so a persisted 0
+    // almost always just means "never touched the setting" — upgrade it once so those
+    // users get the better default.  Anyone who re-selects "No Antialiasing" afterwards
+    // keeps it, since this migration only runs on the 6->7 transition.
+    try
+    {
+        std::optional<int> aaMode = Get<int>( "graphics.antialiasing_mode" );
+
+        if( aaMode.has_value() && aaMode.value() == 0 )
+            Set<int>( "graphics.antialiasing_mode", 1 );
+    }
+    catch( ... )
+    {
+        wxLogTrace( traceSettings,
+                    wxT( "COMMON_SETTINGS::Migrate 6->7: failed to update antialiasing_mode" ) );
     }
 
     return true;

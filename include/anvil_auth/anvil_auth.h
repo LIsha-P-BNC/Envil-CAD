@@ -74,6 +74,54 @@ public:
     static bool VerifyOtp( const wxString& aEmail, const wxString& aOtp, wxString& aError );
 
     /**
+     * Sign in with a handoff token minted by another NEMI product (POST sso-exchange).
+     *
+     * This is the OTP flow's twin: the server does the identifying, and on success the
+     * session it returns is persisted exactly as VerifyOtp() persists one, so everything
+     * downstream — IsLoggedIn(), GetSessionToken(), the account UI, Logout() — behaves as
+     * if the user had typed a code.  The difference is only in who vouched for them.
+     *
+     * @a aHandoffToken is short-lived (about two minutes) and single-use: a failure here is
+     * final for that token, and the caller must send the user back to the normal sign-in
+     * rather than retrying.  The token is a credential — never log it.
+     *
+     * @return true on success; on failure @a aError carries a user-displayable message and
+     *         any previous session is left untouched.
+     */
+    static bool SignInWithHandoffToken( const wxString& aHandoffToken, wxString& aError );
+
+    /// Outcome of looking for a handoff token on the command line.
+    enum class HANDOFF
+    {
+        NONE,       ///< No token was offered — an ordinary launch.
+        SIGNED_IN,  ///< A token was offered and accepted; a session now exists.
+        FAILED      ///< A token was offered and refused; @a aError says why.
+    };
+
+    /**
+     * Sign in from a handoff token passed on the command line, if one is there.
+     *
+     * Reads the running application's own arguments, so every entry point can
+     * call it the same way with nothing to thread through. Two forms are
+     * accepted:
+     *
+     *   anvilcad://sso?token=<url-encoded>   what the operating system hands us
+     *                                        when a browser follows the link
+     *   --handoff-token=<token>              the same thing by hand, which is
+     *                                        how this can be exercised before
+     *                                        the installer registers the
+     *                                        protocol on a machine
+     *
+     * NONE is the ordinary case and says nothing is wrong. FAILED means someone
+     * really did arrive from a sign-in link and it did not work — worth telling
+     * them, because otherwise the app silently asks for a code they have just
+     * been spared.
+     *
+     * Any existing session is left alone when no token is offered.
+     */
+    static HANDOFF TrySignInFromCommandLine( wxString& aError );
+
+    /**
      * End the session: best-effort POST logout to the server, then wipe the local session
      * unconditionally.  @return true when the server acknowledged the logout (the local
      * session is gone either way).

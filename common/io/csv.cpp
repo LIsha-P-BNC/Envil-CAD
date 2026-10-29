@@ -78,7 +78,10 @@ bool AutoDecodeCSV( const wxString& aInput, std::vector<std::vector<wxString>>& 
         delimiter = '\t';
     }
 
-    std::istringstream inputStream( aInput.ToStdString() );
+    // Decode through UTF-8 explicitly: ToStdString() applies the current locale conversion,
+    // which mangles non-ASCII content (ohm/plus-minus/degree signs) that CSV_WRITER wrote
+    // as UTF-8.
+    std::istringstream inputStream( std::string( aInput.utf8_string() ) );
 
     rapidcsv::Document doc( inputStream, rapidcsv::LabelParams( -1, -1 ),
                             rapidcsv::SeparatorParams( delimiter, trimCells ), rapidcsv::ConverterParams(),
@@ -93,7 +96,7 @@ bool AutoDecodeCSV( const wxString& aInput, std::vector<std::vector<wxString>>& 
         for( size_t j = 0; j < doc.GetColumnCount(); ++j )
         {
             std::string cell = doc.GetCell<std::string>( j, i );
-            row.emplace_back( cell );
+            row.emplace_back( wxString::FromUTF8( cell ) );
         }
     }
 

@@ -43,6 +43,36 @@ COMMIT::~COMMIT()
 }
 
 
+std::vector<wxString> COMMIT::DescribeChanges( UNITS_PROVIDER* aUnitsProvider ) const
+{
+    std::vector<wxString> descriptions;
+    descriptions.reserve( m_entries.size() );
+
+    for( const COMMIT_LINE& entry : m_entries )
+    {
+        if( !entry.m_item )
+            continue;
+
+        wxString verb;
+
+        switch( entry.m_type & CHT_TYPE )
+        {
+        case CHT_ADD:    verb = wxS( "add" );    break;
+        case CHT_REMOVE: verb = wxS( "remove" ); break;
+        default:         verb = wxS( "modify" ); break;
+        }
+
+        wxString desc = aUnitsProvider ? entry.m_item->GetItemDescription( aUnitsProvider, false )
+                                       : entry.m_item->GetFriendlyName();
+
+        descriptions.push_back( wxString::Format( wxS( "%s: %s (%s)" ), verb, desc,
+                                                  entry.m_item->m_Uuid.AsString() ) );
+    }
+
+    return descriptions;
+}
+
+
 COMMIT& COMMIT::Stage( EDA_ITEM* aItem, CHANGE_TYPE aChangeType, BASE_SCREEN* aScreen, RECURSE_MODE aRecurse )
 {
     int       flags = aChangeType & CHT_FLAGS;

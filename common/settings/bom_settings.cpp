@@ -132,6 +132,8 @@ BOM_PRESET BOM_PRESET::DefaultEditing()
         { "Value", "Value", true, true },
         { "Manufacturer", "Manufacturer", true, false },
         { "MPN", "MPN", true, false },
+        { "Price", "Price (INR)", true, false },
+        { "Price Source", "Price Source", true, false },
         { "Description", "Description", true, false },
         { "${DNP}", "DNP", true, true },
         { "${EXCLUDE_FROM_BOM}", "Exclude from BOM", false, true },
