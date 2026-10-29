@@ -57,7 +57,34 @@ static const char* ANVIL_ALLOWED_TOOLS = "mcp__anvil-cad WebFetch WebSearch";
 // the SKiDL server's own tool instructions carry the deep workflow rules.
 static const char* ANVIL_DEFAULT_PROMPT =
         "You are Anvil AI, the assistant inside the Anvil CAD schematic/PCB suite.\n"
-        "You have ONE MCP server, `anvil-cad`, providing every design tool you need:\n"
+        "\n"
+        "=== LANGUAGE RULE (read this first, applies to EVERY reply, including your very "
+        "first one) ===\n"
+        "Default language is PLAIN ENGLISH. Write your whole reply in English unless the "
+        "SPECIFIC CHECK below says otherwise.\n"
+        "CHECK (do this before writing each reply): does the user's message you are "
+        "replying to -- the literal text they just sent -- itself contain a Tamil word or "
+        "Tamil script? \n"
+        "  - NO (their message is plain English, numbers, part names, or a clicked button) "
+        "-> your ENTIRE reply is plain English. No Tamil. No romanized-Tamil filler words. "
+        "Not even one, not even for warmth or friendliness.\n"
+        "  - YES (their message itself contains Tamil script, or romanized Tamil words like "
+        "'venum', 'panna', 'enna', 'sollunga', 'irukku') -> mirror it: Tamil script in gets "
+        "Tamil script out, romanized Tamil in gets romanized Tamil out.\n"
+        "This check runs fresh on every single turn -- a Tamil/Tanglish conversation that "
+        "gets one plain-English message must get a plain-English reply; your own earlier "
+        "replies being in Tanglish is NOT a license to keep using Tanglish once the user's "
+        "message stops being Tanglish.\n"
+        "EXAMPLE OF THE BUG THIS RULE STOPS (do not do this): user sends the plain-English "
+        "message \"design simple led circuit\" and the reply ends with \"Sollunga -- which "
+        "supply voltage use panna?\" -- that reply is WRONG, because the user's message had "
+        "no Tamil in it. The correct reply ends with plain English, e.g. \"Which supply "
+        "voltage would you like to use?\"\n"
+        "This rule overrides every other instinct, including any instinct to sound warmer "
+        "or more local by adding a Tamil/Tanglish word -- that instinct is exactly the bug.\n"
+        "=== END LANGUAGE RULE ===\n"
+        "\n"
+        "You have ONE MCP server, `anvil-cad`, providing every tool you need:\n"
         "  - Circuit generation: parts, build, create_pcb, run_drc, verify_board, "
         "generate_bom, export_manufacturing, ...\n"
         "  - Live editing of the open editors: read_live, edit_schematic_live(ops=[...]),\n"
@@ -191,15 +218,8 @@ static const char* ANVIL_DEFAULT_PROMPT =
         "name. File paths, part numbers, net names and real ERC/DRC output are fine to "
         "show; internal API vocabulary is not.\n"
         "\n"
-        "Be concise. LANGUAGE: the language of the user's MOST RECENT message decides the "
-        "language of your reply -- English gets English, Tamil gets Tamil, Tanglish (Tamil "
-        "words in Latin script) gets Tanglish, and any other language likewise. Apply this "
-        "even when earlier turns of the conversation were in a different language: a "
-        "conversation that started in Tanglish but whose latest message is plain English "
-        "MUST be answered in plain English. Never let conversation history override the "
-        "current message's language. A clicked choice button counts as an English message. "
-        "Keep technical terms (part numbers, net names, file paths, tool output) in English "
-        "within that reply.\n";
+        "Be concise. See the LANGUAGE rule at the very top of this prompt -- it is not "
+        "optional and applies to every reply including this one.\n";
 
 
 // ---------------------------------------------------------------------------------------
@@ -1695,10 +1715,71 @@ wxString ANVIL_AI_AGENT::writeSystemPromptFile()
 {
     const wxString cfgDir = SETTINGS_MANAGER::GetUserSettingsPath();
 
-    // Seed the editable base prompt on first use; afterwards the user's edits win.
+    // Seed the editable base prompt from the shipped default, and REFRESH it when a
+    // new app version ships a new default -- unless the user has edited the file
+    // since we seeded it (then their version wins). Without this refresh an outdated
+    // seeded prompt persists forever even after the shipped default is corrected
+    // (observed: a stale prompt kept the assistant replying in the wrong language
+    // long after the binary's default was fixed, because the seed-once code only ran
+    // when the file was MISSING). A ".seed" sidecar stores the hash of what we last
+    // auto-seeded, so we can tell "unchanged since our seed" (safe to refresh) from
+    // "user-edited" (keep).
     wxFileName baseFn( cfgDir, wxS( "anvil_ai_prompt.txt" ) );
+    wxFileName seedFn( cfgDir, wxS( "anvil_ai_prompt.seed" ) );
 
-    if( !baseFn.FileExists() )
+    auto fnv1a = []( const wxString& s ) -> wxString
+    {
+        const wxScopedCharBuffer u = s.utf8_str();
+        uint64_t h = 1469598103934665603ULL;      // FNV-1a 64-bit, dependency-free
+        for( size_t i = 0; i < u.length(); ++i )
+        {
+            h ^= (unsigned char) u.data()[i];
+            h *= 1099511628211ULL;
+        }
+        return wxString::Format( wxS( "%016llx" ), (unsigned long long) h );
+    };
+
+    const wxString defHash = fnv1a( wxString::FromUTF8( ANVIL_DEFAULT_PROMPT ) );
+    bool           reseed = !baseFn.FileExists();
+
+    if( !reseed )
+    {
+        wxString cur;
+        {
+            wxFFile f( baseFn.GetFullPath(), wxS( "rb" ) );
+
+            if( f.IsOpened() )
+                f.ReadAll( &cur, wxConvUTF8 );
+        }
+
+        wxString lastSeedHash;
+        {
+            wxFFile f( seedFn.GetFullPath(), wxS( "rb" ) );
+
+            if( f.IsOpened() )
+                f.ReadAll( &lastSeedHash, wxConvUTF8 );
+        }
+
+        lastSeedHash.Trim( true ).Trim( false );
+
+        if( lastSeedHash.IsEmpty() )
+        {
+            // Legacy file seeded by the old (unstamped) code: treat as auto-seeded
+            // and refresh to the current default so a stale shipped prompt cannot
+            // linger. A user who intentionally customized the prompt before this
+            // version can re-apply it -- a correct shipped default outranks a silent
+            // stale copy.
+            reseed = true;
+        }
+        else if( fnv1a( cur ) == lastSeedHash && lastSeedHash != defHash )
+        {
+            // Unchanged since our last auto-seed AND the shipped default changed.
+            reseed = true;
+        }
+        // else: the user edited it since our seed -> keep their version.
+    }
+
+    if( reseed )
     {
         wxFFile seed( baseFn.GetFullPath(), wxS( "wb" ) );
 
@@ -1706,6 +1787,14 @@ wxString ANVIL_AI_AGENT::writeSystemPromptFile()
         {
             seed.Write( ANVIL_DEFAULT_PROMPT, strlen( ANVIL_DEFAULT_PROMPT ) );
             seed.Close();
+        }
+
+        wxFFile stamp( seedFn.GetFullPath(), wxS( "wb" ) );
+
+        if( stamp.IsOpened() )
+        {
+            stamp.Write( defHash, wxConvUTF8 );
+            stamp.Close();
         }
     }
 
