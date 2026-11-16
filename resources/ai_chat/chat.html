@@ -121,9 +121,23 @@
   .icon-btn svg { width: 16px; height: 16px; }
 
   /* ---------- context strip ---------- */
-  /* Hidden: project/file context is tracked in ctx (sent to C++ with each
-     message) but no longer displayed as chips in the panel. */
-  #ctx { display: none; }
+  #ctx {
+    flex: 0 0 auto;
+    display: flex; align-items: center; gap: 8px;
+    padding: 6px 14px;
+    font-family: var(--mono); font-size: 10.5px; color: var(--bone-faint);
+    background: var(--header);
+    border-bottom: 1px solid var(--line);
+    white-space: nowrap; overflow: hidden;
+  }
+  #ctx .chip {
+    display: inline-flex; align-items: center; gap: 5px;
+    padding: 2px 8px; border-radius: 6px;
+    background: var(--panel); border: 1px solid var(--line);
+    box-shadow: var(--card-shadow);
+    overflow: hidden; text-overflow: ellipsis; max-width: 46%;
+  }
+  #ctx .chip b { color: var(--emerald); font-weight: 500; }
 
   /* ---------- messages ---------- */
   #msgs {
@@ -377,6 +391,7 @@
   :root[data-theme="light"] .bubble a  { color: var(--emerald-dim); }
   :root[data-theme="light"] .chat-btn  { color: var(--emerald-dim); }
   :root[data-theme="light"] .bubble strong { color: var(--emerald-dim); }
+  :root[data-theme="light"] #ctx .chip b   { color: var(--emerald-dim); }
   :root[data-theme="light"] .bubble th     { color: var(--emerald-dim); }
   :root[data-theme="light"] .err-msg {
     background: rgba(196,61,61,.07); border-color: rgba(196,61,61,.32); color: #8E2B2B;
@@ -384,7 +399,7 @@
   :root[data-theme="light"] #mcpBanner.on {
     background: rgba(169,118,42,.09); border-color: rgba(169,118,42,.34);
   }
-  /* the "Connect Anvil" secondary sits on the cream composer: give it the white surface */
+  /* the "Connect Account" secondary sits on the cream composer: give it the white surface */
   :root[data-theme="light"] #authBanner button {
     background: var(--panel-2); box-shadow: var(--card-shadow);
   }
@@ -417,7 +432,7 @@
       <div class="h-sub" id="hsub">design · edit · verify</div>
     </div>
     <div class="grow"></div>
-    <span id="authPill" title="Which Anvil account powers the AI">AI: …</span>
+    <span id="authPill" title="Which account powers Anvil AI">AI: …</span>
     <div id="dot" title="status"></div>
     <button class="icon-btn" id="newBtn" title="New conversation">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14M5 12h14"/></svg>
@@ -431,11 +446,7 @@
       <div class="big-mark">A</div>
       <h2>Anvil AI</h2>
       <p>Design a circuit, edit the open schematic or board, and run ERC / DRC — all in chat. Attach a photo or datasheet to work from.</p>
-      <div class="suggests" id="suggests">
-        <div class="suggest" data-p="Design a simple 555 LED blinker and open it.">Design a 555 LED blinker</div>
-        <div class="suggest" data-p="Review the open schematic and run ERC.">Review this schematic + ERC</div>
-        <div class="suggest" data-p="What parts are in the current design?">What parts are in this design?</div>
-      </div>
+      <div class="suggests" id="suggests"></div><!-- filled by renderSuggests() from ctx -->
     </div>
     <div id="busy"><div class="spinner"></div><span id="busyTxt">working…</span></div>
   </main>
@@ -473,7 +484,7 @@
 const $ = (id) => document.getElementById(id);
 const msgs=$("msgs"), empty=$("empty"), busy=$("busy"), busyTxt=$("busyTxt");
 const inp=$("inp"), sendBtn=$("sendBtn"), stopBtn=$("stopBtn"), tray=$("tray");
-const dot=$("dot"), fileInput=$("fileInput");
+const dot=$("dot"), ctxEl=$("ctx"), fileInput=$("fileInput");
 
 let turnOpen=false, curAi=null, curThink=null, seq=1;
 let ctx={project:"",sch:"",pcb:"",app:""};
@@ -650,6 +661,13 @@ window.anvilRecv=function(s){
     case "pong": break;
     case "authmode": renderAuth(ev); break;
     case "status": setBusy(true, ev.text||"working…"); break;
+    case "note":
+      // Informational line ("New conversation.") — must NOT flip the panel to busy:
+      // routing it through "status" showed the red Stop button with no turn running
+      // and read as "stuck thinking" after every New chat.
+      { const d=document.createElement("div"); d.className="sys-note";
+        d.textContent=ev.text||""; msgs.insertBefore(d,busy); scrollEnd(); setBusy(false); }
+      break;
     case "thinking":
       if(!curThink){ const t=document.createElement("div"); t.className="think";
         t.innerHTML='<details><summary>Reasoning…</summary><div class="body"></div></details>';
@@ -664,12 +682,51 @@ window.anvilRecv=function(s){
 window.anvilSetContext=function(project,sch,pcb,app){
   const changed=project&&project!==ctx.project;
   ctx={project:project||"",sch:sch||"",pcb:pcb||"",app:app||ctx.app};
+  const bits=[];
+  if(ctx.project) bits.push('<span class="chip"><b>proj</b> '+esc(base(ctx.project))+'</span>');
+  if(ctx.sch) bits.push('<span class="chip"><b>sch</b> '+esc(base(ctx.sch))+'</span>');
+  if(ctx.pcb) bits.push('<span class="chip"><b>pcb</b> '+esc(base(ctx.pcb))+'</span>');
+  ctxEl.innerHTML=bits.length?bits.join(""):'<span class="chip">no project</span>';
   $("hsub").textContent = ctx.app?("design · edit · verify — "+ctx.app):"design · edit · verify";
   // NOTE: deliberately NO newChat() here. The page must never decide to kill the
   // conversation on a context ping — C++ resets the session on real project switches.
   // A spurious/renormalized project string arriving mid-turn was wiping the chat.
   void changed;
+  renderSuggests();
 };
+
+/* Context-aware starter prompts (the empty state IS the onboarding: 3-4 specific,
+   clickable prompts matched to what is actually open — never generic fillers). */
+function renderSuggests(){
+  const box=$("suggests"); if(!box) return;
+  const proj=ctx.project?base(ctx.project).replace(/\.[^.]*$/,""):"";
+  let items;
+  if(!ctx.project){
+    items=[
+      ["Design a 555 LED blinker","Design a simple 555 LED blinker and open it."],
+      ["5V / 3.3V power supply","Design a 5V input to 3.3V regulated supply with protection and open it."],
+      ["Build from a photo or datasheet","I will attach a circuit photo or datasheet PDF — recreate it as a schematic."],
+      ["What can you do?","What can you help me with in Anvil CAD? Give a short list with examples."]];
+  } else if(!ctx.pcb){
+    items=[
+      ["Continue "+proj+" — add a block","Continue the project "+proj+": I want to add the next functional block. Ask me what it should be."],
+      ["Review this schematic + ERC","Review the open schematic and run ERC."],
+      ["Make the PCB","Create the PCB for "+proj+" — ask me the board requirements first."],
+      ["Bill of materials","Generate the BOM for "+proj+"."]];
+  } else {
+    items=[
+      ["Run DRC on the board","Run DRC on the open board and explain any problems."],
+      ["Change the schematic","I want to change the schematic of "+proj+" — ask me what to change, then update the board."],
+      ["Review the routing","Review the board's routing, track widths and clearances."],
+      ["Export for manufacturing","Export the manufacturing files (gerbers, drill, BOM, pick and place) for "+proj+"."]];
+  }
+  box.innerHTML="";
+  for(const [label,prompt] of items){
+    const d=document.createElement("div");
+    d.className="suggest"; d.dataset.p=prompt; d.textContent=label;
+    box.appendChild(d);
+  }
+}
 window.anvilPanelOpened=function(){ if(!document.body.classList.contains("mcp-off")) inp.focus(); };
 
 /* Mutual exclusion with the AnvilCAD MCP server: when MCP is ON, an external client
@@ -726,14 +783,16 @@ function sendChat(){
 function newChat(silent){
   seq++; turnOpen=false; curAi=null; curThink=null; pending=[]; renderTray();
   post({kind:"reset"});
-  if(!silent){ msgs.querySelectorAll(".row,.err-msg,.think,.sys-note").forEach(m=>m.remove()); if(empty) empty.style.display=""; }
+  if(!silent){ msgs.querySelectorAll(".row,.err-msg,.think,.sys-note").forEach(m=>m.remove()); if(empty) empty.style.display=""; renderSuggests(); }
   clearTX();
   setBusy(false);
 }
 sendBtn.addEventListener("click",sendChat);
 stopBtn.addEventListener("click",()=>{ post({kind:"cancel"}); setBusy(false); });
 $("newBtn").addEventListener("click",()=>newChat(false));
-document.querySelectorAll(".suggest").forEach(s=>s.addEventListener("click",()=>{ inp.value=s.dataset.p; autoSize(); sendChat(); }));
+/* delegated: suggestion chips are re-rendered per context, so bind the container */
+$("suggests").addEventListener("click",e=>{ const s=e.target.closest(".suggest"); if(!s) return; inp.value=s.dataset.p; autoSize(); sendChat(); });
+renderSuggests();
 
 inp.addEventListener("keydown",e=>{ if(e.key==="Enter"&&!e.shiftKey){ e.preventDefault(); sendChat(); } });
 function autoSize(){
@@ -744,7 +803,7 @@ function autoSize(){
 }
 inp.addEventListener("input",autoSize);
 
-/* ---------- AI account (auth mode): "API Key" vs "Anvil (Chrome login)" ---------- */
+/* ---------- AI account (auth mode): "API Key" vs "Anvil AI (own login)" ---------- */
 /* C++ sends {kind:"authmode", mode:""|"shared"|"own", hasLogin:bool, hasKey:bool}.
    Empty mode = auto (login wins when present, else API key). The pill always shows
    what will ACTUALLY be used; the banner appears only when no choice was made yet. */
@@ -763,17 +822,17 @@ function renderAuth(ev){
   authSeen=true;
   auth={mode:ev.mode||"",hasLogin:!!ev.hasLogin,hasKey:!!ev.hasKey};
   const pill=$("authPill");
-  pill.textContent = authEffective()==="own" ? "■ Anvil" : "API key";
+  pill.textContent = authEffective()==="own" ? "■ Anvil AI" : "API key";
   pill.title = authEffective()==="own"
-      ? "AI engine: your Anvil account login. Click to switch to the API key."
-      : "AI engine: built-in API key. Click to connect your Anvil login.";
+      ? "Anvil AI: connected to your account. Click to switch to the API key."
+      : "Anvil AI: using the built-in API key. Click to connect your account.";
   const b=$("authBanner");
   if(!auth.mode){
     b.className="on";
     b.innerHTML='<div>Choose the AI engine account. Change it any time from the header pill.</div>'
       +'<div class="ab-row">'
       +'<button id="abKey" class="primary">Use API key</button>'
-      +'<button id="abOwn">Connect Anvil</button>'
+      +'<button id="abOwn">Connect Account</button>'
       +'</div>';
     $("abKey").onclick=()=>{ post({kind:"setauth",mode:"shared"}); b.className=""; b.innerHTML=""; };
     $("abOwn").onclick=()=>{ chooseOwn(); };
@@ -785,7 +844,7 @@ function chooseOwn(){
   if(!auth.hasLogin){
     post({kind:"claudelogin"});
     b.className="on";
-    b.innerHTML='<div><b>Anvil sign-in window opened.</b> In that window type '
+    b.innerHTML='<div><b>Sign-in window opened.</b> In that window type '
       +'<b>/login</b> and press Enter — your browser opens to sign in. '
       +'When done, close that window and chat here normally.</div>';
     setTimeout(()=>{ b.className=""; b.innerHTML=""; post({kind:"authmode"}); }, 30000);

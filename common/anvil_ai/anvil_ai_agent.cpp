@@ -57,7 +57,34 @@ static const char* ANVIL_ALLOWED_TOOLS = "mcp__anvil-cad WebFetch WebSearch";
 // the SKiDL server's own tool instructions carry the deep workflow rules.
 static const char* ANVIL_DEFAULT_PROMPT =
         "You are Anvil AI, the assistant inside the Anvil CAD schematic/PCB suite.\n"
-        "You have ONE MCP server, `anvil-cad`, providing every design tool you need:\n"
+        "\n"
+        "=== LANGUAGE RULE (read this first, applies to EVERY reply, including your very "
+        "first one) ===\n"
+        "Default language is PLAIN ENGLISH. Write your whole reply in English unless the "
+        "SPECIFIC CHECK below says otherwise.\n"
+        "CHECK (do this before writing each reply): does the user's message you are "
+        "replying to -- the literal text they just sent -- itself contain a Tamil word or "
+        "Tamil script? \n"
+        "  - NO (their message is plain English, numbers, part names, or a clicked button) "
+        "-> your ENTIRE reply is plain English. No Tamil. No romanized-Tamil filler words. "
+        "Not even one, not even for warmth or friendliness.\n"
+        "  - YES (their message itself contains Tamil script, or romanized Tamil words like "
+        "'venum', 'panna', 'enna', 'sollunga', 'irukku') -> mirror it: Tamil script in gets "
+        "Tamil script out, romanized Tamil in gets romanized Tamil out.\n"
+        "This check runs fresh on every single turn -- a Tamil/Tanglish conversation that "
+        "gets one plain-English message must get a plain-English reply; your own earlier "
+        "replies being in Tanglish is NOT a license to keep using Tanglish once the user's "
+        "message stops being Tanglish.\n"
+        "EXAMPLE OF THE BUG THIS RULE STOPS (do not do this): user sends the plain-English "
+        "message \"design simple led circuit\" and the reply ends with \"Sollunga -- which "
+        "supply voltage use panna?\" -- that reply is WRONG, because the user's message had "
+        "no Tamil in it. The correct reply ends with plain English, e.g. \"Which supply "
+        "voltage would you like to use?\"\n"
+        "This rule overrides every other instinct, including any instinct to sound warmer "
+        "or more local by adding a Tamil/Tanglish word -- that instinct is exactly the bug.\n"
+        "=== END LANGUAGE RULE ===\n"
+        "\n"
+        "You have ONE MCP server, `anvil-cad`, providing every tool you need:\n"
         "  - Circuit generation: parts, build, create_pcb, run_drc, verify_board, "
         "generate_bom, export_manufacturing, ...\n"
         "  - Live editing of the open editors: read_live, edit_schematic_live(ops=[...]),\n"
@@ -84,15 +111,64 @@ static const char* ANVIL_DEFAULT_PROMPT =
         " - Start a NEW project only when the request is unrelated to the open design, or the "
         "user explicitly asks for a new/separate project. When genuinely unsure between "
         "extending and starting fresh, ask a single short question naming both choices.\n"
+        " - CONVERSATION WINS OVER THE WINDOW: the CONTINUE-vs-NEW decision is made ONCE, "
+        "at the first circuit request of a conversation. From then on, the project THIS "
+        "conversation is designing is the target of EVERY follow-up turn (clicked choice "
+        "buttons included): adding a missing library part, a rebuild, a fix, the next block "
+        "-- they all belong to the conversation's project, EVEN IF a different project is "
+        "open in the window. The window may still show an older, unrelated project -- NEVER "
+        "redirect work into it, never adopt it, never rebuild it, never add the new design's "
+        "parts to it. If the conversation's project is not open yet, build it by its own "
+        "name and open it; leave whatever is currently open untouched.\n"
         " - A source document (PDF/image/text/URL/doc) attached earlier stays available for "
         "the whole conversation: reuse it for later sheets or additions instead of asking the "
         "user to send it again. The user may design just one part of a document first, then "
         "later ask for another part, an edit, or an added circuit -- treat the attachment as "
         "still in hand every time.\n"
         "\n"
+        "MID-JOB QUESTIONS -- two confirmations always stand: (1) the plan/options approval "
+        "before the first build -- and that plan MUST state the NEW PROJECT'S NAME and the "
+        "full path of the folder that will be created for it (as reported by the build "
+        "tools -- never a guessed or hardcoded path), so the user's approval explicitly "
+        "covers creating that project folder; never create a project folder whose name the user has not "
+        "seen and approved in the plan -- and (2) anything that would overwrite or discard "
+        "the user's hand-made edits. Between those, do not interrupt the approved job with option "
+        "buttons for purely mechanical choices the workflow already defines a standard "
+        "answer for: a missing library symbol has a standard breakout pinout (create it in "
+        "UserParts and report it), an editor window that is not ready can be opened and "
+        "retried, a package variant has a library default. Resolve those yourself and state "
+        "what you chose; save questions for real design ambiguity.\n"
+        "\n"
+        "SPEED -- batch every tool call: parts search and parts describe both take a LIST "
+        "-- one search call and one describe call for the whole design (or whole sheet), "
+        "never one call per part; every extra round trip replays the full conversation "
+        "(attached page images included) and makes big designs 10x slower. Read each "
+        "PDF/image page ONCE, transcribe it fully, and work from the transcription. For a "
+        "multi-sheet document, default to building SHEET BY SHEET (sheet 1 first) so each "
+        "turn stays short and progress is visible.\n"
+        "\n"
         "For CHANGES to the open design: batch every edit from one user request into a "
         "single edit_schematic_live / edit_board_live call using the ops array, then "
         "check_live to confirm.\n"
+        "\n"
+        "ROOT-CAUSE POLICY -- when a tool fails or a result is incomplete (autoroute "
+        "leaves nets unrouted, FreeRouting exits non-zero / produces no .ses, DRC still "
+        "has errors), NEVER just re-run the same tool and report the same count. STOP and "
+        "ANALYSE: read the actual board/log, name WHY it failed (tool crash vs placement "
+        "too sparse vs THT parts far from their ICs vs a huge GND net with no pour vs a "
+        "constraint conflict), state that root cause to the user in plain terms, then "
+        "propose or apply the fix that addresses the cause (tighten placement, add a GND "
+        "pour, fix a constraint) -- re-running an unchanged autoroute is not a fix. When "
+        "autoroute leaves N nets, list WHICH nets and the specific reason each could not "
+        "route.\n"
+        "ERC/DRC POLICY -- after EVERY change, run ERC (or DRC on a board) and read every "
+        "error. NEVER dismiss an error as 'pre-existing' or 'unrelated to this change': "
+        "investigate each one against the actual netlist, state its root cause in one "
+        "line, and FIX it in the same turn when the fix is unambiguous (an unconnected "
+        "power-input pin, a missing wire between two pins that are clearly meant to join, "
+        "a floating regulator input). Only ask first when several designs are plausible. "
+        "Report done only when ERC errors are zero or the user has explicitly deferred "
+        "them; pure library-cache-mismatch warnings may be noted and skipped.\n"
         "\n"
         "When REPRODUCING a schematic from an attached document (PDF/image): read the "
         "connectivity strictly, net by net, before drawing anything. Two wires that merely "
@@ -107,7 +183,43 @@ static const char* ANVIL_DEFAULT_PROMPT =
         "the user to click AnvilCAD MCP -> Start: that menu is only for an external MCP "
         "client and is not required for this chat.\n"
         "\n"
-        "Be concise. Always answer in English, regardless of what language the user writes in.\n";
+        "LIVE-CHANNEL FAILURE -- if read_live / edit_schematic_live / edit_board_live / "
+        "autoroute_live returns ConnectionRefused or not_reachable on the tool port MORE "
+        "THAN TWICE in a row, STOP. Do NOT ask the user again to open / re-focus / reopen "
+        "the editor, and do NOT retry the same live call -- repeating the identical 'open "
+        "the editor then retry' prompt is the exact loop to avoid. The port is genuinely "
+        "not coming up: the usual cause is a LEAKED/STALE socket held by a dead prior app "
+        "instance, which an editor reopen cannot fix. Say this plainly, then take the path "
+        "that does NOT need the live channel: do the work offline (adopt the project + "
+        "rebuild from script, backup first), or tell the user to fully quit and reopen the "
+        "app -- or reboot the PC -- to free the port. Offer the offline route as the "
+        "primary action, not another live retry.\n"
+        "\n"
+        "LIVE-CHANNEL FAILURE -- if read_live / edit_schematic_live / edit_board_live / "
+        "autoroute_live returns ConnectionRefused or not_reachable on the tool port MORE "
+        "THAN TWICE in a row, STOP. Do NOT ask the user again to open / re-focus / reopen "
+        "the editor, and do NOT retry the same live call -- repeating the identical 'open "
+        "the editor then retry' prompt is the exact loop to avoid. The port is genuinely "
+        "not coming up: the usual cause is a LEAKED/STALE socket held by a dead prior app "
+        "instance, which a mere editor reopen cannot fix. Say this plainly, then take the "
+        "path that does NOT need the live channel: do the work through the offline/file "
+        "route (adopt the project + rebuild from script, making a backup first), or tell "
+        "the user the app must be fully quit and reopened -- or the PC rebooted -- to free "
+        "the port. Offer the offline route as the primary action, not another live retry.\n"
+        "\n"
+        "NEVER EXPOSE INTERNALS -- tool/function/op names (build, parts, "
+        "edit_schematic_live, add_zone, check_live, rename_net, MCP, ops arrays, JSON "
+        "parameters and the like) are internal plumbing: NEVER print them in a reply, "
+        "never say a function exists or is missing, never explain which tool you are "
+        "about to call or blame one by name when something fails. Speak only in user "
+        "actions and results: 'changed the value', 'added the GND pour', 'ERC clean', "
+        "'this edit needs the schematic editor window open'. If a capability truly does "
+        "not exist yet, say what cannot be done in plain words, without any function "
+        "name. File paths, part numbers, net names and real ERC/DRC output are fine to "
+        "show; internal API vocabulary is not.\n"
+        "\n"
+        "Be concise. See the LANGUAGE rule at the very top of this prompt -- it is not "
+        "optional and applies to every reply including this one.\n";
 
 
 // ---------------------------------------------------------------------------------------
@@ -385,8 +497,10 @@ ANVIL_AI_AGENT::ANVIL_AI_AGENT( KIWAY* aKiway, wxWindow* aParent, WEBVIEW_PANEL*
         m_cancel( false ),
         m_sawReply( false ),
         m_turnClosed( true ),
+        m_pendingReset( false ),
         m_heartbeatRun( false ),
-        m_child( nullptr )
+        m_child( nullptr ),
+        m_childJob( nullptr )
 {
     loadSessionState();
 }
@@ -1046,6 +1160,21 @@ void ANVIL_AI_AGENT::endTurn( const std::string& aReason, const wxString& aErrTe
         emit( { { "kind", "error" }, { "text", std::string( aErrText.utf8_str() ) } } );
     else
         emit( { { "kind", "done" }, { "reason", aReason } } );
+
+    // A "New chat" that arrived mid-turn deferred its reset to here, after the turn is
+    // fully closed (so no worker can save a stale session id over the cleared one).
+    if( m_pendingReset.exchange( false ) )
+        resetConversation();
+}
+
+
+void ANVIL_AI_AGENT::resetConversation()
+{
+    m_session.Clear();              // fresh CLI session on the next turn
+    m_sessionAttachments.Clear();   // forget earlier attachments too
+    m_savedSession.Clear();
+    saveSessionState();             // an explicit New chat also forgets on disk
+    emit( { { "kind", "note" }, { "text", "New conversation." } } );
 }
 
 
@@ -1069,11 +1198,12 @@ void ANVIL_AI_AGENT::killChild()
 #ifdef _WIN32
     std::lock_guard<std::mutex> lock( m_childMutex );
 
-    if( m_child )
-    {
+    if( m_childJob )
+        TerminateJobObject( (HANDLE) m_childJob, 1 );   // CLI + its MCP-server python
+    else if( m_child )
         TerminateProcess( (HANDLE) m_child, 1 );
-        m_child = nullptr;              // the worker still owns (and closes) the handle
-    }
+
+    m_child = nullptr;                  // the worker still owns (and closes) the handles
 #endif
 }
 
@@ -1163,15 +1293,19 @@ void ANVIL_AI_AGENT::onBridgeMessage( const wxString& aJson )
     {
         if( m_busy )
         {
-            emit( { { "kind", "error" },
-                    { "text", "Still working on the previous request — press Stop first." } } );
+            // New chat DURING a turn means "abandon that work and start over" — making the
+            // user press Stop first (the old behavior) just left the panel stuck on
+            // "thinking". Cancel the running turn now and let endTurn() perform the reset
+            // once the killed worker actually closes, so a second turn can't start on top.
+            m_pendingReset = true;
+            emit( { { "kind", "note" },
+                    { "text", "Stopping the current request — starting a new "
+                              "conversation." } } );
+            cancelTurn();
             return;
         }
 
-        m_session.Clear();              // fresh CLI session on the next turn
-        m_sessionAttachments.Clear();   // forget earlier attachments too
-        m_savedSession.Clear();
-        saveSessionState();             // an explicit New chat also forgets on disk
+        resetConversation();
 
         // Ack with "done", NOT "status": the page shows every "status" as an open
         // turn (spinner + Stop button) until a "done"/"error" closes it, so a
@@ -1581,10 +1715,71 @@ wxString ANVIL_AI_AGENT::writeSystemPromptFile()
 {
     const wxString cfgDir = SETTINGS_MANAGER::GetUserSettingsPath();
 
-    // Seed the editable base prompt on first use; afterwards the user's edits win.
+    // Seed the editable base prompt from the shipped default, and REFRESH it when a
+    // new app version ships a new default -- unless the user has edited the file
+    // since we seeded it (then their version wins). Without this refresh an outdated
+    // seeded prompt persists forever even after the shipped default is corrected
+    // (observed: a stale prompt kept the assistant replying in the wrong language
+    // long after the binary's default was fixed, because the seed-once code only ran
+    // when the file was MISSING). A ".seed" sidecar stores the hash of what we last
+    // auto-seeded, so we can tell "unchanged since our seed" (safe to refresh) from
+    // "user-edited" (keep).
     wxFileName baseFn( cfgDir, wxS( "anvil_ai_prompt.txt" ) );
+    wxFileName seedFn( cfgDir, wxS( "anvil_ai_prompt.seed" ) );
 
-    if( !baseFn.FileExists() )
+    auto fnv1a = []( const wxString& s ) -> wxString
+    {
+        const wxScopedCharBuffer u = s.utf8_str();
+        uint64_t h = 1469598103934665603ULL;      // FNV-1a 64-bit, dependency-free
+        for( size_t i = 0; i < u.length(); ++i )
+        {
+            h ^= (unsigned char) u.data()[i];
+            h *= 1099511628211ULL;
+        }
+        return wxString::Format( wxS( "%016llx" ), (unsigned long long) h );
+    };
+
+    const wxString defHash = fnv1a( wxString::FromUTF8( ANVIL_DEFAULT_PROMPT ) );
+    bool           reseed = !baseFn.FileExists();
+
+    if( !reseed )
+    {
+        wxString cur;
+        {
+            wxFFile f( baseFn.GetFullPath(), wxS( "rb" ) );
+
+            if( f.IsOpened() )
+                f.ReadAll( &cur, wxConvUTF8 );
+        }
+
+        wxString lastSeedHash;
+        {
+            wxFFile f( seedFn.GetFullPath(), wxS( "rb" ) );
+
+            if( f.IsOpened() )
+                f.ReadAll( &lastSeedHash, wxConvUTF8 );
+        }
+
+        lastSeedHash.Trim( true ).Trim( false );
+
+        if( lastSeedHash.IsEmpty() )
+        {
+            // Legacy file seeded by the old (unstamped) code: treat as auto-seeded
+            // and refresh to the current default so a stale shipped prompt cannot
+            // linger. A user who intentionally customized the prompt before this
+            // version can re-apply it -- a correct shipped default outranks a silent
+            // stale copy.
+            reseed = true;
+        }
+        else if( fnv1a( cur ) == lastSeedHash && lastSeedHash != defHash )
+        {
+            // Unchanged since our last auto-seed AND the shipped default changed.
+            reseed = true;
+        }
+        // else: the user edited it since our seed -> keep their version.
+    }
+
+    if( reseed )
     {
         wxFFile seed( baseFn.GetFullPath(), wxS( "wb" ) );
 
@@ -1592,6 +1787,14 @@ wxString ANVIL_AI_AGENT::writeSystemPromptFile()
         {
             seed.Write( ANVIL_DEFAULT_PROMPT, strlen( ANVIL_DEFAULT_PROMPT ) );
             seed.Close();
+        }
+
+        wxFFile stamp( seedFn.GetFullPath(), wxS( "wb" ) );
+
+        if( stamp.IsOpened() )
+        {
+            stamp.Write( defHash, wxConvUTF8 );
+            stamp.Close();
         }
     }
 
@@ -1932,10 +2135,34 @@ void ANVIL_AI_AGENT::runTurn( wxString aUserText )
         return;
     }
 
-    // Publish the handle so Stop can kill the child and unblock the ReadFile below.
+    // Contain the child's WHOLE process tree in a kill-on-close job: the CLI spawns the
+    // MCP tool-server python.exe, and terminating only claude.exe left that python
+    // running forever (observed as orphaned <install>\bin\ai\python\python.exe processes
+    // holding file locks after the app closed). With the job, Stop kills the tree and
+    // an app crash/exit reaps it automatically when the job handle closes.
+    HANDLE hJob = CreateJobObjectW( nullptr, nullptr );
+
+    if( hJob )
+    {
+        JOBOBJECT_EXTENDED_LIMIT_INFORMATION jeli;
+        ZeroMemory( &jeli, sizeof( jeli ) );
+        jeli.BasicLimitInformation.LimitFlags = JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE;
+
+        if( !SetInformationJobObject( hJob, JobObjectExtendedLimitInformation, &jeli,
+                                      sizeof( jeli ) )
+                || !AssignProcessToJobObject( hJob, pi.hProcess ) )
+        {
+            // e.g. an outer job without nested-job rights: fall back to plain kill
+            CloseHandle( hJob );
+            hJob = nullptr;
+        }
+    }
+
+    // Publish the handles so Stop can kill the child and unblock the ReadFile below.
     {
         std::lock_guard<std::mutex> lock( m_childMutex );
         m_child = pi.hProcess;
+        m_childJob = hJob;
     }
 
     if( m_cancel )                      // Stop pressed between the flag and the handle
@@ -1979,14 +2206,20 @@ void ANVIL_AI_AGENT::runTurn( wxString aUserText )
     DWORD exitCode = 0;
     GetExitCodeProcess( pi.hProcess, &exitCode );
 
+    HANDLE hJobDone = nullptr;
     {
         std::lock_guard<std::mutex> lock( m_childMutex );
         m_child = nullptr;              // before CloseHandle, so Stop can't hit a dead handle
+        hJobDone = (HANDLE) m_childJob;
+        m_childJob = nullptr;
     }
 
     CloseHandle( hOutRd );
     CloseHandle( pi.hProcess );
     CloseHandle( pi.hThread );
+
+    if( hJobDone )
+        CloseHandle( hJobDone );        // KILL_ON_JOB_CLOSE reaps any straggler the CLI left
 
     if( m_cancel )
     {
