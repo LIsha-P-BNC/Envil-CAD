@@ -2701,6 +2701,24 @@ void KICAD_MANAGER_FRAME::OnAiIpcRetryTimer( wxTimerEvent& )
 
 KICAD_MANAGER_FRAME::~KICAD_MANAGER_FRAME()
 {
+#ifdef __WXMSW__
+    // Shutdown with editor toolbars still hoisted: pop their control-event relays before the
+    // toolbars are destroyed as shell children (wx asserts on a window deleted with pushed
+    // handlers installed, and each relay targets an editor that is also going away).
+    for( HOISTED_EDITOR_TOOLBAR& h : m_hoistedToolbars )
+    {
+        for( const std::pair<ACTION_TOOLBAR*, wxEvtHandler*>& r : h.relays )
+        {
+            if( r.first )
+                r.first->RemoveEventHandler( r.second );
+
+            delete r.second;
+        }
+
+        h.relays.clear();
+    }
+#endif
+
     // Drop the MCP menu hooks first: their lambdas capture this frame.
     EDA_BASE_FRAME::SetMcpMenuController( {} );
 
@@ -3235,6 +3253,44 @@ void KICAD_MANAGER_FRAME::syncShellStatusBarToActiveTab()
 }
 
 
+#ifdef __WXMSW__
+// UnifiedToolbar: a hoisted editor toolbar is reparented into the SHELL, so the plain wx command
+// events fired by controls EMBEDDED in it -- the grid/zoom/track-width/via-size/layer/unit
+// selector combos and friends -- bubble up the shell's window chain and die there, instead of
+// reaching the editor frame that holds their EVT_CHOICE/EVT_COMBOBOX/EVT_UPDATE_UI handlers.
+// (Toolbar BUTTONS are unaffected: ACTION_TOOLBAR dispatches those through the editor's
+// TOOL_MANAGER directly.)  Pushed onto each hoisted toolbar, this relay hands the control events
+// to the owning editor first; whatever the editor does not handle continues down the normal
+// chain (toolbar, then shell).
+class HOISTED_TOOLBAR_EVENT_RELAY : public wxEvtHandler
+{
+public:
+    explicit HOISTED_TOOLBAR_EVENT_RELAY( EDA_BASE_FRAME* aEditor ) : m_editor( aEditor ) {}
+
+    bool ProcessEvent( wxEvent& aEvent ) override
+    {
+        const wxEventType type = aEvent.GetEventType();
+
+        const bool isControlEvent = type == wxEVT_CHOICE || type == wxEVT_COMBOBOX
+                                    || type == wxEVT_CHECKBOX || type == wxEVT_RADIOBUTTON
+                                    || type == wxEVT_TEXT || type == wxEVT_TEXT_ENTER
+                                    || type == wxEVT_UPDATE_UI;
+
+        if( isControlEvent && m_editor && !m_editor->IsBeingDeleted()
+                && m_editor->GetEventHandler()->ProcessEvent( aEvent ) )
+        {
+            return true;
+        }
+
+        return wxEvtHandler::ProcessEvent( aEvent );
+    }
+
+private:
+    EDA_BASE_FRAME* m_editor;
+};
+#endif
+
+
 void KICAD_MANAGER_FRAME::hoistEditorTopToolbar( EDA_BASE_FRAME* aEditor )
 {
 #ifdef __WXMSW__
@@ -3275,6 +3331,8 @@ void KICAD_MANAGER_FRAME::hoistEditorTopToolbar( EDA_BASE_FRAME* aEditor )
     // dynamic (re-lays-out on every resize): fills row 1 on a wide desktop, wraps to row 2/3 on a
     // small laptop, no hardcoded widths.  aFlip turns the side drawing rails (created vertical)
     // horizontal so they join the top band too (full Altium ribbon).
+    HOISTED_EDITOR_TOOLBAR entry{ idx, main, aux, activeBar, nullptr, nullptr, {} };
+
     auto hoistOne = [&]( ACTION_TOOLBAR* tb, const wxString& tag, int layer, int pos )
     {
         if( !tb )
@@ -3292,6 +3350,13 @@ void KICAD_MANAGER_FRAME::hoistEditorTopToolbar( EDA_BASE_FRAME* aEditor )
         m_auimgr.AddPane( tb, EDA_PANE().HToolbar()
                                         .Name( wxString::Format( "Hoist%s_%d", tag, idx ) )
                                         .Top().Layer( layer ).Position( pos ).Hide() );
+
+        // Re-route the toolbar's embedded-control events back to the editor that owns their
+        // handlers: the Reparent() above pointed their event bubbling at the shell, which has
+        // none -- see HOISTED_TOOLBAR_EVENT_RELAY.
+        wxEvtHandler* relay = new HOISTED_TOOLBAR_EVENT_RELAY( aEditor );
+        tb->PushEventHandler( relay );
+        entry.relays.emplace_back( tb, relay );
     };
 
     // NOTHING-CLIPPED priority (user rule: nothing may be lost, excess can spill to another row):
@@ -3307,7 +3372,7 @@ void KICAD_MANAGER_FRAME::hoistEditorTopToolbar( EDA_BASE_FRAME* aEditor )
     hoistOne( activeBar, wxT( "Active" ), 4, 0 );
 
     editorMgr.Update();                          // editor canvas reflows into the freed rows
-    m_hoistedToolbars.push_back( { idx, main, aux, activeBar, nullptr, nullptr } );
+    m_hoistedToolbars.push_back( std::move( entry ) );
     m_auimgr.Update();
     syncShellToolbarToActiveTab();
 #endif
@@ -3324,6 +3389,18 @@ void KICAD_MANAGER_FRAME::restoreEditorTopToolbar( EDA_BASE_FRAME* aEditor )
     {
         if( it->editorId != aEditor->GetId() )
             continue;
+
+        // Pop the control-event relays first: once the toolbars are reparented home, their
+        // events bubble to the right frame natively again.
+        for( const std::pair<ACTION_TOOLBAR*, wxEvtHandler*>& r : it->relays )
+        {
+            if( r.first )
+                r.first->RemoveEventHandler( r.second );
+
+            delete r.second;
+        }
+
+        it->relays.clear();
 
         EDA_AUI_MANAGER& editorMgr = aEditor->GetAuiManager();
 
@@ -3446,6 +3523,18 @@ void KICAD_MANAGER_FRAME::onDockedEditorDestroyed( wxWindowDestroyEvent& aEvent 
     {
         if( it->editorId != dyingId )
             continue;
+
+        // Pop the control-event relays before destroying the toolbars: wx asserts on a window
+        // deleted with pushed handlers still installed, and each relay targets the dying editor.
+        for( const std::pair<ACTION_TOOLBAR*, wxEvtHandler*>& r : it->relays )
+        {
+            if( r.first )
+                r.first->RemoveEventHandler( r.second );
+
+            delete r.second;
+        }
+
+        it->relays.clear();
 
         for( ACTION_TOOLBAR* tb : { it->main, it->aux, it->activeBar, it->left, it->right } )
         {

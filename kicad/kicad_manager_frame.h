@@ -609,6 +609,12 @@ private:
         ACTION_TOOLBAR* activeBar; ///< Altium-style Active Bar, hoisted as a 3rd top row (Layer 4)
         ACTION_TOOLBAR* left;    ///< drawing-tools rail, flipped horizontal + hoisted to the top
         ACTION_TOOLBAR* right;   ///< second drawing rail (if the editor uses one), same treatment
+
+        /// One pushed control-event relay per hoisted toolbar (toolbar, relay): re-routes the
+        /// embedded selector-control events (grid/zoom/layer/track-width combos...) to the owning
+        /// editor while the toolbar lives in the shell's window chain.  Popped + freed when the
+        /// toolbar goes home (restore) or dies with its editor (evict / shell teardown).
+        std::vector<std::pair<ACTION_TOOLBAR*, wxEvtHandler*>> relays;
     };
     std::vector<HOISTED_EDITOR_TOOLBAR> m_hoistedToolbars;
     WEBVIEW_PANEL*        m_aiChatPanel;  ///< Shell-owned common AI panel; only when CommonAiPanel + shell
